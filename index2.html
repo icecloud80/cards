@@ -1343,16 +1343,16 @@
 
       .scene {
         display: block;
-        height: 100dvh;
-        min-height: 100dvh;
-        padding: max(6px, env(safe-area-inset-top)) 6px max(8px, env(safe-area-inset-bottom));
+        height: 100svh;
+        min-height: 100svh;
+        padding: max(6px, env(safe-area-inset-top)) 6px max(14px, env(safe-area-inset-bottom), 14px);
         overflow: hidden;
       }
 
       .table {
         width: min(100%, 430px) !important;
         min-width: 0 !important;
-        height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(14px, env(safe-area-inset-bottom)));
+        height: calc(100svh - max(12px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom), 20px));
         min-height: 0;
         margin: 0 auto;
         aspect-ratio: auto;
@@ -1849,15 +1849,15 @@
       }
 
       body.mobile-index2 .scene {
-        height: 100dvh;
-        min-height: 100dvh;
-        padding: max(6px, env(safe-area-inset-top)) 6px max(6px, env(safe-area-inset-bottom));
+        height: 100svh;
+        min-height: 100svh;
+        padding: max(6px, env(safe-area-inset-top)) 6px max(18px, env(safe-area-inset-bottom), 18px);
       }
 
       body.mobile-index2 .table {
         position: relative;
         width: min(100%, 430px) !important;
-        height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
+        height: calc(100svh - max(12px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom), 24px));
         padding: 8px;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1866,8 +1866,8 @@
           clamp(86px, 11.5vh, 104px)
           clamp(86px, 11.5vh, 104px)
           clamp(92px, 12vh, 108px)
-          clamp(236px, 36vh, 304px)
-          clamp(46px, 6.4vh, 56px);
+          clamp(224px, 34vh, 286px)
+          clamp(56px, 7vh, 66px);
         gap: 6px;
         overflow: hidden;
         align-content: stretch;
@@ -2273,7 +2273,7 @@
         grid-column: 1 / -1;
         grid-row: 5;
         display: block !important;
-        padding: 12px 8px 10px;
+        padding: 10px 8px 8px;
         border-radius: 14px;
         overflow: hidden;
       }
@@ -2342,9 +2342,9 @@
       body.mobile-index2 .friend-card,
       body.mobile-index2 .bottom-reveal-cards .played-card,
       body.mobile-index2 .last-trick .played-card {
-        width: 42px;
-        height: 60px;
-        margin-left: -9px;
+        width: 39px;
+        height: 56px;
+        margin-left: -8px;
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -2361,7 +2361,7 @@
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 7px;
+        padding: 8px 7px calc(8px + max(4px, env(safe-area-inset-bottom)));
         border-radius: 14px;
         z-index: 6;
         margin: 0 auto;

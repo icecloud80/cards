@@ -202,14 +202,14 @@ function createDeck() {
       suit: "joker",
       rank: "BJ",
       pack,
-      img: "./cards/black_joker.png",
+      img: "./cards/black_joker.svg",
     });
     deck.push({
       id: `c-${pack}-joker-RJ-${seq++}`,
       suit: "joker",
       rank: "RJ",
       pack,
-      img: "./cards/red_joker.png",
+      img: "./cards/red_joker.svg",
     });
   }
   return shuffle(deck);
@@ -222,7 +222,7 @@ function getCardImage(suit, rank) {
     Q: "queen",
     J: "jack",
   }[rank] || rank;
-  return `./cards/${rankName}_of_${suit}.png`;
+  return `./cards/${rankName}_of_${suit}.svg`;
 }
 
 function describeCard(card) {
@@ -454,7 +454,7 @@ function chooseFriendTarget() {
         rank: "A",
         occurrence: 1,
         label: "第一张红桃 A",
-        img: "./cards/ace_of_hearts.png",
+        img: "./cards/ace_of_hearts.svg",
       },
       ownerId: 2,
     };
@@ -522,7 +522,7 @@ function chooseFriendTarget() {
       rank: "A",
       occurrence: 1,
       label: "第一张红桃 A",
-      img: "./cards/ace_of_hearts.png",
+      img: "./cards/ace_of_hearts.svg",
     },
     ownerId: 2,
   };
@@ -567,7 +567,7 @@ function buildFriendTarget(target) {
     ...target,
     label: describeTarget(target),
     img: target.suit === "joker"
-      ? `./cards/${target.rank === "RJ" ? "red_joker" : "black_joker"}.png`
+      ? `./cards/${target.rank === "RJ" ? "red_joker" : "black_joker"}.svg`
       : getCardImage(target.suit, target.rank),
   };
 }

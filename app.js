@@ -133,6 +133,7 @@ const dom = {
   friendOccurrenceOptions: document.getElementById("friendOccurrenceOptions"),
   friendSuitOptions: document.getElementById("friendSuitOptions"),
   friendRankOptions: document.getElementById("friendRankOptions"),
+  autoFriendBtn: document.getElementById("autoFriendBtn"),
   confirmFriendBtn: document.getElementById("confirmFriendBtn"),
 };
 
@@ -3408,8 +3409,8 @@ function renderCenterPanel() {
   const humanTurn = isHumanTurnActive();
   dom.beatBtn.hidden = state.phase !== "playing" || !selectedBeat;
   dom.beatBtn.disabled = !humanTurn || !selectedBeat;
-  dom.hintBtn.hidden = state.phase === "ready" || state.phase === "bottomReveal" || friendCallingPhase || (state.phase === "burying" && !humanCanBury);
-  dom.playBtn.hidden = state.phase === "ready" || state.phase === "bottomReveal" || friendCallingPhase || (state.phase === "burying" && !humanCanBury);
+  dom.hintBtn.hidden = isOpeningPhase || state.phase === "ready" || state.phase === "bottomReveal" || friendCallingPhase || (state.phase === "burying" && !humanCanBury);
+  dom.playBtn.hidden = isOpeningPhase || state.phase === "ready" || state.phase === "bottomReveal" || friendCallingPhase || (state.phase === "burying" && !humanCanBury);
   dom.playBtn.textContent = state.phase === "burying" ? "扣牌" : "出牌";
   dom.playBtn.disabled = state.phase === "burying"
     ? state.gameOver || state.bankerId !== 1 || !selectionValid
@@ -3554,6 +3555,16 @@ dom.friendOccurrenceOptions.addEventListener("click", (event) => {
 dom.confirmFriendBtn.addEventListener("click", () => {
   if (state.phase !== "callingFriend" || state.bankerId !== 1) return;
   confirmFriendTargetSelection();
+});
+
+dom.autoFriendBtn?.addEventListener("click", () => {
+  if (state.phase !== "callingFriend" || state.bankerId !== 1) return;
+  const best = chooseFriendTarget()?.target;
+  if (!best) return;
+  state.selectedFriendOccurrence = best.occurrence || 1;
+  state.selectedFriendSuit = best.suit;
+  state.selectedFriendRank = best.rank;
+  confirmFriendTargetSelection(best);
 });
 
 dom.closeBottomRevealBtn.addEventListener("click", () => {

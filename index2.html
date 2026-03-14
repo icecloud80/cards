@@ -1866,7 +1866,7 @@
           clamp(86px, 11.5vh, 104px)
           clamp(86px, 11.5vh, 104px)
           clamp(92px, 12vh, 108px)
-          clamp(214px, 33vh, 286px)
+          clamp(236px, 36vh, 304px)
           clamp(46px, 6.4vh, 56px);
         gap: 6px;
         overflow: hidden;
@@ -1891,7 +1891,7 @@
       body.mobile-index2 .mobile-topbar {
         grid-column: 1 / -1;
         display: grid;
-        grid-template-columns: 62px 56px minmax(0, 1fr) 34px 34px 34px;
+        grid-template-columns: 54px 52px minmax(72px, 1fr) minmax(74px, 1fr) 34px 34px 34px;
         gap: 6px;
         align-items: center;
         padding: 8px 10px;
@@ -1925,6 +1925,41 @@
         display: flex;
         align-items: center;
         gap: 8px;
+      }
+
+      body.mobile-index2 .mobile-state {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px;
+        border-radius: 12px;
+        background: rgba(16, 44, 54, 0.06);
+      }
+
+      body.mobile-index2 .mobile-state-tag {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: rgba(120, 74, 24, 0.1);
+        color: #85541d;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      body.mobile-index2 .mobile-state-value {
+        min-width: 0;
+        font-size: 12px;
+        font-weight: 700;
+        color: #3b4950;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       body.mobile-index2 .mobile-friend-card {
@@ -2134,26 +2169,16 @@
         height: clamp(54px, 7.2vh, 66px);
         display: none;
         align-items: center;
-        justify-content: center;
         gap: 8px;
-        padding: 8px 10px;
+        padding: 8px 12px;
         border-radius: 14px;
         background: linear-gradient(180deg, rgba(255, 249, 239, 0.72), rgba(238, 228, 206, 0.7));
         box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
         overflow: hidden;
-        pointer-events: none;
+        pointer-events: auto;
         z-index: 7;
-      }
-
-      body.mobile-index2 .mobile-broadcast-tag {
-        flex: 0 0 auto;
-        padding: 5px 8px;
-        border-radius: 999px;
-        background: rgba(120, 74, 24, 0.08);
-        color: #88561f;
-        font-size: 10px;
-        font-weight: 800;
-        line-height: 1;
+        touch-action: none;
+        cursor: grab;
       }
 
       body.mobile-index2 .mobile-broadcast-copy {
@@ -2171,6 +2196,22 @@
         text-overflow: ellipsis;
       }
 
+      body.mobile-index2 .mobile-broadcast-close {
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0;
+        background: rgba(16, 44, 54, 0.12);
+        color: #23323a;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
+      }
+
       body.mobile-index2 .mobile-broadcast.strong {
         background: linear-gradient(180deg, rgba(157, 53, 43, 0.72), rgba(109, 29, 22, 0.7));
       }
@@ -2183,16 +2224,16 @@
         background: linear-gradient(180deg, rgba(225, 145, 53, 0.72), rgba(177, 96, 21, 0.7));
       }
 
-      body.mobile-index2 .mobile-broadcast.strong .mobile-broadcast-tag,
-      body.mobile-index2 .mobile-broadcast.ally .mobile-broadcast-tag,
-      body.mobile-index2 .mobile-broadcast.friend .mobile-broadcast-tag {
-        background: rgba(255, 255, 255, 0.16);
-        color: #fff4de;
-      }
-
       body.mobile-index2 .mobile-broadcast.strong .mobile-broadcast-text,
       body.mobile-index2 .mobile-broadcast.ally .mobile-broadcast-text,
       body.mobile-index2 .mobile-broadcast.friend .mobile-broadcast-text {
+        color: #fff4de;
+      }
+
+      body.mobile-index2 .mobile-broadcast.strong .mobile-broadcast-close,
+      body.mobile-index2 .mobile-broadcast.ally .mobile-broadcast-close,
+      body.mobile-index2 .mobile-broadcast.friend .mobile-broadcast-close {
+        background: rgba(255, 255, 255, 0.16);
         color: #fff4de;
       }
 
@@ -2200,7 +2241,7 @@
         grid-column: 1 / -1;
         grid-row: 5;
         display: block !important;
-        padding: 10px 8px 10px;
+        padding: 12px 8px 10px;
         border-radius: 14px;
         overflow: hidden;
       }
@@ -2212,7 +2253,7 @@
       body.mobile-index2 .hand-groups {
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         gap: 4px;
         height: 100%;
         overflow: hidden;
@@ -2223,9 +2264,9 @@
         align-items: flex-end;
         justify-content: flex-start;
         gap: 8px;
-        flex: 1 1 0;
+        flex: 1 1 auto;
         width: 100%;
-        min-height: 0;
+        min-height: 60px;
         overflow: visible;
         padding-left: 4px;
       }
@@ -2443,6 +2484,46 @@
       body.mobile-index2 .mobile-sheet.show {
         display: grid;
       }
+
+      body.mobile-index2 .friend-picker {
+        position: absolute !important;
+        left: 8px !important;
+        right: 8px !important;
+        top: calc(max(8px, env(safe-area-inset-top)) + 42px) !important;
+        bottom: auto !important;
+        width: auto !important;
+        max-height: min(34vh, 270px);
+        transform: none !important;
+        padding: 12px 12px 10px;
+        overflow: auto;
+        z-index: 12;
+        box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+      }
+
+      body.mobile-index2 .friend-picker .label {
+        margin-bottom: 6px;
+        font-size: 12px;
+      }
+
+      body.mobile-index2 .friend-picker-actions {
+        margin-top: 8px;
+      }
+
+      body.mobile-index2 .friend-picker-row {
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      body.mobile-index2 .friend-picker .tiny-btn {
+        min-height: 32px;
+        padding: 7px 9px;
+        font-size: 11px;
+      }
+
+      body.mobile-index2 .friend-picker .action-row {
+        grid-template-columns: 1fr;
+        margin-top: 10px !important;
+      }
     </style>
   </head>
   <body>
@@ -2457,9 +2538,14 @@
             <span>计秒</span>
             <strong id="mobileTimer">--</strong>
           </div>
-          <div class="mobile-friend">
+          <div class="mobile-state">
+            <span class="mobile-state-tag">主</span>
+            <span id="mobileTrumpText" class="mobile-state-value">--</span>
+          </div>
+          <div class="mobile-state">
+            <span class="mobile-state-tag">朋</span>
             <div id="mobileFriendCard" class="mobile-friend-card"></div>
-            <div id="mobileFriendText" class="mobile-friend-text">朋友牌</div>
+            <span id="mobileFriendText" class="mobile-state-value">--</span>
           </div>
           <button id="mobileInfoBtn" class="mobile-icon-btn info" type="button" aria-label="查看信息">&#9432;</button>
           <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮">&#8617;</button>
@@ -2512,10 +2598,10 @@
         </section>
 
         <section id="mobileBroadcast" class="mobile-broadcast">
-          <div id="mobileBroadcastTag" class="mobile-broadcast-tag">当前</div>
           <div class="mobile-broadcast-copy">
             <div id="mobileBroadcastText" class="mobile-broadcast-text">等待开始</div>
           </div>
+          <button id="mobileBroadcastCloseBtn" class="mobile-broadcast-close" type="button" aria-label="关闭播报">×</button>
         </section>
 
         <section class="panel friend-panel" data-layout-id="friend-panel">
@@ -2654,6 +2740,7 @@
           </div>
           <div id="friendPickerPreview" class="friend-picker-preview"></div>
           <div class="action-row" style="margin-top: 14px;">
+            <button id="autoFriendBtn" class="action-btn">自动选择</button>
             <button id="confirmFriendBtn" class="action-btn primary">确认叫朋友</button>
           </div>
         </section>
@@ -2734,14 +2821,15 @@
           setupScreen: document.getElementById("mobileSetupScreen"),
           score: document.getElementById("mobileScore"),
           timer: document.getElementById("mobileTimer"),
+          trumpText: document.getElementById("mobileTrumpText"),
           friendCard: document.getElementById("mobileFriendCard"),
           friendText: document.getElementById("mobileFriendText"),
           infoBtn: document.getElementById("mobileInfoBtn"),
           lastTrickBtn: document.getElementById("mobileLastTrickBtn"),
           menuBtn: document.getElementById("mobileMenuBtn"),
           broadcast: document.getElementById("mobileBroadcast"),
-          broadcastTag: document.getElementById("mobileBroadcastTag"),
           broadcastText: document.getElementById("mobileBroadcastText"),
+          broadcastCloseBtn: document.getElementById("mobileBroadcastCloseBtn"),
           infoSheet: document.getElementById("mobileInfoSheet"),
           settingsSheet: document.getElementById("mobileSettingsSheet"),
           infoList: document.getElementById("mobileInfoList"),
@@ -2791,9 +2879,28 @@
 
         function syncFriendCard() {
           mobileDom.friendCard.innerHTML = originalDom.friendCardMount.innerHTML;
-          const label = originalDom.friendLabel.textContent.trim();
-          const stateText = originalDom.friendState.textContent.trim();
-          mobileDom.friendText.textContent = label || stateText || "朋友牌";
+          mobileDom.friendText.textContent = originalDom.friendCardMount.childElementCount > 0 ? "" : "--";
+        }
+
+        function syncTrumpStatus() {
+          const label = originalDom.trumpLabel?.textContent.trim() || "";
+          if (!label || label.includes("尚未亮主")) {
+            mobileDom.trumpText.textContent = "--";
+            return;
+          }
+          if (label.includes("无主")) {
+            mobileDom.trumpText.textContent = "无主";
+            return;
+          }
+          const suitMatch = label.match(/(梅花|方块|黑桃|红桃)/);
+          const rankMatch = label.match(/\b(10|[2-9JQKA])\b/);
+          const suitShort = {
+            梅花: "梅",
+            方块: "方",
+            黑桃: "黑",
+            红桃: "红",
+          }[suitMatch?.[1] || ""] || "";
+          mobileDom.trumpText.textContent = suitShort && rankMatch ? `${suitShort}${rankMatch[1]}` : (suitMatch?.[1] || label);
         }
 
         function syncTrickSpotDecorations(snapshot) {
@@ -2841,10 +2948,35 @@
           mobileDom.menuRulesBtn.textContent = originalDom.toggleRulesBtn.textContent.trim() || "规则帮助";
         }
 
+        let handLayoutQueued = false;
+        let handLayoutRunning = false;
+        let dismissedBroadcastText = "";
+        let activeBroadcastText = "";
+        let broadcastTimer = null;
+        let broadcastDrag = null;
+
         function syncBroadcast() {
           const focusText = originalDom.focusAnnouncement?.textContent.trim() || "";
           mobileDom.broadcast.classList.remove("strong", "ally", "friend");
-          mobileDom.broadcast.classList.toggle("show", !!focusText);
+          if (!focusText) {
+            mobileDom.broadcast.classList.remove("show");
+            dismissedBroadcastText = "";
+            activeBroadcastText = "";
+            window.clearTimeout(broadcastTimer);
+          } else if (focusText === dismissedBroadcastText) {
+            mobileDom.broadcast.classList.remove("show");
+          } else {
+            mobileDom.broadcast.classList.add("show");
+            if (focusText !== activeBroadcastText) {
+              activeBroadcastText = focusText;
+              window.clearTimeout(broadcastTimer);
+              broadcastTimer = window.setTimeout(() => {
+                dismissedBroadcastText = activeBroadcastText;
+                activeBroadcastText = "";
+                mobileDom.broadcast.classList.remove("show");
+              }, 3000);
+            }
+          }
           if (originalDom.focusAnnouncement?.classList.contains("strong")) {
             mobileDom.broadcast.classList.add("strong");
           } else if (originalDom.focusAnnouncement?.classList.contains("ally")) {
@@ -2852,12 +2984,8 @@
           } else if (originalDom.focusAnnouncement?.classList.contains("friend")) {
             mobileDom.broadcast.classList.add("friend");
           }
-          mobileDom.broadcastTag.textContent = "重要播报";
           mobileDom.broadcastText.textContent = focusText || "";
         }
-
-        let handLayoutQueued = false;
-        let handLayoutRunning = false;
 
         function layoutHandRows() {
           handLayoutRunning = true;
@@ -2941,6 +3069,7 @@
           document.body.dataset.mobileScreen = isSetup ? "setup" : "play";
           mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
           mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
+          syncTrumpStatus();
           syncFriendCard();
           syncTrickSpotDecorations(snapshot);
           renderInfoSheet(snapshot);
@@ -2964,6 +3093,12 @@
         mobileDom.infoBtn.addEventListener("click", () => {
           mobileDom.settingsSheet.classList.remove("show");
           mobileDom.infoSheet.classList.add("show");
+        });
+        mobileDom.broadcastCloseBtn.addEventListener("click", () => {
+          dismissedBroadcastText = mobileDom.broadcastText.textContent.trim();
+          activeBroadcastText = "";
+          window.clearTimeout(broadcastTimer);
+          mobileDom.broadcast.classList.remove("show");
         });
         mobileDom.menuBtn.addEventListener("click", () => {
           mobileDom.infoSheet.classList.remove("show");
@@ -2992,11 +3127,51 @@
           scheduleHandLayout();
         });
 
+        mobileDom.broadcast.addEventListener("pointerdown", (event) => {
+          if (event.target.closest(".mobile-broadcast-close")) return;
+          const rect = mobileDom.broadcast.getBoundingClientRect();
+          const tableRect = document.querySelector(".table").getBoundingClientRect();
+          broadcastDrag = {
+            pointerId: event.pointerId,
+            offsetX: event.clientX - rect.left,
+            offsetY: event.clientY - rect.top,
+            tableRect,
+            width: rect.width,
+            height: rect.height,
+          };
+          mobileDom.broadcast.setPointerCapture(event.pointerId);
+        });
+
+        mobileDom.broadcast.addEventListener("pointermove", (event) => {
+          if (!broadcastDrag || broadcastDrag.pointerId !== event.pointerId) return;
+          const nextLeft = Math.min(
+            Math.max(event.clientX - broadcastDrag.tableRect.left - broadcastDrag.offsetX, 8),
+            broadcastDrag.tableRect.width - broadcastDrag.width - 8
+          );
+          const nextTop = Math.min(
+            Math.max(event.clientY - broadcastDrag.tableRect.top - broadcastDrag.offsetY, 54),
+            broadcastDrag.tableRect.height - broadcastDrag.height - 120
+          );
+          mobileDom.broadcast.style.left = `${nextLeft}px`;
+          mobileDom.broadcast.style.right = "auto";
+          mobileDom.broadcast.style.top = `${nextTop}px`;
+        });
+
+        function stopBroadcastDrag(event) {
+          if (!broadcastDrag || broadcastDrag.pointerId !== event.pointerId) return;
+          mobileDom.broadcast.releasePointerCapture(event.pointerId);
+          broadcastDrag = null;
+        }
+
+        mobileDom.broadcast.addEventListener("pointerup", stopBroadcastDrag);
+        mobileDom.broadcast.addEventListener("pointercancel", stopBroadcastDrag);
+
         window.addEventListener("fivefriends:render", handleRender);
         if (window.__fiveFriendsSnapshot) {
           handleRender({ detail: window.__fiveFriendsSnapshot });
         } else {
           document.body.dataset.mobileScreen = originalDom.startGameBtn.hidden ? "play" : "setup";
+          syncTrumpStatus();
           syncFriendCard();
           syncMenuLabels();
           syncBroadcast();

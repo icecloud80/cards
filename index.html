@@ -76,7 +76,7 @@
       <h1>正在进入合适的页面</h1>
       <p id="status">系统会根据当前屏幕方向和尺寸，自动跳转到横屏桌面版或手机竖屏版。</p>
       <div class="links">
-        <a href="./index1-pc.html">打开横屏版</a>
+        <a href="./index1.html">打开横屏版</a>
         <a href="./index2.html">打开手机版</a>
       </div>
     </main>
@@ -87,7 +87,7 @@
         var shortSide = Math.min(width, height);
         var isPortrait = height >= width;
         var isPhonePortrait = isPortrait && shortSide <= 820;
-        var target = isPhonePortrait ? "./index2.html" : "./index1-pc.html";
+        var target = isPhonePortrait ? "./index2.html" : "./index1.html";
         var status = document.getElementById("status");
 
         if (status) {
@@ -95,7 +95,7 @@
             "检测到当前为" +
             (isPhonePortrait ? "手机竖屏" : "横屏或大屏") +
             "，即将跳转到" +
-            (isPhonePortrait ? " index2.html" : " index1-pc.html") +
+            (isPhonePortrait ? " index2.html" : " index1.html") +
             "。";
         }
 

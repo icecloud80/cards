@@ -14,7 +14,7 @@ const SUIT_SYMBOL = {
   hearts: "♥",
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
-const APP_VERSION_LABEL = "原型版 v1.1";
+const APP_VERSION_LABEL = "原型版 v1.2";
 const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
 const TRUMP_PENALTY_LEVEL_FALLBACK = {
   J: "2",

@@ -2121,10 +2121,17 @@
 
       body.mobile-index2 .mobile-broadcast {
         position: absolute;
-        left: 14px;
-        right: 14px;
-        top: 62px;
-        height: calc(clamp(86px, 11.5vh, 104px) * 2 + 6px);
+        left: 18px;
+        right: 18px;
+        top: calc(
+          62px +
+          clamp(86px, 11.5vh, 104px) +
+          clamp(86px, 11.5vh, 104px) +
+          clamp(92px, 12vh, 108px) -
+          clamp(54px, 7.2vh, 66px) -
+          8px
+        );
+        height: clamp(54px, 7.2vh, 66px);
         display: none;
         align-items: center;
         justify-content: center;
@@ -2262,9 +2269,9 @@
       body.mobile-index2 .friend-card,
       body.mobile-index2 .bottom-reveal-cards .played-card,
       body.mobile-index2 .last-trick .played-card {
-        width: 40px;
-        height: 58px;
-        margin-left: -8px;
+        width: 42px;
+        height: 60px;
+        margin-left: -9px;
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -2472,7 +2479,7 @@
           </div>
         </section>
 
-        <section id="mobileInfoSheet" class="mobile-sheet hidden">
+        <section id="mobileInfoSheet" class="mobile-sheet">
           <div class="mobile-sheet-card">
             <div class="mobile-sheet-head">
               <strong>信息</strong>
@@ -2489,7 +2496,7 @@
           </div>
         </section>
 
-        <section id="mobileSettingsSheet" class="mobile-sheet hidden">
+        <section id="mobileSettingsSheet" class="mobile-sheet">
           <div class="mobile-sheet-card">
             <div class="mobile-sheet-head">
               <strong>设定菜单</strong>
@@ -2849,9 +2856,16 @@
           mobileDom.broadcastText.textContent = focusText || "";
         }
 
+        let handLayoutQueued = false;
+        let handLayoutRunning = false;
+
         function layoutHandRows() {
+          handLayoutRunning = true;
           const groups = [...originalDom.handGroups.querySelectorAll(".hand-group")];
-          if (groups.length === 0) return;
+          if (groups.length === 0) {
+            handLayoutRunning = false;
+            return;
+          }
 
           const rowCount = 4;
           const isNoTrump = originalDom.trumpLabel?.textContent.includes("无主");
@@ -2909,6 +2923,16 @@
           for (const row of rows) {
             originalDom.handGroups.appendChild(row);
           }
+          handLayoutRunning = false;
+        }
+
+        function scheduleHandLayout() {
+          if (handLayoutQueued || handLayoutRunning) return;
+          handLayoutQueued = true;
+          window.requestAnimationFrame(() => {
+            handLayoutQueued = false;
+            layoutHandRows();
+          });
         }
 
         function handleRender(event) {
@@ -2922,7 +2946,7 @@
           renderInfoSheet(snapshot);
           syncMenuLabels();
           syncBroadcast();
-          layoutHandRows();
+          scheduleHandLayout();
           if (snapshot.phase === "ready") {
             closeSheets();
           }
@@ -2958,6 +2982,16 @@
           }
         });
 
+        const handObserver = new MutationObserver(() => {
+          if (!handLayoutRunning) {
+            scheduleHandLayout();
+          }
+        });
+        handObserver.observe(originalDom.handGroups, { childList: true, subtree: true });
+        originalDom.handGroups.addEventListener("click", () => {
+          scheduleHandLayout();
+        });
+
         window.addEventListener("fivefriends:render", handleRender);
         if (window.__fiveFriendsSnapshot) {
           handleRender({ detail: window.__fiveFriendsSnapshot });
@@ -2966,6 +3000,7 @@
           syncFriendCard();
           syncMenuLabels();
           syncBroadcast();
+          scheduleHandLayout();
         }
       })();
     </script>

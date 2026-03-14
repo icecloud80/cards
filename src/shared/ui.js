@@ -421,7 +421,7 @@ function renderHand() {
         return card.suit === group.key && card.rank !== setupLevelRank;
       }
       return !isTrump(card) && card.suit === group.key;
-    }).sort((a, b) => cardStrength(b) - cardStrength(a));
+    }).sort(compareHandCardsForDisplay);
     if (cards.length === 0) continue;
 
     const wrapper = document.createElement("div");

@@ -1167,15 +1167,35 @@ function beginPlayingPhase() {
 
 function sortHand(hand) {
   return [...hand].sort((a, b) => {
-    const groupDiff = groupOrder(a) - groupOrder(b);
-    if (groupDiff !== 0) return groupDiff;
-    return cardStrength(b) - cardStrength(a);
+    return compareHandCardsForDisplay(a, b);
   });
 }
 
 function groupOrder(card) {
   if (isTrump(card)) return 4;
   return { clubs: 0, diamonds: 1, spades: 2, hearts: 3 }[card.suit] ?? 4;
+}
+
+function getDisplaySuitOrder(card) {
+  const activeTrumpSuit = getActiveTrumpSuit();
+  if (card.suit === "joker") return 5;
+  if (isTrump(card) && getCurrentLevelRank() && card.rank === getCurrentLevelRank()) {
+    if (activeTrumpSuit && card.suit === activeTrumpSuit) return -1;
+  }
+  return { clubs: 0, diamonds: 1, spades: 2, hearts: 3 }[card.suit] ?? 4;
+}
+
+function compareHandCardsForDisplay(a, b) {
+  const groupDiff = groupOrder(a) - groupOrder(b);
+  if (groupDiff !== 0) return groupDiff;
+
+  const strengthDiff = cardStrength(b) - cardStrength(a);
+  if (strengthDiff !== 0) return strengthDiff;
+
+  const suitDiff = getDisplaySuitOrder(a) - getDisplaySuitOrder(b);
+  if (suitDiff !== 0) return suitDiff;
+
+  return (a.deckIndex ?? 0) - (b.deckIndex ?? 0);
 }
 
 function getActiveTrumpSuit() {
@@ -3231,7 +3251,7 @@ function renderHand() {
         return card.suit === group.key && card.rank !== setupLevelRank;
       }
       return !isTrump(card) && card.suit === group.key;
-    }).sort((a, b) => cardStrength(b) - cardStrength(a));
+    }).sort(compareHandCardsForDisplay);
     if (cards.length === 0) continue;
 
     const wrapper = document.createElement("div");

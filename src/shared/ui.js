@@ -363,7 +363,7 @@ function renderHand() {
         : TEXT.hand.dealingAwaitHumanNoOption(human.hand.length))
       : (humanOptions.length > 0
         ? TEXT.hand.dealingCanDeclare(human.hand.length, humanOptions.map((entry) => formatDeclaration(entry)))
-        : TEXT.hand.dealingNoDeclare(human.hand.length, human.level));
+        : TEXT.hand.dealingNoDeclare(human.hand.length, getLevelRank(human.level)));
   } else if (state.phase === "countering") {
     const counterOption = getCounterDeclarationForPlayer(1);
     dom.handSummary.textContent = counterOption
@@ -386,7 +386,7 @@ function renderHand() {
   const specialLabel = isSetupPhase
     ? (state.declaration ? TEXT.hand.setupSpecialLabelWithTrump : TEXT.hand.setupSpecialLabelWithoutTrump)
     : TEXT.hand.specialLabelNormal;
-  const setupLevelRank = human.level;
+  const setupLevelRank = getLevelRank(human.level);
   const groups = [
     { key: "trump", label: specialLabel, red: true },
     { key: "clubs", label: SUIT_LABEL.clubs, red: false },

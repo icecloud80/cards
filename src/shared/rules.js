@@ -18,14 +18,14 @@ function createDeck() {
       suit: "joker",
       rank: "BJ",
       pack,
-      img: "./cards/black_joker.svg",
+      img: `${CARD_ASSET_DIR}/black_joker.svg`,
     });
     deck.push({
       id: `c-${pack}-joker-RJ-${seq++}`,
       suit: "joker",
       rank: "RJ",
       pack,
-      img: "./cards/red_joker.svg",
+      img: `${CARD_ASSET_DIR}/red_joker.svg`,
     });
   }
   return shuffle(deck);
@@ -38,7 +38,7 @@ function getCardImage(suit, rank) {
     Q: "queen",
     J: "jack",
   }[rank] || rank;
-  return `./cards/${rankName}_of_${suit}.svg`;
+  return `${CARD_ASSET_DIR}/${rankName}_of_${suit}.svg`;
 }
 
 function shuffle(items) {
@@ -54,19 +54,39 @@ function getPlayerLevel(playerId) {
   return state.playerLevels[playerId] || "2";
 }
 
+function getLevelRank(level) {
+  if (level == null || level === "") return null;
+  const normalized = String(level);
+  return normalized.startsWith("-") ? normalized.slice(1) : normalized;
+}
+
+function isNegativeLevel(level) {
+  return typeof level === "string" && level.startsWith("-");
+}
+
+function getPlayerLevelRank(playerId) {
+  return getLevelRank(getPlayerLevel(playerId));
+}
+
 function getCurrentLevelRank() {
-  return state.declaration?.rank || state.levelRank || null;
+  return getLevelRank(state.declaration?.rank || state.levelRank || null);
 }
 
 function shiftLevel(rank, delta) {
-  let current = RANKS.includes(rank) ? rank : "2";
+  let current = [...NEGATIVE_LEVELS, ...RANKS].includes(rank) ? rank : "2";
   for (let i = 0; i < delta; i += 1) {
-    const currentIndex = RANKS.indexOf(current);
-    if (currentIndex < 0 || currentIndex >= RANKS.length - 1) {
-      return "A";
+    if (current === "-2") {
+      current = "-A";
+    } else if (current === "-A") {
+      current = "2";
+    } else {
+      const currentIndex = RANKS.indexOf(current);
+      if (currentIndex < 0 || currentIndex >= RANKS.length - 1) {
+        return "A";
+      }
+      current = RANKS[currentIndex + 1];
     }
-    current = RANKS[currentIndex + 1];
-    if (MANDATORY_LEVELS.has(current)) {
+    if (!isNegativeLevel(current) && MANDATORY_LEVELS.has(current)) {
       break;
     }
   }
@@ -79,9 +99,17 @@ function getPenaltyFallbackMap(mode = "trump") {
 }
 
 function dropLevel(rank, steps = 1, mode = "trump") {
-  let current = rank;
+  let current = [...NEGATIVE_LEVELS, ...RANKS].includes(rank) ? rank : "2";
   const fallbackMap = getPenaltyFallbackMap(mode);
   for (let i = 0; i < steps; i += 1) {
+    if (current === "-2") {
+      current = "-2";
+      continue;
+    }
+    if (current === "-A") {
+      current = "-2";
+      continue;
+    }
     if (!RANKS.includes(current)) {
       current = "2";
       continue;
@@ -90,7 +118,7 @@ function dropLevel(rank, steps = 1, mode = "trump") {
       current = fallbackMap[current];
       continue;
     }
-    current = current === "2" ? "A" : RANKS[Math.max(0, RANKS.indexOf(current) - 1)];
+    current = current === "2" ? "-A" : RANKS[Math.max(0, RANKS.indexOf(current) - 1)];
   }
   return current;
 }
@@ -677,26 +705,37 @@ function compareSingle(candidate, current, leadSuit) {
   return getPatternUnitPower(candidate, candidateSuit) - getPatternUnitPower(current, currentSuit);
 }
 
+function isBottomPenaltyTrumpCard(card) {
+  return !!card && isTrump(card) && card.suit !== "joker";
+}
+
 function getBottomPenalty() {
   if (!state.lastTrick || !isDefenderTeam(state.lastTrick.winnerId)) return null;
 
   const winningPlay = state.lastTrick.plays.find((play) => play.playerId === state.lastTrick.winnerId);
   if (!winningPlay || winningPlay.cards.length === 0) return null;
-  if (!winningPlay.cards.every((card) => isTrump(card))) return null;
+  if (!winningPlay.cards.every((card) => isBottomPenaltyTrumpCard(card))) return null;
 
-  if (winningPlay.cards.length === 1) {
-    return { levels: 1, label: TEXT.rules.bottomPenaltyLabels.single, winnerId: state.lastTrick.winnerId, mode: "trump" };
-  }
-  if (winningPlay.cards.length === 2 && isExactPair(winningPlay.cards)) {
-    return { levels: 2, label: TEXT.rules.bottomPenaltyLabels.pair, winnerId: state.lastTrick.winnerId, mode: "trump" };
-  }
-  if (winningPlay.cards.length === 3 && isExactTriple(winningPlay.cards)) {
-    return { levels: 3, label: TEXT.rules.bottomPenaltyLabels.triple, winnerId: state.lastTrick.winnerId, mode: "trump" };
-  }
-  if (winningPlay.cards.length >= 4) {
-    return { levels: 4, label: TEXT.rules.bottomPenaltyLabels.tractor, winnerId: state.lastTrick.winnerId, mode: "trump" };
-  }
-  return null;
+  const pattern = classifyPlay(winningPlay.cards);
+  if (!pattern.ok) return null;
+
+  const penaltyByType = {
+    single: { levels: 1, label: TEXT.rules.bottomPenaltyLabels.single },
+    pair: { levels: 2, label: TEXT.rules.bottomPenaltyLabels.pair },
+    triple: { levels: 3, label: TEXT.rules.bottomPenaltyLabels.triple },
+    tractor: { levels: 4, label: TEXT.rules.bottomPenaltyLabels.tractor },
+    train: { levels: 6, label: TEXT.rules.bottomPenaltyLabels.train },
+    bulldozer: { levels: 6, label: TEXT.rules.bottomPenaltyLabels.bulldozer },
+  };
+  const penalty = penaltyByType[pattern.type];
+  if (!penalty) return null;
+
+  return {
+    levels: penalty.levels,
+    label: penalty.label,
+    winnerId: state.lastTrick.winnerId,
+    mode: "trump",
+  };
 }
 
 function getBottomResultSummary() {

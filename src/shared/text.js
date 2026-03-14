@@ -255,6 +255,8 @@ const TEXT = {
       pair: "两张主牌扣底",
       triple: "三张主牌扣底",
       tractor: "主牌拖拉机扣底",
+      train: "主牌宇宙飞船扣底",
+      bulldozer: "主牌推土机扣底",
     },
   },
   log: {
@@ -389,13 +391,24 @@ function getTrickOutcomeAnnouncement(winnerId) {
   return `上轮${getPlayer(winnerId).name}大`;
 }
 
-function getOutcome(points) {
+function getOutcome(points, options = {}) {
+  if (options.bottomPenalty?.levels > 0 && points < 120) {
+    return {
+      title: TEXT.outcome.defenderWinTitle,
+      body: `非打家总分为 ${points} 分，虽然还没到 120 分，但最后一轮完成了${options.bottomPenalty.label}，本局改判非打家方获胜且不升级。`,
+      bankerLevels: 0,
+      defenderLevels: 0,
+      winner: "defender",
+      forcedByBottom: true,
+    };
+  }
   if (points === 0) {
     return {
       title: TEXT.outcome.bankerBigWinTitle,
       body: "非打家总分为 0 分，打家方升 3 级。当前这一版原型已经按你的五人规则做了这条判定。",
       bankerLevels: 3,
       defenderLevels: 0,
+      winner: "banker",
     };
   }
   if (points < 60) {
@@ -404,6 +417,7 @@ function getOutcome(points) {
       body: `非打家总分为 ${points} 分，小于 60 分，打家方升 2 级。`,
       bankerLevels: 2,
       defenderLevels: 0,
+      winner: "banker",
     };
   }
   if (points < 120) {
@@ -412,6 +426,7 @@ function getOutcome(points) {
       body: `非打家总分为 ${points} 分，小于 120 分，打家方正常获胜，升 1 级。`,
       bankerLevels: 1,
       defenderLevels: 0,
+      winner: "banker",
     };
   }
   if (points < 165) {
@@ -420,6 +435,7 @@ function getOutcome(points) {
       body: `非打家总分为 ${points} 分，已达到 120 分但未到 165 分。非打家方获胜，但本局不升级。`,
       bankerLevels: 0,
       defenderLevels: 0,
+      winner: "defender",
     };
   }
   const levels = 1 + Math.floor((points - 165) / 60);
@@ -428,6 +444,7 @@ function getOutcome(points) {
     body: `非打家总分为 ${points} 分，按你当前规则从 165 分开始升级，本局非打家方升 ${levels} 级。`,
     bankerLevels: 0,
     defenderLevels: levels,
+    winner: "defender",
   };
 }
 

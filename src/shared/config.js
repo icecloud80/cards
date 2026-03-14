@@ -14,8 +14,10 @@ const SUIT_SYMBOL = {
   hearts: "♥",
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const NEGATIVE_LEVELS = ["-2", "-A"];
 const APP_VERSION_LABEL = "原型版 v1.2";
 const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
+const FACE_CARD_LEVELS = new Set(["J", "Q", "K", "A"]);
 const TRUMP_PENALTY_LEVEL_FALLBACK = {
   J: "2",
   Q: "6",
@@ -61,6 +63,7 @@ const PLAYER_AVATARS = {
   5: { label: "狼", src: "./avatars/wolf.svg" },
 };
 const APP_PLATFORM = window.APP_PLATFORM || "pc";
+const CARD_ASSET_DIR = window.CARD_ASSET_DIR || "./cards";
 const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
@@ -185,5 +188,6 @@ const state = {
   nextFirstDealPlayerId: 1,
   bottomRevealMessage: "",
   exposedTrumpVoid: {},
+  exposedSuitVoid: {},
   awaitingHumanDeclaration: false,
 };

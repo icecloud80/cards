@@ -122,6 +122,125 @@ function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   })[0];
 }
 
+function chooseStrongLeadFromCards(cards) {
+  if (cards.length === 0) return [];
+  const bulldozers = findSerialTuples(cards, 3);
+  if (bulldozers.length > 0) return bulldozers[bulldozers.length - 1];
+  const trains = findSerialTuples(cards, 2).filter((combo) => classifyPlay(combo).type === "train");
+  if (trains.length > 0) return trains[trains.length - 1];
+  const tractors = findSerialTuples(cards, 2).filter((combo) => classifyPlay(combo).type === "tractor");
+  if (tractors.length > 0) return tractors[tractors.length - 1];
+  const triples = findTriples(cards);
+  if (triples.length > 0) return triples[triples.length - 1];
+  const pairs = findPairs(cards);
+  if (pairs.length > 0) return pairs[pairs.length - 1];
+  return [...cards].sort((a, b) => cardStrength(b) - cardStrength(a)).slice(0, 1);
+}
+
+function getAiPressureTargetIds(playerId) {
+  if (!isDefenderTeam(playerId)) return [];
+  if (!isFriendTeamResolved()) {
+    return state.bankerId === playerId ? [] : [state.bankerId];
+  }
+  return state.players
+    .map((player) => player.id)
+    .filter((otherId) => otherId !== playerId && !areSameSide(playerId, otherId));
+}
+
+function chooseAiVoidPressureLead(playerId, player) {
+  const targetIds = getAiPressureTargetIds(playerId);
+  if (targetIds.length === 0) return [];
+
+  const options = SUITS
+    .map((suit) => {
+      const cards = player.hand.filter((card) => effectiveSuit(card) === suit);
+      if (cards.length === 0) return null;
+      const voidCount = targetIds.filter((targetId) => state.exposedSuitVoid[targetId]?.[suit]).length;
+      if (voidCount === 0) return null;
+      return {
+        suit,
+        voidCount,
+        combo: chooseStrongLeadFromCards(cards),
+      };
+    })
+    .filter(Boolean)
+    .filter((entry) => entry.combo.length > 0);
+
+  if (options.length === 0) return [];
+
+  return options.sort((a, b) => {
+    if (a.voidCount !== b.voidCount) return b.voidCount - a.voidCount;
+    return classifyPlay(b.combo).power - classifyPlay(a.combo).power;
+  })[0].combo;
+}
+
+function getRemainingOpenPoints() {
+  const handPoints = state.players.reduce(
+    (sum, player) => sum + player.hand.reduce((cardSum, card) => cardSum + scoreValue(card), 0),
+    0
+  );
+  const trickPoints = state.currentTrick.reduce(
+    (sum, play) => sum + play.cards.reduce((cardSum, card) => cardSum + scoreValue(card), 0),
+    0
+  );
+  return handPoints + trickPoints;
+}
+
+function shouldAiAimForBottom(playerId) {
+  if (!isDefenderTeam(playerId)) return false;
+  const ceilingWithoutBottom = state.defenderPoints + getRemainingOpenPoints();
+  if (ceilingWithoutBottom < 120) return true;
+  const cardsLeft = state.players.reduce((sum, player) => sum + player.hand.length, 0);
+  return ceilingWithoutBottom < 140 && cardsLeft <= 20;
+}
+
+function scoreBottomPrepCombo(combo) {
+  const levelRank = getCurrentLevelRank();
+  return combo.reduce((sum, card) => {
+    if (card.suit === "joker") return sum + 40;
+    if (isTrump(card) && card.rank !== levelRank) return sum + 16;
+    if (card.rank === levelRank) return sum - 18;
+    return sum - scoreValue(card);
+  }, 0);
+}
+
+function chooseAiBottomPrepDiscard(playerId, candidates, currentWinningPlay) {
+  if (!currentWinningPlay || !shouldAiAimForBottom(playerId) || !areSameSide(playerId, currentWinningPlay.playerId)) {
+    return [];
+  }
+  const nonBeating = candidates.filter((combo) => !doesSelectionBeatCurrent(playerId, combo));
+  if (nonBeating.length === 0) return [];
+  return nonBeating.sort((a, b) => {
+    const scoreDiff = scoreBottomPrepCombo(b) - scoreBottomPrepCombo(a);
+    if (scoreDiff !== 0) return scoreDiff;
+    return classifyPlay(a).power - classifyPlay(b).power;
+  })[0];
+}
+
+function chooseAiNoTrumpBankerPowerLead(playerId, player) {
+  if (state.trumpSuit !== "notrump" || playerId !== state.bankerId || !state.friendTarget || isFriendTeamResolved()) {
+    return [];
+  }
+  const targetCards = player.hand.filter(
+    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  const reservedIds = new Set(targetCards.map((card) => card.id));
+  const available = player.hand.filter((card) => !reservedIds.has(card.id));
+  if (available.length === 0) return [];
+
+  const trumpCards = available.filter((card) => isTrump(card));
+  if (trumpCards.length > 0) {
+    return chooseStrongLeadFromCards(trumpCards);
+  }
+
+  const highSideCards = available.filter((card) => !isTrump(card) && (card.rank === "A" || card.rank === "K"));
+  if (highSideCards.length > 0) {
+    return chooseStrongLeadFromCards(highSideCards);
+  }
+
+  return [];
+}
+
 function getLegalSelectionsForPlayer(playerId, limit = 72) {
   const player = getPlayer(playerId);
   if (!player || state.currentTrick.length === 0) return [];
@@ -155,6 +274,8 @@ function getLegalSelectionsForPlayer(playerId, limit = 72) {
 function chooseAiLeadPlay(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
+  const noTrumpPowerLead = chooseAiNoTrumpBankerPowerLead(playerId, player);
+  if (noTrumpPowerLead.length > 0) return noTrumpPowerLead;
   if (playerId === state.bankerId && state.friendTarget && !isFriendTeamResolved() && state.friendTarget.suit !== "joker") {
     const targetCopies = player.hand.filter(
       (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
@@ -175,6 +296,8 @@ function chooseAiLeadPlay(playerId) {
     const friendCard = player.hand.find((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank);
     if (friendCard) return [friendCard];
   }
+  const voidPressureLead = chooseAiVoidPressureLead(playerId, player);
+  if (voidPressureLead.length > 0) return voidPressureLead;
   return [];
 }
 
@@ -202,6 +325,11 @@ function chooseAiFollowPlay(playerId, candidates) {
       if (powerDiff !== 0) return powerDiff;
       return a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     })[0];
+  }
+
+  const bottomPrepDiscard = chooseAiBottomPrepDiscard(playerId, candidates, currentWinningPlay);
+  if (bottomPrepDiscard.length > 0) {
+    return bottomPrepDiscard;
   }
 
   if (allyWinning) {
@@ -246,15 +374,16 @@ function getLegalHintForPlayer(playerId) {
     return hand.length > 0 ? [hand[0]] : [];
   }
 
+  const candidates = getLegalSelectionsForPlayer(playerId);
+  const aiChoice = chooseAiFollowPlay(playerId, candidates);
+  if (aiChoice.length > 0) return aiChoice;
+
   if (state.leadSpec.type === "single") {
     const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
     return suited.length > 0 ? [lowestCard(suited)] : [lowestCard(hand)];
   }
 
   const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
-  const candidates = getLegalSelectionsForPlayer(playerId);
-  const aiChoice = chooseAiFollowPlay(playerId, candidates);
-  if (aiChoice.length > 0) return aiChoice;
   if (suited.length >= state.leadSpec.count) {
     if (state.leadSpec.type === "pair") {
       const suitedPairs = findPairs(suited);

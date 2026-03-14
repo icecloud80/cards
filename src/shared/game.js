@@ -46,6 +46,10 @@ function setupGame() {
     acc[id] = false;
     return acc;
   }, {});
+  state.exposedSuitVoid = PLAYER_ORDER.reduce((acc, id) => {
+    acc[id] = { clubs: false, diamonds: false, spades: false, hearts: false };
+    return acc;
+  }, {});
   state.awaitingHumanDeclaration = false;
   state.currentTurnId = state.nextFirstDealPlayerId || 1;
   state.leaderId = state.currentTurnId;
@@ -74,7 +78,7 @@ function chooseFriendTarget() {
     };
   }
 
-  const rankPriority = getPlayerLevel(state.bankerId) === "A"
+  const rankPriority = getPlayerLevelRank(state.bankerId) === "A"
     ? ["K", "A", "Q", "J", "10"]
     : ["A", "K", "Q", "J", "10"];
   const suitPriority = [...SUITS.filter((suit) => suit !== state.trumpSuit), state.trumpSuit].filter(Boolean);
@@ -179,7 +183,7 @@ function buildFriendTarget(target) {
     ...target,
     label: describeTarget(target),
     img: target.suit === "joker"
-      ? `./cards/${target.rank === "RJ" ? "red_joker" : "black_joker"}.svg`
+      ? `${CARD_ASSET_DIR}/${target.rank === "RJ" ? "red_joker" : "black_joker"}.svg`
       : getCardImage(target.suit, target.rank),
   };
 }
@@ -319,7 +323,7 @@ function getBottomRevealWeight(card) {
 }
 
 function resolveBottomDeclarationForPlayer(playerId) {
-  const playerLevel = getPlayerLevel(playerId);
+  const playerLevel = getPlayerLevelRank(playerId);
   let highestCard = null;
 
   for (const card of state.bottomCards) {
@@ -378,7 +382,7 @@ function finishDealingPhase() {
     state.declaration = bottomDeclaration;
     state.trumpSuit = bottomDeclaration.suit;
     state.bankerId = firstDealPlayerId;
-    state.levelRank = getPlayerLevel(firstDealPlayerId);
+    state.levelRank = getPlayerLevelRank(firstDealPlayerId);
     if (bottomDeclaration.suit === "notrump") {
       state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到${bottomDeclaration.revealCard ? describeCard(bottomDeclaration.revealCard) : TEXT.cards.bigJoker}，本局定为无主，王和级牌都算主，${getPlayer(firstDealPlayerId).name}做打家。`;
     } else if (bottomDeclaration.revealCard?.rank === state.levelRank) {
@@ -446,7 +450,7 @@ function finishBottomRevealPhase() {
 function getDeclarationOptions(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
-  const playerLevel = getPlayerLevel(playerId);
+  const playerLevel = getPlayerLevelRank(playerId);
 
   return SUITS.map((suit) => {
     const cards = player.hand.filter((card) => card.suit === suit && card.rank === playerLevel);
@@ -504,7 +508,7 @@ function declareTrump(playerId, declaration, source = "manual") {
   const player = getPlayer(playerId);
   const previous = state.declaration;
   const declarationLevelRank = declaration.suit === "notrump"
-    ? getPlayerLevel(playerId)
+    ? getPlayerLevelRank(playerId)
     : declaration.rank;
   state.awaitingHumanDeclaration = false;
   state.declaration = {
@@ -945,6 +949,14 @@ function playCards(playerId, cardIds, options = {}) {
   if (exposedTrumpVoid) {
     state.exposedTrumpVoid[playerId] = true;
   }
+  const exposedLeadSuitVoid = state.currentTrick.length > 0
+    && state.leadSpec?.suit
+    && state.leadSpec.suit !== "trump"
+    && playedCards.some((card) => effectiveSuit(card) !== state.leadSpec.suit)
+    && !player.hand.some((card) => effectiveSuit(card) === state.leadSpec.suit);
+  if (exposedLeadSuitVoid && state.exposedSuitVoid[playerId]) {
+    state.exposedSuitVoid[playerId][state.leadSpec.suit] = true;
+  }
   state.currentTrick.push({ playerId, cards: playedCards });
   player.played = playedCards;
   let leadTrumpAnnouncement = false;
@@ -1218,10 +1230,7 @@ function isDefenderTeam(playerId) {
 function didHumanSideWin(outcome) {
   const humanOnBankerTeam = state.bankerId === 1
     || (state.friendTarget?.revealed && state.friendTarget.revealedBy === 1);
-  if (humanOnBankerTeam) {
-    return outcome.bankerLevels > 0 || state.defenderPoints < 120;
-  }
-  return state.defenderPoints >= 120;
+  return humanOnBankerTeam ? outcome.winner === "banker" : outcome.winner === "defender";
 }
 
 function finishGame() {
@@ -1235,7 +1244,7 @@ function finishGame() {
   }
   const bottomResult = getBottomResultSummary();
   state.nextFirstDealPlayerId = bottomResult?.nextLeadPlayerId || state.bankerId;
-  const outcome = getOutcome(state.defenderPoints);
+  const outcome = getOutcome(state.defenderPoints, { bottomPenalty: bottomResult?.penalty || null });
   const humanWon = didHumanSideWin(outcome);
   applyLevelSettlement(outcome, bottomResult?.penalty || null);
   dom.resultCard.classList.toggle("win", humanWon);
@@ -1270,11 +1279,19 @@ function applyLevelSettlement(outcome, bankerPenalty = null) {
     }
   }
   if (bankerPenalty?.levels > 0) {
+    const bankerLevelBeforePenalty = getPlayerLevel(state.bankerId);
     state.playerLevels[state.bankerId] = dropLevel(
-      getPlayerLevel(state.bankerId),
+      bankerLevelBeforePenalty,
       bankerPenalty.levels,
       bankerPenalty.mode || "trump"
     );
+    if (state.hiddenFriendId && FACE_CARD_LEVELS.has(bankerLevelBeforePenalty)) {
+      state.playerLevels[state.hiddenFriendId] = dropLevel(
+        getPlayerLevel(state.hiddenFriendId),
+        1,
+        bankerPenalty.mode || "trump"
+      );
+    }
   }
   syncPlayerLevels();
   state.levelRank = null;

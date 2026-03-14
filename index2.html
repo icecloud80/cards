@@ -1866,8 +1866,7 @@
           clamp(86px, 11.5vh, 104px)
           clamp(86px, 11.5vh, 104px)
           clamp(92px, 12vh, 108px)
-          clamp(54px, 7.2vh, 66px)
-          clamp(196px, 30vh, 256px)
+          clamp(214px, 33vh, 286px)
           clamp(46px, 6.4vh, 56px);
         gap: 6px;
         overflow: hidden;
@@ -2121,16 +2120,22 @@
       }
 
       body.mobile-index2 .mobile-broadcast {
-        grid-column: 1 / -1;
-        grid-row: 5;
-        display: flex;
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        top: 62px;
+        height: calc(clamp(86px, 11.5vh, 104px) * 2 + 6px);
+        display: none;
         align-items: center;
+        justify-content: center;
         gap: 8px;
         padding: 8px 10px;
         border-radius: 14px;
-        background: linear-gradient(180deg, rgba(255, 249, 239, 0.96), rgba(238, 228, 206, 0.92));
-        box-shadow: var(--shadow-md);
+        background: linear-gradient(180deg, rgba(255, 249, 239, 0.72), rgba(238, 228, 206, 0.7));
+        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
         overflow: hidden;
+        pointer-events: none;
+        z-index: 7;
       }
 
       body.mobile-index2 .mobile-broadcast-tag {
@@ -2160,15 +2165,15 @@
       }
 
       body.mobile-index2 .mobile-broadcast.strong {
-        background: linear-gradient(180deg, rgba(157, 53, 43, 0.96), rgba(109, 29, 22, 0.92));
+        background: linear-gradient(180deg, rgba(157, 53, 43, 0.72), rgba(109, 29, 22, 0.7));
       }
 
       body.mobile-index2 .mobile-broadcast.ally {
-        background: linear-gradient(180deg, rgba(41, 125, 86, 0.96), rgba(22, 85, 56, 0.92));
+        background: linear-gradient(180deg, rgba(41, 125, 86, 0.72), rgba(22, 85, 56, 0.7));
       }
 
       body.mobile-index2 .mobile-broadcast.friend {
-        background: linear-gradient(180deg, rgba(225, 145, 53, 0.96), rgba(177, 96, 21, 0.92));
+        background: linear-gradient(180deg, rgba(225, 145, 53, 0.72), rgba(177, 96, 21, 0.7));
       }
 
       body.mobile-index2 .mobile-broadcast.strong .mobile-broadcast-tag,
@@ -2186,7 +2191,7 @@
 
       body.mobile-index2 .hand-panel {
         grid-column: 1 / -1;
-        grid-row: 6;
+        grid-row: 5;
         display: block !important;
         padding: 10px 8px 10px;
         border-radius: 14px;
@@ -2214,7 +2219,8 @@
         flex: 1 1 0;
         width: 100%;
         min-height: 0;
-        overflow: hidden;
+        overflow: visible;
+        padding-left: 4px;
       }
 
       body.mobile-index2 .hand-group {
@@ -2246,8 +2252,8 @@
         display: flex;
         align-items: flex-end;
         justify-content: flex-start;
-        padding: 0;
-        overflow: hidden;
+        padding: 0 0 2px 4px;
+        overflow: visible;
         min-width: 0;
         flex: 0 1 auto;
       }
@@ -2256,9 +2262,9 @@
       body.mobile-index2 .friend-card,
       body.mobile-index2 .bottom-reveal-cards .played-card,
       body.mobile-index2 .last-trick .played-card {
-        width: 36px;
-        height: 52px;
-        margin-left: -9px;
+        width: 40px;
+        height: 58px;
+        margin-left: -8px;
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -2267,7 +2273,7 @@
 
       body.mobile-index2 .center-panel {
         grid-column: 1 / -1;
-        grid-row: 7;
+        grid-row: 6;
         position: static !important;
         left: auto !important;
         right: auto !important;
@@ -2421,6 +2427,10 @@
       body.mobile-index2[data-mobile-screen="setup"] .center-panel {
         visibility: hidden;
         pointer-events: none;
+      }
+
+      body.mobile-index2 .mobile-broadcast.show {
+        display: flex;
       }
 
       body.mobile-index2 .mobile-sheet.show {
@@ -2826,9 +2836,8 @@
 
         function syncBroadcast() {
           const focusText = originalDom.focusAnnouncement?.textContent.trim() || "";
-          const actionText = originalDom.actionHint?.textContent.trim() || "";
-          const tagText = originalDom.centerTag?.textContent.trim() || "当前";
           mobileDom.broadcast.classList.remove("strong", "ally", "friend");
+          mobileDom.broadcast.classList.toggle("show", !!focusText);
           if (originalDom.focusAnnouncement?.classList.contains("strong")) {
             mobileDom.broadcast.classList.add("strong");
           } else if (originalDom.focusAnnouncement?.classList.contains("ally")) {
@@ -2836,8 +2845,8 @@
           } else if (originalDom.focusAnnouncement?.classList.contains("friend")) {
             mobileDom.broadcast.classList.add("friend");
           }
-          mobileDom.broadcastTag.textContent = focusText ? "播报" : tagText;
-          mobileDom.broadcastText.textContent = focusText || actionText || "等待开始";
+          mobileDom.broadcastTag.textContent = "重要播报";
+          mobileDom.broadcastText.textContent = focusText || "";
         }
 
         function layoutHandRows() {

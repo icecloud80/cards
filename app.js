@@ -3126,8 +3126,8 @@ function renderHand() {
   }
   const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
   const specialLabel = isSetupPhase
-    ? (state.declaration ? "主牌" : "级牌")
-    : "主牌";
+    ? (state.declaration ? "当前主牌 / 王" : "级牌 / 王")
+    : "主牌 / 王";
   const setupLevelRank = human.level;
   const groups = [
     { key: "trump", label: specialLabel, red: true },

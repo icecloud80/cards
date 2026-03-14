@@ -14,7 +14,7 @@ const SUIT_SYMBOL = {
   hearts: "♥",
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
-const APP_VERSION_LABEL = "原型版 v0.9";
+const APP_VERSION_LABEL = "原型版 v1.0";
 const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
 const TRUMP_PENALTY_LEVEL_FALLBACK = {
   J: "2",
@@ -1443,6 +1443,44 @@ function chooseAiRevealCombo(candidates) {
   })[0];
 }
 
+function getTargetVirtualCard(target = state.friendTarget) {
+  if (!target) return null;
+  return {
+    id: `target-${target.suit}-${target.rank}`,
+    suit: target.suit,
+    rank: target.rank,
+  };
+}
+
+function isOneStepBelowFriendTarget(card, target = state.friendTarget) {
+  if (!card || !target || target.suit === "joker" || card.suit !== target.suit) return false;
+  const targetCard = getTargetVirtualCard(target);
+  if (!targetCard) return false;
+  return getPatternUnitPower(targetCard, effectiveSuit(targetCard)) - getPatternUnitPower(card, effectiveSuit(card)) === 1;
+}
+
+function chooseAiSupportBeforeReveal(candidates, currentWinningPlay) {
+  if (!state.friendTarget || !currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return [];
+  if (state.trickNumber !== 1 || state.currentTrick[0]?.playerId !== state.bankerId) return [];
+  if (state.currentTrick[0]?.cards.length !== 1) return [];
+
+  const bankerLeadCard = state.currentTrick[0].cards[0];
+  if (!isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget)) return [];
+
+  const supportChoices = candidates.filter((combo) =>
+    !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
+      && !doesSelectionBeatCurrent(state.currentTurnId, combo)
+  );
+
+  if (supportChoices.length === 0) return [];
+
+  return supportChoices.sort((a, b) => {
+    const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return classifyPlay(a).power - classifyPlay(b).power;
+  })[0];
+}
+
 function getLegalSelectionsForPlayer(playerId, limit = 72) {
   const player = getPlayer(playerId);
   if (!player || state.currentTrick.length === 0) return [];
@@ -1497,6 +1535,11 @@ function chooseAiFollowPlay(playerId, candidates) {
   const allyWinning = currentWinningPlay ? areSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
   const revealChoice = shouldAiRevealFriend(playerId) ? chooseAiRevealCombo(candidates) : [];
+  const supportChoice = revealChoice.length > 0 ? chooseAiSupportBeforeReveal(candidates, currentWinningPlay) : [];
+
+  if (supportChoice.length > 0) {
+    return supportChoice;
+  }
 
   if (revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
@@ -2818,7 +2861,9 @@ function renderSeats() {
     const seat = document.getElementById(`playerSeat-${player.id}`);
     const role = getVisibleRole(player.id);
     const avatar = PLAYER_AVATARS[player.id];
-    const noTrumpBadge = player.hand.length > 0 && !player.hand.some((card) => isTrump(card)) ? " 🈚️" : "";
+    const showNoTrumpBadge = ["playing", "pause", "ending"].includes(state.phase)
+      && player.hand.length > 0
+      && !player.hand.some((card) => isTrump(card));
     seat.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
     seat.classList.toggle("role-banker", role.kind === "banker");
     seat.innerHTML = `
@@ -2827,7 +2872,10 @@ function renderSeats() {
         <div class="seat-copy">
           <div class="title">${player.name}</div>
           <div class="seat-meta">${player.isHuman ? "本人操控" : "电脑操控"}</div>
-          <div class="seat-level">Lv:${player.level}${noTrumpBadge}</div>
+          <div class="seat-level-row">
+            <div class="seat-level">Lv:${player.level}</div>
+            ${showNoTrumpBadge ? '<span class="seat-no-trump" aria-label="无主牌">🈚️</span>' : ""}
+          </div>
         </div>
       </div>
       <div class="role-badge ${role.kind}">${role.label}</div>

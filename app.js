@@ -126,7 +126,9 @@ const dom = {
   resultTitle: document.getElementById("resultTitle"),
   resultBody: document.getElementById("resultBody"),
   resultBottomCards: document.getElementById("resultBottomCards"),
+  resultCountdown: document.getElementById("resultCountdown"),
   restartBtn: document.getElementById("restartBtn"),
+  closeResultBtn: document.getElementById("closeResultBtn"),
   friendPickerPanel: document.getElementById("friendPickerPanel"),
   friendPickerHint: document.getElementById("friendPickerHint"),
   friendPickerPreview: document.getElementById("friendPickerPreview"),
@@ -164,6 +166,8 @@ const state = {
   centerAnnouncement: null,
   centerAnnouncementQueue: [],
   centerAnnouncementTimer: null,
+  resultCountdownValue: 30,
+  resultCountdownTimer: null,
   layoutEditMode: false,
   declaration: null,
   counterPasses: 0,
@@ -428,6 +432,7 @@ function setupGame() {
   state.selectedFriendOccurrence = 1;
   state.selectedFriendSuit = "hearts";
   state.selectedFriendRank = "A";
+  state.resultCountdownValue = 30;
   state.exposedTrumpVoid = PLAYER_ORDER.reduce((acc, id) => {
     acc[id] = false;
     return acc;
@@ -436,6 +441,7 @@ function setupGame() {
   state.currentTurnId = state.nextFirstDealPlayerId || 1;
   state.leaderId = state.currentTurnId;
   dom.resultOverlay.classList.remove("show");
+  updateResultCountdownLabel();
 
   const deck = createDeck();
   state.dealCards = deck.splice(0, 31 * 5);
@@ -1301,6 +1307,51 @@ function clearTimers() {
     window.clearTimeout(state.trickPauseTimer);
     state.trickPauseTimer = null;
   }
+  if (state.resultCountdownTimer) {
+    window.clearInterval(state.resultCountdownTimer);
+    state.resultCountdownTimer = null;
+  }
+}
+
+function updateResultCountdownLabel() {
+  if (!dom.resultCountdown || !dom.restartBtn) return;
+  dom.resultCountdown.textContent = `30 秒后自动开局：${state.resultCountdownValue}`;
+  dom.restartBtn.textContent = state.resultCountdownValue > 0
+    ? `再来一局 (${state.resultCountdownValue})`
+    : "再来一局";
+}
+
+function goToMainMenu() {
+  dom.resultOverlay.classList.remove("show");
+  setupGame();
+}
+
+function beginNextGame(autoStart = false) {
+  dom.resultOverlay.classList.remove("show");
+  setupGame();
+  if (autoStart) {
+    startDealing();
+  }
+}
+
+function startResultCountdown() {
+  state.resultCountdownValue = 30;
+  updateResultCountdownLabel();
+  if (state.resultCountdownTimer) {
+    window.clearInterval(state.resultCountdownTimer);
+  }
+  state.resultCountdownTimer = window.setInterval(() => {
+    state.resultCountdownValue -= 1;
+    if (state.resultCountdownValue <= 0) {
+      state.resultCountdownValue = 0;
+      updateResultCountdownLabel();
+      window.clearInterval(state.resultCountdownTimer);
+      state.resultCountdownTimer = null;
+      beginNextGame(true);
+      return;
+    }
+    updateResultCountdownLabel();
+  }, 1000);
 }
 
 function clearCenterAnnouncement(resetQueue = false) {
@@ -2587,6 +2638,7 @@ function finishGame() {
   dom.resultTitle.textContent = humanWon ? "获胜" : "失败";
   dom.resultBody.textContent = `${outcome.body}${getBottomResultText(bottomResult)}${getLevelSettlementSummary(outcome)}`;
   dom.resultOverlay.classList.add("show");
+  startResultCountdown();
   render();
 }
 
@@ -3632,8 +3684,11 @@ dom.closeRulesBtn.addEventListener("click", () => {
 dom.newGameBtn.addEventListener("click", setupGame);
 
 dom.restartBtn.addEventListener("click", () => {
-  dom.resultOverlay.classList.remove("show");
-  setupGame();
+  beginNextGame(true);
+});
+
+dom.closeResultBtn?.addEventListener("click", () => {
+  goToMainMenu();
 });
 
 makeFloatingPanel(dom.logPanel, dom.logPanelDrag);

@@ -1310,6 +1310,13 @@
         color: #7b5a2a;
       }
 
+      .result-countdown {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
       @media (max-width: 1260px) {
         body {
           overflow: auto;
@@ -2843,8 +2850,10 @@
               <div class="label">底牌亮出</div>
               <div id="resultBottomCards" class="bottom-cards"></div>
             </div>
+            <p id="resultCountdown" class="result-countdown">30 秒后自动开局：30</p>
             <div class="action-row" style="margin-top: 18px;">
               <button id="restartBtn" class="action-btn primary">再来一局</button>
+              <button id="closeResultBtn" class="action-btn" type="button">关闭</button>
             </div>
           </div>
         </div>

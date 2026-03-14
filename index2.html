@@ -1894,7 +1894,8 @@
       body.mobile-index2 .seat,
       body.mobile-index2 .version-badge,
       body.mobile-index2 .focus-banner,
-      body.mobile-index2 .log-panel {
+      body.mobile-index2 .log-panel,
+      body.mobile-index2 .last-trick {
         display: none !important;
       }
 
@@ -3310,6 +3311,11 @@
           target.classList.toggle("empty", !html);
         }
 
+        function buildTopStatusCardHtml(card, altText) {
+          if (!card?.img) return "";
+          return `<button type="button" class="friend-card" tabindex="-1" aria-hidden="true"><img src="${card.img}" alt="${altText}" /></button>`;
+        }
+
         function syncFriendCard(snapshot) {
           renderMobileTopCard(
             mobileDom.friendCard,
@@ -3327,7 +3333,7 @@
             const card = declaration.cards[0];
             renderMobileTopCard(
               mobileDom.trumpCard,
-              `<img src="${card.img}" alt="${card.rank === "RJ" ? "大王" : card.rank === "BJ" ? "小王" : `${card.suit}${card.rank}`}" />`,
+              buildTopStatusCardHtml(card, card.rank === "RJ" ? "大王" : card.rank === "BJ" ? "小王" : `${card.suit}${card.rank}`),
               "--"
             );
             return;
@@ -3355,7 +3361,10 @@
           }
           renderMobileTopCard(
             mobileDom.trumpCard,
-            `<img src="${getCardImage(suitKey, rankMatch[1])}" alt="${suitMatch[1]}${rankMatch[1]}" />`,
+            buildTopStatusCardHtml(
+              { img: getCardImage(suitKey, rankMatch[1]) },
+              `${suitMatch[1]}${rankMatch[1]}`
+            ),
             "--"
           );
         }
@@ -3568,9 +3577,6 @@
         mobileDom.lastTrickBtn.addEventListener("click", () => {
           mobileDom.infoSheet.classList.remove("show");
           mobileDom.settingsSheet.classList.remove("show");
-          if (originalDom.lastTrickPanel.classList.contains("hidden")) {
-            clickOriginal(originalDom.toggleLastTrickBtn);
-          }
           syncLastTrickSheet();
           mobileDom.lastTrickSheet.classList.add("show");
         });
@@ -3597,9 +3603,6 @@
         mobileDom.closeMenuBtn.addEventListener("click", () => mobileDom.settingsSheet.classList.remove("show"));
         mobileDom.closeLastTrickBtn.addEventListener("click", () => {
           mobileDom.lastTrickSheet.classList.remove("show");
-          if (!originalDom.lastTrickPanel.classList.contains("hidden")) {
-            originalDom.closeLastTrickBtn.click();
-          }
         });
         mobileDom.infoSheet.addEventListener("click", (event) => {
           if (event.target === mobileDom.infoSheet) {

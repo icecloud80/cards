@@ -77,8 +77,10 @@ function shiftLevel(rank, delta) {
   for (let i = 0; i < delta; i += 1) {
     if (current === "-2") {
       current = "-A";
+      break;
     } else if (current === "-A") {
       current = "2";
+      break;
     } else {
       const currentIndex = RANKS.indexOf(current);
       if (currentIndex < 0 || currentIndex >= RANKS.length - 1) {

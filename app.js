@@ -1575,6 +1575,8 @@ function getLegalHintForPlayer(playerId) {
     if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train" || state.leadSpec.type === "bulldozer" || state.leadSpec.type === "throw") {
       const combos = getPatternCombos(suited, state.leadSpec);
       if (combos.length > 0) return combos[0];
+      const searched = findLegalSelectionBySearch(playerId);
+      if (searched.length > 0) return searched;
     }
     return suited.slice(-state.leadSpec.count);
   }
@@ -1614,6 +1616,55 @@ function hasForcedPair(cards) {
     map.set(key, (map.get(key) || 0) + 1);
   }
   return [...map.values()].some((count) => count === 2 || count >= 4);
+}
+
+function getCardGroupCounts(cards) {
+  const map = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  return [...map.values()];
+}
+
+function getForcedPairUnits(cards) {
+  return getCardGroupCounts(cards).reduce((sum, count) => {
+    if (count < 2 || count === 3) return sum;
+    return sum + Math.floor(count / 2);
+  }, 0);
+}
+
+function getTripleUnits(cards) {
+  return getCardGroupCounts(cards).reduce((sum, count) => sum + Math.floor(count / 3), 0);
+}
+
+function getForcedPairUnitsWithReservedTriples(cards, reservedTriples = 0) {
+  const counts = getCardGroupCounts(cards);
+  let triplesLeft = reservedTriples;
+
+  while (triplesLeft > 0) {
+    const candidates = counts
+      .map((count, index) => ({ count, index }))
+      .filter((entry) => entry.count >= 3);
+    if (candidates.length === 0) break;
+
+    candidates.sort((a, b) => {
+      const pairLossA = getPairUnitsFromCount(a.count) - getPairUnitsFromCount(a.count - 3);
+      const pairLossB = getPairUnitsFromCount(b.count) - getPairUnitsFromCount(b.count - 3);
+      if (pairLossA !== pairLossB) return pairLossA - pairLossB;
+      return a.count - b.count;
+    });
+
+    counts[candidates[0].index] -= 3;
+    triplesLeft -= 1;
+  }
+
+  return counts.reduce((sum, count) => sum + getPairUnitsFromCount(count), 0);
+}
+
+function getPairUnitsFromCount(count) {
+  if (count < 2 || count === 3) return 0;
+  return Math.floor(count / 2);
 }
 
 function findTriples(cards) {
@@ -1998,8 +2049,50 @@ function validateSelection(playerId, cards) {
     if (!cards.every((card) => effectiveSuit(card) === state.leadSpec.suit)) {
       return { ok: false, reason: "有足够同门牌时，必须先跟同门。"};
     }
-    const shouldForcePattern = !(state.leadSpec.type === "pair" && !hasForcedPair(suited));
-    if (shouldForcePattern && hasMatchingPattern(suited, state.leadSpec) && !matchesLeadPattern(pattern, state.leadSpec)) {
+
+    if (state.leadSpec.type === "pair") {
+      if (hasForcedPair(suited) && pattern.type !== "pair") {
+        return { ok: false, reason: "对家出对时，你有对子就必须跟对子；三张刻子不用强拆成对。" };
+      }
+      return { ok: true };
+    }
+
+    if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train") {
+      if (hasMatchingPattern(suited, state.leadSpec)) {
+        if (!matchesLeadPattern(pattern, state.leadSpec)) {
+          return { ok: false, reason: "首家出拖拉机或火车时，你有同长度连对就必须跟连对。" };
+        }
+        return { ok: true };
+      }
+
+      const requiredPairs = Math.min(state.leadSpec.chainLength || 0, getForcedPairUnits(suited));
+      if (requiredPairs > 0 && getForcedPairUnits(cards) < requiredPairs) {
+        return { ok: false, reason: "首家出拖拉机或火车时，没有连对也要尽量跟对子；三张刻子不用拆对。" };
+      }
+      return { ok: true };
+    }
+
+    if (state.leadSpec.type === "bulldozer") {
+      if (hasMatchingPattern(suited, state.leadSpec)) {
+        if (!matchesLeadPattern(pattern, state.leadSpec)) {
+          return { ok: false, reason: "首家出推土机时，你有同长度推土机就必须跟推土机。" };
+        }
+        return { ok: true };
+      }
+
+      const requiredTriples = Math.min(state.leadSpec.chainLength || 0, getTripleUnits(suited));
+      if (requiredTriples > 0 && getTripleUnits(cards) < requiredTriples) {
+        return { ok: false, reason: "首家出推土机时，你有刻子就必须先跟刻子。" };
+      }
+
+      const requiredPairs = Math.min(2, getForcedPairUnitsWithReservedTriples(suited, requiredTriples));
+      if (requiredPairs > 0 && getForcedPairUnitsWithReservedTriples(cards, requiredTriples) < requiredPairs) {
+        return { ok: false, reason: "首家出推土机时，你有对子就必须跟对子；两对即可，不需要把三张硬拆成对。" };
+      }
+      return { ok: true };
+    }
+
+    if (hasMatchingPattern(suited, state.leadSpec) && !matchesLeadPattern(pattern, state.leadSpec)) {
       return { ok: false, reason: "有同牌型可跟时，必须按同牌型跟牌。"};
     }
     return { ok: true };

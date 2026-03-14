@@ -927,15 +927,18 @@ function declareTrump(playerId, declaration, source = "manual") {
 
   const player = getPlayer(playerId);
   const previous = state.declaration;
+  const declarationLevelRank = declaration.suit === "notrump"
+    ? getPlayerLevel(playerId)
+    : declaration.rank;
   state.awaitingHumanDeclaration = false;
   state.declaration = {
     playerId,
     suit: declaration.suit,
-    rank: declaration.rank,
+    rank: declarationLevelRank,
     count: declaration.count,
     cards: getDeclarationCards(declaration),
   };
-  state.levelRank = declaration.rank;
+  state.levelRank = declarationLevelRank;
   state.trumpSuit = declaration.suit;
   state.bankerId = playerId;
 

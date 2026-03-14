@@ -59,7 +59,7 @@ const PLAYER_AVATARS = {
   4: { label: "老虎", src: "./avatars/tiger.svg" },
   5: { label: "狼", src: "./avatars/wolf.svg" },
 };
-const LAYOUT_STORAGE_KEY = "five-friends-layout-v2";
+const LAYOUT_STORAGE_KEY = "five-friends-layout-v7";
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
   return acc;
@@ -2540,7 +2540,7 @@ function renderFriendPanel() {
     return;
   }
 
-  dom.friendHint.textContent = "朋友牌已经确定。后续谁先打出这张牌，谁就是打家的朋友。";
+  dom.friendHint.textContent = "朋友牌已定，先打出它的人就是朋友。";
   dom.friendLabel.textContent = state.friendTarget.label;
   dom.friendState.textContent = state.friendTarget.failed
     ? "当前状态：未找到朋友"
@@ -2738,11 +2738,20 @@ function renderTrickSpots() {
     const declarationCards = (state.phase === "dealing" || state.phase === "countering") && state.declaration && state.declaration.playerId === player.id
       ? getDeclarationCards(state.declaration)
       : [];
+    const visibleCards = play?.cards || declarationCards;
+    const zoomEnabled = !player.isHuman && visibleCards.length > 4;
     const cardsHtml = play
       ? play.cards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")
       : declarationCards.length > 0
         ? declarationCards.map((card) => buildCardNode(card, "played-card trump").outerHTML).join("")
         : "";
+    const zoomHtml = zoomEnabled
+      ? `
+        <div class="spot-zoom" aria-hidden="true">
+          ${visibleCards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")}
+        </div>
+      `
+      : "";
     const emptyText = state.phase === "ready"
       ? "等待开始发牌"
       : (state.phase === "dealing" || state.phase === "countering")
@@ -2755,12 +2764,28 @@ function renderTrickSpots() {
         ? "等待打家叫朋友"
       : "本轮尚未出牌";
     spot.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
+    spot.classList.toggle("zoomable", zoomEnabled);
+    if (!zoomEnabled) {
+      spot.classList.remove("show-zoom");
+    }
     spot.innerHTML = `
       <div class="label">${player.id === 1 ? "我的本轮出牌区" : `${player.name}出牌区`}</div>
       <div class="spot-row">
         ${cardsHtml || `<div class="empty-note">${emptyText}</div>`}
+        ${zoomHtml}
       </div>
     `;
+    spot.onclick = zoomEnabled
+      ? (event) => {
+        if (event.target.closest(".played-card")) return;
+        for (const otherSpot of state.players.map((entry) => document.getElementById(`trickSpot-${entry.id}`))) {
+          if (otherSpot && otherSpot !== spot) {
+            otherSpot.classList.remove("show-zoom");
+          }
+        }
+        spot.classList.toggle("show-zoom");
+      }
+      : null;
   }
 }
 
@@ -3215,6 +3240,13 @@ dom.friendOccurrenceOptions.addEventListener("click", (event) => {
 dom.confirmFriendBtn.addEventListener("click", () => {
   if (state.phase !== "callingFriend" || state.bankerId !== 1) return;
   confirmFriendTargetSelection();
+});
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".trick-spot.zoomable")) return;
+  for (const playerId of PLAYER_ORDER) {
+    document.getElementById(`trickSpot-${playerId}`)?.classList.remove("show-zoom");
+  }
 });
 
 dom.toggleLastTrickBtn.addEventListener("click", () => {

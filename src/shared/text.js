@@ -1,0 +1,471 @@
+const TEXT = {
+  cards: {
+    bigJoker: "大王",
+    smallJoker: "小王",
+    noTrumpBadgeAria: "无主牌",
+  },
+  occurrences: {
+    1: "第一张",
+    2: "第二张",
+    3: "第三张",
+  },
+  declarations: {
+    noTrumpCounterBig: "对大王反无主",
+    noTrumpCounterSmall: "对小王反无主",
+    noTrumpCounterDefault: "反无主",
+    bottomNoTrump: "翻底定无主",
+    bottomSuitPrefix: "翻底定主 ",
+    notRevealed: "尚未亮主 · 各家按自己的 Lv 亮主",
+    noTrumpByBottom: "无主（王和级牌为主） · 翻底定主",
+    noTrumpByCount: (count) => `无主（王和级牌为主） · ${count} 张亮`,
+    suitByBottom: (suitLabel) => `${suitLabel} · 翻底定主`,
+    suitByCount: (suitLabel, rank, count) => `${suitLabel} ${rank} · ${count} 张亮`,
+  },
+  buttons: {
+    restart: "再来一局",
+    restartWithCountdown: (countdown) => `再来一局 (${countdown})`,
+    select: "选择",
+    cancelSelection: "取消选择",
+    buryPickSeven: "选 7 张",
+    play: "出牌",
+    bury: "扣牌",
+    declare: "亮主",
+    redeclare: "抢亮",
+    counter: "反主",
+    counterPass: "不反主",
+    beat: "毙牌",
+    startGame: "开始发牌",
+    toggleLastTrickOpen: "上一轮",
+    toggleLastTrickClose: "收起上一轮",
+  },
+  patterns: {
+    triple: "刻子",
+    tractor: "拖拉机",
+    train: "宇宙飞船",
+    bulldozer: "推土机",
+    throw: "甩牌",
+    leadTrump: "吊主",
+  },
+  outcome: {
+    bankerBigWinTitle: "打家方大光",
+    bankerSmallWinTitle: "打家方小光",
+    bankerWinTitle: "打家方获胜",
+    defenderWinTitle: "非打家方获胜",
+    defenderLevelUpTitle: "非打家方升级",
+    winTitle: "获胜",
+    lossTitle: "失败",
+  },
+  roles: {
+    ready: "等待开局",
+    dealingBanker: "当前亮主",
+    dealingWaiting: "等待亮主",
+    counteringBanker: "待反主",
+    counteringWaiting: "反主确认中",
+    buryingBanker: "扣底中",
+    buryingWaiting: "等待开打",
+    callingBanker: "叫朋友中",
+    callingWaiting: "等待叫朋友",
+    banker: "打家",
+    defender: "非打家",
+    friend: "朋友",
+    unknown: "阵营待揭晓",
+  },
+  friend: {
+    hintCalling: "打家正在叫朋友。通常会先选一门花色，再选其中一张目标牌。",
+    hintBeforeCall: "扣底完成后由打家叫朋友；后续打出这张目标牌的人就是朋友。",
+    fixedHint: "朋友牌已定，先打出它的人就是朋友。",
+    pendingLabel: "朋友牌待确定",
+    stateCalling: "当前状态：叫朋友中",
+    stateNotStarted: "当前状态：尚未进入叫朋友",
+    stateNoFriend: "当前状态：未找到朋友",
+    stateRevealed: "当前状态：已出现",
+    stateWaiting: (occurrence, seen) => `当前状态：等待第 ${occurrence} 张出现（已出 ${seen} 张）`,
+    ownerHidden: "朋友身份尚未揭晓",
+    oneVsFour: "本局按 1 打 4 进行",
+    ownerRevealed: (name) => `朋友已揭晓：${name}`,
+    pickerHint: "先选第几张，再选花色和点数。常见找法是副牌 A，或者主牌里的大王。",
+    pickerPreview: (label) => `当前将叫：${label}`,
+    statusRevealed: (playerName) => `${playerName} 站队了`,
+    statusMisplayed: (playerName) => `${playerName} 误出朋友牌 · 1打4`,
+    searching: "找朋友",
+    assisting: "帮找朋友",
+  },
+  phase: {
+    gameOver: "牌局结束",
+    ready: "等待开始",
+    dealing: "发牌中",
+    bottomReveal: "翻底定主",
+    countering: "最后反主",
+    burying: "扣底中",
+    callingFriend: "叫朋友中",
+    ending: "结算中",
+    pause: "本轮结算中",
+    playing: "出牌中",
+    centerDealing: "发牌 / 抢亮",
+    centerBottomReveal: "翻底展示",
+    centerBurying: "整理底牌",
+    centerCallingFriend: "叫朋友",
+    centerPause: "本轮展示中",
+  },
+  hud: {
+    readyLeader: "等待玩家点击开始发牌",
+    currentDeclarationNone: "当前亮主：暂无",
+    currentDeclaration: (name) => `当前亮主：${name}`,
+    currentBanker: (name) => `当前打家：${name}`,
+    currentCounter: (name) => `当前反主：${name}`,
+    endingLeader: "牌局已结束，正在结算",
+    currentLeader: (name) => `当前首家：${name}`,
+    bankerWaiting: "待亮主确定",
+    bankerAwaitHuman: "待玩家1确认",
+    bottomReveal: "翻底结果展示中",
+    countering: "待反主确认",
+    burying: "待扣底完成",
+    callingFriend: "待叫朋友完成",
+    bankerSeat: (bankerId) => `玩家${bankerId}`,
+    trickWaiting: "等待开始",
+    trickAwaitingHuman: "补亮等待",
+    trickDealingProgress: (dealIndex, total) => `发至 ${dealIndex} / ${total}`,
+    trickBottomReveal: "展示底牌",
+    trickCountering: "发牌完成",
+    trickBurying: "整理底牌",
+    trickCallingFriend: "选择朋友牌",
+    trickEnding: "最终结算",
+    trickPlaying: (trickNumber) => `第 ${trickNumber} 轮`,
+  },
+  scorePanel: {
+    ended: "本局已结束",
+    ready: (firstPlayerId) => `新牌局已就绪。当前由玩家${firstPlayerId}先抓牌，点击“开始发牌”后进入抓牌与亮主流程。`,
+    dealingAwaitHuman: "发牌结束。其他玩家都没有亮主，玩家1可在 15 秒内决定是否补亮；超时后再翻底定主。",
+    dealing: "发牌进行中，每位玩家用自己当前 Lv 对应的级牌亮主或抢亮；若始终无人亮主，则由先抓牌玩家翻底定主做打家。打无主时，王和本局级牌都算主。",
+    bottomReveal: (message) => `${message} 底牌公开展示 30 秒后进入扣底。`,
+    countering: (playerId) => `最后反主阶段：当前轮到玩家${playerId}，30 秒内决定是否反主。`,
+    buryingSelf: "你已拿起底牌，请在 60 秒内选 7 张重新扣底。",
+    buryingOther: "打家正在 60 秒倒计时内整理底牌并重新扣 7 张。",
+    callingFriendSelf: "你已扣底完成，请先叫朋友，再开始出牌。",
+    callingFriendOther: "打家正在叫朋友，稍后进入正式出牌。",
+    ending: "本局已出完最后一张牌，正在整理结算结果。",
+    unresolvedFriend: "朋友未揭晓前，抓分先记在各玩家自己名下。",
+    pause: "本轮暂停中，准备进入下一轮",
+    currentTurn: (playerId) => `当前轮到玩家${playerId}出牌`,
+  },
+  bottom: {
+    ended: "牌局结束，底牌已全部亮出。",
+    revealing: "当前处于翻底定主展示阶段，底牌公开 30 秒后进入扣底。",
+    hidden: "局中只有打家本人可以翻看底牌。",
+    burying: "你已拿起底牌。整理后请从手中选出 7 张重新扣底；扣完后不能再换。",
+    score: (points) => `当前底牌分 ${points} 分，仅打家本人可翻看。`,
+    unavailable: "当前不可查看底牌",
+    revealFallback: "无人亮主，由先抓牌玩家翻底定主。",
+    resultLabel: "底牌亮出",
+  },
+  seat: {
+    selfControlled: "本人操控",
+    aiControlled: "电脑操控",
+    handCountLabel: "剩余手牌",
+    personalScoreLabel: "个人得分",
+    levelLabel: (level) => `Lv:${level}`,
+  },
+  trickSpot: {
+    self: "我的本轮出牌区",
+    other: (name) => `${name}出牌区`,
+    ready: "等待开始发牌",
+    dealing: "等待发牌或亮主",
+    bottomReveal: "等待翻底展示",
+    burying: "等待打家扣底",
+    callingFriend: "等待打家叫朋友",
+    default: "本轮尚未出牌",
+  },
+  hand: {
+    ready: (level, firstPlayerId) => `新牌局已准备好。你当前是 Lv:${level}，本局由玩家${firstPlayerId}先抓牌，点击“开始发牌”后进入抓牌和亮主。`,
+    dealingAwaitHuman: (count, countdown, options) => `当前共 ${count} 张，其他玩家都没亮主；你可在 ${countdown} 秒内补亮：${options.join(" / ")}。`,
+    dealingAwaitHumanNoOption: (count) => `当前共 ${count} 张，其他玩家都没亮主，等待翻底定主。`,
+    dealingCanDeclare: (count, options) => `当前共 ${count} 张，已可亮主：${options.join(" / ")}。`,
+    dealingNoDeclare: (count, level) => `当前共 ${count} 张，发牌中按花色分组显示；你当前是 Lv:${level}，拿到同花色两张 ${level} 即可亮主。`,
+    counteringCan: (count, option) => `当前共 ${count} 张，你可以用 ${option} 进行最后反主。`,
+    counteringCannot: (count) => `当前共 ${count} 张，你没有更强主牌可用于最后反主。`,
+    bottomReveal: (count) => `当前共 ${count} 张，正在展示翻底定主结果；30 秒后由打家拿底并扣底。`,
+    buryingSelf: (count) => `当前共 ${count} 张，请选出 7 张重新扣底。扣完后不能再换。`,
+    buryingOther: (count) => `当前共 ${count} 张，等待打家整理底牌。`,
+    callingFriendSelf: (count) => `当前共 ${count} 张，请先在弹出的菜单里叫朋友，再进入首轮出牌。`,
+    callingFriendOther: (count) => `当前共 ${count} 张，等待打家叫朋友。`,
+    playing: (count) => `当前共 ${count} 张，点击牌即可选择；首家支持单张、对子、拖拉机、8 张含以上的宇宙飞船、刻子、推土机和甩牌。`,
+    setupSpecialLabelWithTrump: "当前主牌 / 王",
+    setupSpecialLabelWithoutTrump: "级牌 / 王",
+    specialLabelNormal: "主牌 / 王",
+  },
+  actionHint: {
+    ready: "新牌局等待开始。点击“开始发牌”后，大家才会从空手进入逐张发牌。",
+    dealingAwaitHuman: (countdown, declaration) => `其他玩家都没亮主。你可在 ${countdown} 秒内补亮 ${declaration}；若不亮，则转入翻底定主。`,
+    dealingAwaitHumanNoOption: "其他玩家都没亮主，等待翻底定主。",
+    dealingCanDeclare: (declaration) => `发牌中。你现在可以亮主：${declaration}。如果不点“亮主”，发牌会继续进行。`,
+    dealing: "发牌中。花色之间不分大小；一般只有更多张数才能反，同张数反无主只接受对大王或对小王。",
+    bottomReveal: "无人亮主，正在公开展示翻底结果。30 秒后进入打家扣底。",
+    counteringWait: (playerId) => `最后反主阶段。当前由玩家${playerId}决定是否反主，请等待。`,
+    counteringCan: (declaration) => `最后反主阶段。你可以用 ${declaration} 反主；更多张数优先，同张数反无主只接受对大王或对小王。`,
+    counteringCannot: "最后反主阶段。你没有可用的更高张数组合，也没有对大王或对小王可反无主，30 秒后会自动不反主。",
+    buryingWait: "打家正在整理底牌，请等待。",
+    buryingReady: "已选择 7 张底牌，可以确认扣牌。",
+    buryingPicking: (count) => `请从手中选出 7 张重新扣底。当前已选 ${count} 张。`,
+    callingFriendSelf: "请先叫朋友。通常会先选一门花色，再选点数，确认后才进入正式出牌。",
+    callingFriendOther: "打家正在叫朋友，请稍候。",
+    ending: "最后一张已打完，正在结算本局结果。",
+    beatReady: (cards) => `已选择：${cards.join("、")}。当前选择构成毙牌，可以点“毙牌”确认。`,
+    playingIdle: "选择要出的牌。出牌直接落在桌布虚线区；轮到你时有 15 秒，超时会自动选择一手合法牌。",
+    selectionValid: (cards) => `已选择：${cards.join("、")}。花色内已按从大到小排列。`,
+  },
+  lastTrick: {
+    empty: "当前还没有上一轮记录。",
+    meta: (trickNumber, winnerName, points) => `第 ${trickNumber} 轮 · 胜者：${winnerName} · 本轮 ${points} 分`,
+  },
+  friendPicker: {
+    suitOptions: [
+      { value: "hearts", label: "红桃" },
+      { value: "spades", label: "黑桃" },
+      { value: "diamonds", label: "方块" },
+      { value: "clubs", label: "梅花" },
+      { value: "joker", label: "王" },
+    ],
+    occurrenceOptions: [
+      { value: 1, label: "第一张" },
+      { value: 2, label: "第二张" },
+      { value: 3, label: "第三张" },
+    ],
+  },
+  rules: {
+    throwPenaltySummaryDefender: (penalty) => `非打家少 ${penalty} 分`,
+    throwPenaltySummaryBanker: (penalty) => `非打家加 ${penalty} 分`,
+    validation: {
+      selectCards: "请选择要出的牌。",
+      leadSupported: "首家当前支持单张、对子、拖拉机、8 张含以上的宇宙飞船、刻子、推土机和基础甩牌。",
+      followCount: (count) => `这一轮需要跟 ${count} 张牌。`,
+      sameSuitFirst: "有足够同门牌时，必须先跟同门。",
+      pairMustFollow: "对家出对时，你有对子就必须跟对子；三张刻子不用强拆成对。",
+      tripleMustFollow: "首家出刻子时，你有刻子就必须跟刻子。",
+      tripleFollowPair: "首家出刻子时，没有刻子也要尽量跟对子。",
+      trainMustFollow: "首家出拖拉机或宇宙飞船时，你有同长度连对就必须跟连对。",
+      trainFollowPairs: "首家出拖拉机或宇宙飞船时，没有连对也要尽量跟对子；三张刻子不用拆对。",
+      bulldozerMustFollow: "首家出推土机时，你有同长度推土机就必须跟推土机。",
+      bulldozerTriples: "首家出推土机时，你有刻子就必须先跟刻子。",
+      bulldozerPairs: "首家出推土机时，你有对子就必须跟对子；两对即可，不需要把三张硬拆成对。",
+      samePattern: "有同牌型可跟时，必须按同牌型跟牌。",
+      exhaustSuit: "同门牌不够时，必须把手里剩余的同门牌全部跟出。",
+    },
+    bottomPenaltyLabels: {
+      single: "单张主牌扣底",
+      pair: "两张主牌扣底",
+      triple: "三张主牌扣底",
+      tractor: "主牌拖拉机扣底",
+    },
+  },
+  log: {
+    setupGame: (playerId) => `新牌局已准备好。下一局由玩家${playerId}先抓牌，点击“开始发牌”后正式进入发牌阶段。`,
+    startCallingFriend: (name) => `${name} 已扣底完成，当前需要先叫朋友，再进入出牌。`,
+    friendCalled: (label) => `已叫朋友：${label}。`,
+    enterPlaying: (name) => `进入出牌阶段，${name} 先出牌。`,
+    startDealing: "开始发牌。每位玩家按自己的等级牌亮主或反主。",
+    counterPhaseStart: (name, declaration) => `发牌结束，当前亮主为 ${name} 的 ${declaration}。`,
+    counterPhaseIntro: "进入最后反主阶段。若没人反主，本局将按当前亮主进入出牌。",
+    awaitingHumanDeclaration: "发牌结束，其他玩家都没有亮主。玩家1可在 15 秒内决定是否亮主；若超时未亮，则进入翻底定主。",
+    bottomRevealAnnouncement: (name) => `${name} 翻底定主`,
+    declare: (name, declaration) => `${name} 亮主：${declaration}。`,
+    redeclare: (name, declaration) => `${name} 抢亮：${declaration}。`,
+    counterDeclared: (name, isHuman) => `${name}${isHuman ? " 完成了最后反主" : " 在最后反主阶段完成反主"}。`,
+    counterPass: (name, isTimeout) => `${name}${isTimeout ? " 反主超时，自动不反主" : " 选择不反主"}。`,
+    counterEnd: "最后反主阶段结束，无人继续反主。",
+    buryComplete: (name) => `${name} 已重新扣下 7 张底牌。`,
+    takeBottom: (name) => `${name} 拿起底牌，请重新整理并扣下 7 张牌。`,
+    throwFailure: (name, cards, penalty, summary) => `${name} 甩牌失败，强制改出：${cards.join("、")}，扣 ${penalty} 分（${summary}）。`,
+    throwFailureAnnouncement: (name, penalty) => `${name} 甩牌失败 · 扣${penalty}分`,
+    play: (name, cards) => `${name} 出牌：${cards.join("、")}。`,
+    beatAnnouncement: (name) => `${name} 毙牌`,
+    friendMisplayed: (name, target) => `${name} 误打出了${target}，本局无朋友，变为 1 打 4。`,
+    friendRevealed: (name, target) => `${name} 打出了${target}，朋友身份揭晓。`,
+    teamsRevealed: (points) => `阵营已揭晓，非打家当前累计 ${points} 分。`,
+    trickWon: (name, trickNumber, points) => `${name} 赢下第 ${trickNumber} 轮，获得 ${points} 分。`,
+    finalBottomScore: (bottomPoints) => `最后一轮由非打家方获胜，底牌分按最多 25 分封顶后双倍计入，再加 ${bottomPoints} 分。`,
+    finalBottomPenalty: (label, levels) => `非打家以${label}完成扣底，打家额外降 ${levels} 级。`,
+    unrevealedFriendFinish: "本局朋友牌始终未被他人打出，按 1 打 4 结算。",
+  },
+  result: {
+    countdown: (countdown) => `30 秒后自动开局：${countdown}`,
+  },
+};
+
+function describeCard(card) {
+  if (!card) return "";
+  if (card.rank === "RJ") return TEXT.cards.bigJoker;
+  if (card.rank === "BJ") return TEXT.cards.smallJoker;
+  return `${SUIT_LABEL[card.suit]} ${card.rank}`;
+}
+
+function getOccurrenceLabel(occurrence = 1) {
+  return TEXT.occurrences[occurrence] || `第${occurrence}张`;
+}
+
+function describeTarget(target) {
+  const prefix = getOccurrenceLabel(target.occurrence ?? 1);
+  if (target.suit === "joker") {
+    return target.rank === "RJ" ? `${prefix}${TEXT.cards.bigJoker}` : `${prefix}${TEXT.cards.smallJoker}`;
+  }
+  return `${prefix}${SUIT_LABEL[target.suit]} ${target.rank}`;
+}
+
+function getNoTrumpCounterLabel(entry) {
+  if (!entry || entry.suit !== "notrump") return "";
+  const rank = entry.cards?.[0]?.rank;
+  if (rank === "RJ") return TEXT.declarations.noTrumpCounterBig;
+  if (rank === "BJ") return TEXT.declarations.noTrumpCounterSmall;
+  return TEXT.declarations.noTrumpCounterDefault;
+}
+
+function formatDeclaration(entry) {
+  if (entry?.source === "bottom") {
+    return entry.suit === "notrump"
+      ? TEXT.declarations.bottomNoTrump
+      : `${TEXT.declarations.bottomSuitPrefix}${SUIT_LABEL[entry.suit]}`;
+  }
+  if (entry.suit === "notrump") {
+    return getNoTrumpCounterLabel(entry);
+  }
+  return `${SUIT_LABEL[entry.suit]} ${entry.rank} x${entry.count}`;
+}
+
+function getActionSuitLabel(entry) {
+  return entry ? SUIT_LABEL[entry.suit] : "";
+}
+
+function updateResultCountdownLabel() {
+  if (!dom.resultCountdown || !dom.restartBtn) return;
+  dom.resultCountdown.textContent = TEXT.result.countdown(state.resultCountdownValue);
+  dom.restartBtn.textContent = state.resultCountdownValue > 0
+    ? TEXT.buttons.restartWithCountdown(state.resultCountdownValue)
+    : TEXT.buttons.restart;
+}
+
+function getPatternLabel(type) {
+  return TEXT.patterns[type] || "";
+}
+
+function getSpecialPatternAnnouncement(pattern, playerId) {
+  if (!pattern?.ok) return "";
+  const label = getPatternLabel(pattern.type);
+  if (!label) return "";
+  return `${getPlayer(playerId).name} 打出${label}`;
+}
+
+function getPlayAnnouncement(playerId, pattern, options = {}) {
+  const player = getPlayer(playerId);
+  if (!player || !pattern?.ok) return "";
+  const parts = [];
+  if (options.leadTrump) {
+    parts.push(TEXT.patterns.leadTrump);
+  }
+  const special = getPatternLabel(pattern.type);
+  if (special) {
+    parts.push(special);
+  }
+  if (parts.length === 0) return "";
+  return `${player.name} ${parts.join(" · ")}`;
+}
+
+function getFriendProgressAnnouncement(playerId, cards) {
+  if (state.currentTrick.length !== 1) return null;
+  if (!state.friendTarget || isFriendTeamResolved()) return null;
+  if (state.friendTarget.suit === "joker") return null;
+  const hasTargetSuit = cards.some((card) => card.suit === state.friendTarget.suit);
+  if (!hasTargetSuit) return null;
+  const hitExactTarget = cards.some(
+    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  if (hitExactTarget) return null;
+  return {
+    message: `${getPlayer(playerId).name} ${playerId === state.bankerId ? TEXT.friend.searching : TEXT.friend.assisting}`,
+    tone: "default",
+  };
+}
+
+function getTrickOutcomeAnnouncement(winnerId) {
+  if (winnerId === 1) return "上轮你大，请出牌";
+  return `上轮${getPlayer(winnerId).name}大`;
+}
+
+function getOutcome(points) {
+  if (points === 0) {
+    return {
+      title: TEXT.outcome.bankerBigWinTitle,
+      body: "非打家总分为 0 分，打家方升 3 级。当前这一版原型已经按你的五人规则做了这条判定。",
+      bankerLevels: 3,
+      defenderLevels: 0,
+    };
+  }
+  if (points < 60) {
+    return {
+      title: TEXT.outcome.bankerSmallWinTitle,
+      body: `非打家总分为 ${points} 分，小于 60 分，打家方升 2 级。`,
+      bankerLevels: 2,
+      defenderLevels: 0,
+    };
+  }
+  if (points < 120) {
+    return {
+      title: TEXT.outcome.bankerWinTitle,
+      body: `非打家总分为 ${points} 分，小于 120 分，打家方正常获胜，升 1 级。`,
+      bankerLevels: 1,
+      defenderLevels: 0,
+    };
+  }
+  if (points < 165) {
+    return {
+      title: TEXT.outcome.defenderWinTitle,
+      body: `非打家总分为 ${points} 分，已达到 120 分但未到 165 分。非打家方获胜，但本局不升级。`,
+      bankerLevels: 0,
+      defenderLevels: 0,
+    };
+  }
+  const levels = 1 + Math.floor((points - 165) / 60);
+  return {
+    title: TEXT.outcome.defenderLevelUpTitle,
+    body: `非打家总分为 ${points} 分，按你当前规则从 165 分开始升级，本局非打家方升 ${levels} 级。`,
+    bankerLevels: 0,
+    defenderLevels: levels,
+  };
+}
+
+function getLevelSettlementSummary(outcome) {
+  const parts = [];
+  if (outcome.bankerLevels > 0) {
+    const bankerLevels = getBankerTeamIds()
+      .map((playerId) => `玩家${playerId} Lv:${getPlayerLevel(playerId)}`)
+      .join("，");
+    parts.push(`打家方升级后：${bankerLevels}`);
+  }
+  if (outcome.defenderLevels > 0) {
+    const defenderLevels = getDefenderIds()
+      .map((playerId) => `玩家${playerId} Lv:${getPlayerLevel(playerId)}`)
+      .join("，");
+    parts.push(`非打家方升级后：${defenderLevels}`);
+  }
+  if (parts.length === 0) {
+    parts.push("当前等级保持不变，下一局继续按各自 Lv 亮主。");
+  } else {
+    parts.push("下一局继续按各自 Lv 亮主。");
+  }
+  return ` ${parts.join(" ")}`;
+}
+
+function getBottomResultText(bottomResult) {
+  if (!bottomResult) return "";
+  if (!bottomResult.defenderBottom) {
+    return ` 最后一轮由${bottomResult.playerName}守底成功，未发生非打家扣底；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+  }
+  if (bottomResult.penalty) {
+    return ` ${bottomResult.playerName}完成扣底，牌型为${bottomResult.penalty.label}，打家额外降 ${bottomResult.penalty.levels} 级；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+  }
+  return ` ${bottomResult.playerName}完成扣底，但未形成主牌降级；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+}
+
+function shortCardLabel(card) {
+  if (card.rank === "RJ") return TEXT.cards.bigJoker;
+  if (card.rank === "BJ") return TEXT.cards.smallJoker;
+  return `${SUIT_SYMBOL[card.suit] || ""}${card.rank}`;
+}

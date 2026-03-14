@@ -1336,6 +1336,9 @@
       :root {
         --mobile-card-width: clamp(30px, 8.8vw, 38px);
         --mobile-card-height: calc(var(--mobile-card-width) * 1.42);
+        --mobile-browser-bottom-gap: clamp(72px, 11svh, 96px);
+        --mobile-bottom-clearance: var(--mobile-browser-bottom-gap);
+        --mobile-viewport-height: 100svh;
       }
 
       html,
@@ -1856,15 +1859,15 @@
       }
 
       body.mobile-index2 .scene {
-        height: 100svh;
-        min-height: 100svh;
-        padding: max(6px, env(safe-area-inset-top)) 6px max(18px, env(safe-area-inset-bottom), 18px);
+        height: var(--mobile-viewport-height);
+        min-height: var(--mobile-viewport-height);
+        padding: max(6px, env(safe-area-inset-top)) 6px max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 18px);
       }
 
       body.mobile-index2 .table {
         position: relative;
         width: min(100%, 430px) !important;
-        height: calc(100svh - max(12px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom), 24px));
+        height: calc(var(--mobile-viewport-height) - max(12px, env(safe-area-inset-top)) - max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 24px));
         padding: 8px;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1873,8 +1876,8 @@
           clamp(86px, 11.5vh, 104px)
           clamp(86px, 11.5vh, 104px)
           clamp(92px, 12vh, 108px)
-          clamp(224px, 34vh, 286px)
-          clamp(56px, 7vh, 66px);
+          clamp(198px, 30vh, 244px)
+          clamp(52px, 6.6vh, 62px);
         gap: 6px;
         overflow: hidden;
         align-content: stretch;
@@ -2349,8 +2352,8 @@
       body.mobile-index2 .friend-card,
       body.mobile-index2 .bottom-reveal-cards .played-card,
       body.mobile-index2 .last-trick .played-card {
-        width: 39px;
-        height: 56px;
+        width: 36px;
+        height: 52px;
         margin-left: -8px;
       }
 
@@ -2368,7 +2371,7 @@
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 8px 7px calc(8px + max(4px, env(safe-area-inset-bottom)));
+        padding: 8px 7px calc(8px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 72px), 16px));
         border-radius: 14px;
         z-index: 6;
         margin: 0 auto;
@@ -2385,8 +2388,8 @@
       }
 
       body.mobile-index2 button.action-btn {
-        min-height: 34px;
-        padding: 7px 4px;
+        min-height: 32px;
+        padding: 6px 4px;
         font-size: 11px;
       }
 
@@ -2859,7 +2862,7 @@
             <li>打家扣底完成后，需要先叫朋友，再进入正式出牌。</li>
             <li>叫朋友时可选第一张、第二张或第三张目标牌；若打家误出前置张数，则本局可能变成 1 打 4。</li>
             <li>跟牌没有同类型时，只要满足同门和张数要求即可正常出牌。</li>
-            <li>首家可出单张、对子、拖拉机、火车、刻子、推土机和甩牌。</li>
+            <li>首家可出单张、对子、拖拉机、8 张含以上的宇宙飞船、刻子、推土机和甩牌。</li>
             <li>首家出主会触发“吊主”重点播报；毙牌、特殊牌型、上轮赢家也会重点提示。</li>
             <li>打无主时，王和本局级牌都算主；若最后被无主里的级牌扣底，照样按主牌扣底降级。</li>
           </ul>
@@ -2901,10 +2904,42 @@
       </main>
     </div>
 
-    <script src="./app.js"></script>
+    <script src="./src/platform/mobile.js"></script>
+    <script src="./src/shared/config.js"></script>
+    <script src="./src/shared/layout.js"></script>
+    <script src="./src/shared/text.js"></script>
+    <script src="./src/shared/rules.js"></script>
+    <script src="./src/shared/ai.js"></script>
+    <script src="./src/shared/game.js"></script>
+    <script src="./src/shared/ui.js"></script>
+    <script src="./src/shared/main.js"></script>
     <script>
       (() => {
         document.body.classList.add("mobile-index2");
+        const rootStyle = document.documentElement.style;
+        let viewportMetricsFrame = 0;
+
+        function applyViewportMetrics() {
+          const viewport = window.visualViewport;
+          const viewportHeight = viewport ? viewport.height : window.innerHeight;
+          const browserToolbarOffset = viewport
+            ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+            : 0;
+          const bottomClearance = Math.max(72, Math.min(108, browserToolbarOffset + 24));
+
+          rootStyle.setProperty("--mobile-viewport-height", `${Math.round(viewportHeight)}px`);
+          rootStyle.setProperty("--mobile-bottom-clearance", `${Math.round(bottomClearance)}px`);
+        }
+
+        function scheduleViewportMetrics() {
+          if (viewportMetricsFrame) return;
+          viewportMetricsFrame = window.requestAnimationFrame(() => {
+            viewportMetricsFrame = 0;
+            applyViewportMetrics();
+          });
+        }
+
+        applyViewportMetrics();
 
         const mobileDom = {
           topbar: document.getElementById("mobileTopbar"),
@@ -3321,6 +3356,10 @@
         mobileDom.broadcast.addEventListener("pointercancel", stopBroadcastDrag);
 
         window.addEventListener("fivefriends:render", handleRender);
+        window.addEventListener("resize", scheduleViewportMetrics);
+        window.addEventListener("orientationchange", scheduleViewportMetrics);
+        window.visualViewport?.addEventListener("resize", scheduleViewportMetrics);
+        window.visualViewport?.addEventListener("scroll", scheduleViewportMetrics);
         if (window.__fiveFriendsSnapshot) {
           handleRender({ detail: window.__fiveFriendsSnapshot });
         } else {

@@ -1731,6 +1731,8 @@ function getLegalHintForPlayer(playerId) {
     if (state.leadSpec.type === "triple") {
       const suitedTriples = findTriples(suited);
       if (suitedTriples.length > 0) return suitedTriples[0];
+      const searched = findLegalSelectionBySearch(playerId);
+      if (searched.length > 0) return searched;
     }
     if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train" || state.leadSpec.type === "bulldozer" || state.leadSpec.type === "throw") {
       const combos = getPatternCombos(suited, state.leadSpec);
@@ -2213,6 +2215,20 @@ function validateSelection(playerId, cards) {
     if (state.leadSpec.type === "pair") {
       if (hasForcedPair(suited) && pattern.type !== "pair") {
         return { ok: false, reason: "对家出对时，你有对子就必须跟对子；三张刻子不用强拆成对。" };
+      }
+      return { ok: true };
+    }
+
+    if (state.leadSpec.type === "triple") {
+      if (hasMatchingPattern(suited, state.leadSpec)) {
+        if (!matchesLeadPattern(pattern, state.leadSpec)) {
+          return { ok: false, reason: "首家出刻子时，你有刻子就必须跟刻子。" };
+        }
+        return { ok: true };
+      }
+
+      if (hasForcedPair(suited) && getForcedPairUnits(cards) < 1) {
+        return { ok: false, reason: "首家出刻子时，没有刻子也要尽量跟对子。" };
       }
       return { ok: true };
     }

@@ -24,6 +24,7 @@
         --ring: rgba(225, 185, 111, 0.4);
         --edge-gap: 24px;
         --panel-gap: 10px;
+        --top-row-height: 156px;
         --player1-seat-width: 204px;
         --player1-seat-height: 162px;
       }
@@ -134,7 +135,8 @@
         top: var(--edge-gap);
         left: var(--edge-gap);
         width: 248px;
-        min-height: 156px;
+        min-height: var(--top-row-height);
+        height: var(--top-row-height);
         padding: 14px;
         background:
           linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(243, 231, 204, 0.96));
@@ -165,8 +167,10 @@
         left: 50%;
         transform: translateX(-50%);
         width: min(648px, 43%);
-        min-height: 112px;
+        min-height: var(--top-row-height);
+        height: var(--top-row-height);
         padding: 14px 16px;
+        background: linear-gradient(180deg, rgba(236, 229, 212, 0.98), rgba(208, 195, 168, 0.96));
       }
 
       .hud-head {
@@ -174,6 +178,14 @@
         justify-content: space-between;
         align-items: center;
         gap: 12px;
+      }
+
+      .game-title {
+        font-family: "Heiti SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-size: 24px;
+        font-weight: 900;
+        color: #11171c;
+        letter-spacing: 0.8px;
       }
 
       .hud-tag-row {
@@ -223,35 +235,55 @@
       .score-panel {
         top: var(--edge-gap);
         right: var(--edge-gap);
-        width: 232px;
-        min-height: 156px;
-        padding: 14px;
+        width: 192px;
+        min-height: var(--top-row-height);
+        height: var(--top-row-height);
+        padding: 10px 11px;
+      }
+
+      .score-top {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 6px;
       }
 
       .score-big {
-        margin-top: 10px;
-        font-size: 38px;
+        margin-top: 0;
+        font-size: 36px;
         font-weight: 800;
         color: #8a571f;
+        line-height: 1;
       }
 
       .timer-ring {
         display: flex;
-        align-items: baseline;
-        gap: 8px;
-        margin-top: 12px;
+        align-items: start;
+        gap: 4px;
+        margin-top: 0;
       }
 
       .timer-ring strong {
-        font-size: 34px;
+        font-size: 26px;
         color: var(--red);
+        line-height: 1;
+      }
+
+      .score-stack {
+        min-width: 0;
+        text-align: right;
+      }
+
+      .score-stack .label {
+        font-size: 11px;
+        line-height: 1.2;
       }
 
       .score-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 14px;
+        gap: 6px;
+        margin-top: 8px;
       }
 
       .tiny-btn {
@@ -305,25 +337,29 @@
         top: var(--edge-gap);
         left: 19%;
         width: 148px;
-        min-height: 112px;
+        min-height: var(--top-row-height);
+        height: var(--top-row-height);
       }
 
       .seat.player-3 {
         top: var(--edge-gap);
         right: 19%;
         width: 148px;
-        min-height: 112px;
+        min-height: var(--top-row-height);
+        height: var(--top-row-height);
       }
 
       .seat.player-5 {
-        top: 41%;
+        top: auto;
+        bottom: calc(var(--edge-gap) + var(--player1-seat-height) + var(--panel-gap));
         left: var(--edge-gap);
         width: 148px;
         min-height: 112px;
       }
 
       .seat.player-2 {
-        top: 41%;
+        top: auto;
+        bottom: calc(var(--edge-gap) + var(--player1-seat-height) + var(--panel-gap));
         right: var(--edge-gap);
         width: 148px;
         min-height: 112px;
@@ -335,6 +371,37 @@
         width: var(--player1-seat-width);
         min-height: var(--player1-seat-height);
         height: var(--player1-seat-height);
+      }
+
+      .seat.player-1 .title {
+        font-size: 15px;
+      }
+
+      .seat.player-1 .seat-level {
+        margin-top: 5px;
+        padding: 2px 7px;
+        font-size: 10px;
+      }
+
+      .seat.player-1 .seat-stats {
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .seat.player-1 .seat-metric {
+        padding: 5px 4px;
+      }
+
+      .seat.player-1 .stat-label {
+        font-size: 9px;
+      }
+
+      .seat.player-1 .seat-count {
+        font-size: 18px;
+      }
+
+      .seat.player-1 .seat-score {
+        font-size: 16px;
       }
 
       .seat-top {
@@ -544,6 +611,83 @@
         pointer-events: none;
       }
 
+      .bottom-reveal-center {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        transform: translate(-50%, -50%);
+        width: 540px;
+        min-height: 186px;
+        padding: 16px 18px;
+        z-index: 4;
+        background:
+          linear-gradient(180deg, rgba(255, 251, 242, 0.96), rgba(238, 228, 206, 0.92));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.75),
+          0 20px 36px rgba(0, 0, 0, 0.16);
+      }
+
+      .bottom-reveal-center.hidden {
+        display: none;
+      }
+
+      .bottom-reveal-head {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .bottom-reveal-head .title {
+        display: block;
+        margin-bottom: 6px;
+        color: #6f4d22;
+      }
+
+      .bottom-reveal-head .subtle {
+        line-height: 1.5;
+      }
+
+      .bottom-reveal-timer {
+        min-width: 64px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(120, 74, 24, 0.08);
+        color: #87561f;
+        text-align: center;
+      }
+
+      .bottom-reveal-timer strong {
+        display: block;
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .bottom-reveal-timer span {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .bottom-reveal-cards {
+        display: flex;
+        justify-content: center;
+        align-items: end;
+        margin-top: 16px;
+        min-height: 96px;
+      }
+
+      .bottom-reveal-cards .played-card {
+        width: 66px;
+        height: 96px;
+        margin-left: -12px;
+      }
+
+      .bottom-reveal-cards .played-card:first-child {
+        margin-left: 0;
+      }
+
       .center-panel {
         position: absolute;
         left: 27%;
@@ -553,6 +697,33 @@
         min-height: 84px;
         background:
           linear-gradient(180deg, rgba(255, 249, 239, 0.98), rgba(239, 228, 202, 0.95));
+      }
+
+      .friend-picker {
+        left: 50%;
+        top: 54%;
+        transform: translate(-50%, -50%);
+        width: 380px;
+        padding: 16px 18px;
+        z-index: 8;
+        background:
+          linear-gradient(180deg, rgba(255, 250, 241, 0.99), rgba(240, 229, 203, 0.97));
+      }
+
+      .friend-picker .label {
+        margin-bottom: 8px;
+      }
+
+      .friend-picker-actions,
+      .friend-picker-preview {
+        margin-top: 12px;
+      }
+
+      .friend-picker-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
       }
 
       .center-head {
@@ -604,6 +775,10 @@
 
       .focus-announcement.ally {
         background: linear-gradient(180deg, rgba(41, 125, 86, 0.98), rgba(22, 85, 56, 0.94));
+      }
+
+      .focus-announcement.friend {
+        background: linear-gradient(180deg, rgba(225, 145, 53, 0.98), rgba(177, 96, 21, 0.94));
       }
 
       .center-tag {
@@ -741,7 +916,7 @@
 
       .log-panel {
         left: var(--edge-gap);
-        top: 20%;
+        top: calc(20% + 20px);
         width: 280px;
         min-height: 96px;
         padding: 14px 16px;
@@ -754,6 +929,8 @@
         color: var(--muted);
         font-size: 12px;
         line-height: 1.6;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .bottom-note {
@@ -786,7 +963,7 @@
 
       .hand-panel {
         position: absolute;
-        left: calc(var(--edge-gap) + var(--player1-seat-width) + var(--panel-gap));
+        left: calc(var(--edge-gap) + var(--player1-seat-width) + var(--panel-gap) + 10px);
         right: var(--edge-gap);
         bottom: var(--edge-gap);
         min-height: var(--player1-seat-height);
@@ -945,7 +1122,18 @@
 
       .result-card h2 {
         margin: 0;
-        font-family: "STSong", "Songti SC", "Noto Serif SC", serif;
+        font-family: "Heiti SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-size: 50px;
+        line-height: 1;
+        letter-spacing: 3px;
+      }
+
+      .result-card.win h2 {
+        color: #b5302d;
+      }
+
+      .result-card.loss h2 {
+        color: #15191d;
       }
 
       .result-card p {
@@ -1000,7 +1188,7 @@
 
         <section class="panel hud" data-layout-id="hud-panel">
           <div class="hud-head">
-            <div class="title" style="font-size: 22px;">五人找朋友升级</div>
+            <div class="game-title">五人找朋友升级</div>
             <div class="hud-tag-row">
               <div class="pill" id="phaseLabel"></div>
               <div class="pill" id="leaderLabel"></div>
@@ -1023,11 +1211,15 @@
         </section>
 
         <section class="panel score-panel" data-layout-id="score-panel">
-          <div class="label">非打家总分</div>
-          <div id="defenderScore" class="score-big">0</div>
-          <div class="timer-ring">
-            <strong id="turnTimer">15</strong>
-            <span class="subtle">秒</span>
+          <div class="score-top">
+            <div class="timer-ring">
+              <strong id="turnTimer">15</strong>
+              <span class="subtle">秒</span>
+            </div>
+            <div class="score-stack">
+              <div class="label">非打家总分</div>
+              <div id="defenderScore" class="score-big">0</div>
+            </div>
           </div>
           <div class="subtle" id="timerHint">当前轮到玩家1出牌</div>
           <div class="score-actions">
@@ -1053,6 +1245,20 @@
         <section id="trickSpot-1" class="panel trick-spot bottom" data-layout-id="trick-spot-1"></section>
         <section class="focus-banner" data-layout-id="focus-banner">
           <div id="focusAnnouncement" class="focus-announcement"></div>
+        </section>
+
+        <section id="bottomRevealCenter" class="panel bottom-reveal-center hidden">
+          <div class="bottom-reveal-head">
+            <div>
+              <strong class="title">翻底定主</strong>
+              <div id="bottomRevealText" class="subtle"></div>
+            </div>
+            <div class="bottom-reveal-timer">
+              <strong id="bottomRevealTimer">30</strong>
+              <span>秒后扣底</span>
+            </div>
+          </div>
+          <div id="bottomRevealCards" class="bottom-reveal-cards"></div>
         </section>
 
         <section id="logPanel" class="panel floating-panel log-panel" data-layout-id="log-panel">
@@ -1082,6 +1288,27 @@
           </div>
         </section>
 
+        <section id="friendPickerPanel" class="panel friend-picker hidden">
+          <div class="label">叫朋友</div>
+          <div id="friendPickerHint" class="subtle"></div>
+          <div class="friend-picker-actions">
+            <div class="label">先选第几张</div>
+            <div id="friendOccurrenceOptions" class="friend-picker-row"></div>
+          </div>
+          <div class="friend-picker-actions">
+            <div class="label">再选花色</div>
+            <div id="friendSuitOptions" class="friend-picker-row"></div>
+          </div>
+          <div class="friend-picker-actions">
+            <div class="label">再选点数</div>
+            <div id="friendRankOptions" class="friend-picker-row"></div>
+          </div>
+          <div id="friendPickerPreview" class="friend-picker-preview"></div>
+          <div class="action-row" style="margin-top: 14px;">
+            <button id="confirmFriendBtn" class="action-btn primary">确认叫朋友</button>
+          </div>
+        </section>
+
         <section id="bottomPanel" class="panel dark floating-panel bottom-note" data-layout-id="bottom-panel">
           <div id="bottomPanelDrag" class="panel-head panel-drag">
             <strong class="label">底牌 7 张</strong>
@@ -1101,8 +1328,13 @@
             </div>
           </div>
           <ul class="rules-list">
+            <li>首局由玩家1先抓牌；之后由上一局最后扣底或守底成功的玩家先抓牌。</li>
             <li>新牌局先等待玩家点击“开始发牌”，之后才进入发牌阶段。</li>
             <li>每位玩家按自己的 Lv 亮主或反主，不能自己反自己。</li>
+            <li>如果发牌结束后始终无人亮主，则由先抓牌的玩家翻底定主并直接做打家。</li>
+            <li>打家扣底完成后，需要先叫朋友，再进入正式出牌。</li>
+            <li>叫朋友时可选第一张、第二张或第三张目标牌；若打家误出前置张数，则本局可能变成 1 打 4。</li>
+            <li>AI 叫朋友时会优先找大牌，并尽量选择有“回手”路径的门，让朋友接手后还能把牌权顺回来。</li>
             <li>跟牌没有同类型时，只要满足同门和张数要求即可正常出牌。</li>
             <li>首家可出单张、对子、拖拉机、火车、刻子、推土机和甩牌。</li>
             <li>首家出主会触发“吊主”重点播报；毙牌、特殊牌型、上轮赢家也会重点提示。</li>
@@ -1129,7 +1361,7 @@
         </section>
 
         <div id="resultOverlay" class="result-overlay">
-          <div class="result-card">
+          <div id="resultCard" class="result-card">
             <h2 id="resultTitle"></h2>
             <p id="resultBody"></p>
             <div class="result-bottom">

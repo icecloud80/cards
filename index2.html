@@ -2369,7 +2369,7 @@
 
       body.mobile-index2 .trick-spot {
         display: block !important;
-        position: static !important;
+        position: relative !important;
         min-height: 0 !important;
         height: auto !important;
         width: 100%;
@@ -2412,6 +2412,15 @@
       body.mobile-index2 .mobile-spot-role.friend {
         background: rgba(47, 143, 106, 0.18);
         color: #8de0b8;
+      }
+
+      body.mobile-index2 .mobile-spot-no-trump {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        font-size: 14px;
+        line-height: 1;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.18));
       }
 
       body.mobile-index2 .trick-spot .spot-row {
@@ -2604,6 +2613,8 @@
         width: 36px;
         height: 52px;
         margin-left: -8px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -3310,7 +3321,17 @@
           mobileDom.friendOccurrence.classList.toggle("show", !!occurrence);
         }
 
-        function syncTrumpStatus() {
+        function syncTrumpStatus(snapshot) {
+          const declaration = snapshot?.declaration;
+          if (declaration?.suit === "notrump" && declaration.cards?.length) {
+            const card = declaration.cards[0];
+            renderMobileTopCard(
+              mobileDom.trumpCard,
+              `<img src="${card.img}" alt="${card.rank === "RJ" ? "大王" : card.rank === "BJ" ? "小王" : `${card.suit}${card.rank}`}" />`,
+              "--"
+            );
+            return;
+          }
           const label = originalDom.trumpLabel?.textContent.trim() || "";
           if (!label || label.includes("尚未亮主")) {
             renderMobileTopCard(mobileDom.trumpCard, "", "--");
@@ -3350,9 +3371,21 @@
               : roleKind === "friend"
                 ? player.role?.label || "朋友"
                 : "";
+            const showNoTrumpBadge = ["playing", "pause", "ending"].includes(snapshot.phase)
+              && player.handCount > 0
+              && !!player.exposedTrumpVoid;
             label.innerHTML = roleLabel
               ? `<span>${player.name}</span><span class="mobile-spot-role${roleKind === "friend" ? " friend" : ""}">${roleLabel}</span>`
               : `<span>${player.name}</span>`;
+            const existingBadge = spot.querySelector(".mobile-spot-no-trump");
+            if (existingBadge) existingBadge.remove();
+            if (showNoTrumpBadge) {
+              const badge = document.createElement("span");
+              badge.className = "mobile-spot-no-trump";
+              badge.setAttribute("aria-label", "无主牌");
+              badge.textContent = "🈚️";
+              spot.appendChild(badge);
+            }
             spot.dataset.mobileRole = player.role?.kind || "unknown";
           }
         }
@@ -3482,11 +3515,11 @@
             const paired = new Set(pairIndices);
             let rowIndex = 0;
             for (let index = 0; index < groupEntries.length; index += 1) {
+              if (rowIndex >= rows.length) break;
               if (index === pairIndices[0]) {
                 rows[rowIndex].appendChild(groupEntries[pairIndices[0]].node);
                 rows[rowIndex].appendChild(groupEntries[pairIndices[1]].node);
                 rowIndex += 1;
-                index = pairIndices[1];
                 continue;
               }
               if (paired.has(index)) continue;
@@ -3516,7 +3549,7 @@
           document.body.dataset.mobileScreen = isSetup ? "setup" : "play";
           mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
           mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
-          syncTrumpStatus();
+          syncTrumpStatus(snapshot);
           syncFriendCard(snapshot);
           syncTrickSpotDecorations(snapshot);
           renderInfoSheet(snapshot);
@@ -3643,7 +3676,7 @@
           handleRender({ detail: window.__fiveFriendsSnapshot });
         } else {
           document.body.dataset.mobileScreen = originalDom.startGameBtn.hidden ? "play" : "setup";
-          syncTrumpStatus();
+          syncTrumpStatus(window.__fiveFriendsSnapshot || null);
           syncFriendCard(window.__fiveFriendsSnapshot || null);
           syncMenuLabels();
           syncBroadcast();

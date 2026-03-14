@@ -27,7 +27,20 @@ function render() {
       handCount: player.hand.length,
       capturedPoints: player.capturedPoints,
       role: getVisibleRole(player.id),
+      exposedTrumpVoid: !!state.exposedTrumpVoid[player.id],
     })),
+    declaration: state.declaration
+      ? {
+          suit: state.declaration.suit,
+          rank: state.declaration.rank,
+          count: state.declaration.count,
+          cards: (state.declaration.cards || []).map((card) => ({
+            suit: card.suit,
+            rank: card.rank,
+            img: card.img,
+          })),
+        }
+      : null,
     friendTarget: state.friendTarget
       ? {
           label: state.friendTarget.label,
@@ -426,7 +439,11 @@ function renderHand() {
       const canInteract = (state.phase === "playing" && isHumanTurnActive()) || (state.phase === "burying" && state.bankerId === 1);
       button.disabled = !canInteract;
       if (canInteract) {
-        button.addEventListener("click", () => toggleSelection(card.id));
+        const eventName = APP_PLATFORM === "mobile" ? "pointerup" : "click";
+        button.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          toggleSelection(card.id);
+        });
       }
       row.appendChild(button);
     }

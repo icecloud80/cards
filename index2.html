@@ -1891,9 +1891,7 @@
       body.mobile-index2 .mobile-topbar {
         grid-column: 1 / -1;
         display: grid;
-        grid-template-columns: 48px 46px 46px 46px 30px 30px 30px;
-        gap: 4px;
-        align-items: center;
+        gap: 8px;
         padding: 8px 8px;
         border-radius: 14px;
         background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(238, 228, 206, 0.95));
@@ -1901,8 +1899,23 @@
         z-index: 5;
       }
 
+      body.mobile-index2 .mobile-topbar-main {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      body.mobile-index2 .mobile-topbar-sub {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+      }
+
       body.mobile-index2 .mobile-stat {
         min-width: 0;
+        flex: 0 0 auto;
       }
 
       body.mobile-index2 .mobile-stat span {
@@ -1928,19 +1941,19 @@
       }
 
       body.mobile-index2 .mobile-state {
-        display: flex;
-        flex-direction: column;
+        display: inline-flex;
         align-items: center;
-        justify-content: center;
-        gap: 3px;
+        gap: 6px;
         min-width: 0;
+        flex: 0 0 auto;
       }
 
       body.mobile-index2 .mobile-state-tag {
         color: #85541d;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 800;
         line-height: 1;
+        letter-spacing: 0.2px;
       }
 
       body.mobile-index2 .mobile-state-card {
@@ -1977,19 +1990,24 @@
       body.mobile-index2 .mobile-icon-btn {
         border: 0;
         border-radius: 8px;
-        width: 30px;
-        height: 30px;
+        width: 32px;
+        height: 32px;
         padding: 0;
         background: rgba(16, 44, 54, 0.1);
         color: var(--text);
         font: inherit;
-        font-size: 15px;
+        font-size: 17px;
         font-weight: 800;
         cursor: pointer;
       }
 
-      body.mobile-index2 .mobile-icon-btn.info {
-        font-size: 18px;
+      body.mobile-index2 .mobile-topbar-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        flex: 0 0 auto;
       }
 
       body.mobile-index2 .mobile-setup-screen {
@@ -2518,25 +2536,31 @@
     <div class="scene">
       <main class="table">
         <section id="mobileTopbar" class="mobile-topbar">
-          <div class="mobile-stat">
-            <span>总分</span>
-            <strong id="mobileScore">0</strong>
+          <div class="mobile-topbar-main">
+            <div class="mobile-stat">
+              <span>总分</span>
+              <strong id="mobileScore">0</strong>
+            </div>
+            <div class="mobile-stat">
+              <span>计秒</span>
+              <strong id="mobileTimer">--</strong>
+            </div>
+            <div class="mobile-topbar-actions">
+              <button id="mobileInfoBtn" class="mobile-icon-btn" type="button" aria-label="查看信息">&#8505;</button>
+              <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮">&#8635;</button>
+              <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单">&#9776;</button>
+            </div>
           </div>
-          <div class="mobile-stat">
-            <span>计秒</span>
-            <strong id="mobileTimer">--</strong>
+          <div class="mobile-topbar-sub">
+            <div class="mobile-state">
+              <span class="mobile-state-tag">主</span>
+              <div id="mobileTrumpCard" class="mobile-state-card empty">--</div>
+            </div>
+            <div class="mobile-state">
+              <span class="mobile-state-tag">朋</span>
+              <div id="mobileFriendCard" class="mobile-state-card mobile-friend-card empty">--</div>
+            </div>
           </div>
-          <div class="mobile-state">
-            <span class="mobile-state-tag">主</span>
-            <div id="mobileTrumpCard" class="mobile-state-card empty">--</div>
-          </div>
-          <div class="mobile-state">
-            <span class="mobile-state-tag">朋</span>
-            <div id="mobileFriendCard" class="mobile-state-card mobile-friend-card empty">--</div>
-          </div>
-          <button id="mobileInfoBtn" class="mobile-icon-btn info" type="button" aria-label="查看信息">&#9432;</button>
-          <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮">&#8617;</button>
-          <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单">&#9776;</button>
         </section>
 
         <section id="mobileSetupScreen" class="mobile-setup-screen">

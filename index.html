@@ -604,7 +604,7 @@
 
       .trick-spot.left {
         top: 40%;
-        left: 16%;
+        left: 14.5%;
         width: 332px;
         min-height: 152px;
       }
@@ -744,6 +744,12 @@
         gap: 16px;
       }
 
+      .bottom-reveal-side {
+        display: flex;
+        align-items: start;
+        gap: 8px;
+      }
+
       .bottom-reveal-head .title {
         display: block;
         margin-bottom: 6px;
@@ -774,6 +780,20 @@
         margin-top: 4px;
         font-size: 11px;
         font-weight: 700;
+      }
+
+      .bottom-reveal-close {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 10px;
+        background: rgba(120, 74, 24, 0.1);
+        color: #87561f;
+        font: inherit;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
       }
 
       .bottom-reveal-cards {
@@ -1359,9 +1379,12 @@
               <strong class="title">翻底定主</strong>
               <div id="bottomRevealText" class="subtle"></div>
             </div>
-            <div class="bottom-reveal-timer">
-              <strong id="bottomRevealTimer">30</strong>
-              <span>秒后扣底</span>
+            <div class="bottom-reveal-side">
+              <div class="bottom-reveal-timer">
+                <strong id="bottomRevealTimer">30</strong>
+                <span>秒后扣底</span>
+              </div>
+              <button id="closeBottomRevealBtn" class="bottom-reveal-close" type="button" aria-label="提前结束翻底展示">×</button>
             </div>
           </div>
           <div id="bottomRevealCards" class="bottom-reveal-cards"></div>

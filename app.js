@@ -59,7 +59,7 @@ const PLAYER_AVATARS = {
   4: { label: "老虎", src: "./avatars/tiger.svg" },
   5: { label: "狼", src: "./avatars/wolf.svg" },
 };
-const LAYOUT_STORAGE_KEY = "five-friends-layout-v8";
+const LAYOUT_STORAGE_KEY = "five-friends-layout-v9";
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
   return acc;
@@ -90,6 +90,7 @@ const dom = {
   bottomRevealText: document.getElementById("bottomRevealText"),
   bottomRevealTimer: document.getElementById("bottomRevealTimer"),
   bottomRevealCards: document.getElementById("bottomRevealCards"),
+  closeBottomRevealBtn: document.getElementById("closeBottomRevealBtn"),
   handSummary: document.getElementById("handSummary"),
   handGroups: document.getElementById("handGroups"),
   lastTrickPanel: document.getElementById("lastTrickPanel"),
@@ -788,11 +789,17 @@ function startBottomRevealPhase() {
   state.countdownTimer = window.setInterval(() => {
     state.countdown -= 1;
     renderScorePanel();
+    renderBottomRevealCenter();
     if (state.countdown <= 0) {
-      clearTimers();
-      startBuryingPhase();
+      finishBottomRevealPhase();
     }
   }, 1000);
+}
+
+function finishBottomRevealPhase() {
+  if (state.phase !== "bottomReveal") return;
+  clearTimers();
+  startBuryingPhase();
 }
 
 function describeTarget(target) {
@@ -1187,6 +1194,10 @@ function getNextPlayerId(id) {
   return (id % 5) + 1;
 }
 
+function getPreviousPlayerId(id) {
+  return id === PLAYER_ORDER[0] ? PLAYER_ORDER[PLAYER_ORDER.length - 1] : id - 1;
+}
+
 function getVisibleDefenderPoints() {
   if (!isFriendTeamResolved()) {
     return null;
@@ -1376,6 +1387,36 @@ function getAiHandStrength(playerId) {
   }, 0);
 }
 
+function getAiRevealPatternPressure(player) {
+  if (!player) return 0;
+  const bulldozers = findSerialTuples(player.hand, 3);
+  if (bulldozers.length > 0) return 3;
+  const trains = findSerialTuples(player.hand, 2).filter((combo) => classifyPlay(combo).type === "train");
+  if (trains.length > 0) return 3;
+  const tractors = findSerialTuples(player.hand, 2).filter((combo) => classifyPlay(combo).type === "tractor");
+  if (tractors.length > 0) return 2;
+  const strongTriples = findTriples(player.hand);
+  if (strongTriples.length > 0) return 1;
+  return 0;
+}
+
+function getGoalkeeperId() {
+  return getPreviousPlayerId(state.nextFirstDealPlayerId || PLAYER_ORDER[0]);
+}
+
+function getAiRevealIntentScore(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return 0;
+  let score = 0;
+  if (getAiHandStrength(playerId) >= 18) score += 1;
+  if (player.hand.filter((card) => isTrump(card)).length >= 4) score += 1;
+  score += getAiRevealPatternPressure(player);
+  if (state.trickNumber === 1 && playerId === getGoalkeeperId()) {
+    score += 2;
+  }
+  return score;
+}
+
 function shouldAiRevealFriend(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
   const player = getPlayer(playerId);
@@ -1385,7 +1426,19 @@ function shouldAiRevealFriend(playerId) {
   if (currentSeen + 1 !== neededOccurrence) return false;
   const hasTarget = player.hand.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank);
   if (!hasTarget) return false;
-  return getAiHandStrength(playerId) >= 18 || player.hand.filter((card) => isTrump(card)).length >= 4;
+  return getAiRevealIntentScore(playerId) >= 2;
+}
+
+function chooseAiRevealCombo(candidates) {
+  const revealChoices = candidates.filter((combo) =>
+    combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
+  );
+  if (revealChoices.length === 0) return [];
+  return revealChoices.sort((a, b) => {
+    const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return classifyPlay(a).power - classifyPlay(b).power;
+  })[0];
 }
 
 function getLegalSelectionsForPlayer(playerId, limit = 72) {
@@ -1441,6 +1494,11 @@ function chooseAiFollowPlay(playerId, candidates) {
   const currentWinningPlay = getCurrentWinningPlay();
   const allyWinning = currentWinningPlay ? areSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
+  const revealChoice = shouldAiRevealFriend(playerId) ? chooseAiRevealCombo(candidates) : [];
+
+  if (revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
+    return revealChoice;
+  }
 
   if (!allyWinning && beatingCandidates.length > 0) {
     return beatingCandidates.sort((a, b) => {
@@ -1462,11 +1520,8 @@ function chooseAiFollowPlay(playerId, candidates) {
     })[0];
   }
 
-  if (shouldAiRevealFriend(playerId)) {
-    const revealChoice = candidates.find((combo) =>
-      combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
-    );
-    if (revealChoice) return revealChoice;
+  if (revealChoice.length > 0) {
+    return revealChoice;
   }
 
   return candidates.sort((a, b) => {
@@ -3240,6 +3295,10 @@ dom.friendOccurrenceOptions.addEventListener("click", (event) => {
 dom.confirmFriendBtn.addEventListener("click", () => {
   if (state.phase !== "callingFriend" || state.bankerId !== 1) return;
   confirmFriendTargetSelection();
+});
+
+dom.closeBottomRevealBtn.addEventListener("click", () => {
+  finishBottomRevealPhase();
 });
 
 document.addEventListener("click", (event) => {

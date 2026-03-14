@@ -2723,6 +2723,7 @@ function renderSeats() {
     const seat = document.getElementById(`playerSeat-${player.id}`);
     const role = getVisibleRole(player.id);
     const avatar = PLAYER_AVATARS[player.id];
+    const noTrumpBadge = player.hand.length > 0 && !player.hand.some((card) => isTrump(card)) ? " 🈚️" : "";
     seat.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
     seat.classList.toggle("role-banker", role.kind === "banker");
     seat.innerHTML = `
@@ -2731,7 +2732,7 @@ function renderSeats() {
         <div class="seat-copy">
           <div class="title">${player.name}</div>
           <div class="seat-meta">${player.isHuman ? "本人操控" : "电脑操控"}</div>
-          <div class="seat-level">Lv:${player.level}</div>
+          <div class="seat-level">Lv:${player.level}${noTrumpBadge}</div>
         </div>
       </div>
       <div class="role-badge ${role.kind}">${role.label}</div>

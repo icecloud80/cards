@@ -14,7 +14,7 @@ const SUIT_SYMBOL = {
   hearts: "♥",
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
-const APP_VERSION_LABEL = "原型版 v1.0";
+const APP_VERSION_LABEL = "原型版 v1.1";
 const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
 const TRUMP_PENALTY_LEVEL_FALLBACK = {
   J: "2",
@@ -178,6 +178,8 @@ const state = {
   selectedFriendRank: "A",
   nextFirstDealPlayerId: 1,
   bottomRevealMessage: "",
+  exposedTrumpVoid: {},
+  awaitingHumanDeclaration: false,
 };
 
 function createDeck() {
@@ -425,6 +427,11 @@ function setupGame() {
   state.selectedFriendOccurrence = 1;
   state.selectedFriendSuit = "hearts";
   state.selectedFriendRank = "A";
+  state.exposedTrumpVoid = PLAYER_ORDER.reduce((acc, id) => {
+    acc[id] = false;
+    return acc;
+  }, {});
+  state.awaitingHumanDeclaration = false;
   state.currentTurnId = state.nextFirstDealPlayerId || 1;
   state.leaderId = state.currentTurnId;
   dom.resultOverlay.classList.remove("show");
@@ -656,6 +663,7 @@ function startDealing() {
   clearTimers();
   if (state.gameOver || state.phase !== "ready") return;
   state.phase = "dealing";
+  state.awaitingHumanDeclaration = false;
   appendLog("开始发牌。每位玩家按自己的等级牌亮主或反主。");
   render();
   queueDealStep(140);
@@ -751,6 +759,12 @@ function finishDealingPhase() {
   if (state.phase !== "dealing") return;
 
   if (!state.declaration) {
+    const humanDeclaration = getBestDeclarationForPlayer(1);
+    if (humanDeclaration && !state.awaitingHumanDeclaration) {
+      startAwaitingHumanDeclaration();
+      return;
+    }
+    state.awaitingHumanDeclaration = false;
     const firstDealPlayerId = state.nextFirstDealPlayerId || 1;
     const bottomDeclaration = resolveBottomDeclarationForPlayer(firstDealPlayerId);
     state.declaration = bottomDeclaration;
@@ -758,7 +772,7 @@ function finishDealingPhase() {
     state.bankerId = firstDealPlayerId;
     state.levelRank = getPlayerLevel(firstDealPlayerId);
     if (bottomDeclaration.suit === "notrump") {
-      state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到${bottomDeclaration.revealCard ? describeCard(bottomDeclaration.revealCard) : "王"}，本局定为无主，${getPlayer(firstDealPlayerId).name}做打家。`;
+      state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到${bottomDeclaration.revealCard ? describeCard(bottomDeclaration.revealCard) : "王"}，本局定为无主，王和级牌都算主，${getPlayer(firstDealPlayerId).name}做打家。`;
     } else if (bottomDeclaration.revealCard?.rank === state.levelRank) {
       state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到级牌${describeCard(bottomDeclaration.revealCard)}，定${SUIT_LABEL[bottomDeclaration.suit]}为主，${getPlayer(firstDealPlayerId).name}做打家。`;
     } else {
@@ -779,6 +793,23 @@ function finishDealingPhase() {
   appendLog("进入最后反主阶段。若没人反主，本局将按当前亮主进入出牌。");
   render();
   startCounterTurn();
+}
+
+function startAwaitingHumanDeclaration() {
+  clearTimers();
+  state.awaitingHumanDeclaration = true;
+  state.countdown = 15;
+  appendLog("发牌结束，其他玩家都没有亮主。玩家1可在 15 秒内决定是否亮主；若超时未亮，则进入翻底定主。");
+  render();
+  state.countdownTimer = window.setInterval(() => {
+    state.countdown -= 1;
+    renderScorePanel();
+    renderCenterPanel();
+    if (state.countdown <= 0) {
+      clearTimers();
+      finishDealingPhase();
+    }
+  }, 1000);
 }
 
 function startBottomRevealPhase() {
@@ -896,6 +927,7 @@ function declareTrump(playerId, declaration, source = "manual") {
 
   const player = getPlayer(playerId);
   const previous = state.declaration;
+  state.awaitingHumanDeclaration = false;
   state.declaration = {
     playerId,
     suit: declaration.suit,
@@ -1358,7 +1390,7 @@ function getFriendProgressAnnouncement(playerId, cards) {
 
 function getTrickOutcomeAnnouncement(winnerId) {
   if (winnerId === 1) return "上轮你大，请出牌";
-  return `上轮${getPlayer(winnerId).name}大，请出牌`;
+  return `上轮${getPlayer(winnerId).name}大`;
 }
 
 function isVisibleAllyOfHuman(playerId) {
@@ -1443,6 +1475,27 @@ function chooseAiRevealCombo(candidates) {
   })[0];
 }
 
+function getPendingPlayersAfter(playerId) {
+  if (!state.leadSpec || state.currentTrick.length === 0) return [];
+  const pending = [];
+  let nextPlayerId = getNextPlayerId(playerId);
+  while (nextPlayerId !== state.leaderId && pending.length < PLAYER_ORDER.length) {
+    pending.push(nextPlayerId);
+    nextPlayerId = getNextPlayerId(nextPlayerId);
+  }
+  return pending;
+}
+
+function canPlayerBeatCurrentWinning(playerId) {
+  const legalSelections = getLegalSelectionsForPlayer(playerId, 48);
+  return legalSelections.some((combo) => doesSelectionBeatCurrent(playerId, combo));
+}
+
+function isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay) {
+  if (!currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return false;
+  return !getPendingPlayersAfter(playerId).some((pendingPlayerId) => canPlayerBeatCurrentWinning(pendingPlayerId));
+}
+
 function getTargetVirtualCard(target = state.friendTarget) {
   if (!target) return null;
   return {
@@ -1459,13 +1512,14 @@ function isOneStepBelowFriendTarget(card, target = state.friendTarget) {
   return getPatternUnitPower(targetCard, effectiveSuit(targetCard)) - getPatternUnitPower(card, effectiveSuit(card)) === 1;
 }
 
-function chooseAiSupportBeforeReveal(candidates, currentWinningPlay) {
+function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (!state.friendTarget || !currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return [];
   if (state.trickNumber !== 1 || state.currentTrick[0]?.playerId !== state.bankerId) return [];
   if (state.currentTrick[0]?.cards.length !== 1) return [];
 
   const bankerLeadCard = state.currentTrick[0].cards[0];
   if (!isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget)) return [];
+  if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return [];
 
   const supportChoices = candidates.filter((combo) =>
     !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
@@ -1515,6 +1569,14 @@ function chooseAiLeadPlay(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
   if (playerId === state.bankerId && state.friendTarget && !isFriendTeamResolved() && state.friendTarget.suit !== "joker") {
+    const targetCopies = player.hand.filter(
+      (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+    );
+    const currentSeen = state.friendTarget.matchesSeen || 0;
+    const remainingBeforeReveal = (state.friendTarget.occurrence || 1) - currentSeen;
+    if (targetCopies.length > 0 && remainingBeforeReveal > 1) {
+      return [targetCopies[0]];
+    }
     const searchSuitCards = player.hand.filter(
       (card) => card.suit === state.friendTarget.suit && card.rank !== state.friendTarget.rank
     );
@@ -1535,7 +1597,7 @@ function chooseAiFollowPlay(playerId, candidates) {
   const allyWinning = currentWinningPlay ? areSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
   const revealChoice = shouldAiRevealFriend(playerId) ? chooseAiRevealCombo(candidates) : [];
-  const supportChoice = revealChoice.length > 0 ? chooseAiSupportBeforeReveal(candidates, currentWinningPlay) : [];
+  const supportChoice = revealChoice.length > 0 ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
 
   if (supportChoice.length > 0) {
     return supportChoice;
@@ -2202,6 +2264,13 @@ function playCards(playerId, cardIds, options = {}) {
   player.hand = sortHand(player.hand);
 
   const playedCards = sortPlayedCards(cards);
+  const exposedTrumpVoid = state.currentTrick.length > 0
+    && state.leadSpec?.suit === "trump"
+    && playedCards.some((card) => effectiveSuit(card) !== "trump")
+    && !player.hand.some((card) => isTrump(card));
+  if (exposedTrumpVoid) {
+    state.exposedTrumpVoid[playerId] = true;
+  }
   state.currentTrick.push({ playerId, cards: playedCards });
   player.played = playedCards;
   let leadTrumpAnnouncement = false;
@@ -2789,16 +2858,16 @@ function renderHud() {
   dom.trumpLabel.textContent = state.declaration
     ? (state.declaration.source === "bottom"
       ? (state.declaration.suit === "notrump"
-        ? `无主 · 翻底定主`
+        ? `无主（王和级牌为主） · 翻底定主`
         : `${SUIT_LABEL[state.declaration.suit]} · 翻底定主`)
       : (state.declaration.suit === "notrump"
-        ? `无主 · ${state.declaration.count} 张亮`
+        ? `无主（王和级牌为主） · ${state.declaration.count} 张亮`
         : `${SUIT_LABEL[state.declaration.suit]} ${state.declaration.rank} · ${state.declaration.count} 张亮`))
     : "尚未亮主 · 各家按自己的 Lv 亮主";
   dom.bankerLabel.textContent = state.phase === "ready"
     ? "待亮主确定"
     : state.phase === "dealing"
-    ? (state.declaration ? `暂定 ${getPlayer(state.declaration.playerId).name}` : "待亮主确定")
+    ? (state.declaration ? `暂定 ${getPlayer(state.declaration.playerId).name}` : (state.awaitingHumanDeclaration ? "待玩家1确认" : "待亮主确定"))
     : state.phase === "bottomReveal"
       ? "翻底结果展示中"
     : state.phase === "countering"
@@ -2811,7 +2880,7 @@ function renderHud() {
   dom.trickLabel.textContent = state.phase === "ready"
     ? "等待开始"
     : state.phase === "dealing"
-    ? `发至 ${state.dealIndex} / ${state.dealCards.length}`
+    ? (state.awaitingHumanDeclaration ? "补亮等待" : `发至 ${state.dealIndex} / ${state.dealCards.length}`)
     : state.phase === "bottomReveal"
       ? "展示底牌"
     : state.phase === "countering"
@@ -2829,7 +2898,7 @@ function renderScorePanel() {
   const visibleDefenderPoints = getVisibleDefenderPoints();
   dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
   dom.toggleLastTrickBtn.textContent = state.showLastTrick ? "收起上一轮" : "上一轮";
-  dom.turnTimer.textContent = (state.phase === "ready" || state.phase === "dealing" || state.phase === "callingFriend" || state.phase === "ending")
+  dom.turnTimer.textContent = (state.phase === "ready" || (state.phase === "dealing" && !state.awaitingHumanDeclaration) || state.phase === "callingFriend" || state.phase === "ending")
     ? "--"
     : String(Math.max(0, state.countdown));
   dom.timerHint.textContent = state.gameOver
@@ -2837,7 +2906,9 @@ function renderScorePanel() {
     : state.phase === "ready"
       ? `新牌局已就绪。当前由玩家${state.nextFirstDealPlayerId || 1}先抓牌，点击“开始发牌”后进入抓牌与亮主流程。`
     : state.phase === "dealing"
-      ? "发牌进行中，每位玩家用自己当前 Lv 对应的级牌亮主或抢亮；若始终无人亮主，则由先抓牌玩家翻底定主做打家。"
+      ? (state.awaitingHumanDeclaration
+        ? "发牌结束。其他玩家都没有亮主，玩家1可在 15 秒内决定是否补亮；超时后再翻底定主。"
+        : "发牌进行中，每位玩家用自己当前 Lv 对应的级牌亮主或抢亮；若始终无人亮主，则由先抓牌玩家翻底定主做打家。打无主时，王和本局级牌都算主。")
       : state.phase === "bottomReveal"
         ? `${state.bottomRevealMessage} 底牌公开展示 30 秒后进入扣底。`
       : state.phase === "countering"
@@ -2863,7 +2934,7 @@ function renderSeats() {
     const avatar = PLAYER_AVATARS[player.id];
     const showNoTrumpBadge = ["playing", "pause", "ending"].includes(state.phase)
       && player.hand.length > 0
-      && !player.hand.some((card) => isTrump(card));
+      && !!state.exposedTrumpVoid[player.id];
     seat.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
     seat.classList.toggle("role-banker", role.kind === "banker");
     seat.innerHTML = `
@@ -2994,9 +3065,13 @@ function renderHand() {
     dom.handSummary.textContent = `新牌局已准备好。你当前是 Lv:${human.level}，本局由玩家${state.nextFirstDealPlayerId || 1}先抓牌，点击“开始发牌”后进入抓牌和亮主。`;
   } else if (state.phase === "dealing") {
     const humanOptions = getDeclarationOptions(1);
-    dom.handSummary.textContent = humanOptions.length > 0
-      ? `当前共 ${human.hand.length} 张，已可亮主：${humanOptions.map((entry) => formatDeclaration(entry)).join(" / ")}。`
-      : `当前共 ${human.hand.length} 张，发牌中按花色分组显示；你当前是 Lv:${human.level}，拿到同花色两张 ${human.level} 即可亮主。`;
+    dom.handSummary.textContent = state.awaitingHumanDeclaration
+      ? (humanOptions.length > 0
+        ? `当前共 ${human.hand.length} 张，其他玩家都没亮主；你可在 ${Math.max(0, state.countdown)} 秒内补亮：${humanOptions.map((entry) => formatDeclaration(entry)).join(" / ")}。`
+        : `当前共 ${human.hand.length} 张，其他玩家都没亮主，等待翻底定主。`)
+      : (humanOptions.length > 0
+        ? `当前共 ${human.hand.length} 张，已可亮主：${humanOptions.map((entry) => formatDeclaration(entry)).join(" / ")}。`
+        : `当前共 ${human.hand.length} 张，发牌中按花色分组显示；你当前是 Lv:${human.level}，拿到同花色两张 ${human.level} 即可亮主。`);
   } else if (state.phase === "countering") {
     const counterOption = getCounterDeclarationForPlayer(1);
     dom.handSummary.textContent = counterOption
@@ -3104,6 +3179,12 @@ function updateActionHint() {
   }
   if (state.phase === "dealing") {
     const best = getBestDeclarationForPlayer(1);
+    if (state.awaitingHumanDeclaration) {
+      dom.actionHint.textContent = best && canOverrideDeclaration(best)
+        ? `其他玩家都没亮主。你可在 ${Math.max(0, state.countdown)} 秒内补亮 ${formatDeclaration(best)}；若不亮，则转入翻底定主。`
+        : "其他玩家都没亮主，等待翻底定主。";
+      return;
+    }
     if (best && canOverrideDeclaration(best)) {
       dom.actionHint.textContent = `发牌中。你现在可以亮主：${formatDeclaration(best)}。如果不点“亮主”，发牌会继续进行。`;
       return;
@@ -3397,7 +3478,11 @@ dom.declareBtn.addEventListener("click", () => {
   if (state.phase === "dealing") {
     const best = getBestDeclarationForPlayer(1);
     if (!best || !canOverrideDeclaration(best)) return;
-    declareTrump(1, best, "manual");
+    if (!declareTrump(1, best, "manual")) return;
+    if (state.dealIndex >= state.dealCards.length) {
+      clearTimers();
+      finishDealingPhase();
+    }
     return;
   }
   if (state.phase === "countering") {

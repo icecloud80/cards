@@ -1299,6 +1299,13 @@
         line-height: 1.6;
       }
 
+      .result-countdown {
+        margin-top: 14px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #7b5a2a;
+      }
+
       .result-bottom {
         margin-top: 18px;
         padding: 12px 14px;
@@ -1524,12 +1531,14 @@
           <div id="resultCard" class="result-card">
             <h2 id="resultTitle"></h2>
             <p id="resultBody"></p>
+            <div id="resultCountdown" class="result-countdown">30 秒后自动开局：30</div>
             <div class="result-bottom">
               <div class="label">底牌亮出</div>
               <div id="resultBottomCards" class="bottom-cards"></div>
             </div>
             <div class="action-row" style="margin-top: 18px;">
               <button id="restartBtn" class="action-btn primary">再来一局</button>
+              <button id="closeResultBtn" class="action-btn">回到主界面</button>
             </div>
           </div>
         </div>

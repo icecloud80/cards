@@ -2408,11 +2408,20 @@
         box-shadow: var(--shadow-lg);
       }
 
+      body.mobile-index2 .mobile-sheet-card.dark {
+        background: linear-gradient(180deg, rgba(22, 38, 48, 0.96), rgba(10, 20, 28, 0.94));
+        color: #f8f0dc;
+      }
+
       body.mobile-index2 .mobile-sheet-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         margin-bottom: 10px;
+      }
+
+      body.mobile-index2 .mobile-sheet-card.dark .mobile-sheet-head {
+        margin-bottom: 8px;
       }
 
       body.mobile-index2 .mobile-menu-actions {
@@ -2501,6 +2510,27 @@
         color: var(--muted);
         font-size: 12px;
         line-height: 1.6;
+      }
+
+      body.mobile-index2 .mobile-sheet-card.dark .mobile-log-list,
+      body.mobile-index2 .mobile-sheet-card.dark .subtle,
+      body.mobile-index2 .mobile-sheet-card.dark .label {
+        color: rgba(248, 240, 220, 0.82);
+      }
+
+      body.mobile-index2 .mobile-last-trick-meta {
+        margin-top: 6px;
+        color: rgba(248, 240, 220, 0.78);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      body.mobile-index2 .mobile-last-trick-cards {
+        margin-top: 10px;
+      }
+
+      body.mobile-index2 .mobile-last-trick-cards .spot-row {
+        min-height: 64px;
       }
 
       body.mobile-index2[data-mobile-screen="setup"] .mobile-setup-screen {
@@ -2641,6 +2671,17 @@
               <button id="mobileMenuBottomBtn" class="mobile-menu-btn" type="button">底牌</button>
               <button id="mobileMenuRulesBtn" class="mobile-menu-btn" type="button">规则帮助</button>
             </div>
+          </div>
+        </section>
+
+        <section id="mobileLastTrickSheet" class="mobile-sheet">
+          <div class="mobile-sheet-card dark">
+            <div class="mobile-sheet-head">
+              <strong>上一轮回看</strong>
+              <button id="mobileCloseLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="关闭上一轮回看">×</button>
+            </div>
+            <div id="mobileLastTrickMeta" class="mobile-last-trick-meta"></div>
+            <div id="mobileLastTrickCards" class="mobile-last-trick-cards"></div>
           </div>
         </section>
 
@@ -2881,10 +2922,14 @@
           broadcastCloseBtn: document.getElementById("mobileBroadcastCloseBtn"),
           infoSheet: document.getElementById("mobileInfoSheet"),
           settingsSheet: document.getElementById("mobileSettingsSheet"),
+          lastTrickSheet: document.getElementById("mobileLastTrickSheet"),
+          lastTrickMeta: document.getElementById("mobileLastTrickMeta"),
+          lastTrickCards: document.getElementById("mobileLastTrickCards"),
           infoList: document.getElementById("mobileInfoList"),
           logList: document.getElementById("mobileLogList"),
           closeInfoBtn: document.getElementById("mobileCloseInfoBtn"),
           closeMenuBtn: document.getElementById("mobileCloseMenuBtn"),
+          closeLastTrickBtn: document.getElementById("mobileCloseLastTrickBtn"),
           startBtn: document.getElementById("mobileStartBtn"),
           setupRulesBtn: document.getElementById("mobileSetupRulesBtn"),
           setupNewBtn: document.getElementById("mobileSetupNewBtn"),
@@ -2913,11 +2958,16 @@
           actionHint: document.getElementById("actionHint"),
           centerTag: document.getElementById("centerTag"),
           focusAnnouncement: document.getElementById("focusAnnouncement"),
+          lastTrickPanel: document.getElementById("lastTrickPanel"),
+          lastTrickMeta: document.getElementById("lastTrickMeta"),
+          lastTrickCards: document.getElementById("lastTrickCards"),
+          closeLastTrickBtn: document.getElementById("closeLastTrickBtn"),
         };
 
         function closeSheets() {
           mobileDom.infoSheet.classList.remove("show");
           mobileDom.settingsSheet.classList.remove("show");
+          mobileDom.lastTrickSheet.classList.remove("show");
         }
 
         function clickOriginal(button) {
@@ -3012,6 +3062,11 @@
           mobileDom.logList.innerHTML = logs.length
             ? logs.map((item) => `<li>${item}</li>`).join("")
             : "<li>当前没有播报</li>";
+        }
+
+        function syncLastTrickSheet() {
+          mobileDom.lastTrickMeta.textContent = originalDom.lastTrickMeta.textContent.trim() || "当前还没有上一轮记录。";
+          mobileDom.lastTrickCards.innerHTML = originalDom.lastTrickCards.innerHTML || "";
         }
 
         function syncMenuLabels() {
@@ -3151,6 +3206,7 @@
           syncFriendCard(snapshot);
           syncTrickSpotDecorations(snapshot);
           renderInfoSheet(snapshot);
+          syncLastTrickSheet();
           syncMenuLabels();
           syncBroadcast();
           scheduleHandLayout();
@@ -3162,7 +3218,15 @@
         mobileDom.startBtn.addEventListener("click", () => clickOriginal(originalDom.startGameBtn));
         mobileDom.setupRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
         mobileDom.setupNewBtn.addEventListener("click", () => clickOriginal(originalDom.newGameBtn));
-        mobileDom.lastTrickBtn.addEventListener("click", () => clickOriginal(originalDom.toggleLastTrickBtn));
+        mobileDom.lastTrickBtn.addEventListener("click", () => {
+          mobileDom.infoSheet.classList.remove("show");
+          mobileDom.settingsSheet.classList.remove("show");
+          if (originalDom.lastTrickPanel.classList.contains("hidden")) {
+            clickOriginal(originalDom.toggleLastTrickBtn);
+          }
+          syncLastTrickSheet();
+          mobileDom.lastTrickSheet.classList.add("show");
+        });
         mobileDom.menuLayoutBtn.addEventListener("click", () => clickOriginal(originalDom.layoutEditBtn));
         mobileDom.menuBottomBtn.addEventListener("click", () => clickOriginal(originalDom.toggleBottomBtn));
         mobileDom.menuRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
@@ -3184,6 +3248,12 @@
         });
         mobileDom.closeInfoBtn.addEventListener("click", () => mobileDom.infoSheet.classList.remove("show"));
         mobileDom.closeMenuBtn.addEventListener("click", () => mobileDom.settingsSheet.classList.remove("show"));
+        mobileDom.closeLastTrickBtn.addEventListener("click", () => {
+          mobileDom.lastTrickSheet.classList.remove("show");
+          if (!originalDom.lastTrickPanel.classList.contains("hidden")) {
+            originalDom.closeLastTrickBtn.click();
+          }
+        });
         mobileDom.infoSheet.addEventListener("click", (event) => {
           if (event.target === mobileDom.infoSheet) {
             mobileDom.infoSheet.classList.remove("show");
@@ -3192,6 +3262,11 @@
         mobileDom.settingsSheet.addEventListener("click", (event) => {
           if (event.target === mobileDom.settingsSheet) {
             mobileDom.settingsSheet.classList.remove("show");
+          }
+        });
+        mobileDom.lastTrickSheet.addEventListener("click", (event) => {
+          if (event.target === mobileDom.lastTrickSheet) {
+            mobileDom.closeLastTrickBtn.click();
           }
         });
 

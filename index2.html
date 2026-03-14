@@ -1861,23 +1861,23 @@
       body.mobile-index2 .scene {
         height: var(--mobile-viewport-height);
         min-height: var(--mobile-viewport-height);
-        padding: max(6px, env(safe-area-inset-top)) 6px max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 14px);
+        padding: max(6px, env(safe-area-inset-top)) 6px max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 10px);
       }
 
       body.mobile-index2 .table {
         position: relative;
         width: min(100%, 430px) !important;
-        height: calc(var(--mobile-viewport-height) - max(12px, env(safe-area-inset-top)) - max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 18px));
+        height: calc(var(--mobile-viewport-height) - max(12px, env(safe-area-inset-top)) - max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 14px));
         padding: 8px;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         grid-template-rows:
           auto
-          clamp(86px, 11.5vh, 104px)
-          clamp(86px, 11.5vh, 104px)
-          clamp(92px, 12vh, 108px)
-          clamp(198px, 30vh, 244px)
-          clamp(52px, 6.6vh, 62px);
+          clamp(80px, 10.6vh, 96px)
+          clamp(80px, 10.6vh, 96px)
+          clamp(86px, 11.1vh, 102px)
+          clamp(222px, 33.5vh, 276px)
+          clamp(48px, 5.9vh, 58px);
         gap: 6px;
         overflow: hidden;
         align-content: stretch;
@@ -2056,24 +2056,35 @@
 
       body.mobile-index2 .mobile-setup-card {
         width: 100%;
-        padding: 22px 18px;
-        border-radius: 18px;
-        background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(240, 229, 203, 0.96));
+        padding: 22px 18px 18px;
+        border-radius: 22px;
+        background:
+          radial-gradient(circle at top right, rgba(243, 184, 106, 0.16), transparent 28%),
+          linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(240, 229, 203, 0.96));
         box-shadow: var(--shadow-lg);
+        overflow: hidden;
       }
 
       body.mobile-index2 .mobile-kicker {
         color: #85541d;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 1px;
-        text-transform: uppercase;
+        font-size: 26px;
+        font-weight: 900;
+        line-height: 1.08;
+        letter-spacing: 0.02em;
       }
 
       body.mobile-index2 .mobile-setup-card h1 {
         margin: 10px 0 0;
-        font-size: 30px;
-        line-height: 1.05;
+        font-size: 17px;
+        line-height: 1.2;
+        color: #203038;
+      }
+
+      body.mobile-index2 .mobile-setup-lead {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
       }
 
       body.mobile-index2 .mobile-setup-card p {
@@ -2081,6 +2092,244 @@
         color: var(--muted);
         font-size: 13px;
         line-height: 1.5;
+      }
+
+      body.mobile-index2 .mobile-setup-visual {
+        position: relative;
+        margin-top: 16px;
+        min-height: 200px;
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at 78% 20%, rgba(255, 225, 164, 0.68), transparent 16%),
+          linear-gradient(180deg, #204755, #132d39 62%, #204234 100%);
+        overflow: hidden;
+      }
+
+      body.mobile-index2 .mobile-setup-visual::before {
+        content: "";
+        position: absolute;
+        left: -18px;
+        right: -18px;
+        bottom: 28px;
+        height: 6px;
+        background: rgba(26, 18, 12, 0.88);
+        box-shadow:
+          0 14px 0 rgba(26, 18, 12, 0.68),
+          0 28px 0 rgba(26, 18, 12, 0.48);
+      }
+
+      body.mobile-index2 .mobile-visual-badge {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(8, 18, 24, 0.42);
+        border: 1px solid rgba(255, 225, 164, 0.18);
+        color: #ffe2ab;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+      }
+
+      body.mobile-index2 .mobile-card-fan {
+        position: absolute;
+        left: 12px;
+        top: 48px;
+        width: 132px;
+        height: 120px;
+      }
+
+      body.mobile-index2 .mobile-card-fan img {
+        position: absolute;
+        width: 72px;
+        border-radius: 10px;
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.28);
+      }
+
+      body.mobile-index2 .mobile-card-fan img:nth-child(1) {
+        left: 0;
+        top: 22px;
+        transform: rotate(-14deg);
+      }
+
+      body.mobile-index2 .mobile-card-fan img:nth-child(2) {
+        left: 28px;
+        top: 0;
+        transform: rotate(-2deg);
+      }
+
+      body.mobile-index2 .mobile-card-fan img:nth-child(3) {
+        left: 60px;
+        top: 20px;
+        transform: rotate(13deg);
+      }
+
+      body.mobile-index2 .mobile-tractor {
+        position: absolute;
+        left: 14px;
+        bottom: 36px;
+        width: 138px;
+        height: 88px;
+      }
+
+      body.mobile-index2 .mobile-tractor-body {
+        position: absolute;
+        left: 26px;
+        bottom: 26px;
+        width: 76px;
+        height: 28px;
+        border-radius: 14px 12px 10px 12px;
+        background: linear-gradient(180deg, #d45944, #8f3024);
+      }
+
+      body.mobile-index2 .mobile-tractor-cabin {
+        position: absolute;
+        left: 64px;
+        bottom: 48px;
+        width: 38px;
+        height: 28px;
+        border-radius: 10px 10px 8px 8px;
+        border: 3px solid #6d2a1f;
+        background: linear-gradient(180deg, #efd7a9, #b28e56);
+      }
+
+      body.mobile-index2 .mobile-tractor-cabin::after {
+        content: "";
+        position: absolute;
+        inset: 4px 5px 5px;
+        border-radius: 5px;
+        background: linear-gradient(180deg, rgba(235, 247, 255, 0.96), rgba(104, 163, 176, 0.55));
+      }
+
+      body.mobile-index2 .mobile-tractor-engine {
+        position: absolute;
+        left: 12px;
+        bottom: 38px;
+        width: 26px;
+        height: 16px;
+        border-radius: 8px 8px 6px 6px;
+        background: linear-gradient(180deg, #e9c16e, #b67930);
+      }
+
+      body.mobile-index2 .mobile-tractor-pipe {
+        position: absolute;
+        left: 20px;
+        bottom: 54px;
+        width: 7px;
+        height: 18px;
+        border-radius: 4px 4px 0 0;
+        background: #3e2b25;
+      }
+
+      body.mobile-index2 .mobile-wheel {
+        position: absolute;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 32% 32%, #3c474c 0 14%, #171d20 15% 54%, #a67a37 55% 72%, #261a10 73% 100%);
+      }
+
+      body.mobile-index2 .mobile-wheel.small {
+        left: 18px;
+        bottom: 8px;
+        width: 28px;
+        height: 28px;
+      }
+
+      body.mobile-index2 .mobile-wheel.large {
+        left: 74px;
+        bottom: 0;
+        width: 42px;
+        height: 42px;
+      }
+
+      body.mobile-index2 .mobile-train {
+        position: absolute;
+        right: 8px;
+        bottom: 30px;
+        width: 168px;
+        height: 94px;
+      }
+
+      body.mobile-index2 .mobile-train-front {
+        position: absolute;
+        left: 16px;
+        bottom: 36px;
+        width: 28px;
+        height: 18px;
+        border-radius: 14px 12px 10px 10px;
+        background: linear-gradient(180deg, #c95140, #822f26);
+      }
+
+      body.mobile-index2 .mobile-train-engine {
+        position: absolute;
+        left: 34px;
+        bottom: 28px;
+        width: 76px;
+        height: 30px;
+        border-radius: 18px 12px 10px 16px;
+        background: linear-gradient(180deg, #efbc58, #af6d25);
+      }
+
+      body.mobile-index2 .mobile-train-chimney {
+        position: absolute;
+        left: 54px;
+        bottom: 48px;
+        width: 8px;
+        height: 18px;
+        border-radius: 4px 4px 2px 2px;
+        background: #392720;
+      }
+
+      body.mobile-index2 .mobile-train-cabin {
+        position: absolute;
+        left: 94px;
+        bottom: 34px;
+        width: 42px;
+        height: 38px;
+        border-radius: 12px 12px 8px 8px;
+        background: linear-gradient(180deg, #28596a, #173640);
+      }
+
+      body.mobile-index2 .mobile-train-cabin::after {
+        content: "";
+        position: absolute;
+        inset: 7px 8px auto;
+        height: 12px;
+        border-radius: 5px;
+        background: linear-gradient(180deg, rgba(239, 248, 255, 0.98), rgba(116, 173, 188, 0.55));
+      }
+
+      body.mobile-index2 .mobile-train-cargo {
+        position: absolute;
+        right: 6px;
+        bottom: 30px;
+        width: 42px;
+        height: 24px;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #a44d3e, #5f2923);
+      }
+
+      body.mobile-index2 .mobile-train-wheel {
+        position: absolute;
+        bottom: 4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 32% 32%, #3c474c 0 14%, #171d20 15% 54%, #a67a37 55% 72%, #261a10 73% 100%);
+      }
+
+      body.mobile-index2 .mobile-train-wheel.w1 {
+        left: 30px;
+      }
+
+      body.mobile-index2 .mobile-train-wheel.w2 {
+        left: 72px;
+      }
+
+      body.mobile-index2 .mobile-train-wheel.w3 {
+        right: 14px;
       }
 
       body.mobile-index2 .mobile-setup-actions {
@@ -2124,7 +2373,7 @@
         min-height: 0 !important;
         height: auto !important;
         width: 100%;
-        padding: 8px;
+        padding: 6px 8px;
         border-radius: 12px;
         border: 1px solid rgba(255, 244, 214, 0.14);
         background: rgba(8, 23, 30, 0.32);
@@ -2141,7 +2390,7 @@
         align-items: center;
         justify-content: flex-start;
         gap: 4px;
-        margin-bottom: 4px;
+        margin-bottom: 3px;
         color: rgba(255, 247, 230, 0.84);
         font-size: 10px;
         font-weight: 700;
@@ -2283,7 +2532,7 @@
         grid-column: 1 / -1;
         grid-row: 5;
         display: block !important;
-        padding: 10px 8px 8px;
+        padding: 8px 8px 6px;
         border-radius: 14px;
         overflow: hidden;
       }
@@ -2295,8 +2544,8 @@
       body.mobile-index2 .hand-groups {
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;
-        gap: 4px;
+        justify-content: space-between;
+        gap: 3px;
         height: 100%;
         overflow: hidden;
       }
@@ -2306,9 +2555,9 @@
         align-items: flex-end;
         justify-content: flex-start;
         gap: 8px;
-        flex: 1 1 auto;
+        flex: 1 1 0;
         width: 100%;
-        min-height: 60px;
+        min-height: 50px;
         overflow: visible;
         padding-left: 4px;
       }
@@ -2371,7 +2620,7 @@
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 8px 7px calc(8px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 20px), 8px));
+        padding: 7px 7px calc(7px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 20px), 6px));
         border-radius: 14px;
         z-index: 6;
         margin: 0 auto;
@@ -2388,8 +2637,8 @@
       }
 
       body.mobile-index2 button.action-btn {
-        min-height: 32px;
-        padding: 6px 4px;
+        min-height: 30px;
+        padding: 5px 4px;
         font-size: 11px;
       }
 
@@ -2596,6 +2845,7 @@
         grid-template-columns: 1fr;
         margin-top: 10px !important;
       }
+
     </style>
   </head>
   <body>
@@ -2636,6 +2886,33 @@
           <div class="mobile-setup-card">
             <div class="mobile-kicker">五人找朋友升级</div>
             <h1>开始牌局</h1>
+            <div class="mobile-setup-lead">拖拉机、火车与卡牌元素整合进同一张开场主视觉里，让首屏更像真正的游戏大厅。</div>
+            <div class="mobile-setup-visual" aria-hidden="true">
+              <div class="mobile-visual-badge">WELCOME</div>
+              <div class="mobile-card-fan">
+                <img src="./cards/ace_of_spades.svg" alt="" />
+                <img src="./cards/king_of_hearts.svg" alt="" />
+                <img src="./cards/red_joker.svg" alt="" />
+              </div>
+              <div class="mobile-tractor">
+                <div class="mobile-tractor-engine"></div>
+                <div class="mobile-tractor-pipe"></div>
+                <div class="mobile-tractor-body"></div>
+                <div class="mobile-tractor-cabin"></div>
+                <div class="mobile-wheel small"></div>
+                <div class="mobile-wheel large"></div>
+              </div>
+              <div class="mobile-train">
+                <div class="mobile-train-front"></div>
+                <div class="mobile-train-engine"></div>
+                <div class="mobile-train-chimney"></div>
+                <div class="mobile-train-cabin"></div>
+                <div class="mobile-train-cargo"></div>
+                <div class="mobile-train-wheel w1"></div>
+                <div class="mobile-train-wheel w2"></div>
+                <div class="mobile-train-wheel w3"></div>
+              </div>
+            </div>
             <p>手机模式会在开局后切换到纯对局视图，仅保留出牌区、手牌区和底部操作。</p>
             <div class="mobile-setup-actions">
               <button id="mobileStartBtn" class="mobile-primary-btn" type="button">开始游戏</button>

@@ -59,7 +59,7 @@ const PLAYER_AVATARS = {
   4: { label: "老虎", src: "./avatars/tiger.svg" },
   5: { label: "狼", src: "./avatars/wolf.svg" },
 };
-const LAYOUT_STORAGE_KEY = "five-friends-layout-v7";
+const LAYOUT_STORAGE_KEY = "five-friends-layout-v8";
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
   return acc;

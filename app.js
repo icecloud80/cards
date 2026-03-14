@@ -14,6 +14,7 @@ const SUIT_SYMBOL = {
   hearts: "♥",
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const APP_VERSION_LABEL = "原型版 v0.9";
 const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
 const TRUMP_PENALTY_LEVEL_FALLBACK = {
   J: "2",
@@ -91,6 +92,7 @@ const dom = {
   bottomRevealTimer: document.getElementById("bottomRevealTimer"),
   bottomRevealCards: document.getElementById("bottomRevealCards"),
   closeBottomRevealBtn: document.getElementById("closeBottomRevealBtn"),
+  versionBadge: document.getElementById("versionBadge"),
   handSummary: document.getElementById("handSummary"),
   handGroups: document.getElementById("handGroups"),
   lastTrickPanel: document.getElementById("lastTrickPanel"),
@@ -3371,6 +3373,7 @@ for (const element of getLayoutElements()) {
   makeLayoutEditable(element);
 }
 applySavedLayoutState();
+dom.versionBadge.textContent = APP_VERSION_LABEL;
 
 setupGame();
 

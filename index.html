@@ -375,6 +375,23 @@
         height: var(--player1-seat-height);
       }
 
+      .version-badge {
+        position: absolute;
+        left: var(--edge-gap);
+        bottom: calc(var(--edge-gap) + var(--player1-seat-height) + 10px);
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255, 249, 239, 0.92);
+        color: #7e5721;
+        box-shadow: var(--shadow-md);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        z-index: 4;
+      }
+
       .seat.player-1 .title {
         font-size: 15px;
       }
@@ -1362,6 +1379,7 @@
         <section id="playerSeat-3" class="panel seat player-3" data-layout-id="player-seat-3"></section>
         <section id="playerSeat-5" class="panel seat player-5" data-layout-id="player-seat-5"></section>
         <section id="playerSeat-2" class="panel seat player-2" data-layout-id="player-seat-2"></section>
+        <div id="versionBadge" class="version-badge"></div>
         <section id="playerSeat-1" class="panel seat player-1" data-layout-id="player-seat-1"></section>
 
         <section id="trickSpot-4" class="panel trick-spot top-left" data-layout-id="trick-spot-4"></section>

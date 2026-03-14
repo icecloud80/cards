@@ -1891,6 +1891,8 @@
       body.mobile-index2 .mobile-topbar {
         grid-column: 1 / -1;
         display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
         gap: 8px;
         padding: 8px 8px;
         border-radius: 14px;
@@ -1902,15 +1904,17 @@
       body.mobile-index2 .mobile-topbar-main {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
         min-width: 0;
+        justify-self: start;
       }
 
       body.mobile-index2 .mobile-topbar-sub {
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 10px;
         min-width: 0;
+        justify-self: center;
       }
 
       body.mobile-index2 .mobile-stat {
@@ -1959,6 +1963,7 @@
       body.mobile-index2 .mobile-state-card {
         width: 22px;
         height: 32px;
+        position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1987,6 +1992,28 @@
         height: 32px;
       }
 
+      body.mobile-index2 .mobile-occurrence-badge {
+        position: absolute;
+        right: -6px;
+        top: -6px;
+        width: 14px;
+        height: 14px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: #c9524b;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+        line-height: 1;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+      }
+
+      body.mobile-index2 .mobile-occurrence-badge.show {
+        display: inline-flex;
+      }
+
       body.mobile-index2 .mobile-icon-btn {
         border: 0;
         border-radius: 8px;
@@ -2002,12 +2029,11 @@
       }
 
       body.mobile-index2 .mobile-topbar-actions {
-        margin-left: auto;
         display: flex;
         align-items: center;
         justify-content: flex-end;
         gap: 6px;
-        flex: 0 0 auto;
+        justify-self: end;
       }
 
       body.mobile-index2 .mobile-setup-screen {
@@ -2545,11 +2571,6 @@
               <span>计秒</span>
               <strong id="mobileTimer">--</strong>
             </div>
-            <div class="mobile-topbar-actions">
-              <button id="mobileInfoBtn" class="mobile-icon-btn" type="button" aria-label="查看信息">&#8505;</button>
-              <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮">&#8635;</button>
-              <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单">&#9776;</button>
-            </div>
           </div>
           <div class="mobile-topbar-sub">
             <div class="mobile-state">
@@ -2558,8 +2579,16 @@
             </div>
             <div class="mobile-state">
               <span class="mobile-state-tag">朋</span>
-              <div id="mobileFriendCard" class="mobile-state-card mobile-friend-card empty">--</div>
+              <div id="mobileFriendCard" class="mobile-state-card mobile-friend-card empty">
+                --
+                <span id="mobileFriendOccurrence" class="mobile-occurrence-badge"></span>
+              </div>
             </div>
+          </div>
+          <div class="mobile-topbar-actions">
+            <button id="mobileInfoBtn" class="mobile-icon-btn" type="button" aria-label="查看信息">&#8505;</button>
+            <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮">&#8635;</button>
+            <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单">&#9776;</button>
           </div>
         </section>
 
@@ -2834,6 +2863,7 @@
           timer: document.getElementById("mobileTimer"),
           trumpCard: document.getElementById("mobileTrumpCard"),
           friendCard: document.getElementById("mobileFriendCard"),
+          friendOccurrence: document.getElementById("mobileFriendOccurrence"),
           infoBtn: document.getElementById("mobileInfoBtn"),
           lastTrickBtn: document.getElementById("mobileLastTrickBtn"),
           menuBtn: document.getElementById("mobileMenuBtn"),
@@ -2888,16 +2918,23 @@
         }
 
         function renderMobileTopCard(target, html, fallback = "--") {
+          const badge = target.querySelector(".mobile-occurrence-badge");
           target.innerHTML = html || fallback;
+          if (badge) {
+            target.appendChild(badge);
+          }
           target.classList.toggle("empty", !html);
         }
 
-        function syncFriendCard() {
+        function syncFriendCard(snapshot) {
           renderMobileTopCard(
             mobileDom.friendCard,
             originalDom.friendCardMount.childElementCount > 0 ? originalDom.friendCardMount.innerHTML : "",
             "--"
           );
+          const occurrence = snapshot?.friendTarget?.occurrence;
+          mobileDom.friendOccurrence.textContent = occurrence ? String(occurrence) : "";
+          mobileDom.friendOccurrence.classList.toggle("show", !!occurrence);
         }
 
         function syncTrumpStatus() {
@@ -3102,7 +3139,7 @@
           mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
           mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
           syncTrumpStatus();
-          syncFriendCard();
+          syncFriendCard(snapshot);
           syncTrickSpotDecorations(snapshot);
           renderInfoSheet(snapshot);
           syncMenuLabels();
@@ -3205,7 +3242,7 @@
         } else {
           document.body.dataset.mobileScreen = originalDom.startGameBtn.hidden ? "play" : "setup";
           syncTrumpStatus();
-          syncFriendCard();
+          syncFriendCard(window.__fiveFriendsSnapshot || null);
           syncMenuLabels();
           syncBroadcast();
           scheduleHandLayout();

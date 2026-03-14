@@ -2773,6 +2773,9 @@ function render() {
     friendTarget: state.friendTarget
       ? {
           label: state.friendTarget.label,
+          occurrence: state.friendTarget.occurrence || 1,
+          suit: state.friendTarget.suit,
+          rank: state.friendTarget.rank,
           revealed: !!state.friendTarget.revealed,
           failed: !!state.friendTarget.failed,
           revealedBy: state.friendTarget.revealedBy || null,

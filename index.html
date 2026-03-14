@@ -25,6 +25,7 @@
         --edge-gap: 24px;
         --panel-gap: 10px;
         --top-row-height: 156px;
+        --score-panel-width: 192px;
         --player1-seat-width: 204px;
         --player1-seat-height: 162px;
       }
@@ -235,7 +236,7 @@
       .score-panel {
         top: var(--edge-gap);
         right: var(--edge-gap);
-        width: 192px;
+        width: var(--score-panel-width);
         min-height: var(--top-row-height);
         height: var(--top-row-height);
         padding: 10px 11px;
@@ -350,8 +351,8 @@
       }
 
       .seat.player-5 {
-        top: auto;
-        bottom: calc(var(--edge-gap) + var(--player1-seat-height) + var(--panel-gap));
+        top: 41%;
+        bottom: auto;
         left: var(--edge-gap);
         width: 148px;
         min-height: 112px;
@@ -915,9 +916,9 @@
       }
 
       .log-panel {
-        left: var(--edge-gap);
-        top: calc(20% + 20px);
-        width: 280px;
+        right: var(--edge-gap);
+        top: calc(var(--edge-gap) + var(--top-row-height) + var(--panel-gap));
+        width: var(--score-panel-width);
         min-height: 96px;
         padding: 14px 16px;
         background: rgba(255, 251, 242, 0.76);

@@ -14,6 +14,19 @@ const SUIT_SYMBOL = {
   hearts: "♥",
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
+const TRUMP_PENALTY_LEVEL_FALLBACK = {
+  J: "2",
+  Q: "6",
+  K: "J",
+  A: "Q",
+};
+const VICE_PENALTY_LEVEL_FALLBACK = {
+  J: "9",
+  Q: "J",
+  K: "Q",
+  A: "K",
+};
 const RANK_WEIGHT = {
   "2": 2,
   "3": 3,
@@ -46,7 +59,7 @@ const PLAYER_AVATARS = {
   4: { label: "老虎", src: "./avatars/tiger.svg" },
   5: { label: "狼", src: "./avatars/wolf.svg" },
 };
-const LAYOUT_STORAGE_KEY = "five-friends-layout-v1";
+const LAYOUT_STORAGE_KEY = "five-friends-layout-v2";
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
   return acc;
@@ -232,15 +245,37 @@ function getCurrentLevelRank() {
 }
 
 function shiftLevel(rank, delta) {
-  const currentIndex = RANKS.indexOf(rank);
-  if (currentIndex < 0) return "2";
-  const nextIndex = Math.max(0, Math.min(RANKS.length - 1, currentIndex + delta));
-  return RANKS[nextIndex];
+  let current = RANKS.includes(rank) ? rank : "2";
+  for (let i = 0; i < delta; i += 1) {
+    const currentIndex = RANKS.indexOf(current);
+    if (currentIndex < 0 || currentIndex >= RANKS.length - 1) {
+      return "A";
+    }
+    current = RANKS[currentIndex + 1];
+    if (MANDATORY_LEVELS.has(current)) {
+      break;
+    }
+  }
+  return current;
 }
 
-function dropLevel(rank, steps = 1) {
+function getPenaltyFallbackMap(mode = "trump") {
+  if (mode === "vice") return VICE_PENALTY_LEVEL_FALLBACK;
+  return TRUMP_PENALTY_LEVEL_FALLBACK;
+}
+
+function dropLevel(rank, steps = 1, mode = "trump") {
   let current = rank;
+  const fallbackMap = getPenaltyFallbackMap(mode);
   for (let i = 0; i < steps; i += 1) {
+    if (!RANKS.includes(current)) {
+      current = "2";
+      continue;
+    }
+    if (fallbackMap[current]) {
+      current = fallbackMap[current];
+      continue;
+    }
     current = current === "2" ? "A" : RANKS[Math.max(0, RANKS.indexOf(current) - 1)];
   }
   return current;
@@ -2280,7 +2315,7 @@ function finishGame() {
   state.nextFirstDealPlayerId = bottomResult?.nextLeadPlayerId || state.bankerId;
   const outcome = getOutcome(state.defenderPoints);
   const humanWon = didHumanSideWin(outcome);
-  applyLevelSettlement(outcome, bottomResult?.penalty?.levels || 0);
+  applyLevelSettlement(outcome, bottomResult?.penalty || null);
   dom.resultCard.classList.toggle("win", humanWon);
   dom.resultCard.classList.toggle("loss", !humanWon);
   dom.resultTitle.textContent = humanWon ? "获胜" : "失败";
@@ -2342,7 +2377,7 @@ function getDefenderIds() {
     .filter((playerId) => isDefenderTeam(playerId));
 }
 
-function applyLevelSettlement(outcome, bankerPenaltyLevels = 0) {
+function applyLevelSettlement(outcome, bankerPenalty = null) {
   if (outcome.bankerLevels > 0) {
     for (const playerId of getBankerTeamIds()) {
       state.playerLevels[playerId] = shiftLevel(getPlayerLevel(playerId), outcome.bankerLevels);
@@ -2353,8 +2388,12 @@ function applyLevelSettlement(outcome, bankerPenaltyLevels = 0) {
       state.playerLevels[playerId] = shiftLevel(getPlayerLevel(playerId), outcome.defenderLevels);
     }
   }
-  if (bankerPenaltyLevels > 0) {
-    state.playerLevels[state.bankerId] = dropLevel(getPlayerLevel(state.bankerId), bankerPenaltyLevels);
+  if (bankerPenalty?.levels > 0) {
+    state.playerLevels[state.bankerId] = dropLevel(
+      getPlayerLevel(state.bankerId),
+      bankerPenalty.levels,
+      bankerPenalty.mode || "trump"
+    );
   }
   syncPlayerLevels();
   state.levelRank = null;
@@ -2390,16 +2429,16 @@ function getBottomPenalty() {
   if (!winningPlay.cards.every((card) => isTrump(card))) return null;
 
   if (winningPlay.cards.length === 1) {
-    return { levels: 1, label: "单张主牌扣底", winnerId: state.lastTrick.winnerId };
+    return { levels: 1, label: "单张主牌扣底", winnerId: state.lastTrick.winnerId, mode: "trump" };
   }
   if (winningPlay.cards.length === 2 && isExactPair(winningPlay.cards)) {
-    return { levels: 2, label: "两张主牌扣底", winnerId: state.lastTrick.winnerId };
+    return { levels: 2, label: "两张主牌扣底", winnerId: state.lastTrick.winnerId, mode: "trump" };
   }
   if (winningPlay.cards.length === 3 && isExactTriple(winningPlay.cards)) {
-    return { levels: 3, label: "三张主牌扣底", winnerId: state.lastTrick.winnerId };
+    return { levels: 3, label: "三张主牌扣底", winnerId: state.lastTrick.winnerId, mode: "trump" };
   }
   if (winningPlay.cards.length >= 4) {
-    return { levels: 4, label: "主牌拖拉机扣底", winnerId: state.lastTrick.winnerId };
+    return { levels: 4, label: "主牌拖拉机扣底", winnerId: state.lastTrick.winnerId, mode: "trump" };
   }
   return null;
 }

@@ -1336,7 +1336,7 @@
       :root {
         --mobile-card-width: clamp(30px, 8.8vw, 38px);
         --mobile-card-height: calc(var(--mobile-card-width) * 1.42);
-        --mobile-browser-bottom-gap: clamp(72px, 11svh, 96px);
+        --mobile-browser-bottom-gap: clamp(20px, 4.4svh, 32px);
         --mobile-bottom-clearance: var(--mobile-browser-bottom-gap);
         --mobile-viewport-height: 100svh;
       }
@@ -1861,13 +1861,13 @@
       body.mobile-index2 .scene {
         height: var(--mobile-viewport-height);
         min-height: var(--mobile-viewport-height);
-        padding: max(6px, env(safe-area-inset-top)) 6px max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 18px);
+        padding: max(6px, env(safe-area-inset-top)) 6px max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 14px);
       }
 
       body.mobile-index2 .table {
         position: relative;
         width: min(100%, 430px) !important;
-        height: calc(var(--mobile-viewport-height) - max(12px, env(safe-area-inset-top)) - max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 24px));
+        height: calc(var(--mobile-viewport-height) - max(12px, env(safe-area-inset-top)) - max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 18px));
         padding: 8px;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2371,7 +2371,7 @@
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 8px 7px calc(8px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 72px), 16px));
+        padding: 8px 7px calc(8px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 20px), 8px));
         border-radius: 14px;
         z-index: 6;
         margin: 0 auto;
@@ -2925,7 +2925,7 @@
           const browserToolbarOffset = viewport
             ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
             : 0;
-          const bottomClearance = Math.max(72, Math.min(108, browserToolbarOffset + 24));
+          const bottomClearance = Math.max(20, Math.min(36, 18 + Math.min(browserToolbarOffset, 18)));
 
           rootStyle.setProperty("--mobile-viewport-height", `${Math.round(viewportHeight)}px`);
           rootStyle.setProperty("--mobile-bottom-clearance", `${Math.round(bottomClearance)}px`);

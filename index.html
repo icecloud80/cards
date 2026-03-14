@@ -88,7 +88,9 @@
         var isPortrait = height >= width;
         var isPhonePortrait = isPortrait && shortSide <= 820;
         var target = isPhonePortrait ? "./index2.html" : "./index1.html";
+        var absoluteTarget = new URL(target, window.location.href).href;
         var status = document.getElementById("status");
+        var hasNavigated = false;
 
         if (status) {
           status.textContent =
@@ -99,7 +101,19 @@
             "。";
         }
 
-        window.location.replace(target);
+        function navigate() {
+          if (hasNavigated) return;
+          hasNavigated = true;
+
+          try {
+            window.location.assign(absoluteTarget);
+          } catch (error) {
+            window.location.href = absoluteTarget;
+          }
+        }
+
+        window.setTimeout(navigate, 120);
+        window.addEventListener("load", navigate, { once: true });
       })();
     </script>
   </body>

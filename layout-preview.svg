@@ -1,0 +1,185 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="800" y1="0" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102A35"/>
+      <stop offset="1" stop-color="#091720"/>
+    </linearGradient>
+    <linearGradient id="felt" x1="800" y1="0" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#174556"/>
+      <stop offset="1" stop-color="#0D3140"/>
+    </linearGradient>
+    <linearGradient id="ivory" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFF9EF"/>
+      <stop offset="1" stop-color="#EDE3CF"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F3D087"/>
+      <stop offset="1" stop-color="#DDB66D"/>
+    </linearGradient>
+    <linearGradient id="redBtn" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#F26D67"/>
+      <stop offset="1" stop-color="#BA3934"/>
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="20" stdDeviation="22" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="22" y="22" width="1556" height="856" rx="34" fill="url(#felt)" filter="url(#shadow)"/>
+  <rect x="36" y="36" width="1528" height="828" rx="26" stroke="rgba(243,208,135,0.18)"/>
+  <rect x="54" y="54" width="1492" height="792" rx="22" stroke="rgba(255,244,214,0.08)" stroke-dasharray="6 10"/>
+
+  <g>
+    <rect x="42" y="26" width="230" height="150" rx="24" fill="url(#ivory)"/>
+    <text x="60" y="56" fill="#162129" font-size="18" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">朋友牌</text>
+    <text x="60" y="80" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">常见找法可为找 A 或找王</text>
+    <rect x="60" y="98" width="58" height="80" rx="14" fill="url(#gold)"/>
+    <rect x="64" y="102" width="50" height="72" rx="10" fill="#FFF8E5"/>
+    <text x="82" y="146" fill="#D84D47" font-size="28" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">J</text>
+    <text x="132" y="126" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">第一张红桃 J</text>
+    <text x="132" y="152" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">当前状态：未出现</text>
+  </g>
+
+  <g>
+    <rect x="420" y="26" width="760" height="102" rx="24" fill="url(#ivory)"/>
+    <text x="444" y="58" fill="#162129" font-size="24" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">五人升级牌桌</text>
+    <rect x="1060" y="42" width="92" height="28" rx="14" fill="rgba(16,42,53,0.08)"/>
+    <text x="1086" y="60" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">主玩家视角</text>
+    <rect x="444" y="78" width="164" height="34" rx="16" fill="rgba(255,255,255,0.68)"/>
+    <rect x="620" y="78" width="164" height="34" rx="16" fill="rgba(255,255,255,0.68)"/>
+    <rect x="796" y="78" width="164" height="34" rx="16" fill="rgba(255,255,255,0.68)"/>
+    <rect x="972" y="78" width="180" height="34" rx="16" fill="rgba(255,255,255,0.68)"/>
+    <text x="462" y="99" fill="#162129" font-size="13" font-family="PingFang SC, Noto Sans SC, sans-serif">当前阶段：出牌中</text>
+    <text x="638" y="99" fill="#162129" font-size="13" font-family="PingFang SC, Noto Sans SC, sans-serif">主牌 / 级牌：红桃 2 · 双张亮</text>
+    <text x="814" y="99" fill="#162129" font-size="13" font-family="PingFang SC, Noto Sans SC, sans-serif">打家：玩家 1</text>
+    <text x="990" y="99" fill="#162129" font-size="13" font-family="PingFang SC, Noto Sans SC, sans-serif">亮主规则：三张压双张</text>
+  </g>
+
+  <g>
+    <rect x="140" y="32" width="168" height="88" rx="22" fill="rgba(245,241,232,0.92)"/>
+    <text x="190" y="66" fill="#162129" font-size="22" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">玩家4</text>
+    <text x="187" y="88" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">联网 / 机器</text>
+  </g>
+  <g>
+    <rect x="1292" y="32" width="168" height="88" rx="22" fill="rgba(245,241,232,0.92)"/>
+    <text x="1342" y="66" fill="#162129" font-size="22" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">玩家3</text>
+    <text x="1339" y="88" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">联网 / 机器</text>
+  </g>
+  <g>
+    <rect x="36" y="360" width="96" height="172" rx="22" fill="rgba(245,241,232,0.92)"/>
+    <text x="60" y="398" fill="#162129" font-size="22" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">玩家5</text>
+    <text x="56" y="422" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">联网 / 机器</text>
+  </g>
+  <g>
+    <rect x="1468" y="360" width="96" height="172" rx="22" fill="rgba(245,241,232,0.92)"/>
+    <text x="1492" y="398" fill="#162129" font-size="22" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">玩家2</text>
+    <text x="1488" y="422" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">联网 / 机器</text>
+  </g>
+  <g>
+    <rect x="36" y="716" width="178" height="142" rx="24" fill="url(#ivory)"/>
+    <text x="62" y="752" fill="#744A18" font-size="22" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">玩家1</text>
+    <text x="62" y="780" fill="#67737C" font-size="13" font-family="PingFang SC, Noto Sans SC, sans-serif">本人玩家</text>
+    <text x="62" y="804" fill="#67737C" font-size="13" font-family="PingFang SC, Noto Sans SC, sans-serif">当前为打家</text>
+  </g>
+
+  <g>
+    <rect x="318" y="186" width="316" height="138" rx="24" fill="rgba(250,247,240,0.84)"/>
+    <text x="340" y="216" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">玩家4出牌区</text>
+  </g>
+  <g>
+    <rect x="966" y="186" width="316" height="138" rx="24" fill="rgba(250,247,240,0.84)"/>
+    <text x="988" y="216" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">玩家3出牌区</text>
+  </g>
+  <g>
+    <rect x="186" y="360" width="138" height="284" rx="24" fill="rgba(250,247,240,0.84)"/>
+    <text x="206" y="392" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">玩家5出牌区</text>
+  </g>
+  <g>
+    <rect x="1276" y="350" width="138" height="304" rx="24" fill="rgba(250,247,240,0.84)"/>
+    <text x="1296" y="382" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">玩家2出牌区</text>
+  </g>
+  <g>
+    <rect x="424" y="574" width="752" height="116" rx="24" fill="url(#ivory)"/>
+    <text x="448" y="606" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">我的本轮出牌区</text>
+  </g>
+
+  <g>
+    <rect x="408" y="694" width="736" height="118" rx="24" fill="url(#ivory)"/>
+    <text x="434" y="726" fill="#162129" font-size="20" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">操作区</text>
+    <text x="434" y="748" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">中心区域只保留公共信息和操作，不压缩手牌区</text>
+    <rect x="968" y="714" width="126" height="28" rx="14" fill="rgba(120,74,24,0.08)"/>
+    <text x="970" y="732" fill="#88561F" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">120 败 / 60 小光 / 0 大光</text>
+    <rect x="434" y="762" width="124" height="42" rx="14" fill="rgba(255,255,255,0.92)"/>
+    <rect x="572" y="762" width="124" height="42" rx="14" fill="url(#redBtn)"/>
+    <rect x="710" y="762" width="124" height="42" rx="14" fill="rgba(255,255,255,0.92)"/>
+    <text x="478" y="789" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif">选择</text>
+    <text x="616" y="789" fill="#FFFFFF" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif">出牌</text>
+    <text x="754" y="789" fill="#162129" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif">整理</text>
+  </g>
+
+  <g>
+    <rect x="1272" y="650" width="196" height="98" rx="24" fill="rgba(9,26,34,0.78)"/>
+    <text x="1292" y="682" fill="#F7F0DC" font-size="16" font-family="PingFang SC, Noto Sans SC, sans-serif" font-weight="700">底牌 7 张</text>
+    <text x="1292" y="708" fill="rgba(247,240,220,0.78)" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">无人亮主时由首抓玩家翻底定主</text>
+  </g>
+
+  <g>
+    <rect x="234" y="724" width="1132" height="152" rx="26" fill="url(#ivory)"/>
+    <text x="258" y="754" fill="#162129" font-size="22" font-family="STSong, Songti SC, Noto Serif SC, serif" font-weight="700">我的手牌</text>
+    <text x="344" y="754" fill="#67737C" font-size="12" font-family="PingFang SC, Noto Sans SC, sans-serif">31 张，按花色排列，大小王和主牌放在一起</text>
+
+    <rect x="258" y="770" width="46" height="20" rx="10" fill="rgba(16,42,53,0.08)"/>
+    <rect x="446" y="770" width="46" height="20" rx="10" fill="rgba(216,77,71,0.10)"/>
+    <rect x="618" y="770" width="46" height="20" rx="10" fill="rgba(16,42,53,0.08)"/>
+    <rect x="788" y="770" width="46" height="20" rx="10" fill="rgba(216,77,71,0.10)"/>
+    <rect x="964" y="770" width="72" height="20" rx="10" fill="rgba(216,77,71,0.10)"/>
+    <text x="271" y="784" fill="#67737C" font-size="11" font-family="PingFang SC, Noto Sans SC, sans-serif">梅花</text>
+    <text x="459" y="784" fill="#BA3934" font-size="11" font-family="PingFang SC, Noto Sans SC, sans-serif">方块</text>
+    <text x="631" y="784" fill="#67737C" font-size="11" font-family="PingFang SC, Noto Sans SC, sans-serif">黑桃</text>
+    <text x="801" y="784" fill="#BA3934" font-size="11" font-family="PingFang SC, Noto Sans SC, sans-serif">红桃</text>
+    <text x="977" y="784" fill="#BA3934" font-size="11" font-family="PingFang SC, Noto Sans SC, sans-serif">主牌 / 王</text>
+
+    <g transform="translate(258 798)">
+      <rect width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="28" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="56" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="84" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="112" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="140" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="168" width="46" height="72" rx="10" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(446 798)">
+      <rect width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="28" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="56" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="84" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="112" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="140" width="46" height="72" rx="10" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(618 798)">
+      <rect width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="28" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="56" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="84" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="112" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="140" width="46" height="72" rx="10" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(788 798)">
+      <rect width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="28" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="56" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="84" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="112" width="46" height="72" rx="10" fill="#FFFFFF"/>
+      <rect x="140" width="46" height="72" rx="10" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(964 798)">
+      <rect y="-10" width="46" height="72" rx="10" fill="#FFF5DF"/>
+      <rect x="28" y="-10" width="46" height="72" rx="10" fill="#FFF5DF"/>
+      <rect x="56" y="-10" width="46" height="72" rx="10" fill="#FFF5DF"/>
+      <rect x="84" y="-10" width="46" height="72" rx="10" fill="#FFF5DF"/>
+      <rect x="112" y="-10" width="46" height="72" rx="10" fill="#FFF5DF"/>
+      <rect x="140" y="-10" width="46" height="72" rx="10" fill="#FFF5DF"/>
+    </g>
+  </g>
+</svg>

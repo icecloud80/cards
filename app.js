@@ -1,0 +1,2587 @@
+const SUITS = ["clubs", "diamonds", "spades", "hearts"];
+const SUIT_LABEL = {
+  clubs: "梅花",
+  diamonds: "方块",
+  spades: "黑桃",
+  hearts: "红桃",
+  notrump: "无主",
+  trump: "主牌",
+};
+const SUIT_SYMBOL = {
+  clubs: "♣",
+  diamonds: "♦",
+  spades: "♠",
+  hearts: "♥",
+};
+const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const RANK_WEIGHT = {
+  "2": 2,
+  "3": 3,
+  "4": 4,
+  "5": 5,
+  "6": 6,
+  "7": 7,
+  "8": 8,
+  "9": 9,
+  "10": 10,
+  J: 11,
+  Q: 12,
+  K: 13,
+  A: 14,
+  BJ: 16,
+  RJ: 17,
+};
+const PLAYER_ORDER = [1, 2, 3, 4, 5];
+const PLAYER_POSITION = {
+  1: "bottom",
+  2: "right",
+  3: "top-right",
+  4: "top-left",
+  5: "left",
+};
+const PLAYER_AVATARS = {
+  1: { label: "狐狸", src: "./avatars/fox.svg" },
+  2: { label: "猫头鹰", src: "./avatars/owl.svg" },
+  3: { label: "熊", src: "./avatars/bear.svg" },
+  4: { label: "老虎", src: "./avatars/tiger.svg" },
+  5: { label: "狼", src: "./avatars/wolf.svg" },
+};
+const LAYOUT_STORAGE_KEY = "five-friends-layout-v1";
+const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
+  acc[id] = "2";
+  return acc;
+}, {});
+
+const dom = {
+  table: document.querySelector(".table"),
+  friendHint: document.getElementById("friendHint"),
+  friendCardMount: document.getElementById("friendCardMount"),
+  friendLabel: document.getElementById("friendLabel"),
+  friendState: document.getElementById("friendState"),
+  friendOwner: document.getElementById("friendOwner"),
+  phaseLabel: document.getElementById("phaseLabel"),
+  leaderLabel: document.getElementById("leaderLabel"),
+  trumpLabel: document.getElementById("trumpLabel"),
+  bankerLabel: document.getElementById("bankerLabel"),
+  trickLabel: document.getElementById("trickLabel"),
+  defenderScore: document.getElementById("defenderScore"),
+  turnTimer: document.getElementById("turnTimer"),
+  timerHint: document.getElementById("timerHint"),
+  logList: document.getElementById("logList"),
+  actionHint: document.getElementById("actionHint"),
+  centerTag: document.getElementById("centerTag"),
+  focusAnnouncement: document.getElementById("focusAnnouncement"),
+  bottomNote: document.getElementById("bottomNote"),
+  bottomCardsMount: document.getElementById("bottomCardsMount"),
+  handSummary: document.getElementById("handSummary"),
+  handGroups: document.getElementById("handGroups"),
+  lastTrickPanel: document.getElementById("lastTrickPanel"),
+  lastTrickMeta: document.getElementById("lastTrickMeta"),
+  lastTrickCards: document.getElementById("lastTrickCards"),
+  toggleLastTrickBtn: document.getElementById("toggleLastTrickBtn"),
+  closeLastTrickBtn: document.getElementById("closeLastTrickBtn"),
+  toggleLogBtn: document.getElementById("toggleLogBtn"),
+  toggleBottomBtn: document.getElementById("toggleBottomBtn"),
+  toggleRulesBtn: document.getElementById("toggleRulesBtn"),
+  layoutEditBtn: document.getElementById("layoutEditBtn"),
+  resetLayoutBtn: document.getElementById("resetLayoutBtn"),
+  newGameBtn: document.getElementById("newGameBtn"),
+  startGameBtn: document.getElementById("startGameBtn"),
+  beatBtn: document.getElementById("beatBtn"),
+  hintBtn: document.getElementById("hintBtn"),
+  playBtn: document.getElementById("playBtn"),
+  declareBtn: document.getElementById("declareBtn"),
+  passCounterBtn: document.getElementById("passCounterBtn"),
+  logPanel: document.getElementById("logPanel"),
+  logPanelDrag: document.getElementById("logPanelDrag"),
+  closeLogBtn: document.getElementById("closeLogBtn"),
+  bottomPanel: document.getElementById("bottomPanel"),
+  bottomPanelDrag: document.getElementById("bottomPanelDrag"),
+  closeBottomBtn: document.getElementById("closeBottomBtn"),
+  rulesPanel: document.getElementById("rulesPanel"),
+  rulesPanelDrag: document.getElementById("rulesPanelDrag"),
+  closeRulesBtn: document.getElementById("closeRulesBtn"),
+  resultOverlay: document.getElementById("resultOverlay"),
+  resultTitle: document.getElementById("resultTitle"),
+  resultBody: document.getElementById("resultBody"),
+  resultBottomCards: document.getElementById("resultBottomCards"),
+  restartBtn: document.getElementById("restartBtn"),
+};
+
+const state = {
+  players: [],
+  playerLevels: { ...INITIAL_LEVELS },
+  trumpSuit: "hearts",
+  levelRank: null,
+  bankerId: 1,
+  hiddenFriendId: null,
+  friendTarget: null,
+  defenderPoints: 0,
+  currentTurnId: 1,
+  leaderId: 1,
+  trickNumber: 1,
+  currentTrick: [],
+  leadSpec: null,
+  lastTrick: null,
+  bottomCards: [],
+  selectedCardIds: [],
+  countdown: 15,
+  countdownTimer: null,
+  aiTimer: null,
+  dealCards: [],
+  dealIndex: 0,
+  dealTimer: null,
+  trickPauseTimer: null,
+  centerAnnouncement: null,
+  centerAnnouncementQueue: [],
+  centerAnnouncementTimer: null,
+  layoutEditMode: false,
+  declaration: null,
+  counterPasses: 0,
+  phase: "ready",
+  showLastTrick: false,
+  showLogPanel: true,
+  showBottomPanel: true,
+  showRulesPanel: false,
+  logs: [],
+  gameOver: false,
+};
+
+function createDeck() {
+  const deck = [];
+  let seq = 0;
+  for (let pack = 0; pack < 3; pack += 1) {
+    for (const suit of SUITS) {
+      for (const rank of RANKS) {
+        deck.push({
+          id: `c-${pack}-${suit}-${rank}-${seq++}`,
+          suit,
+          rank,
+          pack,
+          img: getCardImage(suit, rank),
+        });
+      }
+    }
+    deck.push({
+      id: `c-${pack}-joker-BJ-${seq++}`,
+      suit: "joker",
+      rank: "BJ",
+      pack,
+      img: "./cards/black_joker.png",
+    });
+    deck.push({
+      id: `c-${pack}-joker-RJ-${seq++}`,
+      suit: "joker",
+      rank: "RJ",
+      pack,
+      img: "./cards/red_joker.png",
+    });
+  }
+  return shuffle(deck);
+}
+
+function getCardImage(suit, rank) {
+  const rankName = {
+    A: "ace",
+    K: "king",
+    Q: "queen",
+    J: "jack",
+  }[rank] || rank;
+  return `./cards/${rankName}_of_${suit}.png`;
+}
+
+function shuffle(items) {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function getPlayerLevel(playerId) {
+  return state.playerLevels[playerId] || "2";
+}
+
+function getCurrentLevelRank() {
+  return state.declaration?.rank || state.levelRank || null;
+}
+
+function shiftLevel(rank, delta) {
+  const currentIndex = RANKS.indexOf(rank);
+  if (currentIndex < 0) return "2";
+  const nextIndex = Math.max(0, Math.min(RANKS.length - 1, currentIndex + delta));
+  return RANKS[nextIndex];
+}
+
+function syncPlayerLevels() {
+  for (const player of state.players) {
+    player.level = getPlayerLevel(player.id);
+  }
+}
+
+function getLayoutElements() {
+  return [...dom.table.querySelectorAll("[data-layout-id]")];
+}
+
+function captureLayoutRect(element) {
+  if (element.offsetParent === null) return null;
+  const tableRect = dom.table.getBoundingClientRect();
+  const rect = element.getBoundingClientRect();
+  return {
+    left: rect.left - tableRect.left,
+    top: rect.top - tableRect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function applyLayoutRect(element, rect) {
+  if (!rect) return;
+  element.style.left = `${rect.left}px`;
+  element.style.top = `${rect.top}px`;
+  element.style.width = `${rect.width}px`;
+  element.style.height = `${rect.height}px`;
+  element.style.right = "auto";
+  element.style.bottom = "auto";
+  element.style.transform = "none";
+}
+
+function normalizeLayoutElement(element) {
+  const rect = captureLayoutRect(element);
+  if (!rect) return;
+  applyLayoutRect(element, rect);
+}
+
+function saveLayoutState() {
+  const layouts = {};
+  for (const element of getLayoutElements()) {
+    const rect = captureLayoutRect(element);
+    if (!rect) continue;
+    layouts[element.dataset.layoutId] = rect;
+    applyLayoutRect(element, rect);
+  }
+  window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layouts));
+}
+
+function applySavedLayoutState() {
+  const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const layouts = JSON.parse(raw);
+    for (const element of getLayoutElements()) {
+      const saved = layouts[element.dataset.layoutId];
+      if (saved) {
+        applyLayoutRect(element, saved);
+      }
+    }
+  } catch {
+    window.localStorage.removeItem(LAYOUT_STORAGE_KEY);
+  }
+}
+
+function clearLayoutStyles(element) {
+  element.style.left = "";
+  element.style.top = "";
+  element.style.right = "";
+  element.style.bottom = "";
+  element.style.width = "";
+  element.style.height = "";
+  element.style.transform = "";
+}
+
+function setLayoutEditMode(enabled) {
+  state.layoutEditMode = enabled;
+  dom.table.classList.toggle("layout-edit-mode", enabled);
+  dom.layoutEditBtn.textContent = enabled ? "完成布局" : "布局编辑";
+  dom.layoutEditBtn.classList.toggle("alert", enabled);
+  if (enabled) {
+    for (const element of getLayoutElements()) {
+      normalizeLayoutElement(element);
+    }
+    return;
+  }
+  saveLayoutState();
+}
+
+function resetLayoutState() {
+  window.localStorage.removeItem(LAYOUT_STORAGE_KEY);
+  setLayoutEditMode(false);
+  for (const element of getLayoutElements()) {
+    clearLayoutStyles(element);
+  }
+}
+
+function setupGame() {
+  clearTimers();
+  clearCenterAnnouncement(true);
+  state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
+  state.levelRank = null;
+  state.players = PLAYER_ORDER.map((id) => ({
+    id,
+    name: `玩家${id}`,
+    isHuman: id === 1,
+    hand: [],
+    played: [],
+    capturedPoints: 0,
+    level: getPlayerLevel(id),
+  }));
+  state.trumpSuit = "hearts";
+  state.hiddenFriendId = null;
+  state.friendTarget = null;
+  state.defenderPoints = 0;
+  state.currentTurnId = 1;
+  state.leaderId = 1;
+  state.trickNumber = 1;
+  state.currentTrick = [];
+  state.leadSpec = null;
+  state.lastTrick = null;
+  state.bottomCards = [];
+  state.selectedCardIds = [];
+  state.countdown = 15;
+  state.dealCards = [];
+  state.dealIndex = 0;
+  state.declaration = null;
+  state.counterPasses = 0;
+  state.phase = "ready";
+  state.showLastTrick = false;
+  state.showLogPanel = true;
+  state.showBottomPanel = false;
+  state.showRulesPanel = false;
+  state.logs = [];
+  state.gameOver = false;
+  dom.resultOverlay.classList.remove("show");
+
+  const deck = createDeck();
+  state.dealCards = deck.splice(0, 31 * 5);
+  state.bottomCards = deck.splice(0, 7);
+
+  appendLog("新牌局已准备好。点击“开始发牌”后才会正式进入发牌阶段。");
+
+  render();
+}
+
+function chooseFriendTarget() {
+  const candidates = [
+    { suit: "hearts", rank: "A" },
+    { suit: "spades", rank: "A" },
+    { suit: "diamonds", rank: "A" },
+    { suit: "clubs", rank: "A" },
+    { suit: "joker", rank: "RJ" },
+    { suit: "joker", rank: "BJ" },
+  ];
+
+  for (const target of candidates) {
+    const owners = state.players
+      .filter((player) => player.id !== state.bankerId)
+      .filter((player) => player.hand.some((card) => card.rank === target.rank && card.suit === target.suit))
+      .map((player) => player.id);
+    if (owners.length > 0) {
+      return {
+        target: {
+          ...target,
+          label: describeTarget(target),
+          img: target.suit === "joker"
+            ? `./cards/${target.rank === "RJ" ? "red_joker" : "black_joker"}.png`
+            : getCardImage(target.suit, target.rank),
+        },
+        ownerId: owners[0],
+      };
+    }
+  }
+
+  const fallbackOwner = 2;
+  return {
+    target: {
+      suit: "hearts",
+      rank: "A",
+      label: "第一张红桃 A",
+      img: "./cards/ace_of_hearts.png",
+    },
+    ownerId: fallbackOwner,
+  };
+}
+
+function startDealing() {
+  clearTimers();
+  if (state.gameOver || state.phase !== "ready") return;
+  state.phase = "dealing";
+  appendLog("开始发牌。每位玩家按自己的等级牌亮主或反主。");
+  render();
+  queueDealStep(140);
+}
+
+function queueDealStep(delay = 90) {
+  if (state.dealTimer) {
+    window.clearTimeout(state.dealTimer);
+  }
+  state.dealTimer = window.setTimeout(() => {
+    state.dealTimer = null;
+    dealOneCard();
+  }, delay);
+}
+
+function dealOneCard() {
+  if (state.gameOver || state.phase !== "dealing") return;
+
+  if (state.dealIndex >= state.dealCards.length) {
+    finishDealingPhase();
+    return;
+  }
+
+  const playerId = PLAYER_ORDER[state.dealIndex % PLAYER_ORDER.length];
+  const player = getPlayer(playerId);
+  const card = state.dealCards[state.dealIndex];
+  state.dealIndex += 1;
+  player.hand.push(card);
+
+  maybeAutoDeclare(playerId);
+  render();
+
+  if (state.dealIndex >= state.dealCards.length) {
+    queueDealStep(220);
+    return;
+  }
+  queueDealStep();
+}
+
+function finishDealingPhase() {
+  if (state.phase !== "dealing") return;
+
+  if (!state.declaration) {
+    state.trumpSuit = "hearts";
+    state.bankerId = 1;
+    state.levelRank = getPlayerLevel(1);
+    appendLog("当前原型里，无人亮主时先默认红桃为主、玩家1为打家；翻底定主流程下一步再补。");
+    startBuryingPhase();
+    return;
+  }
+
+  state.trumpSuit = state.declaration.suit;
+  state.bankerId = state.declaration.playerId;
+  state.phase = "countering";
+  state.counterPasses = 0;
+  state.currentTurnId = getNextCounterPlayerId(state.declaration.playerId);
+
+  appendLog(`发牌结束，当前亮主为 ${getPlayer(state.bankerId).name} 的 ${formatDeclaration(state.declaration)}。`);
+  appendLog("进入最后反主阶段。若没人反主，本局将按当前亮主进入出牌。");
+  render();
+  startCounterTurn();
+}
+
+function describeTarget(target) {
+  if (target.suit === "joker") {
+    return target.rank === "RJ" ? "第一张大王" : "第一张小王";
+  }
+  return `第一张${SUIT_LABEL[target.suit]} ${target.rank}`;
+}
+
+function getDeclarationOptions(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return [];
+  const playerLevel = getPlayerLevel(playerId);
+
+  return SUITS.map((suit) => {
+    const cards = player.hand.filter((card) => card.suit === suit && card.rank === playerLevel);
+    return {
+      playerId,
+      suit,
+      rank: playerLevel,
+      count: cards.length,
+      cards,
+    };
+  })
+    .filter((entry) => entry.count >= 2)
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return SUITS.indexOf(b.suit) - SUITS.indexOf(a.suit);
+    });
+}
+
+function getBestDeclarationForPlayer(playerId) {
+  return getDeclarationOptions(playerId)[0] || null;
+}
+
+function canOverrideDeclaration(candidate, current = state.declaration) {
+  if (!candidate) return false;
+  if (!current) return true;
+  if (candidate.playerId === current.playerId) return false;
+  if (candidate.suit === "notrump" && current.suit !== "notrump" && candidate.count === current.count) {
+    return true;
+  }
+  return candidate.count > current.count;
+}
+
+function getNoTrumpCounterLabel(entry) {
+  if (!entry || entry.suit !== "notrump") return "";
+  const rank = entry.cards?.[0]?.rank;
+  if (rank === "RJ") return "对大王反无主";
+  if (rank === "BJ") return "对小王反无主";
+  return "反无主";
+}
+
+function formatDeclaration(entry) {
+  if (entry.suit === "notrump") {
+    return getNoTrumpCounterLabel(entry);
+  }
+  return `${SUIT_LABEL[entry.suit]} ${entry.rank} x${entry.count}`;
+}
+
+function getDeclarationCards(entry = state.declaration) {
+  if (!entry) return [];
+  const player = getPlayer(entry.playerId);
+  if (!player) return [];
+  if (entry.suit === "notrump") {
+    if (entry.cards?.length) {
+      const wantedIds = new Set(entry.cards.map((card) => card.id));
+      return player.hand.filter((card) => wantedIds.has(card.id)).slice(0, entry.count);
+    }
+    return [...player.hand]
+      .filter((card) => card.suit === "joker")
+      .sort((a, b) => cardStrength(b) - cardStrength(a))
+      .slice(0, entry.count);
+  }
+  return player.hand
+    .filter((card) => card.suit === entry.suit && card.rank === entry.rank)
+    .slice(0, entry.count);
+}
+
+function getActionSuitLabel(entry) {
+  return entry ? SUIT_LABEL[entry.suit] : "";
+}
+
+function declareTrump(playerId, declaration, source = "manual") {
+  if (!declaration || !canOverrideDeclaration(declaration)) return false;
+
+  const player = getPlayer(playerId);
+  const previous = state.declaration;
+  state.declaration = {
+    playerId,
+    suit: declaration.suit,
+    rank: declaration.rank,
+    count: declaration.count,
+    cards: getDeclarationCards(declaration),
+  };
+  state.levelRank = declaration.rank;
+  state.trumpSuit = declaration.suit;
+  state.bankerId = playerId;
+
+  if (!previous) {
+    appendLog(`${player.name} 亮主：${formatDeclaration(state.declaration)}。`);
+  } else {
+    appendLog(`${player.name}${source === "manual" ? " 抢亮" : " 抢亮"}：${formatDeclaration(state.declaration)}。`);
+  }
+
+  render();
+  return true;
+}
+
+function maybeAutoDeclare(playerId) {
+  const player = getPlayer(playerId);
+  if (!player || player.isHuman) return;
+  const best = getBestDeclarationForPlayer(playerId);
+  if (!best || !canOverrideDeclaration(best)) return;
+
+  const willing = best.count >= 3 || Math.random() < 0.65;
+  if (!willing) return;
+  declareTrump(playerId, best, "auto");
+}
+
+function getNoTrumpCounterOption(playerId) {
+  const current = state.declaration;
+  if (!current || current.suit === "notrump" || current.count < 2) return null;
+  if (current.count !== 2) return null;
+  const player = getPlayer(playerId);
+  if (!player) return null;
+  const bigJokers = player.hand.filter((card) => card.rank === "RJ");
+  if (bigJokers.length >= 2) {
+    return {
+      playerId,
+      suit: "notrump",
+      count: 2,
+      cards: bigJokers.slice(0, 2),
+    };
+  }
+  const smallJokers = player.hand.filter((card) => card.rank === "BJ");
+  if (smallJokers.length >= 2) {
+    return {
+      playerId,
+      suit: "notrump",
+      count: 2,
+      cards: smallJokers.slice(0, 2),
+    };
+  }
+  return null;
+}
+
+function getCounterDeclarationForPlayer(playerId) {
+  const current = state.declaration;
+  if (!current) return null;
+  const candidates = getDeclarationOptions(playerId)
+    .filter((entry) => entry.count > current.count);
+  const noTrumpOption = getNoTrumpCounterOption(playerId);
+  if (noTrumpOption) {
+    candidates.unshift(noTrumpOption);
+  }
+  return candidates.sort((a, b) => {
+    if (a.suit === "notrump" && b.suit !== "notrump") return -1;
+    if (a.suit !== "notrump" && b.suit === "notrump") return 1;
+    return b.count - a.count;
+  })[0] || null;
+}
+
+function getNextCounterPlayerId(fromId) {
+  let nextId = getNextPlayerId(fromId);
+  while (nextId === state.declaration?.playerId) {
+    nextId = getNextPlayerId(nextId);
+  }
+  return nextId;
+}
+
+function startCounterTurn() {
+  clearTimers();
+  if (state.gameOver || state.phase !== "countering") return;
+
+  const player = getPlayer(state.currentTurnId);
+  const option = getCounterDeclarationForPlayer(state.currentTurnId);
+  if (!option) {
+    state.countdown = 0;
+    state.aiTimer = window.setTimeout(() => {
+      passCounterForCurrentPlayer();
+    }, 450);
+    render();
+    return;
+  }
+
+  state.countdown = 15;
+  render();
+
+  state.countdownTimer = window.setInterval(() => {
+    state.countdown -= 1;
+    renderScorePanel();
+    if (state.countdown <= 0) {
+      clearTimers();
+      passCounterForCurrentPlayer(true);
+    }
+  }, 1000);
+
+  if (!player || player.isHuman) return;
+
+  state.aiTimer = window.setTimeout(() => {
+    if (option && (option.suit === "notrump" || option.count >= 3 || Math.random() < 0.72)) {
+      counterDeclare(player.id, option);
+      return;
+    }
+    passCounterForCurrentPlayer();
+  }, 1000 + Math.random() * 900);
+}
+
+function counterDeclare(playerId, declaration) {
+  if (state.phase !== "countering" || playerId !== state.currentTurnId) return;
+  if (!declaration || !canOverrideDeclaration(declaration)) return;
+  clearTimers();
+  declareTrump(playerId, declaration, "counter");
+  state.counterPasses = 0;
+  appendLog(`${getPlayer(playerId).name}${playerId === 1 ? " 完成了最后反主" : " 在最后反主阶段完成反主"}。`);
+  state.currentTurnId = getNextCounterPlayerId(playerId);
+  render();
+  startCounterTurn();
+}
+
+function passCounterForCurrentPlayer(isTimeout = false) {
+  if (state.phase !== "countering") return;
+  const player = getPlayer(state.currentTurnId);
+  clearTimers();
+  state.counterPasses += 1;
+  appendLog(`${player.name}${isTimeout ? " 反主超时，自动不反主" : " 选择不反主"}。`);
+  if (state.counterPasses >= PLAYER_ORDER.length - 1) {
+    appendLog("最后反主阶段结束，无人继续反主。");
+    startBuryingPhase();
+    return;
+  }
+  state.currentTurnId = getNextCounterPlayerId(state.currentTurnId);
+  render();
+  startCounterTurn();
+}
+
+function getBuryHintForPlayer(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return [];
+  return [...player.hand]
+    .sort((a, b) => {
+      const aScore = (isTrump(a) ? 1000 : 0) + scoreValue(a) * 50 + cardStrength(a);
+      const bScore = (isTrump(b) ? 1000 : 0) + scoreValue(b) * 50 + cardStrength(b);
+      return aScore - bScore;
+    })
+    .slice(0, 7);
+}
+
+function completeBurying(playerId, cardIds) {
+  if (state.phase !== "burying" || playerId !== state.bankerId) return;
+  const player = getPlayer(playerId);
+  const cards = cardIds
+    .map((id) => player.hand.find((card) => card.id === id))
+    .filter(Boolean);
+  if (cards.length !== 7) return;
+
+  for (const cardId of cardIds) {
+    const index = player.hand.findIndex((card) => card.id === cardId);
+    if (index >= 0) {
+      player.hand.splice(index, 1);
+    }
+  }
+  player.hand = sortHand(player.hand);
+  state.bottomCards = sortHand(cards);
+  state.selectedCardIds = [];
+  state.showBottomPanel = false;
+  appendLog(`${player.name} 已重新扣下 7 张底牌。`);
+  beginPlayingPhase();
+}
+
+function startBuryingPhase() {
+  clearTimers();
+  const banker = getPlayer(state.bankerId);
+  banker.hand.push(...state.bottomCards);
+  banker.hand = sortHand(banker.hand);
+  state.selectedCardIds = [];
+  state.showBottomPanel = false;
+  state.phase = "burying";
+
+  appendLog(`${banker.name} 拿起底牌，请重新整理并扣下 7 张牌。`);
+  render();
+
+  if (banker.isHuman) return;
+
+  state.aiTimer = window.setTimeout(() => {
+    const buryCards = getBuryHintForPlayer(banker.id);
+    completeBurying(banker.id, buryCards.map((card) => card.id));
+  }, 1200);
+}
+
+function beginPlayingPhase() {
+  for (const player of state.players) {
+    player.hand = sortHand(player.hand);
+  }
+
+  state.counterPasses = 0;
+  state.trumpSuit = state.declaration ? state.declaration.suit : state.trumpSuit;
+  state.bankerId = state.declaration ? state.declaration.playerId : state.bankerId;
+
+  const targetInfo = chooseFriendTarget();
+  state.friendTarget = {
+    ...targetInfo.target,
+    revealed: false,
+    revealedBy: null,
+  };
+  state.hiddenFriendId = targetInfo.ownerId;
+  state.currentTurnId = state.bankerId;
+  state.leaderId = state.bankerId;
+  state.phase = "playing";
+
+  appendLog(`已叫朋友：${state.friendTarget.label}。`);
+  appendLog(`进入出牌阶段，${getPlayer(state.bankerId).name} 先出牌。`);
+
+  render();
+  startTurn();
+}
+
+function sortHand(hand) {
+  return [...hand].sort((a, b) => {
+    const groupDiff = groupOrder(a) - groupOrder(b);
+    if (groupDiff !== 0) return groupDiff;
+    return cardStrength(b) - cardStrength(a);
+  });
+}
+
+function groupOrder(card) {
+  if (isTrump(card)) return 4;
+  return { clubs: 0, diamonds: 1, spades: 2, hearts: 3 }[card.suit] ?? 4;
+}
+
+function getActiveTrumpSuit() {
+  if (state.phase === "ready") {
+    return null;
+  }
+  if (state.phase === "dealing") {
+    if (!state.declaration || state.declaration.suit === "notrump") return null;
+    return state.declaration.suit;
+  }
+  if (state.trumpSuit === "notrump") return null;
+  return state.trumpSuit;
+}
+
+function isTrump(card) {
+  const currentLevelRank = getCurrentLevelRank();
+  const activeTrumpSuit = getActiveTrumpSuit();
+  return card.suit === "joker" || (currentLevelRank && card.rank === currentLevelRank) || (activeTrumpSuit ? card.suit === activeTrumpSuit : false);
+}
+
+function effectiveSuit(card) {
+  return isTrump(card) ? "trump" : card.suit;
+}
+
+function getTrumpRankIndex(card) {
+  const currentLevelRank = getCurrentLevelRank();
+  const plainRanks = RANKS.filter((rank) => rank !== currentLevelRank);
+  if (card.rank === "RJ") return plainRanks.length + 3;
+  if (card.rank === "BJ") return plainRanks.length + 2;
+  const activeTrumpSuit = getActiveTrumpSuit();
+  if (currentLevelRank && card.rank === currentLevelRank && activeTrumpSuit && card.suit === activeTrumpSuit) {
+    return plainRanks.length + 1;
+  }
+  if (currentLevelRank && card.rank === currentLevelRank) {
+    return plainRanks.length;
+  }
+  return plainRanks.indexOf(card.rank);
+}
+
+function getPatternUnitPower(card, suit = effectiveSuit(card)) {
+  return suit === "trump" ? getTrumpRankIndex(card) : getNonTrumpRankIndex(card.rank);
+}
+
+function cardStrength(card) {
+  const suit = effectiveSuit(card);
+  return (suit === "trump" ? 500 : 100) + getPatternUnitPower(card, suit);
+}
+
+function scoreValue(card) {
+  if (card.rank === "5") return 5;
+  if (card.rank === "10" || card.rank === "K") return 10;
+  return 0;
+}
+
+function getPlayer(id) {
+  return state.players.find((player) => player.id === id);
+}
+
+function getNextPlayerId(id) {
+  return (id % 5) + 1;
+}
+
+function getVisibleDefenderPoints() {
+  if (!state.friendTarget || !state.friendTarget.revealed) {
+    return null;
+  }
+  return state.defenderPoints;
+}
+
+function canHumanViewBottomCards() {
+  if (state.gameOver) return true;
+  return state.bankerId === 1 && (state.phase === "burying" || state.phase === "playing" || state.phase === "pause");
+}
+
+function startTurn() {
+  clearTimers();
+  if (state.gameOver) return;
+
+  state.countdown = 15;
+  render();
+
+  state.countdownTimer = window.setInterval(() => {
+    state.countdown -= 1;
+    renderScorePanel();
+    if (state.countdown <= 0) {
+      clearTimers();
+      autoPlayCurrentTurn();
+    }
+  }, 1000);
+
+  const player = getPlayer(state.currentTurnId);
+  if (!player.isHuman) {
+    state.aiTimer = window.setTimeout(() => {
+      autoPlayCurrentTurn();
+    }, 900 + Math.random() * 700);
+  }
+}
+
+function clearTimers() {
+  if (state.countdownTimer) {
+    window.clearInterval(state.countdownTimer);
+    state.countdownTimer = null;
+  }
+  if (state.aiTimer) {
+    window.clearTimeout(state.aiTimer);
+    state.aiTimer = null;
+  }
+  if (state.dealTimer) {
+    window.clearTimeout(state.dealTimer);
+    state.dealTimer = null;
+  }
+  if (state.trickPauseTimer) {
+    window.clearTimeout(state.trickPauseTimer);
+    state.trickPauseTimer = null;
+  }
+}
+
+function clearCenterAnnouncement(resetQueue = false) {
+  if (state.centerAnnouncementTimer) {
+    window.clearTimeout(state.centerAnnouncementTimer);
+    state.centerAnnouncementTimer = null;
+  }
+  state.centerAnnouncement = null;
+  if (resetQueue) {
+    state.centerAnnouncementQueue = [];
+  }
+}
+
+function queueCenterAnnouncement(message, tone = "default") {
+  if (!message) return;
+  state.centerAnnouncementQueue.push({ message, tone });
+  if (state.centerAnnouncement) return;
+  showNextCenterAnnouncement();
+}
+
+function showNextCenterAnnouncement() {
+  if (state.centerAnnouncementQueue.length === 0) {
+    clearCenterAnnouncement();
+    renderCenterPanel();
+    return;
+  }
+  const next = state.centerAnnouncementQueue.shift();
+  state.centerAnnouncement = next;
+  renderCenterPanel();
+  state.centerAnnouncementTimer = window.setTimeout(() => {
+    state.centerAnnouncementTimer = null;
+    state.centerAnnouncement = null;
+    renderCenterPanel();
+    if (state.centerAnnouncementQueue.length > 0) {
+      showNextCenterAnnouncement();
+    }
+  }, 3000);
+}
+
+function getSpecialPatternAnnouncement(pattern, playerId) {
+  if (!pattern?.ok) return "";
+  const labelMap = {
+    triple: "刻子",
+    tractor: "拖拉机",
+    train: "火车",
+    bulldozer: "推土机",
+    throw: "甩牌",
+  };
+  const label = labelMap[pattern.type];
+  if (!label) return "";
+  return `${getPlayer(playerId).name} 打出${label}`;
+}
+
+function getTrickOutcomeAnnouncement(winnerId) {
+  if (winnerId === 1) return "上轮你大，请出牌";
+  return `上轮${getPlayer(winnerId).name}大，请出牌`;
+}
+
+function isVisibleAllyOfHuman(playerId) {
+  if (playerId === 1) return true;
+  if (!state.friendTarget?.revealed) return false;
+  const humanOnBankerTeam = state.bankerId === 1 || state.friendTarget.revealedBy === 1;
+  if (humanOnBankerTeam) {
+    return playerId === state.bankerId || playerId === state.friendTarget.revealedBy;
+  }
+  return isDefenderTeam(playerId);
+}
+
+function getLegalHintForPlayer(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return [];
+
+  const hand = player.hand;
+  if (state.currentTrick.length === 0) {
+    const bulldozers = findSerialTuples(hand, 3);
+    if (bulldozers.length > 0) return bulldozers[0];
+    const trains = findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "train");
+    if (trains.length > 0) return trains[0];
+    const tractors = findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "tractor");
+    if (tractors.length > 0) return tractors[0];
+    const triples = findTriples(hand);
+    if (triples.length > 0) return triples[0];
+    const pairs = findPairs(hand);
+    if (pairs.length > 0) return pairs[0];
+    return hand.length > 0 ? [hand[0]] : [];
+  }
+
+  if (state.leadSpec.type === "single") {
+    const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+    return suited.length > 0 ? [lowestCard(suited)] : [lowestCard(hand)];
+  }
+
+  const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+  if (suited.length >= state.leadSpec.count) {
+    if (state.leadSpec.type === "pair") {
+      const suitedPairs = findPairs(suited);
+      if (hasForcedPair(suited) && suitedPairs.length > 0) return suitedPairs[0];
+    }
+    if (state.leadSpec.type === "triple") {
+      const suitedTriples = findTriples(suited);
+      if (suitedTriples.length > 0) return suitedTriples[0];
+    }
+    if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train" || state.leadSpec.type === "bulldozer" || state.leadSpec.type === "throw") {
+      const combos = getPatternCombos(suited, state.leadSpec);
+      if (combos.length > 0) return combos[0];
+    }
+    return suited.slice(-state.leadSpec.count);
+  }
+  if (suited.length > 0) {
+    const fillers = hand.filter((card) => !suited.some((suitedCard) => suitedCard.id === card.id));
+    return [...suited, ...fillers.slice(0, state.leadSpec.count - suited.length)];
+  }
+
+  const trumpCards = hand.filter((card) => effectiveSuit(card) === "trump");
+  if (state.leadSpec.type === "pair") {
+    const trumpPairs = findPairs(trumpCards);
+    if (trumpPairs.length > 0) return trumpPairs[0];
+  }
+  if (state.leadSpec.type === "triple") {
+    const trumpTriples = findTriples(trumpCards);
+    if (trumpTriples.length > 0) return trumpTriples[0];
+  }
+  if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train" || state.leadSpec.type === "bulldozer" || state.leadSpec.type === "throw") {
+    const trumpCombos = getPatternCombos(trumpCards, state.leadSpec);
+    if (trumpCombos.length > 0) return trumpCombos[0];
+  }
+  return hand.slice(0, state.leadSpec.count);
+}
+
+function lowestCard(cards) {
+  return [...cards].sort((a, b) => cardStrength(a) - cardStrength(b))[0];
+}
+
+function findPairs(cards) {
+  return findTuples(cards, 2);
+}
+
+function hasForcedPair(cards) {
+  const map = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  return [...map.values()].some((count) => count === 2 || count >= 4);
+}
+
+function findTriples(cards) {
+  return findTuples(cards, 3);
+}
+
+function findTuples(cards, tupleSize) {
+  const map = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(card);
+  }
+  return [...map.values()]
+    .filter((group) => group.length >= tupleSize)
+    .map((group) => group.slice(0, tupleSize))
+    .sort((a, b) => getPatternUnitPower(a[0]) - getPatternUnitPower(b[0]));
+}
+
+function getNonTrumpRankIndex(rank) {
+  const currentLevelRank = getCurrentLevelRank();
+  const ranks = RANKS.filter((item) => item !== currentLevelRank);
+  return ranks.indexOf(rank);
+}
+
+function isExactTriple(cards) {
+  return cards.length === 3
+    && cards.every((card) => card.rank === cards[0].rank && card.suit === cards[0].suit);
+}
+
+function findSerialTuples(cards, tupleSize, exactChainLength = null) {
+  const map = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(card);
+  }
+
+  const bySuit = new Map();
+  for (const group of map.values()) {
+    if (group.length < tupleSize) continue;
+    const tuple = group.slice(0, tupleSize);
+    const suit = effectiveSuit(tuple[0]);
+    const entry = {
+      cards: tuple,
+      suit,
+      index: getPatternUnitPower(tuple[0], suit),
+    };
+    if (!bySuit.has(suit)) bySuit.set(suit, []);
+    bySuit.get(suit).push(entry);
+  }
+
+  const results = [];
+  for (const entries of bySuit.values()) {
+    entries.sort((a, b) => a.index - b.index);
+    let runStart = 0;
+    for (let i = 1; i <= entries.length; i += 1) {
+      const consecutive = i < entries.length && entries[i].index - entries[i - 1].index === 1;
+      if (consecutive) continue;
+      const run = entries.slice(runStart, i);
+      const need = exactChainLength || run.length;
+      if (run.length >= 2 && run.length >= need) {
+        if (exactChainLength) {
+          for (let j = 0; j <= run.length - exactChainLength; j += 1) {
+            results.push(run.slice(j, j + exactChainLength).flatMap((entry) => entry.cards));
+          }
+        } else {
+          results.push(run.flatMap((entry) => entry.cards));
+        }
+      }
+      runStart = i;
+    }
+  }
+
+  return results.sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
+}
+
+function isSameSuitSet(cards) {
+  if (cards.length === 0) return false;
+  const suit = effectiveSuit(cards[0]);
+  return cards.every((card) => effectiveSuit(card) === suit);
+}
+
+function decomposeThrowComponents(cards) {
+  if (!isSameSuitSet(cards)) return null;
+  const remaining = [...cards].sort((a, b) => cardStrength(b) - cardStrength(a));
+  const components = [];
+
+  const takeComponent = (componentCards) => {
+    for (const picked of componentCards) {
+      const index = remaining.findIndex((card) => card.id === picked.id);
+      if (index >= 0) remaining.splice(index, 1);
+    }
+    components.push({
+      ...classifyPlay(componentCards),
+      cards: sortPlayedCards(componentCards),
+    });
+  };
+
+  while (remaining.length > 0) {
+    const bulldozers = findSerialTuples(remaining, 3);
+    if (bulldozers.length > 0) {
+      takeComponent(bulldozers[bulldozers.length - 1]);
+      continue;
+    }
+    const serialPairs = findSerialTuples(remaining, 2);
+    if (serialPairs.length > 0) {
+      takeComponent(serialPairs[serialPairs.length - 1]);
+      continue;
+    }
+    const triples = findTriples(remaining);
+    if (triples.length > 0) {
+      takeComponent(triples[triples.length - 1]);
+      continue;
+    }
+    const pairs = findPairs(remaining);
+    if (pairs.length > 0) {
+      takeComponent(pairs[pairs.length - 1]);
+      continue;
+    }
+    takeComponent([remaining[0]]);
+  }
+
+  return components.every((component) => component.ok) ? components : null;
+}
+
+function isSerialTuplePlay(cards, tupleSize) {
+  if (cards.length < tupleSize * 2 || cards.length % tupleSize !== 0) return false;
+  const suit = effectiveSuit(cards[0]);
+  if (cards.some((card) => effectiveSuit(card) !== suit)) return false;
+
+  const map = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(card);
+  }
+
+  const groups = [...map.values()];
+  if (groups.some((group) => group.length !== tupleSize)) return false;
+
+  const ordered = groups
+    .map((group) => ({
+      index: getPatternUnitPower(group[0], suit),
+      key: `${group[0].suit}-${group[0].rank}`,
+    }))
+    .sort((a, b) => a.index - b.index);
+
+  if (new Set(ordered.map((item) => item.key)).size !== groups.length) return false;
+  for (let i = 1; i < ordered.length; i += 1) {
+    if (ordered[i].index - ordered[i - 1].index !== 1) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function classifyPlay(cards) {
+  const sorted = sortPlayedCards(cards);
+  const suit = sorted.length > 0 ? effectiveSuit(sorted[0]) : null;
+  if (sorted.length === 1) {
+    return { ok: true, type: "single", count: 1, suit, power: cardStrength(sorted[0]) };
+  }
+  if (isExactPair(sorted)) {
+    return { ok: true, type: "pair", count: 2, suit, power: cardStrength(sorted[0]) };
+  }
+  if (isExactTriple(sorted)) {
+    return { ok: true, type: "triple", count: 3, suit, power: cardStrength(sorted[0]) };
+  }
+  if (isSerialTuplePlay(sorted, 2)) {
+    const pairs = findPairs(sorted).sort((a, b) => getPatternUnitPower(a[0], suit) - getPatternUnitPower(b[0], suit));
+    const chainLength = pairs.length;
+    return {
+      ok: true,
+      type: chainLength >= 4 ? "train" : "tractor",
+      count: sorted.length,
+      suit,
+      chainLength,
+      tupleSize: 2,
+      power: getPatternUnitPower(pairs[pairs.length - 1][0], suit),
+    };
+  }
+  if (isSerialTuplePlay(sorted, 3)) {
+    const triples = findTriples(sorted).sort((a, b) => getPatternUnitPower(a[0], suit) - getPatternUnitPower(b[0], suit));
+    return {
+      ok: true,
+      type: "bulldozer",
+      count: sorted.length,
+      suit,
+      chainLength: triples.length,
+      tupleSize: 3,
+      power: getPatternUnitPower(triples[triples.length - 1][0], suit),
+    };
+  }
+  const throwComponents = sorted.length > 1 ? decomposeThrowComponents(sorted) : null;
+  if (throwComponents && throwComponents.length > 1) {
+    return {
+      ok: true,
+      type: "throw",
+      count: sorted.length,
+      suit,
+      components: throwComponents,
+      power: Math.max(...throwComponents.map((component) => component.power ?? 0)),
+    };
+  }
+  return { ok: false, type: "invalid", count: sorted.length, suit };
+}
+
+function matchesLeadPattern(pattern, leadSpec) {
+  if (!pattern?.ok || !leadSpec) return false;
+  if (pattern.count !== leadSpec.count) return false;
+  if (pattern.type !== leadSpec.type) return false;
+  if (pattern.type === "tractor" || pattern.type === "train" || pattern.type === "bulldozer") {
+    return pattern.chainLength === leadSpec.chainLength;
+  }
+  return true;
+}
+
+function hasMatchingPattern(cards, leadSpec) {
+  if (!leadSpec) return false;
+  if (leadSpec.type === "single") return cards.length >= 1;
+  if (leadSpec.type === "pair") return findPairs(cards).length > 0;
+  if (leadSpec.type === "triple") return findTriples(cards).length > 0;
+  if (leadSpec.type === "tractor") return findSerialTuples(cards, 2, leadSpec.chainLength).length > 0;
+  if (leadSpec.type === "train") return findSerialTuples(cards, 2, leadSpec.chainLength).some((combo) => classifyPlay(combo).type === "train");
+  if (leadSpec.type === "bulldozer") return findSerialTuples(cards, 3, leadSpec.chainLength).length > 0;
+  if (leadSpec.type === "throw") return cards.length >= leadSpec.count;
+  return false;
+}
+
+function getPatternCombos(cards, leadSpec) {
+  if (!leadSpec) return [];
+  if (leadSpec.type === "single") return cards.map((card) => [card]).sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
+  if (leadSpec.type === "pair") return findPairs(cards);
+  if (leadSpec.type === "triple") return findTriples(cards);
+  if (leadSpec.type === "tractor") return findSerialTuples(cards, 2, leadSpec.chainLength);
+  if (leadSpec.type === "train") return findSerialTuples(cards, 2, leadSpec.chainLength).filter((combo) => classifyPlay(combo).type === "train");
+  if (leadSpec.type === "bulldozer") return findSerialTuples(cards, 3, leadSpec.chainLength);
+  if (leadSpec.type === "throw") {
+    return enumerateCombinations(cards, leadSpec.count)
+      .filter((combo) => isSameSuitSet(combo) && classifyPlay(combo).ok)
+      .sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
+  }
+  return [];
+}
+
+function enumerateCombinations(cards, count) {
+  const results = [];
+  const current = [];
+  const limit = count <= 4 ? 240 : count <= 6 ? 360 : 520;
+
+  function walk(start) {
+    if (current.length === count) {
+      results.push([...current]);
+      return;
+    }
+    for (let i = start; i < cards.length; i += 1) {
+      current.push(cards[i]);
+      walk(i + 1);
+      current.pop();
+      if (results.length >= limit) return;
+    }
+  }
+
+  walk(0);
+  return results;
+}
+
+function findLegalSelectionBySearch(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return [];
+  if (state.currentTrick.length === 0) return [];
+
+  const targetCount = state.leadSpec.count;
+  const hand = [...player.hand].sort((a, b) => cardStrength(a) - cardStrength(b));
+  const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+  const pools = [];
+
+  if (suited.length >= targetCount) {
+    pools.push(suited);
+  } else if (suited.length > 0) {
+    pools.push([...suited, ...hand.filter((card) => !suited.some((suitedCard) => suitedCard.id === card.id))]);
+  }
+
+  if (!pools.some((pool) => pool.length === hand.length)) {
+    pools.push(hand);
+  }
+
+  for (const pool of pools) {
+    if (pool.length < targetCount) continue;
+    const combos = enumerateCombinations(pool, targetCount);
+    const validCombo = combos.find((combo) => validateSelection(playerId, combo).ok);
+    if (validCombo) return validCombo;
+  }
+
+  return [];
+}
+
+function compareSameTypePlay(candidatePattern, currentPattern, leadSuit) {
+  const candidateTrump = candidatePattern.suit === "trump";
+  const currentTrump = currentPattern.suit === "trump";
+  if (candidateTrump && !currentTrump) return 1;
+  if (!candidateTrump && currentTrump) return -1;
+  if (!candidateTrump && !currentTrump) {
+    if (candidatePattern.suit === leadSuit && currentPattern.suit !== leadSuit) return 1;
+    if (candidatePattern.suit !== leadSuit && currentPattern.suit === leadSuit) return -1;
+  }
+  return candidatePattern.power - currentPattern.power;
+}
+
+function compareComponentSize(a, b) {
+  if ((a.power ?? 0) !== (b.power ?? 0)) return (a.power ?? 0) - (b.power ?? 0);
+  if ((a.count ?? 0) !== (b.count ?? 0)) return (a.count ?? 0) - (b.count ?? 0);
+  const typeOrder = { single: 0, pair: 1, triple: 2, tractor: 3, train: 4, bulldozer: 5 };
+  return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
+}
+
+function handHasStrongerPattern(hand, targetPattern) {
+  const suited = hand.filter((card) => effectiveSuit(card) === targetPattern.suit);
+  const combos = getPatternCombos(suited, targetPattern);
+  return combos.some((combo) => {
+    const candidate = classifyPlay(combo);
+    return compareSameTypePlay(candidate, targetPattern, targetPattern.suit) > 0;
+  });
+}
+
+function getThrowFailure(playerId, pattern) {
+  if (!pattern?.ok || pattern.type !== "throw" || state.currentTrick.length !== 0) return null;
+  const vulnerableComponents = pattern.components.filter((component) =>
+    state.players.some((player) =>
+      player.id !== playerId && handHasStrongerPattern(player.hand, component)
+    )
+  );
+  if (vulnerableComponents.length === 0) return null;
+  const forcedComponent = [...vulnerableComponents].sort(compareComponentSize)[0];
+  return {
+    forcedCards: forcedComponent.cards,
+    failedComponent: forcedComponent,
+  };
+}
+
+function applyThrowFailurePenalty(playerId) {
+  const penalty = 10;
+  const player = getPlayer(playerId);
+  if (!player) return penalty;
+  if (!state.friendTarget?.revealed) {
+    player.capturedPoints -= penalty;
+  }
+  if (isDefenderTeam(playerId)) {
+    state.defenderPoints -= penalty;
+  } else {
+    state.defenderPoints += penalty;
+  }
+  return penalty;
+}
+
+function getThrowPenaltySummary(playerId, penalty) {
+  return isDefenderTeam(playerId)
+    ? `非打家少 ${penalty} 分`
+    : `非打家加 ${penalty} 分`;
+}
+
+function validateSelection(playerId, cards) {
+  const player = getPlayer(playerId);
+  if (!player || cards.length === 0) {
+    return { ok: false, reason: "请选择要出的牌。" };
+  }
+  const pattern = classifyPlay(cards);
+
+  if (state.currentTrick.length === 0) {
+    if (pattern.ok) return { ok: true };
+    return { ok: false, reason: "首家当前支持单张、对子、拖拉机、火车、刻子、推土机和基础甩牌。" };
+  }
+
+  if (cards.length !== state.leadSpec.count) {
+    return { ok: false, reason: `这一轮需要跟 ${state.leadSpec.count} 张牌。` };
+  }
+
+  const suited = player.hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+  if (suited.length >= state.leadSpec.count) {
+    if (!cards.every((card) => effectiveSuit(card) === state.leadSpec.suit)) {
+      return { ok: false, reason: "有足够同门牌时，必须先跟同门。"};
+    }
+    const shouldForcePattern = !(state.leadSpec.type === "pair" && !hasForcedPair(suited));
+    if (shouldForcePattern && hasMatchingPattern(suited, state.leadSpec) && !matchesLeadPattern(pattern, state.leadSpec)) {
+      return { ok: false, reason: "有同牌型可跟时，必须按同牌型跟牌。"};
+    }
+    return { ok: true };
+  }
+
+  if (suited.length > 0) {
+    const suitedIds = new Set(suited.map((card) => card.id));
+    const selectedSuitedCount = cards.filter((card) => suitedIds.has(card.id)).length;
+    if (selectedSuitedCount !== suited.length) {
+      return { ok: false, reason: "同门牌不够时，必须把手里剩余的同门牌全部跟出。"};
+    }
+    return { ok: true };
+  }
+
+  return { ok: true };
+}
+
+function isExactPair(cards) {
+  return cards.length === 2 && cards[0].rank === cards[1].rank && cards[0].suit === cards[1].suit;
+}
+
+function autoPlayCurrentTurn() {
+  const player = getPlayer(state.currentTurnId);
+  if (!player || state.gameOver) return;
+  const chosen = getLegalHintForPlayer(player.id);
+  if (chosen.length > 0 && playCards(player.id, chosen.map((card) => card.id))) {
+    return;
+  }
+  const fallback = findLegalSelectionBySearch(player.id);
+  if (fallback.length === 0) return;
+  playCards(player.id, fallback.map((card) => card.id));
+}
+
+function playCards(playerId, cardIds, options = {}) {
+  const player = getPlayer(playerId);
+  if (!player || state.gameOver) return false;
+
+  let cards = cardIds.map((id) => player.hand.find((card) => card.id === id)).filter(Boolean);
+  let pattern = classifyPlay(cards);
+  const throwFailure = getThrowFailure(playerId, pattern);
+  if (throwFailure) {
+    cards = throwFailure.forcedCards;
+    pattern = classifyPlay(cards);
+  }
+  const beatPlay = state.currentTrick.length > 0 && doesSelectionBeatCurrent(playerId, cards);
+  const validation = validateSelection(playerId, cards);
+  if (!validation.ok) {
+    if (player.isHuman) {
+      dom.actionHint.textContent = validation.reason;
+    }
+    return false;
+  }
+
+  clearTimers();
+  state.selectedCardIds = [];
+  const resolvedCardIds = cards.map((card) => card.id);
+
+  for (const cardId of resolvedCardIds) {
+    const index = player.hand.findIndex((card) => card.id === cardId);
+    if (index >= 0) {
+      player.hand.splice(index, 1);
+    }
+  }
+  player.hand = sortHand(player.hand);
+
+  const playedCards = sortPlayedCards(cards);
+  state.currentTrick.push({ playerId, cards: playedCards });
+  player.played = playedCards;
+
+  if (state.currentTrick.length === 1) {
+    const leadPattern = pattern;
+    state.leadSpec = { ...leadPattern, leaderId: playerId };
+    if (leadPattern.suit === "trump") {
+      queueCenterAnnouncement(
+        `${player.name} 吊主`,
+        isVisibleAllyOfHuman(playerId) ? "ally" : "default"
+      );
+    }
+  }
+
+  maybeRevealFriend(playerId, playedCards);
+  if (throwFailure) {
+    const penalty = applyThrowFailurePenalty(playerId);
+    appendLog(`${player.name} 甩牌失败，强制改出：${playedCards.map(shortCardLabel).join("、")}，扣 ${penalty} 分（${getThrowPenaltySummary(playerId, penalty)}）。`);
+    queueCenterAnnouncement(`${player.name} 甩牌失败 · 扣${penalty}分`, "strong");
+  } else {
+    appendLog(`${player.name} 出牌：${playedCards.map(shortCardLabel).join("、")}。`);
+  }
+  if (beatPlay) {
+    queueCenterAnnouncement(`${player.name} 毙牌`, "strong");
+  }
+  const specialAnnouncement = throwFailure || (pattern.type === "throw" && state.currentTrick.length > 1)
+    ? ""
+    : getSpecialPatternAnnouncement(pattern, playerId);
+  if (specialAnnouncement) {
+    queueCenterAnnouncement(specialAnnouncement, "default");
+  }
+
+  if (state.currentTrick.length === 5) {
+    resolveTrick(options);
+    return true;
+  }
+
+  state.currentTurnId = getNextPlayerId(playerId);
+  render();
+  if (!options.skipStartTurn) {
+    startTurn();
+  }
+  return true;
+}
+
+function sortPlayedCards(cards) {
+  return [...cards].sort((a, b) => cardStrength(a) - cardStrength(b));
+}
+
+function maybeRevealFriend(playerId, cards) {
+  if (!state.friendTarget) return;
+  if (state.friendTarget.revealed || playerId === state.bankerId) return;
+  const matched = cards.some(
+    (card) => card.rank === state.friendTarget.rank && card.suit === state.friendTarget.suit
+  );
+  if (!matched) return;
+  state.friendTarget.revealed = true;
+  state.friendTarget.revealedBy = playerId;
+  for (const seatPlayer of state.players) {
+    seatPlayer.capturedPoints = 0;
+  }
+  appendLog(`${getPlayer(playerId).name} 打出了朋友牌，朋友身份揭晓。`);
+  appendLog(`阵营已揭晓，非打家当前累计 ${state.defenderPoints} 分。`);
+}
+
+function resolveTrick(options = {}) {
+  const winnerId = pickTrickWinner();
+  const winner = getPlayer(winnerId);
+  const trickPoints = state.currentTrick.reduce(
+    (sum, play) => sum + play.cards.reduce((cardSum, card) => cardSum + scoreValue(card), 0),
+    0
+  );
+
+  if (!state.friendTarget?.revealed) {
+    winner.capturedPoints += trickPoints;
+  }
+  if (isDefenderTeam(winnerId)) {
+    state.defenderPoints += trickPoints;
+  }
+
+  state.lastTrick = {
+    plays: state.currentTrick.map((play) => ({ ...play })),
+    winnerId,
+    points: trickPoints,
+    trickNumber: state.trickNumber,
+  };
+
+  appendLog(`${getPlayer(winnerId).name} 赢下第 ${state.trickNumber} 轮，获得 ${trickPoints} 分。`);
+  queueCenterAnnouncement(
+    getTrickOutcomeAnnouncement(winnerId),
+    isVisibleAllyOfHuman(winnerId) ? "ally" : "strong"
+  );
+
+  const everyoneEmpty = state.players.every((player) => player.hand.length === 0);
+  if (everyoneEmpty) {
+    if (isDefenderTeam(winnerId)) {
+      const bottomPoints = state.bottomCards.reduce((sum, card) => sum + scoreValue(card), 0) * 2;
+      if (bottomPoints > 0) {
+        if (!state.friendTarget?.revealed) {
+          winner.capturedPoints += bottomPoints;
+        }
+        state.defenderPoints += bottomPoints;
+        appendLog(`最后一轮由非打家方获胜，底牌分双倍计入，再加 ${bottomPoints} 分。`);
+      }
+      const bottomPenalty = getBottomPenalty();
+      if (bottomPenalty) {
+        appendLog(`非打家以${bottomPenalty.label}完成扣底，打家额外降 ${bottomPenalty.levels} 级。`);
+      }
+    }
+    state.currentTurnId = winnerId;
+    render();
+    if (options.skipResolveDelay) {
+      finishGame();
+    } else {
+      state.trickPauseTimer = window.setTimeout(() => {
+        state.trickPauseTimer = null;
+        finishGame();
+      }, 1800);
+    }
+    return;
+  }
+
+  state.phase = "pause";
+  state.currentTurnId = winnerId;
+  render();
+
+  const advanceToNextTrick = () => {
+    state.currentTrick = [];
+    state.leadSpec = null;
+    for (const player of state.players) {
+      player.played = [];
+    }
+    state.trickNumber += 1;
+    state.phase = "playing";
+    render();
+    startTurn();
+  };
+
+  if (options.skipResolveDelay) {
+    advanceToNextTrick();
+  } else {
+    state.trickPauseTimer = window.setTimeout(() => {
+      state.trickPauseTimer = null;
+      advanceToNextTrick();
+    }, 2400);
+  }
+}
+
+function pickTrickWinner() {
+  if (!state.leadSpec) return state.leaderId;
+  if (state.leadSpec.type === "single") {
+    let winner = state.currentTrick[0];
+    for (const play of state.currentTrick.slice(1)) {
+      if (compareSingle(play.cards[0], winner.cards[0], state.leadSpec.suit) > 0) {
+        winner = play;
+      }
+    }
+    return winner.playerId;
+  }
+
+  let best = state.currentTrick[0];
+  let bestPattern = classifyPlay(best.cards);
+  for (const play of state.currentTrick.slice(1)) {
+    const pattern = classifyPlay(play.cards);
+    if (!matchesLeadPattern(pattern, state.leadSpec)) continue;
+    if (compareSameTypePlay(pattern, bestPattern, state.leadSpec.suit) > 0) {
+      best = play;
+      bestPattern = pattern;
+    }
+  }
+  return best.playerId;
+}
+
+function getCurrentWinningPlay() {
+  if (state.currentTrick.length === 0) return null;
+  const winnerId = pickTrickWinner();
+  return state.currentTrick.find((play) => play.playerId === winnerId) || null;
+}
+
+function getBeatHintForPlayer(playerId) {
+  if (!state.leadSpec || state.currentTrick.length === 0) return [];
+  const player = getPlayer(playerId);
+  if (!player) return [];
+
+  const suited = player.hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+  if (suited.length > 0) return [];
+
+  const trumpCards = player.hand.filter((card) => effectiveSuit(card) === "trump");
+  if (trumpCards.length < state.leadSpec.count) return [];
+
+  const currentWinningPlay = getCurrentWinningPlay();
+  if (!currentWinningPlay) return [];
+  const currentPattern = classifyPlay(currentWinningPlay.cards);
+
+  const combos = getPatternCombos(trumpCards, state.leadSpec);
+
+  const beatingCombo = combos.find((combo) => {
+    const pattern = classifyPlay(combo);
+    return compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) > 0;
+  });
+
+  return beatingCombo || [];
+}
+
+function doesSelectionBeatCurrent(playerId, cards) {
+  if (!state.leadSpec || state.currentTrick.length === 0 || cards.length === 0) return false;
+  const player = getPlayer(playerId);
+  if (!player) return false;
+  const hand = player.hand;
+  const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+  if (suited.length > 0) return false;
+
+  const pattern = classifyPlay(cards);
+  if (!matchesLeadPattern(pattern, state.leadSpec)) return false;
+
+  const currentWinningPlay = getCurrentWinningPlay();
+  if (!currentWinningPlay) return false;
+  const currentPattern = classifyPlay(currentWinningPlay.cards);
+  return compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) > 0;
+}
+
+function compareSingle(candidate, current, leadSuit) {
+  const candidateSuit = effectiveSuit(candidate);
+  const currentSuit = effectiveSuit(current);
+  const candidateTrump = candidateSuit === "trump";
+  const currentTrump = currentSuit === "trump";
+  if (candidateTrump && !currentTrump) return 1;
+  if (!candidateTrump && currentTrump) return -1;
+  if (!candidateTrump && !currentTrump) {
+    if (candidateSuit === leadSuit && currentSuit !== leadSuit) return 1;
+    if (candidateSuit !== leadSuit && currentSuit === leadSuit) return -1;
+  }
+  return getPatternUnitPower(candidate, candidateSuit) - getPatternUnitPower(current, currentSuit);
+}
+
+function isDefenderTeam(playerId) {
+  if (playerId === state.bankerId) return false;
+  return playerId !== state.hiddenFriendId;
+}
+
+function finishGame() {
+  state.gameOver = true;
+  clearTimers();
+  const outcome = getOutcome(state.defenderPoints);
+  applyLevelSettlement(outcome);
+  dom.resultTitle.textContent = outcome.title;
+  dom.resultBody.textContent = `${outcome.body}${getLevelSettlementSummary(outcome)}`;
+  dom.resultOverlay.classList.add("show");
+  render();
+}
+
+function getOutcome(points) {
+  if (points === 0) {
+    return {
+      title: "打家方大光",
+      body: withBottomPenalty(`非打家总分为 0 分，打家方升 3 级。当前这一版原型已经按你的五人规则做了这条判定。`),
+      bankerLevels: 3,
+      defenderLevels: 0,
+    };
+  }
+  if (points < 60) {
+    return {
+      title: "打家方小光",
+      body: withBottomPenalty(`非打家总分为 ${points} 分，小于 60 分，打家方升 2 级。`),
+      bankerLevels: 2,
+      defenderLevels: 0,
+    };
+  }
+  if (points < 120) {
+    return {
+      title: "打家方获胜",
+      body: withBottomPenalty(`非打家总分为 ${points} 分，小于 120 分，打家方正常获胜，升 1 级。`),
+      bankerLevels: 1,
+      defenderLevels: 0,
+    };
+  }
+  if (points < 165) {
+    return {
+      title: "非打家方获胜",
+      body: withBottomPenalty(`非打家总分为 ${points} 分，已达到 120 分但未到 165 分。非打家方获胜，但本局不升级，下一局重新抓牌并重新抢庄。`),
+      bankerLevels: 0,
+      defenderLevels: 0,
+    };
+  }
+  const levels = 1 + Math.floor((points - 165) / 60);
+  return {
+    title: "非打家方升级",
+    body: withBottomPenalty(`非打家总分为 ${points} 分，按你当前规则从 165 分开始升级，本局非打家方升 ${levels} 级。`),
+    bankerLevels: 0,
+    defenderLevels: levels,
+  };
+}
+
+function getBankerTeamIds() {
+  return [...new Set([state.bankerId, state.hiddenFriendId].filter(Boolean))];
+}
+
+function getDefenderIds() {
+  return state.players
+    .map((player) => player.id)
+    .filter((playerId) => isDefenderTeam(playerId));
+}
+
+function applyLevelSettlement(outcome) {
+  if (outcome.bankerLevels > 0) {
+    for (const playerId of getBankerTeamIds()) {
+      state.playerLevels[playerId] = shiftLevel(getPlayerLevel(playerId), outcome.bankerLevels);
+    }
+  }
+  if (outcome.defenderLevels > 0) {
+    for (const playerId of getDefenderIds()) {
+      state.playerLevels[playerId] = shiftLevel(getPlayerLevel(playerId), outcome.defenderLevels);
+    }
+  }
+  syncPlayerLevels();
+  state.levelRank = null;
+}
+
+function getLevelSettlementSummary(outcome) {
+  const parts = [];
+  if (outcome.bankerLevels > 0) {
+    const bankerLevels = getBankerTeamIds()
+      .map((playerId) => `玩家${playerId} Lv:${getPlayerLevel(playerId)}`)
+      .join("，");
+    parts.push(`打家方升级后：${bankerLevels}`);
+  }
+  if (outcome.defenderLevels > 0) {
+    const defenderLevels = getDefenderIds()
+      .map((playerId) => `玩家${playerId} Lv:${getPlayerLevel(playerId)}`)
+      .join("，");
+    parts.push(`非打家方升级后：${defenderLevels}`);
+  }
+  if (parts.length === 0) {
+    parts.push("当前等级保持不变，下一局继续按各自 Lv 亮主。");
+  } else {
+    parts.push("下一局继续按各自 Lv 亮主。");
+  }
+  return ` ${parts.join(" ")}`;
+}
+
+function getBottomPenalty() {
+  if (!state.lastTrick || !isDefenderTeam(state.lastTrick.winnerId)) return null;
+
+  const winningPlay = state.lastTrick.plays.find((play) => play.playerId === state.lastTrick.winnerId);
+  if (!winningPlay || winningPlay.cards.length === 0) return null;
+  if (!winningPlay.cards.every((card) => isTrump(card))) return null;
+
+  if (winningPlay.cards.length === 1) {
+    return { levels: 1, label: "单张主牌扣底" };
+  }
+  if (winningPlay.cards.length === 2 && isExactPair(winningPlay.cards)) {
+    return { levels: 2, label: "两张主牌扣底" };
+  }
+  if (winningPlay.cards.length === 3 && isExactTriple(winningPlay.cards)) {
+    return { levels: 3, label: "三张主牌扣底" };
+  }
+  if (winningPlay.cards.length >= 4) {
+    return { levels: 4, label: "主牌拖拉机扣底" };
+  }
+  return null;
+}
+
+function withBottomPenalty(body) {
+  const penalty = getBottomPenalty();
+  if (!penalty) return body;
+  return `${body} 此外，最后一轮被非打家用${penalty.label}扣底，打家额外降 ${penalty.levels} 级。`;
+}
+
+function appendLog(message) {
+  state.logs.unshift(message);
+  state.logs = state.logs.slice(0, 5);
+}
+
+function render() {
+  renderFriendPanel();
+  renderHud();
+  renderScorePanel();
+  renderSeats();
+  renderTrickSpots();
+  renderHand();
+  renderLastTrick();
+  renderLogs();
+  renderBottomPanel();
+  renderResultBottomCards();
+  renderCenterPanel();
+}
+
+function renderBottomPanel() {
+  dom.bottomPanel.classList.toggle("hidden", !state.showBottomPanel);
+  if (state.gameOver) {
+    dom.bottomNote.textContent = "牌局结束，底牌已全部亮出。";
+  } else if (!canHumanViewBottomCards()) {
+    dom.bottomNote.textContent = "局中只有打家本人可以翻看底牌。";
+  } else if (state.phase === "burying") {
+    dom.bottomNote.textContent = "你已拿起底牌。整理后请从手中选出 7 张重新扣底；扣完后不能再换。";
+  } else {
+    dom.bottomNote.textContent = `当前底牌分 ${state.bottomCards.reduce((sum, card) => sum + scoreValue(card), 0)} 分，仅打家本人可翻看。`;
+  }
+
+  const canShowCards = state.gameOver || canHumanViewBottomCards();
+  dom.bottomCardsMount.innerHTML = canShowCards
+    ? state.bottomCards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")
+    : '<div class="empty-note">当前不可查看底牌</div>';
+}
+
+function renderResultBottomCards() {
+  dom.resultBottomCards.innerHTML = state.bottomCards
+    .map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML)
+    .join("");
+}
+
+function renderFriendPanel() {
+  if (!state.friendTarget) {
+    dom.friendHint.textContent = "发牌结束后会自动叫朋友；后续还可以继续接成真实“手动叫朋友”流程。";
+    dom.friendLabel.textContent = "朋友牌待确定";
+    dom.friendState.textContent = "当前状态：尚未进入叫朋友";
+    dom.friendOwner.textContent = "朋友身份尚未揭晓";
+    dom.friendCardMount.innerHTML = "";
+    return;
+  }
+
+  dom.friendHint.textContent = "当前先用固定挑牌逻辑生成朋友牌，后续可以继续接真实“叫朋友”流程。";
+  dom.friendLabel.textContent = state.friendTarget.label;
+  dom.friendState.textContent = state.friendTarget.revealed ? "当前状态：已出现" : "当前状态：未出现";
+  dom.friendOwner.textContent = state.friendTarget.revealed
+    ? `朋友已揭晓：${getPlayer(state.friendTarget.revealedBy).name}`
+    : "朋友身份尚未揭晓";
+  dom.friendCardMount.innerHTML = "";
+  dom.friendCardMount.appendChild(buildCardNode(state.friendTarget, "friend-card"));
+}
+
+function renderHud() {
+  dom.phaseLabel.textContent = state.gameOver
+    ? "牌局结束"
+    : state.phase === "ready"
+      ? "等待开始"
+    : state.phase === "dealing"
+      ? "发牌中"
+      : state.phase === "countering"
+        ? "最后反主"
+      : state.phase === "burying"
+        ? "扣底中"
+      : state.phase === "pause"
+        ? "本轮结算中"
+        : "出牌中";
+  dom.leaderLabel.textContent = state.phase === "ready"
+    ? "等待玩家点击开始发牌"
+    : state.phase === "dealing"
+    ? (state.declaration
+      ? `当前亮主：${getPlayer(state.declaration.playerId).name}`
+      : "当前亮主：暂无")
+    : state.phase === "countering"
+      ? `当前反主：${getPlayer(state.currentTurnId).name}`
+    : state.phase === "burying"
+      ? `当前打家：${getPlayer(state.bankerId).name}`
+    : `当前首家：${getPlayer(state.currentTurnId).name}`;
+  dom.trumpLabel.textContent = state.declaration
+    ? (state.declaration.suit === "notrump"
+      ? `无主 · ${state.declaration.count} 张亮`
+      : `${SUIT_LABEL[state.declaration.suit]} ${state.declaration.rank} · ${state.declaration.count} 张亮`)
+    : "尚未亮主 · 各家按自己的 Lv 亮主";
+  dom.bankerLabel.textContent = state.phase === "ready"
+    ? "待亮主确定"
+    : state.phase === "dealing"
+    ? (state.declaration ? `暂定 ${getPlayer(state.declaration.playerId).name}` : "待亮主确定")
+    : state.phase === "countering"
+      ? `待反主确认`
+    : state.phase === "burying"
+      ? `待扣底完成`
+    : `玩家${state.bankerId}`;
+  dom.trickLabel.textContent = state.phase === "ready"
+    ? "等待开始"
+    : state.phase === "dealing"
+    ? `发至 ${state.dealIndex} / ${state.dealCards.length}`
+    : state.phase === "countering"
+      ? "发牌完成"
+    : state.phase === "burying"
+      ? "整理底牌"
+    : `第 ${state.trickNumber} 轮`;
+}
+
+function renderScorePanel() {
+  const visibleDefenderPoints = getVisibleDefenderPoints();
+  dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
+  dom.toggleLastTrickBtn.textContent = state.showLastTrick ? "收起上一轮" : "上一轮";
+  dom.turnTimer.textContent = (state.phase === "ready" || state.phase === "dealing" || state.phase === "burying")
+    ? "--"
+    : String(Math.max(0, state.countdown));
+  dom.timerHint.textContent = state.gameOver
+    ? "本局已结束"
+    : state.phase === "ready"
+      ? "新牌局已就绪。点击“开始发牌”后，才会开始发牌与亮主流程。"
+    : state.phase === "dealing"
+      ? "发牌进行中，每位玩家用自己当前 Lv 对应的级牌亮主或抢亮。"
+      : state.phase === "countering"
+        ? `最后反主阶段：当前轮到玩家${state.currentTurnId}，15 秒内决定是否反主。`
+      : state.phase === "burying"
+        ? (state.bankerId === 1 ? "你已拿起底牌，请选 7 张重新扣底。" : "打家正在整理底牌并重新扣 7 张。")
+      : !state.friendTarget?.revealed
+        ? "朋友未揭晓前，抓分先记在各玩家自己名下。"
+        : state.phase === "pause"
+          ? "本轮暂停中，准备进入下一轮"
+          : `当前轮到玩家${state.currentTurnId}出牌`;
+  dom.toggleBottomBtn.disabled = !canHumanViewBottomCards();
+}
+
+function renderSeats() {
+  for (const player of state.players) {
+    const seat = document.getElementById(`playerSeat-${player.id}`);
+    const role = getVisibleRole(player.id);
+    const avatar = PLAYER_AVATARS[player.id];
+    seat.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
+    seat.classList.toggle("role-banker", role.kind === "banker");
+    seat.innerHTML = `
+      <div class="seat-top">
+        <div class="avatar"><img src="${avatar.src}" alt="${avatar.label}" /></div>
+        <div class="seat-copy">
+          <div class="title">${player.name}</div>
+          <div class="seat-meta">${player.isHuman ? "本人操控" : "电脑操控"}</div>
+          <div class="seat-level">Lv:${player.level}</div>
+        </div>
+      </div>
+      <div class="role-badge ${role.kind}">${role.label}</div>
+      <div class="seat-stats">
+        <div class="seat-metric">
+          <span class="stat-label">剩余手牌</span>
+          <strong class="seat-count">${player.hand.length}</strong>
+        </div>
+        <div class="seat-metric">
+          <span class="stat-label">个人得分</span>
+          <strong class="seat-score">${player.capturedPoints}</strong>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function getVisibleRole(playerId) {
+  if (state.phase === "ready") {
+    return { kind: "unknown", label: "等待开局" };
+  }
+  if (state.phase === "dealing") {
+    if (state.declaration && playerId === state.declaration.playerId) {
+      return { kind: "banker", label: "当前亮主" };
+    }
+    return { kind: "unknown", label: "等待亮主" };
+  }
+  if (state.phase === "countering") {
+    if (state.declaration && playerId === state.declaration.playerId) {
+      return { kind: "banker", label: "待反主" };
+    }
+    return { kind: "unknown", label: "反主确认中" };
+  }
+  if (state.phase === "burying") {
+    if (playerId === state.bankerId) {
+      return { kind: "banker", label: "扣底中" };
+    }
+    return { kind: "unknown", label: "等待开打" };
+  }
+  if (playerId === state.bankerId) return { kind: "banker", label: "打家" };
+  if (state.friendTarget?.revealed && playerId === state.friendTarget.revealedBy) {
+    return { kind: "friend", label: "朋友" };
+  }
+  if (state.friendTarget?.revealed) return { kind: "defender", label: "非打家" };
+  return { kind: "unknown", label: "阵营待揭晓" };
+}
+
+function renderTrickSpots() {
+  for (const player of state.players) {
+    const spot = document.getElementById(`trickSpot-${player.id}`);
+    const play = state.currentTrick.find((entry) => entry.playerId === player.id);
+    const declarationCards = (state.phase === "dealing" || state.phase === "countering") && state.declaration && state.declaration.playerId === player.id
+      ? getDeclarationCards(state.declaration)
+      : [];
+    const cardsHtml = play
+      ? play.cards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")
+      : declarationCards.length > 0
+        ? declarationCards.map((card) => buildCardNode(card, "played-card trump").outerHTML).join("")
+        : "";
+    const emptyText = state.phase === "ready"
+      ? "等待开始发牌"
+      : (state.phase === "dealing" || state.phase === "countering")
+      ? "等待发牌或亮主"
+      : state.phase === "burying"
+        ? "等待打家扣底"
+      : "本轮尚未出牌";
+    spot.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
+    spot.innerHTML = `
+      <div class="label">${player.id === 1 ? "我的本轮出牌区" : `${player.name}出牌区`}</div>
+      <div class="spot-row">
+        ${cardsHtml || `<div class="empty-note">${emptyText}</div>`}
+      </div>
+    `;
+  }
+}
+
+function renderHand() {
+  const human = getPlayer(1);
+  if (state.phase === "ready") {
+    dom.handSummary.textContent = `新牌局已准备好。你当前是 Lv:${human.level}，点击“开始发牌”后进入抓牌和亮主。`;
+  } else if (state.phase === "dealing") {
+    const humanOptions = getDeclarationOptions(1);
+    dom.handSummary.textContent = humanOptions.length > 0
+      ? `当前共 ${human.hand.length} 张，已可亮主：${humanOptions.map((entry) => formatDeclaration(entry)).join(" / ")}。`
+      : `当前共 ${human.hand.length} 张，发牌中按花色分组显示；你当前是 Lv:${human.level}，拿到同花色两张 ${human.level} 即可亮主。`;
+  } else if (state.phase === "countering") {
+    const counterOption = getCounterDeclarationForPlayer(1);
+    dom.handSummary.textContent = counterOption
+      ? `当前共 ${human.hand.length} 张，你可以用 ${formatDeclaration(counterOption)} 进行最后反主。`
+      : `当前共 ${human.hand.length} 张，你没有更强主牌可用于最后反主。`;
+  } else if (state.phase === "burying") {
+    dom.handSummary.textContent = state.bankerId === 1
+      ? `当前共 ${human.hand.length} 张，请选出 7 张重新扣底。扣完后不能再换。`
+      : `当前共 ${human.hand.length} 张，等待打家整理底牌。`;
+  } else {
+    dom.handSummary.textContent = `当前共 ${human.hand.length} 张，点击牌即可选择；首家支持单张、对子、拖拉机、火车、刻子、推土机和甩牌。`;
+  }
+  const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
+  const specialLabel = isSetupPhase
+    ? (state.declaration ? "当前主牌 / 王" : "级牌 / 王")
+    : "主牌 / 王";
+  const setupLevelRank = human.level;
+  const groups = [
+    { key: "trump", label: specialLabel, red: true },
+    { key: "clubs", label: "梅花", red: false },
+    { key: "diamonds", label: "方块", red: true },
+    { key: "spades", label: "黑桃", red: false },
+    { key: "hearts", label: "红桃", red: true },
+  ];
+
+  dom.handGroups.innerHTML = "";
+  for (const group of groups) {
+    const cards = human.hand.filter((card) => {
+      if (group.key === "trump") {
+        if (isSetupPhase && !state.declaration) {
+          return card.suit === "joker" || card.rank === setupLevelRank;
+        }
+        return isTrump(card);
+      }
+      if (isSetupPhase && !state.declaration) {
+        return card.suit === group.key && card.rank !== setupLevelRank;
+      }
+      return !isTrump(card) && card.suit === group.key;
+    }).sort((a, b) => cardStrength(b) - cardStrength(a));
+    if (cards.length === 0) continue;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "hand-group";
+    const chip = document.createElement("div");
+    chip.className = `group-chip${group.red ? " red" : ""}`;
+    chip.textContent = group.label;
+    wrapper.appendChild(chip);
+
+    const row = document.createElement("div");
+    row.className = "cards-row";
+    for (const card of cards) {
+      const button = buildCardNode(card, `card-btn${state.selectedCardIds.includes(card.id) ? " selected" : ""}${isTrump(card) ? " trump" : ""}`);
+      button.type = "button";
+      const canInteract = (state.phase === "playing" && isHumanTurnActive()) || (state.phase === "burying" && state.bankerId === 1);
+      button.disabled = !canInteract;
+      if (canInteract) {
+        button.addEventListener("click", () => toggleSelection(card.id));
+      }
+      row.appendChild(button);
+    }
+    wrapper.appendChild(row);
+    dom.handGroups.appendChild(wrapper);
+  }
+}
+
+function buildCardNode(card, className) {
+  const node = document.createElement("button");
+  node.className = className;
+  node.setAttribute("aria-label", shortCardLabel(card));
+  const image = document.createElement("img");
+  image.src = card.img;
+  image.alt = shortCardLabel(card);
+  node.appendChild(image);
+  return node;
+}
+
+function shortCardLabel(card) {
+  if (card.rank === "RJ") return "大王";
+  if (card.rank === "BJ") return "小王";
+  return `${SUIT_SYMBOL[card.suit] || ""}${card.rank}`;
+}
+
+function toggleSelection(cardId) {
+  if (!isHumanTurnActive() && !(state.phase === "burying" && state.bankerId === 1)) return;
+  if (state.selectedCardIds.includes(cardId)) {
+    state.selectedCardIds = state.selectedCardIds.filter((id) => id !== cardId);
+  } else {
+    state.selectedCardIds = [...state.selectedCardIds, cardId];
+  }
+  renderHand();
+  renderCenterPanel();
+  updateActionHint();
+}
+
+function updateActionHint() {
+  if (state.phase === "ready") {
+    dom.actionHint.textContent = "新牌局等待开始。点击“开始发牌”后，大家才会从空手进入逐张发牌。";
+    return;
+  }
+  if (state.phase === "dealing") {
+    const best = getBestDeclarationForPlayer(1);
+    if (best && canOverrideDeclaration(best)) {
+      dom.actionHint.textContent = `发牌中。你现在可以亮主：${formatDeclaration(best)}。如果不点“亮主”，发牌会继续进行。`;
+      return;
+    }
+    dom.actionHint.textContent = "发牌中。花色之间不分大小；一般只有更多张数才能反，同张数反无主只接受对大王或对小王。";
+    return;
+  }
+
+  if (state.phase === "countering") {
+    const counterOption = getCounterDeclarationForPlayer(1);
+    if (state.currentTurnId !== 1) {
+      dom.actionHint.textContent = `最后反主阶段。当前由玩家${state.currentTurnId}决定是否反主，请等待。`;
+      return;
+    }
+    dom.actionHint.textContent = counterOption
+      ? `最后反主阶段。你可以用 ${formatDeclaration(counterOption)} 反主；更多张数优先，同张数反无主只接受对大王或对小王。`
+      : "最后反主阶段。你没有可用的更高张数组合，也没有对大王或对小王可反无主，15 秒后会自动不反主。";
+    return;
+  }
+
+  if (state.phase === "burying") {
+    if (state.bankerId !== 1) {
+      dom.actionHint.textContent = "打家正在整理底牌，请等待。";
+      return;
+    }
+    dom.actionHint.textContent = state.selectedCardIds.length === 7
+      ? "已选择 7 张底牌，可以确认扣牌。"
+      : `请从手中选出 7 张重新扣底。当前已选 ${state.selectedCardIds.length} 张。`;
+    return;
+  }
+
+  const selected = state.selectedCardIds
+    .map((id) => getPlayer(1).hand.find((card) => card.id === id))
+    .filter(Boolean);
+  if (doesSelectionBeatCurrent(1, selected)) {
+    dom.actionHint.textContent = `已选择：${selected.map(shortCardLabel).join("、")}。当前选择构成毙牌，可以点“毙牌”确认。`;
+    return;
+  }
+  if (selected.length === 0) {
+    dom.actionHint.textContent = "选择要出的牌。出牌直接落在桌布虚线区；轮到你时有 15 秒，超时会自动选择一手合法牌。";
+    return;
+  }
+  const validation = validateSelection(1, selected);
+  dom.actionHint.textContent = validation.ok
+    ? `已选择：${selected.map(shortCardLabel).join("、")}。花色内已按从大到小排列。`
+    : validation.reason;
+}
+
+function renderLastTrick() {
+  dom.lastTrickPanel.classList.toggle("hidden", !state.showLastTrick);
+  if (!state.lastTrick) {
+    dom.lastTrickMeta.textContent = "当前还没有上一轮记录。";
+    dom.lastTrickCards.innerHTML = "";
+    return;
+  }
+  dom.lastTrickMeta.textContent = `第 ${state.lastTrick.trickNumber} 轮 · 胜者：${getPlayer(state.lastTrick.winnerId).name} · 本轮 ${state.lastTrick.points} 分`;
+  dom.lastTrickCards.innerHTML = state.lastTrick.plays
+    .map((play) => `
+      <div style="margin-top:10px;">
+        <div class="subtle">${getPlayer(play.playerId).name}</div>
+        <div class="spot-row" style="min-height:70px; margin-top:6px;">
+          ${play.cards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")}
+        </div>
+      </div>
+    `)
+    .join("");
+}
+
+function renderLogs() {
+  dom.logPanel.classList.toggle("hidden", !state.showLogPanel);
+  dom.bottomPanel.classList.toggle("hidden", !state.showBottomPanel);
+  dom.rulesPanel.classList.toggle("hidden", !state.showRulesPanel);
+  dom.logList.innerHTML = state.logs.map((item) => `<li>${item}</li>`).join("");
+}
+
+function renderCenterPanel() {
+  const humanDeclaration = getBestDeclarationForPlayer(1);
+  const humanCounter = getCounterDeclarationForPlayer(1);
+  const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
+  const canDeclareNow = state.phase === "dealing"
+    ? canOverrideDeclaration(humanDeclaration)
+    : state.phase === "countering"
+      ? state.currentTurnId === 1 && !!humanCounter
+      : false;
+  const selected = state.selectedCardIds
+    .map((id) => getPlayer(1).hand.find((card) => card.id === id))
+    .filter(Boolean);
+  const selectionValid = state.phase === "burying"
+    ? selected.length === 7
+    : selected.length > 0 && validateSelection(1, selected).ok;
+  const selectedBeat = state.phase === "playing" && selectionValid && doesSelectionBeatCurrent(1, selected);
+  const humanCanBury = state.phase === "burying" && state.bankerId === 1;
+  dom.centerTag.textContent = state.gameOver
+    ? "牌局结束"
+    : state.phase === "ready"
+      ? "等待开始"
+    : state.phase === "dealing"
+      ? "发牌 / 抢亮"
+    : state.phase === "countering"
+      ? "最后反主"
+    : state.phase === "burying"
+      ? "整理底牌"
+    : state.phase === "pause"
+      ? "本轮展示中"
+      : `${getPlayer(state.currentTurnId).name} 行动中`;
+  dom.focusAnnouncement.textContent = state.centerAnnouncement?.message || "";
+  dom.focusAnnouncement.classList.toggle("show", !!state.centerAnnouncement);
+  dom.focusAnnouncement.classList.toggle("strong", state.centerAnnouncement?.tone === "strong");
+  dom.focusAnnouncement.classList.toggle("ally", state.centerAnnouncement?.tone === "ally");
+  updateActionHint();
+  const humanTurn = isHumanTurnActive();
+  dom.beatBtn.hidden = state.phase !== "playing" || !selectedBeat;
+  dom.beatBtn.disabled = !humanTurn || !selectedBeat;
+  dom.hintBtn.hidden = state.phase === "ready" || (state.phase === "burying" && !humanCanBury);
+  dom.playBtn.hidden = state.phase === "ready" || (state.phase === "burying" && !humanCanBury);
+  dom.playBtn.textContent = state.phase === "burying" ? "扣牌" : "出牌";
+  dom.playBtn.disabled = state.phase === "burying"
+    ? state.gameOver || state.bankerId !== 1 || !selectionValid
+    : !humanTurn || !selectionValid;
+  dom.hintBtn.disabled = state.phase === "burying" ? state.bankerId !== 1 : !humanTurn;
+  dom.hintBtn.textContent = state.phase === "burying" ? "选 7 张" : "选择";
+  if (state.phase === "countering") {
+    dom.declareBtn.textContent = humanCounter
+      ? (humanCounter.suit === "notrump"
+        ? getNoTrumpCounterLabel(humanCounter)
+        : `反主${getActionSuitLabel(humanCounter)} x${humanCounter.count}`)
+      : "反主";
+  } else if (state.phase === "dealing") {
+    if (humanDeclaration) {
+      dom.declareBtn.textContent = state.declaration
+        ? `抢亮${getActionSuitLabel(humanDeclaration)}主`
+        : `亮${getActionSuitLabel(humanDeclaration)}主`;
+    } else {
+      dom.declareBtn.textContent = state.declaration ? "抢亮" : "亮主";
+    }
+  } else {
+    dom.declareBtn.textContent = "亮主";
+  }
+  dom.declareBtn.hidden = !isOpeningPhase;
+  dom.declareBtn.disabled = state.gameOver || !canDeclareNow;
+  dom.declareBtn.classList.toggle("primary", canDeclareNow);
+  dom.passCounterBtn.disabled = state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1;
+  dom.passCounterBtn.hidden = state.phase !== "countering" || state.currentTurnId !== 1;
+  dom.startGameBtn.hidden = state.phase !== "ready";
+  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready";
+}
+
+function isHumanTurnActive() {
+  return !state.gameOver && state.phase === "playing" && state.currentTurnId === 1;
+}
+
+dom.startGameBtn.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "ready") return;
+  startDealing();
+});
+
+dom.playBtn.addEventListener("click", () => {
+  if (state.phase === "burying") {
+    if (state.bankerId !== 1) return;
+    completeBurying(1, [...state.selectedCardIds]);
+    return;
+  }
+  if (!isHumanTurnActive()) return;
+  playCards(1, [...state.selectedCardIds]);
+});
+
+dom.beatBtn.addEventListener("click", () => {
+  if (!isHumanTurnActive()) return;
+  const selected = state.selectedCardIds
+    .map((id) => getPlayer(1).hand.find((card) => card.id === id))
+    .filter(Boolean);
+  if (!doesSelectionBeatCurrent(1, selected)) return;
+  playCards(1, [...state.selectedCardIds]);
+});
+
+dom.hintBtn.addEventListener("click", () => {
+  if (state.phase === "burying") {
+    if (state.bankerId !== 1) return;
+    const hint = getBuryHintForPlayer(1);
+    state.selectedCardIds = hint.map((card) => card.id);
+    renderHand();
+    renderCenterPanel();
+    updateActionHint();
+    return;
+  }
+  if (!isHumanTurnActive()) return;
+  const hint = getLegalHintForPlayer(1);
+  state.selectedCardIds = hint.map((card) => card.id);
+  renderHand();
+  renderCenterPanel();
+  updateActionHint();
+});
+
+dom.declareBtn.addEventListener("click", () => {
+  if (state.gameOver) return;
+  if (state.phase === "dealing") {
+    const best = getBestDeclarationForPlayer(1);
+    if (!best || !canOverrideDeclaration(best)) return;
+    declareTrump(1, best, "manual");
+    return;
+  }
+  if (state.phase === "countering") {
+    if (state.currentTurnId !== 1) return;
+    const counter = getCounterDeclarationForPlayer(1);
+    if (!counter) return;
+    counterDeclare(1, counter);
+  }
+});
+
+dom.passCounterBtn.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1) return;
+  passCounterForCurrentPlayer();
+});
+
+dom.toggleLastTrickBtn.addEventListener("click", () => {
+  state.showLastTrick = !state.showLastTrick;
+  renderLastTrick();
+  renderScorePanel();
+});
+
+dom.closeLastTrickBtn.addEventListener("click", () => {
+  state.showLastTrick = false;
+  dom.lastTrickPanel.classList.add("hidden");
+  renderLastTrick();
+  renderScorePanel();
+});
+
+dom.toggleLogBtn.addEventListener("click", () => {
+  state.showLogPanel = !state.showLogPanel;
+  renderLogs();
+});
+
+dom.toggleBottomBtn.addEventListener("click", () => {
+  if (!canHumanViewBottomCards()) return;
+  state.showBottomPanel = !state.showBottomPanel;
+  renderBottomPanel();
+});
+
+dom.toggleRulesBtn.addEventListener("click", () => {
+  state.showRulesPanel = !state.showRulesPanel;
+  renderLogs();
+});
+
+dom.layoutEditBtn.addEventListener("click", () => {
+  setLayoutEditMode(!state.layoutEditMode);
+});
+
+dom.closeLogBtn.addEventListener("click", () => {
+  state.showLogPanel = false;
+  renderLogs();
+});
+
+dom.closeBottomBtn.addEventListener("click", () => {
+  state.showBottomPanel = false;
+  renderLogs();
+});
+
+dom.closeRulesBtn.addEventListener("click", () => {
+  state.showRulesPanel = false;
+  renderLogs();
+});
+
+dom.newGameBtn.addEventListener("click", setupGame);
+
+dom.restartBtn.addEventListener("click", () => {
+  dom.resultOverlay.classList.remove("show");
+  setupGame();
+});
+
+makeFloatingPanel(dom.logPanel, dom.logPanelDrag);
+makeFloatingPanel(dom.bottomPanel, dom.bottomPanelDrag);
+makeFloatingPanel(dom.rulesPanel, dom.rulesPanelDrag);
+for (const element of getLayoutElements()) {
+  makeLayoutEditable(element);
+}
+applySavedLayoutState();
+
+setupGame();
+
+function makeFloatingPanel(panel, handle) {
+  if (!panel || !handle) return;
+  let dragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (state.layoutEditMode) return;
+    if (event.target.closest(".panel-close")) return;
+    dragging = true;
+    const rect = panel.getBoundingClientRect();
+    const tableRect = panel.parentElement.getBoundingClientRect();
+    offsetX = event.clientX - rect.left;
+    offsetY = event.clientY - rect.top;
+    panel.style.left = `${rect.left - tableRect.left}px`;
+    panel.style.top = `${rect.top - tableRect.top}px`;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+    handle.style.cursor = "grabbing";
+    handle.setPointerCapture(event.pointerId);
+  });
+
+  handle.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    const tableRect = panel.parentElement.getBoundingClientRect();
+    const nextLeft = Math.max(12, Math.min(tableRect.width - panel.offsetWidth - 12, event.clientX - tableRect.left - offsetX));
+    const nextTop = Math.max(12, Math.min(tableRect.height - panel.offsetHeight - 12, event.clientY - tableRect.top - offsetY));
+    panel.style.left = `${nextLeft}px`;
+    panel.style.top = `${nextTop}px`;
+  });
+
+  const stopDragging = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    handle.style.cursor = "grab";
+    if (event?.pointerId !== undefined) {
+      handle.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  handle.addEventListener("pointerup", stopDragging);
+  handle.addEventListener("pointercancel", stopDragging);
+}
+
+function makeLayoutEditable(element) {
+  if (!element) return;
+  let dragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  element.addEventListener("pointerdown", (event) => {
+    if (!state.layoutEditMode) return;
+    if (event.target.closest("button")) return;
+    normalizeLayoutElement(element);
+    const rect = element.getBoundingClientRect();
+    const tableRect = dom.table.getBoundingClientRect();
+    dragging = true;
+    offsetX = event.clientX - rect.left;
+    offsetY = event.clientY - rect.top;
+    element.style.zIndex = "9";
+    element.setPointerCapture(event.pointerId);
+  });
+
+  element.addEventListener("pointermove", (event) => {
+    if (!state.layoutEditMode || !dragging) return;
+    const tableRect = dom.table.getBoundingClientRect();
+    const nextLeft = Math.max(8, Math.min(tableRect.width - element.offsetWidth - 8, event.clientX - tableRect.left - offsetX));
+    const nextTop = Math.max(8, Math.min(tableRect.height - element.offsetHeight - 8, event.clientY - tableRect.top - offsetY));
+    element.style.left = `${nextLeft}px`;
+    element.style.top = `${nextTop}px`;
+    element.style.right = "auto";
+    element.style.bottom = "auto";
+  });
+
+  const stopDragging = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    element.style.zIndex = "";
+    if (event?.pointerId !== undefined) {
+      element.releasePointerCapture(event.pointerId);
+    }
+    if (state.layoutEditMode) {
+      saveLayoutState();
+    }
+  };
+
+  element.addEventListener("pointerup", stopDragging);
+  element.addEventListener("pointercancel", stopDragging);
+  element.addEventListener("mouseleave", () => {
+    if (state.layoutEditMode) {
+      saveLayoutState();
+    }
+  });
+}

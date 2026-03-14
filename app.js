@@ -2753,6 +2753,33 @@ function render() {
   renderBottomRevealCenter();
   renderResultBottomCards();
   renderCenterPanel();
+  const snapshot = {
+    phase: state.phase,
+    gameOver: state.gameOver,
+    bankerId: state.bankerId,
+    currentTurnId: state.currentTurnId,
+    trickNumber: state.trickNumber,
+    countdown: state.countdown,
+    defenderPoints: getVisibleDefenderPoints(),
+    players: state.players.map((player) => ({
+      id: player.id,
+      name: player.name,
+      level: player.level,
+      handCount: player.hand.length,
+      capturedPoints: player.capturedPoints,
+      role: getVisibleRole(player.id),
+    })),
+    friendTarget: state.friendTarget
+      ? {
+          label: state.friendTarget.label,
+          revealed: !!state.friendTarget.revealed,
+          failed: !!state.friendTarget.failed,
+          revealedBy: state.friendTarget.revealedBy || null,
+        }
+      : null,
+  };
+  window.__fiveFriendsSnapshot = snapshot;
+  window.dispatchEvent(new CustomEvent("fivefriends:render", { detail: snapshot }));
 }
 
 function renderBottomPanel() {

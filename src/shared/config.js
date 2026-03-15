@@ -70,6 +70,11 @@ const CARD_FACE_OPTIONS = Array.isArray(window.CARD_FACE_OPTIONS) && window.CARD
 const DEFAULT_CARD_FACE_KEY = CARD_FACE_OPTIONS.some((option) => option.key === window.DEFAULT_CARD_FACE_KEY)
   ? window.DEFAULT_CARD_FACE_KEY
   : CARD_FACE_OPTIONS[0].key;
+const AI_DIFFICULTY_OPTIONS = [
+  { value: "beginner", label: "初级" },
+  { value: "intermediate", label: "中级" },
+];
+const DEFAULT_AI_DIFFICULTY = AI_DIFFICULTY_OPTIONS[0].value;
 const CARD_FACE_STORAGE_KEY = `five-friends-card-face-${APP_PLATFORM}-v1`;
 const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
@@ -132,6 +137,8 @@ const dom = {
   timerHint: document.getElementById("timerHint"),
   logList: document.getElementById("logList"),
   actionHint: document.getElementById("actionHint"),
+  setupOptions: document.getElementById("setupOptions"),
+  aiDifficultySelect: document.getElementById("aiDifficultySelect"),
   centerTag: document.getElementById("centerTag"),
   focusAnnouncement: document.getElementById("focusAnnouncement"),
   bottomNote: document.getElementById("bottomNote"),
@@ -237,6 +244,7 @@ const state = {
   showDebugPanel: false,
   showBottomPanel: true,
   showRulesPanel: false,
+  aiDifficulty: DEFAULT_AI_DIFFICULTY,
   cardFaceKey: loadSavedCardFaceKey(),
   logs: [],
   gameOver: false,

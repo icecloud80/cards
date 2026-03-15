@@ -954,6 +954,33 @@
         margin-top: 20px;
       }
 
+      .setup-options {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .setup-field {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .setup-select {
+        min-width: 132px;
+        border: 1px solid rgba(120, 74, 24, 0.18);
+        border-radius: 10px;
+        padding: 7px 10px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.88);
+      }
+
       button.action-btn {
         min-width: 72px;
         border: 0;
@@ -1027,6 +1054,7 @@
         width: 280px;
         min-height: 200px;
         padding: 14px 16px;
+        z-index: 9;
       }
 
       .rules-list {
@@ -1501,6 +1529,15 @@
               <span id="actionHint" class="subtle"></span>
             </div>
             <div id="centerTag" class="center-tag"></div>
+          </div>
+          <div id="setupOptions" class="setup-options" hidden>
+            <label class="setup-field" for="aiDifficultySelect">
+              <span>AI难度</span>
+              <select id="aiDifficultySelect" class="setup-select">
+                <option value="beginner">初级</option>
+                <option value="intermediate">中级</option>
+              </select>
+            </label>
           </div>
           <div class="action-row">
             <button id="beatBtn" class="action-btn">毙牌</button>

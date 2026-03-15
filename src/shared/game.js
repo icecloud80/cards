@@ -211,7 +211,15 @@ function scoreFriendTargetCandidate(target, banker, owners) {
   const bankerOwnCopyBonus = bankerTargetCopies > 0 ? 8 : 0;
   const returnBonus = Math.min(bankerReturnCards, 3) * 7 + Math.min(ownerSupportCards.length, 3) * 5 + Math.min(ownerHighCards.length, 2) * 4;
   const supportPenalty = bankerSupportCards.length === 0 ? 18 : 0;
-  return rankBonus + occurrenceBonus + suitBonus + uniqueOwnerBonus + bankerOwnCopyBonus + returnBonus - trumpPenalty - jokerPenalty - supportPenalty;
+  const voidSetupBonus = target.suit !== "joker" && bankerTargetCopies > 0 && bankerSupportCards.length <= 1
+    ? 24
+    : target.suit !== "joker" && bankerSupportCards.length === 0
+      ? 14
+      : 0;
+  const returnRouteBonus = target.suit !== "joker" && bankerSupportCards.length <= 1
+    ? Math.min(ownerSupportCards.length, 3) * 6 + Math.min(ownerHighCards.length, 2) * 5
+    : 0;
+  return rankBonus + occurrenceBonus + suitBonus + uniqueOwnerBonus + bankerOwnCopyBonus + returnBonus + voidSetupBonus + returnRouteBonus - trumpPenalty - jokerPenalty - supportPenalty;
 }
 
 function buildFriendTarget(target) {
@@ -696,6 +704,51 @@ function passCounterForCurrentPlayer(isTimeout = false) {
 function getBuryHintForPlayer(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
+  if (state.aiDifficulty === "intermediate") {
+    const suitCounts = SUITS.reduce((acc, suit) => {
+      acc[suit] = player.hand.filter((card) => !isTrump(card) && card.suit === suit).length;
+      return acc;
+    }, {});
+    const reserveSuitEntry = SUITS
+      .map((suit) => {
+        const cards = player.hand
+          .filter((card) => !isTrump(card) && card.suit === suit)
+          .sort((a, b) => cardStrength(b) - cardStrength(a));
+        const highest = cards[0] || null;
+        return {
+          suit,
+          count: cards.length,
+          highest,
+          strength: highest ? cardStrength(highest) + scoreValue(highest) * 8 : -1,
+        };
+      })
+      .filter((entry) => entry.count > 0)
+      .sort((a, b) => {
+        if (a.count !== b.count) return a.count - b.count;
+        return b.strength - a.strength;
+      })[0] || null;
+    const reserveSuit = reserveSuitEntry?.suit || null;
+    const reserveCardId = reserveSuitEntry?.highest?.id || null;
+
+    return [...player.hand]
+      .sort((a, b) => {
+        const getScore = (card) => {
+          let score = (isTrump(card) ? 1000 : 0) + scoreValue(card) * 50 + cardStrength(card);
+          if (!isTrump(card)) {
+            score += suitCounts[card.suit] * 14;
+            if (card.suit === reserveSuit) {
+              score -= 110;
+              if (card.id === reserveCardId) score += 260;
+            } else {
+              score += Math.max(0, suitCounts[card.suit] - 2) * 12;
+            }
+          }
+          return score;
+        };
+        return getScore(a) - getScore(b);
+      })
+      .slice(0, 7);
+  }
   return [...player.hand]
     .sort((a, b) => {
       const aScore = (isTrump(a) ? 1000 : 0) + scoreValue(a) * 50 + cardStrength(a);
@@ -805,6 +858,10 @@ function canHumanViewBottomCards() {
   if (state.gameOver) return true;
   if (state.phase === "bottomReveal") return true;
   return state.bankerId === 1 && (state.phase === "burying" || state.phase === "callingFriend" || state.phase === "playing" || state.phase === "pause");
+}
+
+function shouldShowHumanBottomButton() {
+  return state.bankerId === 1 && canHumanViewBottomCards() && !state.gameOver && state.phase !== "bottomReveal";
 }
 
 function startTurn() {

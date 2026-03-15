@@ -10,6 +10,20 @@ function syncAutoManagedButton() {
   dom.autoManagedBtn.setAttribute("aria-pressed", managed ? "true" : "false");
 }
 
+function normalizeAiDifficulty(value) {
+  return AI_DIFFICULTY_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_DIFFICULTY;
+}
+
+function setAiDifficulty(value) {
+  state.aiDifficulty = normalizeAiDifficulty(value);
+  if (dom.aiDifficultySelect && dom.aiDifficultySelect.value !== state.aiDifficulty) {
+    dom.aiDifficultySelect.value = state.aiDifficulty;
+  }
+  if (typeof render === "function") {
+    render();
+  }
+}
+
 function applyAutoManagedState(enabled) {
   if (typeof getPlayer !== "function") return;
   const human = getPlayer(1);
@@ -115,6 +129,10 @@ dom.autoManagedBtn?.addEventListener("click", () => {
   const human = getPlayer(1);
   if (!human || state.gameOver || state.phase === "ready") return;
   applyAutoManagedState(human.isHuman);
+});
+
+dom.aiDifficultySelect?.addEventListener("change", () => {
+  setAiDifficulty(dom.aiDifficultySelect.value);
 });
 
 dom.hintBtn.addEventListener("click", () => {

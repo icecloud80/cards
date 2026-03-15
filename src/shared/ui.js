@@ -16,6 +16,7 @@ function render() {
   const snapshot = {
     phase: state.phase,
     gameOver: state.gameOver,
+    aiDifficulty: state.aiDifficulty,
     bankerId: state.bankerId,
     currentTurnId: state.currentTurnId,
     trickNumber: state.trickNumber,
@@ -234,7 +235,10 @@ function renderScorePanel() {
         : state.phase === "pause"
           ? TEXT.scorePanel.pause
           : TEXT.scorePanel.currentTurn(state.currentTurnId);
-  dom.toggleBottomBtn.disabled = !canHumanViewBottomCards();
+  const showBottomButton = typeof shouldShowHumanBottomButton === "function" ? shouldShowHumanBottomButton() : canHumanViewBottomCards();
+  dom.toggleBottomBtn.hidden = !showBottomButton;
+  dom.toggleBottomBtn.disabled = !showBottomButton;
+  dom.toggleBottomBtn.classList.toggle("alert", showBottomButton);
   if (typeof syncAutoManagedButton === "function") {
     syncAutoManagedButton();
   }
@@ -807,6 +811,15 @@ function renderCenterPanel() {
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
   dom.passCounterBtn.disabled = state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1;
   dom.passCounterBtn.hidden = state.phase !== "countering" || state.currentTurnId !== 1;
+  if (dom.setupOptions) {
+    dom.setupOptions.hidden = true;
+  }
+  if (dom.aiDifficultySelect) {
+    dom.aiDifficultySelect.value = AI_DIFFICULTY_OPTIONS.some((option) => option.value === state.aiDifficulty)
+      ? state.aiDifficulty
+      : DEFAULT_AI_DIFFICULTY;
+    dom.aiDifficultySelect.disabled = state.gameOver || state.phase !== "ready";
+  }
   dom.newProgressBtn.hidden = true;
   dom.newProgressBtn.disabled = true;
   dom.newProgressBtn.classList.remove("primary");

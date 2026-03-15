@@ -954,6 +954,33 @@
         margin-top: 20px;
       }
 
+      .setup-options {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .setup-field {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .setup-select {
+        min-width: 132px;
+        border: 1px solid rgba(120, 74, 24, 0.18);
+        border-radius: 10px;
+        padding: 7px 10px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.88);
+      }
+
       button.action-btn {
         min-width: 72px;
         border: 0;
@@ -1027,6 +1054,7 @@
         width: 280px;
         min-height: 200px;
         padding: 14px 16px;
+        z-index: 9;
       }
 
       .rules-list {
@@ -2390,6 +2418,28 @@
         margin-top: 18px;
       }
 
+      body.mobile-index2 .mobile-setup-field {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+        color: rgba(22, 33, 41, 0.72);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      body.mobile-index2 .mobile-setup-select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid rgba(120, 74, 24, 0.16);
+        border-radius: 12px;
+        padding: 0 12px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.92);
+      }
+
       body.mobile-index2 .mobile-primary-btn,
       body.mobile-index2 .mobile-secondary-btn,
       body.mobile-index2 .mobile-menu-btn {
@@ -2421,6 +2471,11 @@
       }
 
       body.mobile-index2 .mobile-menu-btn.danger {
+        background: rgba(207, 74, 68, 0.12);
+        color: #9f3c37;
+      }
+
+      body.mobile-index2 .mobile-menu-btn.alert {
         background: rgba(207, 74, 68, 0.12);
         color: #9f3c37;
       }
@@ -2515,6 +2570,30 @@
 
       body.mobile-index2 .trick-spot.current-turn {
         box-shadow: 0 0 0 2px rgba(225, 185, 111, 0.28);
+      }
+
+      body.mobile-index2 .trick-spot .played-card.trump::after {
+        display: none;
+      }
+
+      body.mobile-index2 .mobile-spot-winning {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, rgba(233, 195, 116, 0.96), rgba(189, 139, 43, 0.96));
+        color: #fff8e8;
+        font-size: 9px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0.2px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
       }
 
       body.mobile-index2 .mobile-broadcast {
@@ -2792,6 +2871,11 @@
         background: rgba(47, 143, 106, 0.18);
       }
 
+      body.mobile-index2 .mobile-info-card.current-player {
+        background: linear-gradient(180deg, rgba(208, 233, 244, 0.58), rgba(180, 214, 232, 0.46));
+        box-shadow: inset 0 0 0 1px rgba(76, 130, 166, 0.22);
+      }
+
       body.mobile-index2 .mobile-info-head {
         display: flex;
         align-items: center;
@@ -3047,7 +3131,7 @@
         <section id="mobileSetupScreen" class="mobile-setup-screen">
           <div class="mobile-setup-card">
             <div class="mobile-kicker">五人找朋友升级</div>
-            <div class="mobile-setup-lead">在传统拖拉机升级的基础上加上心机与平衡、各种有趣的火车与推土机等整合进同个游戏中，让你其乐无穷乐在其中。</div>
+            <div class="mobile-setup-lead">在传统拖拉机升级的基础上加上心计与平衡、各种有趣的火车与推土机等整合进同个游戏中，让你其乐无穷乐在其中。</div>
             <div class="mobile-setup-visual" aria-hidden="true">
               <div class="mobile-visual-badge">WELCOME</div>
               <div class="mobile-card-fan">
@@ -3075,6 +3159,13 @@
               </div>
             </div>
             <p>开始游戏将从2重新开始。继续游戏可继续之前的级别。</p>
+            <label class="mobile-setup-field" for="mobileAiDifficultySelect">
+              <span>AI难度</span>
+              <select id="mobileAiDifficultySelect" class="mobile-setup-select">
+                <option value="beginner">初级</option>
+                <option value="intermediate">中级</option>
+              </select>
+            </label>
             <div class="mobile-setup-actions">
               <button id="mobileStartBtn" class="mobile-primary-btn" type="button">开始游戏</button>
               <button id="mobileSetupContinueBtn" class="mobile-secondary-btn" type="button">继续游戏</button>
@@ -3243,6 +3334,15 @@
               <span id="actionHint" class="subtle"></span>
             </div>
             <div id="centerTag" class="center-tag"></div>
+          </div>
+          <div id="setupOptions" class="setup-options" hidden aria-hidden="true">
+            <label class="setup-field" for="aiDifficultySelect">
+              <span>AI难度</span>
+              <select id="aiDifficultySelect" class="setup-select">
+                <option value="beginner">初级</option>
+                <option value="intermediate">中级</option>
+              </select>
+            </label>
           </div>
           <div class="action-row">
             <button id="beatBtn" class="action-btn">毙牌</button>
@@ -3414,6 +3514,7 @@
           startBtn: document.getElementById("mobileStartBtn"),
           setupContinueBtn: document.getElementById("mobileSetupContinueBtn"),
           setupRulesBtn: document.getElementById("mobileSetupRulesBtn"),
+          difficultySelect: document.getElementById("mobileAiDifficultySelect"),
           menuCardFaceBtn: document.getElementById("mobileMenuCardFaceBtn"),
           menuLayoutBtn: document.getElementById("mobileMenuLayoutBtn"),
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
@@ -3424,6 +3525,7 @@
         const originalDom = {
           startGameBtn: document.getElementById("startGameBtn"),
           continueGameBtn: document.getElementById("continueGameBtn"),
+          aiDifficultySelect: document.getElementById("aiDifficultySelect"),
           toggleLastTrickBtn: document.getElementById("toggleLastTrickBtn"),
           toggleLogBtn: document.getElementById("toggleLogBtn"),
           toggleBottomBtn: document.getElementById("toggleBottomBtn"),
@@ -3555,6 +3657,8 @@
 
         function syncTrickSpotDecorations(snapshot) {
           const humanManaged = typeof getPlayer === "function" ? !!getPlayer(1) && !getPlayer(1).isHuman : false;
+          const winningPlay = typeof getCurrentWinningPlay === "function" ? getCurrentWinningPlay() : null;
+          const winningPlayerId = snapshot.phase === "playing" && snapshot.currentTrick?.length ? winningPlay?.playerId || null : null;
           for (const player of snapshot.players) {
             const spot = document.getElementById(`trickSpot-${player.id}`);
             const label = spot?.querySelector(".label");
@@ -3581,15 +3685,24 @@
               badge.textContent = "🈚️";
               spot.appendChild(badge);
             }
+            const existingWinningBadge = spot.querySelector(".mobile-spot-winning");
+            if (existingWinningBadge) existingWinningBadge.remove();
+            if (winningPlayerId === player.id) {
+              const winningBadge = document.createElement("span");
+              winningBadge.className = "mobile-spot-winning";
+              winningBadge.setAttribute("aria-label", "本轮当前最大");
+              winningBadge.textContent = "大";
+              spot.appendChild(winningBadge);
+            }
             spot.dataset.mobileRole = player.role?.kind || "unknown";
           }
         }
 
         function renderInfoSheet(snapshot) {
           mobileDom.infoList.innerHTML = snapshot.players.map((player) => `
-            <div class="mobile-info-card role-${player.role?.kind || "unknown"}">
+            <div class="mobile-info-card role-${player.role?.kind || "unknown"}${player.id === 1 ? " current-player" : ""}">
               <div class="mobile-info-head">
-                <div class="mobile-info-name">${player.name}</div>
+                <div class="mobile-info-name">${player.name}${player.id === 1 ? " - 当前玩家" : ""}</div>
                 <div class="mobile-info-role">${player.role?.label || ""}</div>
               </div>
               <div class="mobile-info-meta">
@@ -3615,6 +3728,8 @@
           mobileDom.menuCardFaceBtn.textContent = originalDom.toggleCardFaceBtn?.textContent.trim() || "牌面";
           mobileDom.menuLayoutBtn.textContent = originalDom.layoutEditBtn?.textContent.trim() || "布局编辑";
           mobileDom.menuBottomBtn.textContent = originalDom.toggleBottomBtn.textContent.trim() || "底牌";
+          mobileDom.menuBottomBtn.hidden = !!originalDom.toggleBottomBtn.hidden;
+          mobileDom.menuBottomBtn.classList.toggle("alert", !originalDom.toggleBottomBtn.hidden);
           mobileDom.menuRulesBtn.textContent = originalDom.toggleRulesBtn.textContent.trim() || "规则帮助";
         }
 
@@ -3822,6 +3937,10 @@
             mobileDom.setupContinueBtn.disabled = !!originalDom.continueGameBtn?.disabled;
             mobileDom.setupContinueBtn.textContent = originalDom.continueGameBtn?.textContent?.trim() || "继续游戏";
           }
+          if (mobileDom.difficultySelect) {
+            mobileDom.difficultySelect.value = originalDom.aiDifficultySelect?.value || snapshot.aiDifficulty || "beginner";
+            mobileDom.difficultySelect.disabled = !!originalDom.aiDifficultySelect?.disabled;
+          }
           mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
           mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
           syncTrumpStatus(snapshot);
@@ -3841,6 +3960,11 @@
         mobileDom.startBtn.addEventListener("click", () => clickOriginal(originalDom.startGameBtn));
         mobileDom.setupContinueBtn?.addEventListener("click", () => clickOriginal(originalDom.continueGameBtn));
         mobileDom.setupRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
+        mobileDom.difficultySelect?.addEventListener("change", () => {
+          if (!originalDom.aiDifficultySelect) return;
+          originalDom.aiDifficultySelect.value = mobileDom.difficultySelect.value;
+          originalDom.aiDifficultySelect.dispatchEvent(new Event("change", { bubbles: true }));
+        });
         mobileDom.autoBtn.addEventListener("click", () => {
           if (typeof getPlayer !== "function") return;
           const human = getPlayer(1);

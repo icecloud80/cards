@@ -1927,6 +1927,7 @@
         gap: 10px;
         min-width: 0;
         justify-self: center;
+        transform: translateX(-36px);
       }
 
       body.mobile-index2 .mobile-stat {
@@ -2024,6 +2025,42 @@
 
       body.mobile-index2 .mobile-occurrence-badge.show {
         display: inline-flex;
+      }
+
+      body.mobile-index2 .mobile-level-badge {
+        position: absolute;
+        left: -7px;
+        bottom: -6px;
+        min-width: 16px;
+        height: 16px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        border-radius: 999px;
+        color: #fffdf7;
+        font-size: 8px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0.1px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+        background: linear-gradient(180deg, #7d8e98, #556870);
+      }
+
+      body.mobile-index2 .mobile-level-badge.show {
+        display: inline-flex;
+      }
+
+      body.mobile-index2 .mobile-level-badge.rank-5 {
+        background: linear-gradient(180deg, #d7a33e, #9b6712);
+      }
+
+      body.mobile-index2 .mobile-level-badge.rank-10 {
+        background: linear-gradient(180deg, #d25d56, #9f3630);
+      }
+
+      body.mobile-index2 .mobile-level-badge.rank-face {
+        background: linear-gradient(180deg, #537bb6, #375b8f);
       }
 
       body.mobile-index2 .mobile-icon-btn {
@@ -2981,7 +3018,7 @@
           <div class="mobile-topbar-sub">
             <div class="mobile-state">
               <span class="mobile-state-tag">主</span>
-              <div id="mobileTrumpCard" class="mobile-state-card empty">--</div>
+              <div id="mobileTrumpCard" class="mobile-state-card empty">--<span id="mobileTrumpLevel" class="mobile-level-badge"></span></div>
             </div>
             <div class="mobile-state">
               <span class="mobile-state-tag">朋</span>
@@ -3356,6 +3393,7 @@
           timer: document.getElementById("mobileTimer"),
           autoBtn: document.getElementById("mobileAutoBtn"),
           trumpCard: document.getElementById("mobileTrumpCard"),
+          trumpLevel: document.getElementById("mobileTrumpLevel"),
           friendCard: document.getElementById("mobileFriendCard"),
           friendOccurrence: document.getElementById("mobileFriendOccurrence"),
           infoBtn: document.getElementById("mobileInfoBtn"),
@@ -3425,11 +3463,36 @@
 
         function renderMobileTopCard(target, html, fallback = "--") {
           const badge = target.querySelector(".mobile-occurrence-badge");
+          const levelBadge = target.querySelector(".mobile-level-badge");
           target.innerHTML = html || fallback;
           if (badge) {
             target.appendChild(badge);
           }
+          if (levelBadge) {
+            target.appendChild(levelBadge);
+          }
           target.classList.toggle("empty", !html);
+        }
+
+        function syncTrumpLevelBadge(declaration) {
+          if (!mobileDom.trumpLevel) return;
+          const rank = declaration?.suit === "notrump" ? (declaration.rank || "") : "";
+          const badge = mobileDom.trumpLevel;
+          badge.textContent = rank;
+          badge.classList.toggle("show", !!rank);
+          badge.classList.remove("rank-5", "rank-10", "rank-face");
+          if (!rank) return;
+          if (rank === "5") {
+            badge.classList.add("rank-5");
+            return;
+          }
+          if (rank === "10") {
+            badge.classList.add("rank-10");
+            return;
+          }
+          if (["J", "Q", "K", "A"].includes(rank)) {
+            badge.classList.add("rank-face");
+          }
         }
 
         function buildTopStatusCardHtml(card, altText) {
@@ -3450,6 +3513,7 @@
 
         function syncTrumpStatus(snapshot) {
           const declaration = snapshot?.declaration;
+          syncTrumpLevelBadge(declaration);
           if (declaration?.suit === "notrump" && declaration.cards?.length) {
             const card = declaration.cards[0];
             renderMobileTopCard(

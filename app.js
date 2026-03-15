@@ -2416,7 +2416,11 @@ function playCards(playerId, cardIds, options = {}) {
     cards = throwFailure.forcedCards;
     pattern = classifyPlay(cards);
   }
-  const beatPlay = state.currentTrick.length > 0 && doesSelectionBeatCurrent(playerId, cards);
+  const currentWinningPlay = state.currentTrick.length > 0 ? getCurrentWinningPlay() : null;
+  const beatPlay = !!currentWinningPlay && doesSelectionBeatCurrent(playerId, cards);
+  const beatAnnouncement = beatPlay
+    ? (currentWinningPlay.playerId === state.leadSpec?.leaderId ? `${player.name} 毙牌` : `${player.name} 盖毙`)
+    : "";
   const validation = validateSelection(playerId, cards);
   if (!validation.ok) {
     if (player.isHuman) {
@@ -2471,8 +2475,8 @@ function playCards(playerId, cardIds, options = {}) {
   } else if (friendProgressAnnouncement?.message) {
     queueCenterAnnouncement(friendProgressAnnouncement.message, friendProgressAnnouncement.tone || "default");
   }
-  if (beatPlay) {
-    queueCenterAnnouncement(`${player.name} 毙牌`, "strong");
+  if (beatAnnouncement) {
+    queueCenterAnnouncement(beatAnnouncement, "strong");
   }
   const playAnnouncement = throwFailure || (pattern.type === "throw" && state.currentTrick.length > 1)
     ? ""

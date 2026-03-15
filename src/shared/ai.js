@@ -506,6 +506,8 @@ function getLegalHintForPlayer(playerId) {
     return suited.slice(-state.leadSpec.count);
   }
   if (suited.length > 0) {
+    const searched = findLegalSelectionBySearch(playerId);
+    if (searched.length > 0) return searched;
     const fillers = hand.filter((card) => !suited.some((suitedCard) => suitedCard.id === card.id));
     return [...suited, ...fillers.slice(0, state.leadSpec.count - suited.length)];
   }
@@ -523,7 +525,23 @@ function getLegalHintForPlayer(playerId) {
     const trumpCombos = getPatternCombos(trumpCards, state.leadSpec);
     if (trumpCombos.length > 0) return trumpCombos[0];
   }
+  const searched = findLegalSelectionBySearch(playerId);
+  if (searched.length > 0) return searched;
   return hand.slice(0, state.leadSpec.count);
+}
+
+function buildForcedFollowFallback(playerId) {
+  const player = getPlayer(playerId);
+  if (!player || state.currentTrick.length === 0 || !state.leadSpec) return [];
+
+  const targetCount = state.leadSpec.count;
+  const hand = [...player.hand].sort((a, b) => cardStrength(a) - cardStrength(b));
+  const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+  if (suited.length >= targetCount) {
+    return suited.slice(0, targetCount);
+  }
+  const fillers = hand.filter((card) => !suited.some((suitedCard) => suitedCard.id === card.id));
+  return [...suited, ...fillers.slice(0, targetCount - suited.length)];
 }
 
 function findLegalSelectionBySearch(playerId) {
@@ -572,6 +590,10 @@ function autoPlayCurrentTurn() {
     return;
   }
   const fallback = findLegalSelectionBySearch(player.id);
-  if (fallback.length === 0) return;
-  playCards(player.id, fallback.map((card) => card.id));
+  if (fallback.length > 0 && playCards(player.id, fallback.map((card) => card.id))) {
+    return;
+  }
+  const forced = buildForcedFollowFallback(player.id);
+  if (forced.length === 0) return;
+  playCards(player.id, forced.map((card) => card.id));
 }

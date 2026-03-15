@@ -771,8 +771,11 @@ function compareSingle(candidate, current, leadSuit) {
   return getPatternUnitPower(candidate, candidateSuit) - getPatternUnitPower(current, currentSuit);
 }
 
-function isBottomPenaltyTrumpCard(card) {
-  return !!card && isTrump(card) && card.suit !== "joker";
+function isBottomPenaltyLevelCard(card) {
+  const currentLevelRank = getCurrentLevelRank();
+  if (!card || !currentLevelRank || card.suit === "joker") return false;
+  if (card.rank !== currentLevelRank) return false;
+  return state.trumpSuit === "notrump" ? true : card.suit === state.trumpSuit;
 }
 
 function getBottomPenalty() {
@@ -780,7 +783,7 @@ function getBottomPenalty() {
 
   const winningPlay = state.lastTrick.plays.find((play) => play.playerId === state.lastTrick.winnerId);
   if (!winningPlay || winningPlay.cards.length === 0) return null;
-  if (!winningPlay.cards.every((card) => isBottomPenaltyTrumpCard(card))) return null;
+  if (!winningPlay.cards.some((card) => isBottomPenaltyLevelCard(card))) return null;
 
   const pattern = classifyPlay(winningPlay.cards);
   if (!pattern.ok) return null;

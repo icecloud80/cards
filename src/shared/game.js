@@ -956,7 +956,9 @@ function playCards(playerId, cardIds, options = {}) {
     cards = throwFailure.forcedCards;
     pattern = classifyPlay(cards);
   }
-  const beatPlay = state.currentTrick.length > 0 && doesSelectionBeatCurrent(playerId, cards);
+  const currentWinningPlay = state.currentTrick.length > 0 ? getCurrentWinningPlay() : null;
+  const beatPlay = !!currentWinningPlay && doesSelectionBeatCurrent(playerId, cards);
+  const beatAnnouncementKey = beatPlay ? getBeatAnnouncementKey(currentWinningPlay) : null;
   const validation = validateSelection(playerId, cards);
   if (!validation.ok) {
     if (player.isHuman) {
@@ -1019,8 +1021,8 @@ function playCards(playerId, cardIds, options = {}) {
   } else if (friendProgressAnnouncement?.message) {
     queueCenterAnnouncement(friendProgressAnnouncement.message, friendProgressAnnouncement.tone || "default");
   }
-  if (beatPlay) {
-    queueCenterAnnouncement(TEXT.log.beatAnnouncement(player.name), "strong");
+  if (beatAnnouncementKey) {
+    queueCenterAnnouncement(TEXT.log[beatAnnouncementKey](player.name), "strong");
   }
   const playAnnouncement = throwFailure || (pattern.type === "throw" && state.currentTrick.length > 1)
     ? ""
@@ -1256,6 +1258,11 @@ function doesSelectionBeatCurrent(playerId, cards) {
   return compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) > 0;
 }
 
+function getBeatAnnouncementKey(currentWinningPlay = getCurrentWinningPlay()) {
+  if (!state.leadSpec || !currentWinningPlay) return null;
+  return currentWinningPlay.playerId === state.leadSpec.leaderId ? "beatAnnouncement" : "coverBeatAnnouncement";
+}
+
 function isDefenderTeam(playerId) {
   if (playerId === state.bankerId) return false;
   if (state.friendTarget?.failed) return true;
@@ -1303,14 +1310,22 @@ function getDefenderIds() {
     .filter((playerId) => isDefenderTeam(playerId));
 }
 
+function canPlayerUpgradeWithOutcome(playerId, outcome) {
+  const level = getPlayerLevel(playerId);
+  if (!MANDATORY_LEVELS.has(level)) return true;
+  return outcome.winner === "banker" && playerId === state.bankerId;
+}
+
 function applyLevelSettlement(outcome, bankerPenalty = null) {
   if (outcome.bankerLevels > 0) {
     for (const playerId of getBankerTeamIds()) {
+      if (!canPlayerUpgradeWithOutcome(playerId, outcome)) continue;
       state.playerLevels[playerId] = shiftLevel(getPlayerLevel(playerId), outcome.bankerLevels);
     }
   }
   if (outcome.defenderLevels > 0) {
     for (const playerId of getDefenderIds()) {
+      if (!canPlayerUpgradeWithOutcome(playerId, outcome)) continue;
       state.playerLevels[playerId] = shiftLevel(getPlayerLevel(playerId), outcome.defenderLevels);
     }
   }

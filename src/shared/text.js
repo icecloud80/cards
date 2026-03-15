@@ -259,12 +259,12 @@ const TEXT = {
       exhaustSuit: "同门牌不够时，必须把手里剩余的同门牌全部跟出。",
     },
     bottomPenaltyLabels: {
-      single: "单张主牌扣底",
-      pair: "两张主牌扣底",
-      triple: "三张主牌扣底",
-      tractor: "主牌拖拉机扣底",
-      train: "主牌宇宙飞船扣底",
-      bulldozer: "主牌推土机扣底",
+      single: "单张主级牌扣底",
+      pair: "两张主级牌扣底",
+      triple: "三张主级牌扣底",
+      tractor: "含主级牌拖拉机扣底",
+      train: "含主级牌宇宙飞船扣底",
+      bulldozer: "含主级牌推土机扣底",
     },
   },
   log: {
@@ -288,6 +288,7 @@ const TEXT = {
     throwFailureAnnouncement: (name, penalty) => `${name} 甩牌失败 · 扣${penalty}分`,
     play: (name, cards) => `${name} 出牌：${cards.join("、")}。`,
     beatAnnouncement: (name) => `${name} 毙牌`,
+    coverBeatAnnouncement: (name) => `${name} 盖毙`,
     friendMisplayed: (name, target) => `${name} 误打出了${target}，本局无朋友，变为 1 打 4。`,
     friendRevealed: (name, target) => `${name} 打出了${target}，朋友身份揭晓。`,
     teamsRevealed: (points) => `阵营已揭晓，非打家当前累计 ${points} 分。`,
@@ -405,6 +406,7 @@ function getTrickOutcomeAnnouncement(winnerId) {
 }
 
 function getOutcome(points, options = {}) {
+  const defendersWin = points >= 120 || options.bottomPenalty?.levels > 0;
   if (options.bottomPenalty?.levels > 0 && points < 120) {
     return {
       title: TEXT.outcome.defenderWinTitle,
@@ -415,28 +417,28 @@ function getOutcome(points, options = {}) {
       forcedByBottom: true,
     };
   }
-  if (points === 0) {
+  if (!defendersWin && points === 0) {
     return {
       title: TEXT.outcome.bankerBigWinTitle,
-      body: "非打家总分为 0 分，打家方升 3 级。当前这一版原型已经按你的五人规则做了这条判定。",
+      body: "非打家总分为 0 分，且未形成主级牌成功扣底，打家方升 3 级。",
       bankerLevels: 3,
       defenderLevels: 0,
       winner: "banker",
     };
   }
-  if (points < 60) {
+  if (!defendersWin && points < 60) {
     return {
       title: TEXT.outcome.bankerSmallWinTitle,
-      body: `非打家总分为 ${points} 分，小于 60 分，打家方升 2 级。`,
+      body: `非打家总分为 ${points} 分，未到 60 分，且未形成主级牌成功扣底，打家方升 2 级。`,
       bankerLevels: 2,
       defenderLevels: 0,
       winner: "banker",
     };
   }
-  if (points < 120) {
+  if (!defendersWin && points < 120) {
     return {
       title: TEXT.outcome.bankerWinTitle,
-      body: `非打家总分为 ${points} 分，小于 120 分，打家方正常获胜，升 1 级。`,
+      body: `非打家总分为 ${points} 分，未到 120 分，且未形成主级牌成功扣底，打家方正常获胜，升 1 级。`,
       bankerLevels: 1,
       defenderLevels: 0,
       winner: "banker",
@@ -445,7 +447,9 @@ function getOutcome(points, options = {}) {
   if (points < 165) {
     return {
       title: TEXT.outcome.defenderWinTitle,
-      body: `非打家总分为 ${points} 分，已达到 120 分但未到 165 分。非打家方获胜，但本局不升级。`,
+      body: options.bottomPenalty?.levels > 0
+        ? `非打家总分为 ${points} 分，并已完成${options.bottomPenalty.label}。非打家方获胜，但本局不升级。`
+        : `非打家总分为 ${points} 分，已达到 120 分但未到 165 分。非打家方获胜，但本局不升级。`,
       bankerLevels: 0,
       defenderLevels: 0,
       winner: "defender",
@@ -486,12 +490,12 @@ function getLevelSettlementSummary(outcome) {
 function getBottomResultText(bottomResult) {
   if (!bottomResult) return "";
   if (!bottomResult.defenderBottom) {
-    return ` 最后一轮由${bottomResult.playerName}守底成功，未发生非打家扣底；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+    return ` 最后一轮由${bottomResult.playerName}保底成功，未发生非打家扣底；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
   }
   if (bottomResult.penalty) {
-    return ` ${bottomResult.playerName}完成扣底，牌型为${bottomResult.penalty.label}，打家额外降 ${bottomResult.penalty.levels} 级；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+    return ` ${bottomResult.playerName}完成扣底，并以${bottomResult.penalty.label}成功扣底，打家额外降 ${bottomResult.penalty.levels} 级；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
   }
-  return ` ${bottomResult.playerName}完成扣底，但未形成主牌降级；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+  return ` ${bottomResult.playerName}完成扣底，但未形成主级牌成功扣底；本次只计底牌分，不触发翻盘降级。下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
 }
 
 function shortCardLabel(card) {

@@ -485,7 +485,7 @@ function toggleSelection(cardId) {
 
 function updateActionHint() {
   if (state.phase === "ready") {
-    dom.actionHint.textContent = "开始界面已就绪。点击“开始游戏”会重置等级并直接开局；有存档时也可以继续游戏。";
+    dom.actionHint.textContent = "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
     return;
   }
   if (state.phase === "dealing") {

@@ -1,7 +1,5 @@
 function getReadyStartMessage() {
-  return state.hasSavedProgress
-    ? "点击“开始游戏”会把 5 位玩家等级重置为 2 并直接开局；也可以点“继续游戏”读取当前浏览器中的等级进度。"
-    : "点击“开始游戏”会把 5 位玩家等级重置为 2 并直接开局。当前浏览器里还没有可继续的等级进度。";
+  return "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
 }
 
 function startNewProgress(autoStart = false) {

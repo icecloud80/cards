@@ -390,9 +390,7 @@ function refreshSavedProgressAvailability() {
 }
 
 function getReadyStartMessage() {
-  return state.hasSavedProgress
-    ? "点击“开始游戏”会把 5 位玩家等级重置为 2 并直接开局；也可以点“继续游戏”读取当前浏览器中的等级进度。"
-    : "点击“开始游戏”会把 5 位玩家等级重置为 2 并直接开局。当前浏览器里还没有可继续的等级进度。";
+  return "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
 }
 
 function startNewProgress(autoStart = false) {
@@ -3401,7 +3399,7 @@ function toggleSelection(cardId) {
 
 function updateActionHint() {
   if (state.phase === "ready") {
-    dom.actionHint.textContent = "开始界面已就绪。点击“开始游戏”会重置等级并直接开局；有存档时也可以继续游戏。";
+    dom.actionHint.textContent = "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
     return;
   }
   if (state.phase === "dealing") {

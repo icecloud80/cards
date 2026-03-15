@@ -38,15 +38,24 @@ function getAiRevealIntentScore(playerId) {
   return score;
 }
 
-function shouldAiRevealFriend(playerId) {
-  if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
+function getAiTargetCopiesInHand(playerId, target = state.friendTarget) {
   const player = getPlayer(playerId);
-  if (!player) return false;
+  if (!player || !target) return 0;
+  return player.hand.filter((card) => card.suit === target.suit && card.rank === target.rank).length;
+}
+
+function canAiRevealFriendNow(playerId) {
+  if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
   if (currentSeen + 1 !== neededOccurrence) return false;
-  const hasTarget = player.hand.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank);
-  if (!hasTarget) return false;
+  if (getAiTargetCopiesInHand(playerId) <= 0) return false;
+  return true;
+}
+
+function shouldAiRevealFriend(playerId) {
+  if (!canAiRevealFriendNow(playerId)) return false;
+  if (shouldAiDelayRevealOnOpeningLead(playerId)) return false;
   return getAiRevealIntentScore(playerId) >= 2;
 }
 
@@ -99,13 +108,73 @@ function isOneStepBelowFriendTarget(card, target = state.friendTarget) {
   return getPatternUnitPower(targetCard, effectiveSuit(targetCard)) - getPatternUnitPower(card, effectiveSuit(card)) === 1;
 }
 
+function shouldAiDelayRevealOnOpeningLead(playerId) {
+  if (!state.friendTarget || state.trickNumber !== 1 || state.currentTrick[0]?.playerId !== state.bankerId) return false;
+  if (state.currentTrick[0]?.cards.length !== 1) return false;
+  const currentWinningPlay = getCurrentWinningPlay();
+  if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return false;
+
+  const bankerLeadCard = state.currentTrick[0].cards[0];
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+
+  if (neededOccurrence === 1 && isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget)) {
+    return true;
+  }
+
+  if (neededOccurrence === 2 && currentSeen === 1
+    && bankerLeadCard.suit === state.friendTarget.suit
+    && bankerLeadCard.rank === state.friendTarget.rank) {
+    return true;
+  }
+
+  return false;
+}
+
+function isAiCertainFriend(playerId) {
+  if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  const playerCopies = getAiTargetCopiesInHand(playerId);
+  if (playerCopies <= 0) return false;
+
+  const bankerCopies = getAiTargetCopiesInHand(state.bankerId);
+  const otherCopies = state.players
+    .filter((player) => player.id !== playerId && player.id !== state.bankerId)
+    .reduce((sum, player) => sum + getAiTargetCopiesInHand(player.id), 0);
+
+  return currentSeen + bankerCopies + otherCopies < neededOccurrence && currentSeen + bankerCopies + playerCopies >= neededOccurrence;
+}
+
+function isAiProspectiveFriend(playerId) {
+  if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
+  if (getAiTargetCopiesInHand(playerId) <= 0) return false;
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  if (neededOccurrence === 3 && isAiCertainFriend(playerId)) return true;
+  return currentSeen >= neededOccurrence - 1;
+}
+
+function areAiSameSide(playerA, playerB) {
+  if (isFriendTeamResolved()) return areSameSide(playerA, playerB);
+  const aBankerSide = playerA === state.bankerId || isAiProspectiveFriend(playerA);
+  const bBankerSide = playerB === state.bankerId || isAiProspectiveFriend(playerB);
+  return aBankerSide && bBankerSide;
+}
+
 function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (!state.friendTarget || !currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return [];
   if (state.trickNumber !== 1 || state.currentTrick[0]?.playerId !== state.bankerId) return [];
   if (state.currentTrick[0]?.cards.length !== 1) return [];
 
   const bankerLeadCard = state.currentTrick[0].cards[0];
-  if (!isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget)) return [];
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  const delayForFirstTarget = neededOccurrence === 1 && isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget);
+  const delayForSecondTarget = neededOccurrence === 2 && currentSeen === 1
+    && bankerLeadCard.suit === state.friendTarget.suit
+    && bankerLeadCard.rank === state.friendTarget.rank;
+  if (!delayForFirstTarget && !delayForSecondTarget) return [];
   if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return [];
 
   const supportChoices = candidates.filter((combo) =>
@@ -304,10 +373,11 @@ function chooseAiLeadPlay(playerId) {
 function chooseAiFollowPlay(playerId, candidates) {
   if (candidates.length === 0) return [];
   const currentWinningPlay = getCurrentWinningPlay();
-  const allyWinning = currentWinningPlay ? areSameSide(playerId, currentWinningPlay.playerId) : false;
+  const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
-  const revealChoice = shouldAiRevealFriend(playerId) ? chooseAiRevealCombo(candidates) : [];
-  const supportChoice = revealChoice.length > 0 ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
+  const revealOpportunity = canAiRevealFriendNow(playerId);
+  const revealChoice = revealOpportunity ? chooseAiRevealCombo(candidates) : [];
+  const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
 
   if (supportChoice.length > 0) {
     return supportChoice;
@@ -319,6 +389,8 @@ function chooseAiFollowPlay(playerId, candidates) {
 
   if (!allyWinning && beatingCandidates.length > 0) {
     return beatingCandidates.sort((a, b) => {
+      const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
+      if (structureDiff !== 0) return structureDiff;
       const aPattern = classifyPlay(a);
       const bPattern = classifyPlay(b);
       const powerDiff = aPattern.power - bPattern.power;
@@ -336,6 +408,8 @@ function chooseAiFollowPlay(playerId, candidates) {
     const nonBeating = candidates.filter((combo) => !doesSelectionBeatCurrent(playerId, combo));
     const feedChoices = nonBeating.length > 0 ? nonBeating : candidates;
     return feedChoices.sort((a, b) => {
+      const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
+      if (structureDiff !== 0) return structureDiff;
       const scoreDiff = b.reduce((sum, card) => sum + scoreValue(card), 0) - a.reduce((sum, card) => sum + scoreValue(card), 0);
       if (scoreDiff !== 0) return scoreDiff;
       return classifyPlay(a).power - classifyPlay(b).power;
@@ -347,10 +421,38 @@ function chooseAiFollowPlay(playerId, candidates) {
   }
 
   return candidates.sort((a, b) => {
+    const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
+    if (structureDiff !== 0) return structureDiff;
     const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;
   })[0];
+}
+
+function getFollowStructureScore(combo) {
+  if (!state.leadSpec) return 0;
+  const pattern = classifyPlay(combo);
+  const suitedCount = combo.filter((card) => effectiveSuit(card) === state.leadSpec.suit).length;
+  let score = suitedCount * 10;
+
+  if (matchesLeadPattern(pattern, state.leadSpec)) {
+    score += 1000;
+  }
+
+  if (state.leadSpec.type === "pair") {
+    score += getForcedPairUnits(combo) * 120;
+  } else if (state.leadSpec.type === "triple") {
+    score += getTripleUnits(combo) * 150;
+    score += getForcedPairUnits(combo) * 40;
+  } else if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train") {
+    score += getForcedPairUnits(combo) * 140;
+  } else if (state.leadSpec.type === "bulldozer") {
+    const tripleUnits = getTripleUnits(combo);
+    score += tripleUnits * 160;
+    score += getForcedPairUnitsWithReservedTriples(combo, tripleUnits) * 50;
+  }
+
+  return score;
 }
 
 function getLegalHintForPlayer(playerId) {
@@ -447,8 +549,16 @@ function findLegalSelectionBySearch(playerId) {
   for (const pool of pools) {
     if (pool.length < targetCount) continue;
     const combos = enumerateCombinations(pool, targetCount);
-    const validCombo = combos.find((combo) => validateSelection(playerId, combo).ok);
-    if (validCombo) return validCombo;
+    const validCombos = combos.filter((combo) => validateSelection(playerId, combo).ok);
+    if (validCombos.length > 0) {
+      return validCombos.sort((a, b) => {
+        const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
+        if (structureDiff !== 0) return structureDiff;
+        const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        return classifyPlay(a).power - classifyPlay(b).power;
+      })[0];
+    }
   }
 
   return [];

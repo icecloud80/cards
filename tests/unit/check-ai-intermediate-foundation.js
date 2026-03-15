@@ -191,6 +191,97 @@ function runIntermediateFoundationSuite(context) {
     assert(followCandidates.some((entry) => getComboKey(entry.cards) === getComboKey(sourceTrumpSingle) && entry.tags.includes("beats")), "generateCandidatePlays follow: should tag beating candidates from sourceState context");
 
     resetCommonState();
+    state.currentTurnId = 3;
+    state.leaderId = 1;
+    state.players = [
+      basePlayer(1, [makeCard("pair-lead-p1-h-9", "hearts", "9")], true),
+      basePlayer(2, [makeCard("pair-lead-p2-s-9", "spades", "9")]),
+      basePlayer(3, [
+        makeCard("pair-lead-p3-h-6", "hearts", "6"),
+        makeCard("pair-lead-p3-c-7", "clubs", "7"),
+        makeCard("pair-lead-p3-d-8", "diamonds", "8"),
+      ]),
+      basePlayer(4, [makeCard("pair-lead-p4-d-8", "diamonds", "8")]),
+      basePlayer(5, [makeCard("pair-lead-p5-s-k", "spades", "K")]),
+    ];
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("pair-lead-h-9-1", "hearts", "9"), makeCard("pair-lead-h-9-2", "hearts", "9")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    const unshapedSourceState = cloneSimulationState(state);
+    const unshapedCandidates = generateCandidatePlays(unshapedSourceState, 3, "follow");
+    const legalUnshaped = unshapedCandidates.find((entry) => entry.tags.includes("unshaped"));
+    assert(legalUnshaped, "generateCandidatePlays follow: should keep legal but unshaped follow candidates");
+    assert(!legalUnshaped.tags.includes("invalid"), "generateCandidatePlays follow: legal unshaped candidates should not be tagged invalid");
+    assert(legalUnshaped.tags.includes("off_pattern"), "generateCandidatePlays follow: legal unshaped candidates should be marked off_pattern");
+
+    resetCommonState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.players = [
+      basePlayer(1, [
+        makeCard("throw-guard-p1-h-j-1", "hearts", "J"),
+        makeCard("throw-guard-p1-h-j-2", "hearts", "J"),
+      ], true),
+      basePlayer(2, [makeCard("throw-guard-p2-s-9", "spades", "9")]),
+      basePlayer(3, [
+        makeCard("throw-guard-p3-h-a-1", "hearts", "A"),
+        makeCard("throw-guard-p3-h-a-2", "hearts", "A"),
+        makeCard("throw-guard-p3-h-k-1", "hearts", "K"),
+        makeCard("throw-guard-p3-h-k-2", "hearts", "K"),
+        makeCard("throw-guard-p3-h-3", "hearts", "3"),
+      ]),
+      basePlayer(4, [makeCard("throw-guard-p4-d-8", "diamonds", "8")]),
+      basePlayer(5, [makeCard("throw-guard-p5-s-k", "spades", "K")]),
+    ];
+    state.playHistory = [];
+    state.currentTrick = [];
+    state.leadSpec = null;
+    const throwGuardState = cloneSimulationState(state);
+    const riskyThrowEntry = createCandidateEntry([...throwGuardState.players[2].hand], "manual", ["throw", "hearts"]);
+    const filteredThrowResult = filterCandidateEntriesForState(throwGuardState, 3, "lead", [riskyThrowEntry]);
+    assert(filteredThrowResult.entries.length === 1, "filterCandidateEntriesForState: should keep risky throw candidates instead of filtering by hidden hands");
+    assert(filteredThrowResult.filteredEntries.length === 0, "filterCandidateEntriesForState: should not produce failed_throw from hidden-hand truth");
+    assert(filteredThrowResult.entries[0].tags.includes("throw_risky"), "filterCandidateEntriesForState: should tag unresolved throw candidates as throw_risky");
+    const throwRiskAssessment = assessThrowCandidateForState(throwGuardState, 3, [...throwGuardState.players[2].hand]);
+    assert(throwRiskAssessment && throwRiskAssessment.level === "risky", "assessThrowCandidateForState: unresolved higher singles should mark throw as risky");
+
+    resetCommonState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.players = [
+      basePlayer(1, [makeCard("throw-safe-p1-s-9", "spades", "9")], true),
+      basePlayer(2, [makeCard("throw-safe-p2-d-9", "diamonds", "9")]),
+      basePlayer(3, [
+        makeCard("throw-safe-p3-h-a-1", "hearts", "A"),
+        makeCard("throw-safe-p3-h-a-2", "hearts", "A"),
+        makeCard("throw-safe-p3-h-k-1", "hearts", "K"),
+        makeCard("throw-safe-p3-h-k-2", "hearts", "K"),
+        makeCard("throw-safe-p3-h-9-1", "hearts", "9"),
+        makeCard("throw-safe-p3-h-9-2", "hearts", "9"),
+      ]),
+      basePlayer(4, [makeCard("throw-safe-p4-d-8", "diamonds", "8")]),
+      basePlayer(5, [makeCard("throw-safe-p5-s-k", "spades", "K")]),
+    ];
+    state.playHistory = [
+      makeCard("seen-h-10-1", "hearts", "10"),
+      makeCard("seen-h-10-2", "hearts", "10"),
+      makeCard("seen-h-j-1", "hearts", "J"),
+      makeCard("seen-h-j-2", "hearts", "J"),
+      makeCard("seen-h-q-1", "hearts", "Q"),
+      makeCard("seen-h-q-2", "hearts", "Q"),
+    ];
+    state.currentTrick = [];
+    state.leadSpec = null;
+    const throwSafeState = cloneSimulationState(state);
+    const safeThrowCombo = [...throwSafeState.players[2].hand];
+    const throwSafeAssessment = assessThrowCandidateForState(throwSafeState, 3, safeThrowCombo);
+    assert(throwSafeAssessment && throwSafeAssessment.safe, "assessThrowCandidateForState: should mark throw safe when stronger same-suit pairs are publicly exhausted");
+    const safeThrowEntry = createCandidateEntry(safeThrowCombo, "manual", ["throw", "hearts"]);
+    const safeThrowResult = filterCandidateEntriesForState(throwSafeState, 3, "lead", [safeThrowEntry]);
+    assert(safeThrowResult.entries[0].tags.includes("throw_safe"), "filterCandidateEntriesForState: publicly safe throw should carry throw_safe tag");
+
+    resetCommonState();
     state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false };
     const objective = getIntermediateObjective(3, "lead", cloneSimulationState(state));
     assert(objective.primary === "find_friend", "getIntermediateObjective: unresolved friend should prioritize find_friend");
@@ -283,8 +374,12 @@ function runIntermediateFoundationSuite(context) {
     assert(typeof state.lastAiDecision.decisionTimeMs === "number", "chooseIntermediatePlay: should expose decision timing");
     assert(typeof state.lastAiDecision.debugStats?.candidateCount === "number", "chooseIntermediatePlay: should expose debug candidate count");
     assert(typeof state.lastAiDecision.debugStats?.maxRolloutDepth === "number", "chooseIntermediatePlay: should expose max rollout depth");
+    assert(typeof state.lastAiDecision.debugStats?.filteredCandidateCount === "number", "chooseIntermediatePlay: should expose filtered candidate count");
     assert(state.lastAiDecision.candidateEntries.every((entry) => Array.isArray(entry.rolloutTriggerFlags)), "chooseIntermediatePlay: should expose rollout trigger flags for every candidate");
     assert(state.lastAiDecision.candidateEntries.every((entry) => entry.rolloutEvaluation && typeof entry.rolloutEvaluation.total === "number"), "chooseIntermediatePlay: should expose rollout evaluation summaries");
+    assert(state.lastAiDecision.candidateEntries.every((entry) => !entry.tags.includes("failed_throw")), "chooseIntermediatePlay: candidate tags should not leak hidden-hand failed throw truth");
+    assert(state.lastAiDecision.candidateEntries.every((entry) => !entry.tags.includes("invalid")), "chooseIntermediatePlay: legal candidate tags should not include invalid");
+    assert(state.lastAiDecision.candidateEntries.every((entry) => validateCandidateForState(cloneSimulationState(state), 3, entry.cards, "lead").ok), "chooseIntermediatePlay: every scored lead candidate should pass defensive legality revalidation");
     const exportedLog = getResultLogText();
     assert(exportedLog.includes("AI 决策记录："), "getResultLogText: should include AI decision export section");
     assert(exportedLog.includes("玩家3 首发"), "getResultLogText: should export recorded AI decision summary");

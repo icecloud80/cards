@@ -316,7 +316,7 @@ function getIntermediateLeadCandidates(playerId) {
 }
 
 // 为中级 AI 的首发候选牌组计算分数。
-function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice) {
+function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candidateEntry = null) {
   const player = getPlayer(playerId);
   if (!player || combo.length === 0) return Number.NEGATIVE_INFINITY;
   const handBefore = player.hand;
@@ -364,6 +364,11 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice) {
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
   score += scoreRememberedStructurePromotion(playerId, combo);
+
+  const throwAssessment = candidateEntry?.throwAssessment || assessThrowCandidateForState(state, playerId, combo);
+  if (throwAssessment) {
+    score -= throwAssessment.scorePenalty || 0;
+  }
 
   if (combo.every((card) => effectiveSuit(card) === "trump") && !isDefenderTeam(playerId)) {
     score -= 10;
@@ -560,13 +565,21 @@ function summarizeEvaluationForDebug(evaluation) {
     : null;
 }
 
-function summarizeCandidateDebugStats(candidateEntries) {
+function summarizeCandidateDebugStats(candidateEntries, filteredCandidateEntries = []) {
   const entries = Array.isArray(candidateEntries) ? candidateEntries : [];
+  const filteredEntries = Array.isArray(filteredCandidateEntries) ? filteredCandidateEntries : [];
   const maxRolloutDepth = entries.reduce((max, entry) => Math.max(max, entry.rolloutDepth || 0), 0);
   const extendedRolloutCount = entries.filter((entry) => entry.rolloutDepth >= 2).length;
   const completedRolloutCount = entries.filter((entry) => entry.rolloutCompleted).length;
+  const filteredReasonCounts = filteredEntries.reduce((acc, entry) => {
+    const key = entry?.filterReason || "filtered";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
   return {
     candidateCount: entries.length,
+    filteredCandidateCount: filteredEntries.length,
+    filteredReasonCounts,
     completedRolloutCount,
     extendedRolloutCount,
     maxRolloutDepth,
@@ -591,8 +604,22 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
       rolloutDepth: entry.rolloutDepth ?? 0,
       rolloutReachedOwnTurn: !!entry.rolloutReachedOwnTurn,
       rolloutTriggerFlags: Array.isArray(entry.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [],
+      throwRiskLevel: entry.throwAssessment?.level || null,
+      throwRiskPenalty: typeof entry.throwAssessment?.scorePenalty === "number" ? entry.throwAssessment.scorePenalty : null,
+      throwUnresolvedThreatCount: typeof entry.throwAssessment?.unresolvedThreatCount === "number"
+        ? entry.throwAssessment.unresolvedThreatCount
+        : null,
       rolloutEvaluation: cloneDebugValue(entry.rolloutEvaluation),
       rolloutFutureEvaluation: cloneDebugValue(entry.rolloutFutureEvaluation),
+    }))
+    : [];
+  const filteredCandidateEntries = Array.isArray(bundle.filteredCandidateEntries)
+    ? bundle.filteredCandidateEntries.slice(0, 8).map((entry) => ({
+      cards: cloneCardsForSimulation(entry.cards),
+      source: entry.source || null,
+      tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
+      filterReason: entry.filterReason || null,
+      detailReason: entry.detailReason || null,
     }))
     : [];
   return {
@@ -604,12 +631,13 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
     objective: cloneDebugValue(bundle.objective),
     evaluation: summarizeEvaluationForDebug(bundle.evaluation),
     candidateEntries,
+    filteredCandidateEntries,
     selectedSource: bestEntry?.source || null,
     selectedTags: Array.isArray(bestEntry?.tags) ? [...bestEntry.tags] : [],
     selectedScore: typeof bestEntry?.score === "number" ? bestEntry.score : null,
     selectedCards: cloneCardsForSimulation(bestEntry?.cards || []),
     selectedBreakdown: cloneDebugValue(bestEntry?.rolloutEvaluation) || summarizeEvaluationForDebug(bundle.evaluation),
-    debugStats: summarizeCandidateDebugStats(scoredEntries),
+    debugStats: summarizeCandidateDebugStats(scoredEntries, bundle.filteredCandidateEntries),
     decisionTimeMs,
   };
 }
@@ -622,6 +650,25 @@ function recordAiDecisionSnapshot(snapshot) {
 }
 
 function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fallbackMode) {
+  const rolloutValidation = validateCandidateForState(cloneSimulationState(state), playerId, combo, fallbackMode);
+  if (!rolloutValidation.ok) {
+    return {
+      score: Number.NEGATIVE_INFINITY,
+      delta: 0,
+      futureDelta: 0,
+      completed: false,
+      nextMode: fallbackMode,
+      winnerId: null,
+      points: 0,
+      trace: [],
+      depth: 0,
+      reachedOwnTurn: false,
+      futureTrace: [],
+      triggerFlags: ["candidate_invalid_before_rollout", rolloutValidation.filterReason || "filtered"],
+      nextEvaluation: summarizeEvaluationForDebug(baselineEvaluation),
+      futureEvaluation: null,
+    };
+  }
   const rollout = simulateCandidateToEndOfCurrentTrick(cloneSimulationState(state), playerId, combo);
   const currentWinningPlay = fallbackMode === "follow" ? getCurrentWinningPlay() : null;
   const tentativeDefenderOvertake = fallbackMode === "follow"
@@ -745,7 +792,7 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
   );
   return candidateEntries
     .map((entry) => {
-      const heuristicScore = scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice);
+      const heuristicScore = scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice, entry);
       const rollout = getIntermediateRolloutSummary(playerId, entry.cards, baseEvaluation, "lead");
       return {
         ...entry,
@@ -850,22 +897,20 @@ function buildIntermediateDecisionBundle(playerId, mode, liveCandidates = null) 
  * - `beats` 与 `matched` 必须基于 sourceState 计算，否则 debug 信息会和真实 rollout 上下文错位。
  */
 function buildIntermediateCandidateEntriesFromLiveCandidates(sourceState, playerId, liveCandidates) {
-  const leadSpec = sourceState?.leadSpec || null;
-  return dedupeCandidateEntries(liveCandidates.map((cards) => {
+  const rawEntries = dedupeCandidateEntries(liveCandidates.map((cards) => {
     const pattern = classifyPlay(cards);
-    const tags = [pattern.type, pattern.suit || effectiveSuit(cards[0])];
-    if (doesSelectionBeatCurrentForState(sourceState, playerId, cards)) tags.push("beats");
-    if (leadSpec && matchesLeadPattern(pattern, leadSpec)) tags.push("matched");
+    const tags = [getCandidatePatternTag(pattern), pattern.suit || effectiveSuit(cards[0])];
     return createCandidateEntry(cards, "legal", tags);
   }));
+  return filterCandidateEntriesForState(sourceState, playerId, "follow", rawEntries);
 }
 
 function buildIntermediateDecisionBundleForState(playerId, mode, sourceState = state, liveCandidates = null) {
   const simState = cloneSimulationState(sourceState);
   const objective = getIntermediateObjective(playerId, mode, simState);
-  const candidateEntries = mode === "follow" && Array.isArray(liveCandidates)
+  const candidateResult = mode === "follow" && Array.isArray(liveCandidates)
     ? buildIntermediateCandidateEntriesFromLiveCandidates(sourceState, playerId, liveCandidates)
-    : generateCandidatePlays(sourceState, playerId, mode);
+    : generateCandidateResultForState(sourceState, playerId, mode);
   const evaluation = evaluateState(simState, playerId, objective);
   return {
     playerId,
@@ -873,7 +918,8 @@ function buildIntermediateDecisionBundleForState(playerId, mode, sourceState = s
     sourceState,
     objective,
     evaluation,
-    candidateEntries,
+    candidateEntries: candidateResult.entries,
+    filteredCandidateEntries: candidateResult.filteredEntries,
   };
 }
 

@@ -1192,6 +1192,27 @@
         color: rgba(248, 240, 220, 0.9);
       }
 
+      .debug-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .debug-history-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .debug-history-index {
+        min-width: 72px;
+        text-align: center;
+        font-size: 12px;
+        color: rgba(248, 240, 220, 0.78);
+      }
+
       .debug-decision-summary {
         display: grid;
         gap: 6px;
@@ -1612,7 +1633,14 @@
           <div id="debugPlayerTabs" class="debug-player-tabs"></div>
           <div class="debug-hand-scroll">
             <div class="debug-section">
-              <div class="debug-section-title">AI 决策</div>
+              <div class="debug-section-head">
+                <div class="debug-section-title">AI 决策</div>
+                <div class="debug-history-controls">
+                  <button id="debugDecisionPrevBtn" class="tiny-btn" type="button">上一条</button>
+                  <div id="debugDecisionIndex" class="debug-history-index">第 0 / 0 条</div>
+                  <button id="debugDecisionNextBtn" class="tiny-btn" type="button">下一条</button>
+                </div>
+              </div>
               <div id="debugDecisionMeta" class="subtle">当前还没有这位玩家的 AI 决策记录。</div>
               <div id="debugDecisionCards"></div>
               <div id="debugDecisionList"></div>

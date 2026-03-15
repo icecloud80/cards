@@ -101,6 +101,8 @@ function setupGame() {
   state.lastTrick = null;
   state.playHistory = [];
   state.lastAiDecision = null;
+  state.aiDecisionHistory = [];
+  state.aiDecisionHistorySeq = 0;
   state.bottomCards = [];
   state.selectedCardIds = [];
   state.countdown = 30;
@@ -135,6 +137,7 @@ function setupGame() {
   state.selectedDebugPlayerId = PLAYER_ORDER.includes(state.selectedDebugPlayerId) && state.selectedDebugPlayerId !== 1
     ? state.selectedDebugPlayerId
     : 2;
+  state.selectedDebugDecisionOffsets = createDebugDecisionOffsets();
   state.currentTurnId = state.nextFirstDealPlayerId || 1;
   state.leaderId = state.currentTurnId;
   dom.resultOverlay.classList.remove("show");
@@ -1858,6 +1861,52 @@ function appendLog(message) {
   state.logs = state.logs.slice(0, 5);
 }
 
+function formatAiDecisionLogNumber(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "--";
+  return String(Math.round(value * 100) / 100);
+}
+
+function formatAiDecisionExportEntry(entry, index) {
+  if (!entry) return `${index + 1}. （空记录）`;
+  const playerName = getPlayer(entry.playerId)?.name || `玩家${entry.playerId || "?"}`;
+  const modeLabel = entry.mode === "follow" ? "跟牌" : "首发";
+  const trickLabel = entry.recordedAtTrickNumber ? `第 ${entry.recordedAtTrickNumber} 轮` : "轮次未知";
+  const turnLabel = entry.recordedAtTurnId ? `行动位 玩家${entry.recordedAtTurnId}` : "行动位未知";
+  const primary = entry.objective?.primary || "--";
+  const secondary = entry.objective?.secondary || "--";
+  const selectedCards = Array.isArray(entry.selectedCards) && entry.selectedCards.length > 0
+    ? entry.selectedCards.map(shortCardLabel).join("、")
+    : "无";
+  const stats = entry.debugStats || {};
+  const topCandidates = Array.isArray(entry.candidateEntries)
+    ? entry.candidateEntries.slice(0, 3).map((candidate, candidateIndex) => {
+      const cards = Array.isArray(candidate.cards) && candidate.cards.length > 0
+        ? candidate.cards.map(shortCardLabel).join("、")
+        : "无";
+      const flags = Array.isArray(candidate.rolloutTriggerFlags) && candidate.rolloutTriggerFlags.length > 0
+        ? candidate.rolloutTriggerFlags.join(" / ")
+        : "无";
+      return `  - 候选${candidateIndex + 1}: ${cards} | 总分 ${formatAiDecisionLogNumber(candidate.score)} | 启发式 ${formatAiDecisionLogNumber(candidate.heuristicScore)} | rollout ${formatAiDecisionLogNumber(candidate.rolloutScore)} | future ${formatAiDecisionLogNumber(candidate.rolloutFutureDelta)} | 深度 ${candidate.rolloutDepth ?? 0} | 触发 ${flags}`;
+    })
+    : [];
+
+  return [
+    `${index + 1}. ${trickLabel} · ${turnLabel} · ${playerName} ${modeLabel}`,
+    `   目标：${primary} / ${secondary}`,
+    `   选择：${selectedCards}`,
+    `   结果：总分 ${formatAiDecisionLogNumber(entry.selectedScore)} · 来源 ${entry.selectedSource || "--"} · 标签 ${(entry.selectedTags || []).join(" / ") || "无"}`,
+    `   调试：耗时 ${formatAiDecisionLogNumber(entry.decisionTimeMs)}ms · 候选 ${stats.candidateCount ?? 0} 个 · 最深 ${stats.maxRolloutDepth ?? 0} 层 · 双层前瞻 ${stats.extendedRolloutCount ?? 0} 个`,
+    ...topCandidates,
+  ].join("\n");
+}
+
+function getAiDecisionHistoryExportLines() {
+  if (!Array.isArray(state.aiDecisionHistory) || state.aiDecisionHistory.length === 0) {
+    return ["（无记录）"];
+  }
+  return state.aiDecisionHistory.map((entry, index) => formatAiDecisionExportEntry(entry, index));
+}
+
 function getResultLogText() {
   const lines = [
     "五人找朋友升级 对局日志",
@@ -1874,6 +1923,9 @@ function getResultLogText() {
   } else {
     lines.push(...state.allLogs.map((entry, index) => `${index + 1}. ${entry}`));
   }
+  lines.push("");
+  lines.push("AI 决策记录：");
+  lines.push(...getAiDecisionHistoryExportLines());
   return lines.join("\n");
 }
 

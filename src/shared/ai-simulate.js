@@ -101,6 +101,8 @@ const SIMULATION_STATE_KEYS = [
   "centerAnnouncement",
   "centerAnnouncementQueue",
   "lastAiDecision",
+  "aiDecisionHistory",
+  "aiDecisionHistorySeq",
   "exposedTrumpVoid",
   "exposedSuitVoid",
 ];
@@ -136,6 +138,8 @@ function applySimulationState(simState) {
     centerAnnouncement: null,
     centerAnnouncementQueue: [],
     lastAiDecision: null,
+    aiDecisionHistory: [],
+    aiDecisionHistorySeq: 0,
   });
 }
 

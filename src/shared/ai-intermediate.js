@@ -573,6 +573,54 @@ function summarizeCandidateDebugStats(candidateEntries) {
   };
 }
 
+function cloneDebugValue(value) {
+  if (value === null || value === undefined) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTimeMs) {
+  const candidateEntries = Array.isArray(scoredEntries)
+    ? scoredEntries.slice(0, 8).map((entry) => ({
+      cards: cloneCardsForSimulation(entry.cards),
+      source: entry.source || null,
+      tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
+      score: typeof entry.score === "number" ? entry.score : null,
+      heuristicScore: typeof entry.heuristicScore === "number" ? entry.heuristicScore : null,
+      rolloutScore: typeof entry.rolloutScore === "number" ? entry.rolloutScore : null,
+      rolloutFutureDelta: typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : null,
+      rolloutDepth: entry.rolloutDepth ?? 0,
+      rolloutReachedOwnTurn: !!entry.rolloutReachedOwnTurn,
+      rolloutTriggerFlags: Array.isArray(entry.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [],
+      rolloutEvaluation: cloneDebugValue(entry.rolloutEvaluation),
+      rolloutFutureEvaluation: cloneDebugValue(entry.rolloutFutureEvaluation),
+    }))
+    : [];
+  return {
+    historyId: (state.aiDecisionHistorySeq || 0) + 1,
+    recordedAtTrickNumber: state.trickNumber || null,
+    recordedAtTurnId: state.currentTurnId || null,
+    playerId: bundle.playerId,
+    mode: bundle.mode,
+    objective: cloneDebugValue(bundle.objective),
+    evaluation: summarizeEvaluationForDebug(bundle.evaluation),
+    candidateEntries,
+    selectedSource: bestEntry?.source || null,
+    selectedTags: Array.isArray(bestEntry?.tags) ? [...bestEntry.tags] : [],
+    selectedScore: typeof bestEntry?.score === "number" ? bestEntry.score : null,
+    selectedCards: cloneCardsForSimulation(bestEntry?.cards || []),
+    selectedBreakdown: cloneDebugValue(bestEntry?.rolloutEvaluation) || summarizeEvaluationForDebug(bundle.evaluation),
+    debugStats: summarizeCandidateDebugStats(scoredEntries),
+    decisionTimeMs,
+  };
+}
+
+function recordAiDecisionSnapshot(snapshot) {
+  if (!snapshot || !snapshot.playerId) return;
+  state.aiDecisionHistorySeq = snapshot.historyId || ((state.aiDecisionHistorySeq || 0) + 1);
+  state.lastAiDecision = snapshot;
+  state.aiDecisionHistory = [...(state.aiDecisionHistory || []), snapshot].slice(-120);
+}
+
 function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fallbackMode) {
   const rollout = simulateCandidateToEndOfCurrentTrick(cloneSimulationState(state), playerId, combo);
   const currentWinningPlay = fallbackMode === "follow" ? getCurrentWinningPlay() : null;
@@ -822,19 +870,13 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
       beginnerChoice,
       bundle.evaluation
     );
-    const debugStats = summarizeCandidateDebugStats(scoredEntries);
     const bestEntry = scoredEntries[0] || null;
-    state.lastAiDecision = {
-      ...bundle,
-      candidateEntries: scoredEntries,
-      selectedSource: bestEntry?.source || null,
-      selectedTags: bestEntry?.tags || [],
-      selectedScore: bestEntry?.score ?? null,
-      selectedCards: bestEntry?.cards || [],
-      selectedBreakdown: bestEntry?.rolloutEvaluation || summarizeEvaluationForDebug(bundle.evaluation),
-      debugStats,
-      decisionTimeMs: Math.round((getDecisionTimestamp() - decisionStartedAt) * 100) / 100,
-    };
+    recordAiDecisionSnapshot(createAiDecisionSnapshot(
+      bundle,
+      scoredEntries,
+      bestEntry,
+      Math.round((getDecisionTimestamp() - decisionStartedAt) * 100) / 100
+    ));
     return bestEntry?.cards || [];
   }
 
@@ -866,19 +908,13 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
     beginnerChoice,
     bundle.evaluation
   );
-  const debugStats = summarizeCandidateDebugStats(scoredEntries);
   const bestEntry = scoredEntries[0] || null;
-  state.lastAiDecision = {
-    ...bundle,
-    candidateEntries: scoredEntries,
-    selectedSource: bestEntry?.source || null,
-    selectedTags: bestEntry?.tags || [],
-    selectedScore: bestEntry?.score ?? null,
-    selectedCards: bestEntry?.cards || [],
-    selectedBreakdown: bestEntry?.rolloutEvaluation || summarizeEvaluationForDebug(bundle.evaluation),
-    debugStats,
-    decisionTimeMs: Math.round((getDecisionTimestamp() - decisionStartedAt) * 100) / 100,
-  };
+  recordAiDecisionSnapshot(createAiDecisionSnapshot(
+    bundle,
+    scoredEntries,
+    bestEntry,
+    Math.round((getDecisionTimestamp() - decisionStartedAt) * 100) / 100
+  ));
   return bestEntry?.cards || [];
 }
 

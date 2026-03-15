@@ -224,6 +224,7 @@ function runIntermediateFoundationSuite(context) {
     const leadChoice = chooseIntermediatePlay(3, "lead");
     assert(Array.isArray(leadChoice) && leadChoice.length > 0, "chooseIntermediatePlay: should return a lead selection");
     assert(state.lastAiDecision && state.lastAiDecision.mode === "lead", "chooseIntermediatePlay: should record last AI decision bundle");
+    assert(Array.isArray(state.aiDecisionHistory) && state.aiDecisionHistory.length === 1, "chooseIntermediatePlay: should append AI decision history");
     assert(Array.isArray(state.lastAiDecision.candidateEntries) && state.lastAiDecision.candidateEntries.length > 0, "chooseIntermediatePlay: should persist candidate entries for debug");
     assert(state.lastAiDecision.candidateEntries.every((entry) => typeof entry.heuristicScore === "number"), "chooseIntermediatePlay: should persist heuristic candidate scores");
     assert(state.lastAiDecision.candidateEntries.every((entry) => typeof entry.rolloutScore === "number"), "chooseIntermediatePlay: should persist rollout candidate scores");
@@ -232,6 +233,9 @@ function runIntermediateFoundationSuite(context) {
     assert(typeof state.lastAiDecision.debugStats?.maxRolloutDepth === "number", "chooseIntermediatePlay: should expose max rollout depth");
     assert(state.lastAiDecision.candidateEntries.every((entry) => Array.isArray(entry.rolloutTriggerFlags)), "chooseIntermediatePlay: should expose rollout trigger flags for every candidate");
     assert(state.lastAiDecision.candidateEntries.every((entry) => entry.rolloutEvaluation && typeof entry.rolloutEvaluation.total === "number"), "chooseIntermediatePlay: should expose rollout evaluation summaries");
+    const exportedLog = getResultLogText();
+    assert(exportedLog.includes("AI 决策记录："), "getResultLogText: should include AI decision export section");
+    assert(exportedLog.includes("玩家3 首发"), "getResultLogText: should export recorded AI decision summary");
     const simulatedBundle = buildIntermediateDecisionBundleForState(3, "lead", cloneSimulationState(state));
     assert(Array.isArray(simulatedBundle.candidateEntries) && simulatedBundle.candidateEntries.length > 0, "buildIntermediateDecisionBundleForState: should build candidates from simulation state");
     assert(simulatedBundle.sourceState !== state, "buildIntermediateDecisionBundleForState: should preserve explicit source state reference");
@@ -305,6 +309,7 @@ function runIntermediateFoundationSuite(context) {
         "single trick rollout isolation ok",
         "intermediate unified entry scaffold ok",
         "intermediate decision debug scaffold ok",
+        "ai decision history export ok",
         "simulation-state decision bundle ok",
         "void follow avoids wasting trump pair ok",
         "autoplay emergency fallback ok",

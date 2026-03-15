@@ -296,6 +296,25 @@ dom.debugPlayerTabs?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-debug-player]");
   if (!button) return;
   state.selectedDebugPlayerId = Number(button.dataset.debugPlayer);
+  state.selectedDebugDecisionOffsets[state.selectedDebugPlayerId] = 0;
+  renderDebugPanel();
+});
+
+dom.debugDecisionPrevBtn?.addEventListener("click", () => {
+  const playerId = state.selectedDebugPlayerId;
+  if (!PLAYER_ORDER.includes(playerId) || playerId === 1) return;
+  const historyCount = (state.aiDecisionHistory || []).filter((entry) => entry.playerId === playerId).length;
+  if (historyCount <= 0) return;
+  const currentOffset = state.selectedDebugDecisionOffsets[playerId] || 0;
+  state.selectedDebugDecisionOffsets[playerId] = Math.min(historyCount - 1, currentOffset + 1);
+  renderDebugPanel();
+});
+
+dom.debugDecisionNextBtn?.addEventListener("click", () => {
+  const playerId = state.selectedDebugPlayerId;
+  if (!PLAYER_ORDER.includes(playerId) || playerId === 1) return;
+  const currentOffset = state.selectedDebugDecisionOffsets[playerId] || 0;
+  state.selectedDebugDecisionOffsets[playerId] = Math.max(0, currentOffset - 1);
   renderDebugPanel();
 });
 

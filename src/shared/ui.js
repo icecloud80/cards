@@ -736,6 +736,15 @@ function renderDebugPanel() {
   if (!player) {
     dom.debugHandMeta.textContent = TEXT.debug.empty;
     if (dom.debugDecisionMeta) dom.debugDecisionMeta.textContent = TEXT.debug.noDecision;
+    if (dom.debugDecisionPrevBtn) {
+      dom.debugDecisionPrevBtn.textContent = TEXT.debug.decisionPrev;
+      dom.debugDecisionPrevBtn.disabled = true;
+    }
+    if (dom.debugDecisionNextBtn) {
+      dom.debugDecisionNextBtn.textContent = TEXT.debug.decisionNext;
+      dom.debugDecisionNextBtn.disabled = true;
+    }
+    if (dom.debugDecisionIndex) dom.debugDecisionIndex.textContent = TEXT.debug.decisionHistoryIndex(0, 0);
     if (dom.debugDecisionCards) dom.debugDecisionCards.innerHTML = `<div class="empty-note">${TEXT.debug.noDecision}</div>`;
     if (dom.debugDecisionList) dom.debugDecisionList.innerHTML = "";
     dom.debugHandCards.innerHTML = `<div class="empty-note">${TEXT.debug.empty}</div>`;
@@ -796,11 +805,35 @@ function formatDebugNumber(value) {
   return String(Math.round(value * 100) / 100);
 }
 
+function getDebugDecisionHistoryForPlayer(playerId) {
+  return (state.aiDecisionHistory || []).filter((entry) => entry.playerId === playerId);
+}
+
 function renderDebugDecisionPanel(player) {
   if (!dom.debugDecisionMeta || !dom.debugDecisionCards || !dom.debugDecisionList) return;
 
-  const decision = state.lastAiDecision;
-  if (!decision || decision.playerId !== player.id) {
+  const decisions = getDebugDecisionHistoryForPlayer(player.id);
+  const maxOffset = Math.max(0, decisions.length - 1);
+  const rawOffset = state.selectedDebugDecisionOffsets?.[player.id] || 0;
+  const offset = Math.min(Math.max(rawOffset, 0), maxOffset);
+  if (state.selectedDebugDecisionOffsets) {
+    state.selectedDebugDecisionOffsets[player.id] = offset;
+  }
+  const decision = decisions[decisions.length - 1 - offset] || null;
+  if (dom.debugDecisionPrevBtn) {
+    dom.debugDecisionPrevBtn.textContent = TEXT.debug.decisionPrev;
+    dom.debugDecisionPrevBtn.disabled = decisions.length === 0 || offset >= maxOffset;
+  }
+  if (dom.debugDecisionNextBtn) {
+    dom.debugDecisionNextBtn.textContent = TEXT.debug.decisionNext;
+    dom.debugDecisionNextBtn.disabled = decisions.length === 0 || offset <= 0;
+  }
+  if (dom.debugDecisionIndex) {
+    dom.debugDecisionIndex.textContent = decisions.length === 0
+      ? TEXT.debug.decisionHistoryIndex(0, 0)
+      : TEXT.debug.decisionHistoryIndex(offset + 1, decisions.length);
+  }
+  if (!decision) {
     dom.debugDecisionMeta.textContent = TEXT.debug.noDecision;
     dom.debugDecisionCards.innerHTML = `<div class="empty-note">${TEXT.debug.noDecision}</div>`;
     dom.debugDecisionList.innerHTML = "";
@@ -813,7 +846,13 @@ function renderDebugDecisionPanel(player) {
   const stats = decision.debugStats || {};
   const candidateEntries = Array.isArray(decision.candidateEntries) ? decision.candidateEntries.slice(0, 5) : [];
 
-  dom.debugDecisionMeta.textContent = TEXT.debug.latestDecision(player.name, decision.mode, primary, secondary);
+  dom.debugDecisionMeta.textContent = TEXT.debug.latestDecision(
+    player.name,
+    decision.mode,
+    primary,
+    secondary,
+    decision.recordedAtTrickNumber
+  );
   dom.debugDecisionCards.innerHTML = `
     <div class="debug-decision-summary">
       <div class="debug-summary-line">${TEXT.debug.selectedCards(selectedCards)}</div>

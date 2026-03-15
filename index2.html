@@ -615,8 +615,35 @@
       }
 
       .trick-spot .label {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
         margin-bottom: 10px;
         color: rgba(255, 247, 230, 0.84);
+        font-weight: 700;
+      }
+
+      .spot-role {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(225, 185, 111, 0.18);
+        color: #f1c27b;
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1.4;
+      }
+
+      .spot-role.friend {
+        background: rgba(47, 143, 106, 0.18);
+        color: #8de0b8;
+      }
+
+      .spot-role.managed {
+        background: rgba(216, 92, 76, 0.18);
+        color: #ffd6cf;
       }
 
       .trick-spot.top-left {
@@ -693,15 +720,15 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 22px;
-        height: 22px;
-        padding: 0 7px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
         border-radius: 999px;
-        font-size: 11px;
+        font-size: 9px;
         font-weight: 900;
         line-height: 1;
         letter-spacing: 0.2px;
-        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
       }
 
       .spot-winning-badge {
@@ -1003,7 +1030,7 @@
       .focus-announcement.show {
         min-height: 48px;
         padding: 12px 14px;
-        background: linear-gradient(180deg, rgba(28, 47, 56, 0.96), rgba(15, 28, 35, 0.92));
+        background: linear-gradient(180deg, rgba(28, 47, 56, 0.32), rgba(15, 28, 35, 0.28));
         color: #f8f0dc;
         font-size: 20px;
         box-shadow: 0 12px 22px rgba(0, 0, 0, 0.18);
@@ -1012,15 +1039,15 @@
       }
 
       .focus-announcement.strong {
-        background: linear-gradient(180deg, rgba(157, 53, 43, 0.98), rgba(109, 29, 22, 0.94));
+        background: linear-gradient(180deg, rgba(157, 53, 43, 0.34), rgba(109, 29, 22, 0.3));
       }
 
       .focus-announcement.ally {
-        background: linear-gradient(180deg, rgba(41, 125, 86, 0.98), rgba(22, 85, 56, 0.94));
+        background: linear-gradient(180deg, rgba(41, 125, 86, 0.34), rgba(22, 85, 56, 0.3));
       }
 
       .focus-announcement.friend {
-        background: linear-gradient(180deg, rgba(225, 145, 53, 0.98), rgba(177, 96, 21, 0.94));
+        background: linear-gradient(180deg, rgba(225, 145, 53, 0.34), rgba(177, 96, 21, 0.3));
       }
 
       .center-tag {

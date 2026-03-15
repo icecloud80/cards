@@ -399,9 +399,6 @@ function renderSeats() {
     const seat = document.getElementById(`playerSeat-${player.id}`);
     const role = getVisibleRole(player.id);
     const avatar = PLAYER_AVATARS[player.id];
-    const showNoTrumpBadge = ["playing", "pause", "ending"].includes(state.phase)
-      && player.hand.length > 0
-      && !!state.exposedTrumpVoid[player.id];
     seat.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
     seat.classList.toggle("role-banker", role.kind === "banker");
     seat.innerHTML = `
@@ -412,7 +409,6 @@ function renderSeats() {
           <div class="seat-meta">${player.isHuman ? TEXT.seat.selfControlled : TEXT.seat.aiControlled}</div>
           <div class="seat-level-row">
             <div class="seat-level">${TEXT.seat.levelLabel(player.level)}</div>
-            ${showNoTrumpBadge ? `<span class="seat-no-trump" aria-label="${TEXT.cards.noTrumpBadgeAria}">🈚️</span>` : ""}
           </div>
         </div>
       </div>
@@ -478,6 +474,15 @@ function renderTrickSpots() {
   for (const player of state.players) {
     const spot = document.getElementById(`trickSpot-${player.id}`);
     const play = state.currentTrick.find((entry) => entry.playerId === player.id);
+    const role = getVisibleRole(player.id);
+    const roleLabel = role.kind === "banker"
+      ? role.label || "打家"
+      : role.kind === "friend"
+        ? role.label || "朋友"
+        : "";
+    const managedLabel = player.id === 1 && !player.isHuman
+      ? '<span class="spot-role managed">托管中</span>'
+      : "";
     const declarationCards = (state.phase === "dealing" || state.phase === "countering") && state.declaration && state.declaration.playerId === player.id
       ? getDeclarationCards(state.declaration)
       : [];
@@ -523,7 +528,11 @@ function renderTrickSpots() {
       spot.classList.remove("show-zoom");
     }
     spot.innerHTML = `
-      <div class="label">${player.id === 1 ? TEXT.trickSpot.self : TEXT.trickSpot.other(player.name)}</div>
+      <div class="label">
+        <span>${player.id === 1 ? TEXT.trickSpot.self : TEXT.trickSpot.other(player.name)}</span>
+        ${roleLabel ? `<span class="spot-role${role.kind === "friend" ? " friend" : ""}">${roleLabel}</span>` : ""}
+        ${managedLabel}
+      </div>
       <div class="spot-row">
         ${cardsHtml || `<div class="empty-note">${emptyText}</div>`}
         ${zoomHtml}

@@ -967,9 +967,11 @@
         width: var(--action-panel-width);
         min-height: var(--hand-panel-height);
         height: var(--hand-panel-height);
-        padding: 14px;
-        background:
-          linear-gradient(180deg, rgba(255, 249, 239, 0.98), rgba(236, 225, 197, 0.95));
+        padding: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        backdrop-filter: none;
       }
 
       .friend-picker {
@@ -1525,16 +1527,16 @@
 
       .hand-groups {
         display: flex;
-        align-items: stretch;
-        justify-content: space-between;
-        gap: 10px;
+        align-items: end;
+        justify-content: flex-start;
+        gap: 0;
         min-width: 0;
         overflow: hidden;
         padding: 2px 0 6px;
       }
 
       .hand-group {
-        flex: 1 1 0;
+        flex: 0 0 auto;
         min-width: 0;
       }
 
@@ -1570,7 +1572,7 @@
       .cards-row {
         display: flex;
         align-items: end;
-        width: 100%;
+        width: auto;
         min-width: 0;
         min-height: 102px;
         padding: 6px 4px 6px 0;
@@ -1914,9 +1916,9 @@
 
       .battle-range {
         position: absolute;
-        left: 156px;
+        left: 176px;
         top: 176px;
-        width: 1286px;
+        width: 1266px;
         height: 510px;
         border-radius: 32px;
         background: rgba(10, 24, 31, 0.16);
@@ -1937,7 +1939,7 @@
 
       .battle-range-route {
         position: absolute;
-        left: 244px;
+        left: 232px;
         top: 44px;
         width: 798px;
         height: 410px;
@@ -2109,7 +2111,7 @@
 
       .seat.player-1 {
         left: 24px;
-        top: 514px;
+        top: 522px;
         bottom: auto;
         width: 136px;
         min-height: 136px;
@@ -2408,13 +2410,18 @@
       .center-panel {
         right: var(--edge-gap);
         bottom: var(--edge-gap);
-        border-color: rgba(89, 131, 162, 0.28);
-        background:
-          linear-gradient(180deg, rgba(226, 239, 248, 0.98), rgba(172, 197, 216, 0.94));
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.68),
-          0 18px 30px rgba(19, 43, 61, 0.22);
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
         z-index: 2;
+      }
+
+      .center-panel-shell {
+        height: 100%;
+        display: flex;
+        align-items: flex-end;
       }
 
       .center-panel button.action-btn {

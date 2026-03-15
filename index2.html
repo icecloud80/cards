@@ -947,6 +947,37 @@
         font-weight: 700;
       }
 
+      .center-footer {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        min-height: 16px;
+        margin-top: 10px;
+      }
+
+      .center-difficulty {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .center-difficulty strong {
+        color: #88561f;
+        font-weight: 800;
+      }
+
+      .visually-hidden-select {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
       .action-row {
         display: flex;
         flex-wrap: wrap;
@@ -2795,6 +2826,15 @@
         gap: 6px;
       }
 
+      body.mobile-index2 .center-footer {
+        margin-top: 6px;
+        padding-right: 2px;
+      }
+
+      body.mobile-index2 .center-difficulty {
+        font-size: 10px;
+      }
+
       body.mobile-index2 button.action-btn {
         min-height: 30px;
         padding: 5px 4px;
@@ -3335,15 +3375,6 @@
             </div>
             <div id="centerTag" class="center-tag"></div>
           </div>
-          <div id="setupOptions" class="setup-options" hidden aria-hidden="true">
-            <label class="setup-field" for="aiDifficultySelect">
-              <span>AI难度</span>
-              <select id="aiDifficultySelect" class="setup-select">
-                <option value="beginner">初级</option>
-                <option value="intermediate">中级</option>
-              </select>
-            </label>
-          </div>
           <div class="action-row">
             <button id="beatBtn" class="action-btn">毙牌</button>
             <button id="hintBtn" class="action-btn">选择</button>
@@ -3354,6 +3385,13 @@
             <button id="declareBtn" class="action-btn">亮主</button>
             <button id="passCounterBtn" class="action-btn">不反主</button>
           </div>
+          <div class="center-footer">
+            <div id="centerDifficulty" class="center-difficulty">难度：<strong>初级</strong></div>
+          </div>
+          <select id="aiDifficultySelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
+            <option value="beginner">初级</option>
+            <option value="intermediate">中级</option>
+          </select>
         </section>
 
         <section id="friendPickerPanel" class="panel friend-picker hidden">

@@ -1085,106 +1085,218 @@ function getFollowStructureScore(combo) {
   return score;
 }
 
-// 为初级 AI 生成合法出牌提示。
-function getBeginnerLegalHintForPlayer(playerId) {
-  const player = getPlayer(playerId);
-  if (!player) return [];
+/**
+ * 作用：
+ * 在指定状态下生成初级 AI 的跟牌提示主体。
+ *
+ * 为什么这样写：
+ * 里程碑 2 需要把提示层也切到显式 `sourceState`，这样候选层、提示层、模拟层才能共用同一套状态接口，
+ * 避免 sourceState 与 live state 不一致时，提示逻辑又悄悄回退到全局 `state`。
+ *
+ * 输入：
+ * @param {object|null} sourceState - 当前提示使用的真实或模拟牌局状态。
+ * @param {number} playerId - 需要生成提示的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回在 sourceState 下的初级跟牌提示。
+ *
+ * 注意：
+ * - 这里只处理“当前墩非空”的跟牌主体；首发仍通过局部适配保留现有行为。
+ * - 特殊亮友、基础跟牌结构和搜索兜底都会按 sourceState 计算。
+ */
+function getBeginnerFollowHintForState(sourceState, playerId) {
+  const player = getSimulationPlayer(sourceState, playerId);
+  const leadSpec = sourceState?.leadSpec || null;
+  if (!player || !leadSpec || !sourceState?.currentTrick?.length) return [];
 
   const hand = player.hand;
-  if (state.currentTrick.length === 0) {
-    const finalLead = getFinalTrickLegalLeadCards(playerId);
-    if (finalLead.length > 0) {
-      return finalLead;
-    }
-    const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
-    if (forcedReveal.length > 0) return forcedReveal;
-    const aiLead = chooseAiLeadPlay(playerId);
-    if (aiLead.length > 0) return aiLead;
-    const bulldozers = findSerialTuples(hand, 3);
-    if (bulldozers.length > 0) return bulldozers[0];
-    const trains = findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "train");
-    if (trains.length > 0) return trains[0];
-    const tractors = findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "tractor");
-    if (tractors.length > 0) return tractors[0];
-    const triples = findTriples(hand);
-    if (triples.length > 0) return triples[0];
-    const pairs = findPairs(hand);
-    if (pairs.length > 0) return pairs[0];
-    return hand.length > 0 ? [hand[0]] : [];
-  }
-
-  const candidates = getLegalSelectionsForPlayer(playerId);
-  const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
+  const candidates = getLegalSelectionsForState(sourceState, playerId);
+  const forcedReveal = runCandidateLegacyHelper(sourceState, () => getForcedCertainFriendRevealPlay(playerId, candidates));
   if (forcedReveal.length > 0) return forcedReveal;
-  const aiChoice = chooseAiFollowPlay(playerId, candidates);
+  const aiChoice = runCandidateLegacyHelper(sourceState, () => chooseAiFollowPlay(playerId, candidates));
   if (aiChoice.length > 0) return aiChoice;
 
-  if (state.leadSpec.type === "single") {
-    const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
-    return suited.length > 0 ? [lowestCard(suited)] : [lowestCard(hand)];
+  if (leadSpec.type === "single") {
+    const suitedSingleCards = hand.filter((card) => effectiveSuit(card) === leadSpec.suit);
+    return suitedSingleCards.length > 0 ? [lowestCard(suitedSingleCards)] : [lowestCard(hand)];
   }
 
-  const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
-  if (suited.length >= state.leadSpec.count) {
-    if (state.leadSpec.type === "pair") {
+  const suited = hand.filter((card) => effectiveSuit(card) === leadSpec.suit);
+  if (suited.length >= leadSpec.count) {
+    if (leadSpec.type === "pair") {
       const suitedPairs = findPairs(suited);
       if (hasForcedPair(suited) && suitedPairs.length > 0) return suitedPairs[0];
     }
-    if (state.leadSpec.type === "triple") {
+    if (leadSpec.type === "triple") {
       const suitedTriples = findTriples(suited);
       if (suitedTriples.length > 0) return suitedTriples[0];
-      const searched = findLegalSelectionBySearch(playerId);
-      if (searched.length > 0) return searched;
+      const searchedTriple = findLegalSelectionBySearchForState(sourceState, playerId);
+      if (searchedTriple.length > 0) return searchedTriple;
     }
-    if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train" || state.leadSpec.type === "bulldozer" || state.leadSpec.type === "throw") {
-      const combos = getPatternCombos(suited, state.leadSpec);
+    if (leadSpec.type === "tractor" || leadSpec.type === "train" || leadSpec.type === "bulldozer" || leadSpec.type === "throw") {
+      const combos = getPatternCombos(suited, leadSpec);
       if (combos.length > 0) return combos[0];
-      const searched = findLegalSelectionBySearch(playerId);
-      if (searched.length > 0) return searched;
+      const searchedStructure = findLegalSelectionBySearchForState(sourceState, playerId);
+      if (searchedStructure.length > 0) return searchedStructure;
     }
-    return suited.slice(-state.leadSpec.count);
+    return suited.slice(-leadSpec.count);
   }
+
   if (suited.length > 0) {
-    const searched = findLegalSelectionBySearch(playerId);
-    if (searched.length > 0) return searched;
+    const searchedPartialSuit = findLegalSelectionBySearchForState(sourceState, playerId);
+    if (searchedPartialSuit.length > 0) return searchedPartialSuit;
     const fillers = hand.filter((card) => !suited.some((suitedCard) => suitedCard.id === card.id));
-    return [...suited, ...fillers.slice(0, state.leadSpec.count - suited.length)];
+    return [...suited, ...fillers.slice(0, leadSpec.count - suited.length)];
   }
 
   const trumpCards = hand.filter((card) => effectiveSuit(card) === "trump");
-  if (state.leadSpec.type === "pair") {
+  if (leadSpec.type === "pair") {
     const trumpPairs = findPairs(trumpCards);
     if (trumpPairs.length > 0) return trumpPairs[0];
   }
-  if (state.leadSpec.type === "triple") {
+  if (leadSpec.type === "triple") {
     const trumpTriples = findTriples(trumpCards);
     if (trumpTriples.length > 0) return trumpTriples[0];
   }
-  if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train" || state.leadSpec.type === "bulldozer" || state.leadSpec.type === "throw") {
-    const trumpCombos = getPatternCombos(trumpCards, state.leadSpec);
+  if (leadSpec.type === "tractor" || leadSpec.type === "train" || leadSpec.type === "bulldozer" || leadSpec.type === "throw") {
+    const trumpCombos = getPatternCombos(trumpCards, leadSpec);
     if (trumpCombos.length > 0) return trumpCombos[0];
   }
-  const searched = findLegalSelectionBySearch(playerId);
-  if (searched.length > 0) return searched;
-  return hand.slice(0, state.leadSpec.count);
+  const searchedTrump = findLegalSelectionBySearchForState(sourceState, playerId);
+  if (searchedTrump.length > 0) return searchedTrump;
+  return hand.slice(0, leadSpec.count);
 }
 
-// 为中级 AI 生成合法出牌提示。
-function getIntermediateLegalHintForPlayer(playerId) {
-  const player = getPlayer(playerId);
+/**
+ * 作用：
+ * 在指定状态下生成初级 AI 的合法出牌提示。
+ *
+ * 为什么这样写：
+ * 候选层和模拟层都已经开始转向显式 `sourceState`，提示层如果继续只读全局 `state`，
+ * 就会重新引入里程碑 2 想要消掉的状态耦合。
+ *
+ * 输入：
+ * @param {object|null} sourceState - 当前提示使用的真实或模拟牌局状态。
+ * @param {number} playerId - 需要生成提示的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回在 sourceState 下的初级提示牌组。
+ *
+ * 注意：
+ * - 首发分支当前仍通过局部适配保留既有特殊规则与 lead 启发式。
+ * - 跟牌主体已经切换为 sourceState 驱动。
+ */
+function getBeginnerLegalHintForState(sourceState, playerId) {
+  const player = getSimulationPlayer(sourceState, playerId);
   if (!player) return [];
-  if (state.currentTrick.length === 0) {
-    const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
-    if (forcedReveal.length > 0) return forcedReveal;
-    const leadChoice = chooseIntermediateLeadPlay(playerId);
-    return leadChoice.length > 0 ? leadChoice : getBeginnerLegalHintForPlayer(playerId);
+
+  if (!sourceState?.currentTrick?.length) {
+    return runCandidateLegacyHelper(sourceState, () => {
+      const hand = getPlayer(playerId)?.hand || [];
+      const finalLead = getFinalTrickLegalLeadCards(playerId);
+      if (finalLead.length > 0) {
+        return finalLead;
+      }
+      const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
+      if (forcedReveal.length > 0) return forcedReveal;
+      const aiLead = chooseAiLeadPlay(playerId);
+      if (aiLead.length > 0) return aiLead;
+      const bulldozers = findSerialTuples(hand, 3);
+      if (bulldozers.length > 0) return bulldozers[0];
+      const trains = findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "train");
+      if (trains.length > 0) return trains[0];
+      const tractors = findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "tractor");
+      if (tractors.length > 0) return tractors[0];
+      const triples = findTriples(hand);
+      if (triples.length > 0) return triples[0];
+      const pairs = findPairs(hand);
+      if (pairs.length > 0) return pairs[0];
+      return hand.length > 0 ? [hand[0]] : [];
+    });
   }
-  const candidates = getLegalSelectionsForPlayer(playerId);
-  const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
-  if (forcedReveal.length > 0) return forcedReveal;
+
+  return getBeginnerFollowHintForState(sourceState, playerId);
+}
+
+/**
+ * 作用：
+ * 为当前 live state 生成初级 AI 的合法出牌提示。
+ *
+ * 为什么这样写：
+ * 用户交互层仍以 live state 为主入口，但内部逻辑统一转发到 stateful helper，
+ * 方便候选层、模拟层和主流程共享同一套 sourceState 语义。
+ *
+ * 输入：
+ * @param {number} playerId - 需要生成提示的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回当前 live state 下的初级提示牌组。
+ *
+ * 注意：
+ * - 这是兼容旧调用点的 wrapper，不应再承载新的核心逻辑。
+ * - 真正的状态敏感逻辑都应写进 `getBeginnerLegalHintForState`。
+ */
+function getBeginnerLegalHintForPlayer(playerId) {
+  return getBeginnerLegalHintForState(state, playerId);
+}
+
+/**
+ * 作用：
+ * 在指定状态下生成中级 AI 的合法出牌提示。
+ *
+ * 为什么这样写：
+ * 中级搜索已经有 sourceState 候选与 rollout，提示入口也需要切到同一套状态接口，
+ * 否则模拟链和真实决策链看到的候选环境会不一致。
+ *
+ * 输入：
+ * @param {object|null} sourceState - 当前提示使用的真实或模拟牌局状态。
+ * @param {number} playerId - 需要生成提示的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回在 sourceState 下的中级提示牌组。
+ *
+ * 注意：
+ * - 中级 lead/follow 决策主体当前仍复用既有选择器，但会被包在 sourceState 适配层内执行。
+ * - 当中级链路没给出结果时，会回落到 stateful 的 beginner hint。
+ */
+function getIntermediateLegalHintForState(sourceState, playerId) {
+  const player = getSimulationPlayer(sourceState, playerId);
+  if (!player) return [];
+
+  if (!sourceState?.currentTrick?.length) {
+    const forcedLeadReveal = runCandidateLegacyHelper(sourceState, () => getForcedCertainFriendRevealPlay(playerId));
+    if (forcedLeadReveal.length > 0) return forcedLeadReveal;
+    const leadChoice = runCandidateLegacyHelper(sourceState, () => chooseIntermediateLeadPlay(playerId));
+    return leadChoice.length > 0 ? leadChoice : getBeginnerLegalHintForState(sourceState, playerId);
+  }
+
+  const candidates = getLegalSelectionsForState(sourceState, playerId);
+  const forcedFollowReveal = runCandidateLegacyHelper(sourceState, () => getForcedCertainFriendRevealPlay(playerId, candidates));
+  if (forcedFollowReveal.length > 0) return forcedFollowReveal;
   if (candidates.length > 0) {
-    const followChoice = chooseIntermediateFollowPlay(playerId, candidates);
+    const followChoice = runCandidateLegacyHelper(sourceState, () => chooseIntermediateFollowPlay(playerId, candidates));
     if (followChoice.length > 0) return followChoice;
   }
-  return getBeginnerLegalHintForPlayer(playerId);
+  return getBeginnerLegalHintForState(sourceState, playerId);
+}
+
+/**
+ * 作用：
+ * 为当前 live state 生成中级 AI 的合法出牌提示。
+ *
+ * 为什么这样写：
+ * 保留旧调用入口不变，同时把真正的状态敏感逻辑统一到 `getIntermediateLegalHintForState`。
+ *
+ * 输入：
+ * @param {number} playerId - 需要生成提示的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回当前 live state 下的中级提示牌组。
+ *
+ * 注意：
+ * - 这是兼容层 wrapper，不应再继续堆积核心策略逻辑。
+ * - 后续如果中级主决策也完成纯 state 化，这里只需要保留简单转发。
+ */
+function getIntermediateLegalHintForPlayer(playerId) {
+  return getIntermediateLegalHintForState(state, playerId);
 }

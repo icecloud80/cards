@@ -183,6 +183,10 @@ function runIntermediateFoundationSuite(context) {
     assert(sourceLegalSelections.some((combo) => getComboKey(combo) === getComboKey(sourceTrumpSingle)), "getLegalSelectionsForState: should enumerate legal follows from sourceState instead of live state");
     const searchedFromSource = findLegalSelectionBySearchForState(followSourceState, 3);
     assert(sourceLegalSelections.some((combo) => getComboKey(combo) === getComboKey(searchedFromSource)), "findLegalSelectionBySearchForState: should return one of the legal sourceState candidates");
+    const beginnerHintFromSource = getBeginnerLegalHintForState(followSourceState, 3);
+    assert(getComboKey(beginnerHintFromSource) === getComboKey(sourceTrumpSingle), "getBeginnerLegalHintForState: should follow sourceState instead of live state drift");
+    const intermediateHintFromSource = getIntermediateLegalHintForState(followSourceState, 3);
+    assert(getComboKey(intermediateHintFromSource) === getComboKey(sourceTrumpSingle), "getIntermediateLegalHintForState: should follow sourceState instead of live state drift");
     const followCandidates = generateCandidatePlays(followSourceState, 3, "follow");
     assert(followCandidates.some((entry) => getComboKey(entry.cards) === getComboKey(sourceTrumpSingle) && entry.tags.includes("beats")), "generateCandidatePlays follow: should tag beating candidates from sourceState context");
 

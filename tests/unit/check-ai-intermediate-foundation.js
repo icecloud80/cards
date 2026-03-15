@@ -91,6 +91,7 @@ function runIntermediateFoundationSuite(context) {
       state.gameOver = false;
       state.phase = "playing";
       state.aiDifficulty = "intermediate";
+      state.showDebugPanel = false;
       state.playerLevels = { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
       state.trumpSuit = "clubs";
       state.levelRank = "2";
@@ -109,6 +110,8 @@ function runIntermediateFoundationSuite(context) {
         makeCard("hist-s-k", "spades", "K"),
       ];
       state.lastAiDecision = null;
+      state.aiDecisionHistory = [];
+      state.aiDecisionHistorySeq = 0;
       state.bottomCards = [makeCard("bottom-h-5", "hearts", "5")];
       state.exposedTrumpVoid = { 1: false, 2: false, 3: false, 4: false, 5: false };
       state.exposedSuitVoid = {
@@ -223,6 +226,15 @@ function runIntermediateFoundationSuite(context) {
     resetCommonState();
     const leadChoice = chooseIntermediatePlay(3, "lead");
     assert(Array.isArray(leadChoice) && leadChoice.length > 0, "chooseIntermediatePlay: should return a lead selection");
+    assert(state.lastAiDecision === null, "chooseIntermediatePlay: should skip debug decision bundle when debug panel is closed");
+    assert(Array.isArray(state.aiDecisionHistory) && state.aiDecisionHistory.length === 0, "chooseIntermediatePlay: should skip AI decision history when debug panel is closed");
+    const skippedExportLog = getResultLogText();
+    assert(!skippedExportLog.includes("AI 决策记录："), "getResultLogText: should skip AI decision export when debug panel is closed");
+
+    resetCommonState();
+    state.showDebugPanel = true;
+    const debugLeadChoice = chooseIntermediatePlay(3, "lead");
+    assert(Array.isArray(debugLeadChoice) && debugLeadChoice.length > 0, "chooseIntermediatePlay: should still return a lead selection when debug panel is open");
     assert(state.lastAiDecision && state.lastAiDecision.mode === "lead", "chooseIntermediatePlay: should record last AI decision bundle");
     assert(Array.isArray(state.aiDecisionHistory) && state.aiDecisionHistory.length === 1, "chooseIntermediatePlay: should append AI decision history");
     assert(Array.isArray(state.lastAiDecision.candidateEntries) && state.lastAiDecision.candidateEntries.length > 0, "chooseIntermediatePlay: should persist candidate entries for debug");
@@ -308,6 +320,7 @@ function runIntermediateFoundationSuite(context) {
         "bottom-risk evaluation scaffold ok",
         "single trick rollout isolation ok",
         "intermediate unified entry scaffold ok",
+        "debug-disabled decision skip ok",
         "intermediate decision debug scaffold ok",
         "ai decision history export ok",
         "simulation-state decision bundle ok",

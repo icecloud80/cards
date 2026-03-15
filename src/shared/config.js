@@ -322,6 +322,10 @@ const state = {
   selectedDebugDecisionOffsets: createDebugDecisionOffsets(),
 };
 
+function isAiDecisionDebugEnabled() {
+  return APP_PLATFORM === "pc" && !!state.showDebugPanel;
+}
+
 // 规范化玩家等级进度。
 function normalizePlayerLevels(levels) {
   return PLAYER_ORDER.reduce((acc, playerId) => {

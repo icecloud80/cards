@@ -91,6 +91,7 @@ function runIntermediateSearchSuite(context) {
       state.gameOver = false;
       state.phase = "playing";
       state.aiDifficulty = "intermediate";
+      state.showDebugPanel = false;
       state.playerLevels = { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
       state.trumpSuit = "clubs";
       state.levelRank = "2";
@@ -106,6 +107,8 @@ function runIntermediateSearchSuite(context) {
       state.defenderPoints = 20;
       state.playHistory = [];
       state.lastAiDecision = null;
+      state.aiDecisionHistory = [];
+      state.aiDecisionHistorySeq = 0;
       state.bottomCards = [makeCard("bottom-h-5", "hearts", "5"), makeCard("bottom-s-10", "spades", "10")];
       state.exposedTrumpVoid = { 1: false, 2: false, 3: false, 4: false, 5: false };
       state.exposedSuitVoid = {
@@ -159,6 +162,12 @@ function runIntermediateSearchSuite(context) {
     resetExtendedSearchState();
     const leadChoice = chooseIntermediatePlay(3, "lead");
     assert(Array.isArray(leadChoice) && leadChoice.length > 0, "chooseIntermediatePlay: should still select a lead under extended search");
+    assert(state.lastAiDecision === null, "chooseIntermediatePlay: should not persist debug decision data when debug panel is closed");
+
+    resetExtendedSearchState();
+    state.showDebugPanel = true;
+    const debugLeadChoice = chooseIntermediatePlay(3, "lead");
+    assert(Array.isArray(debugLeadChoice) && debugLeadChoice.length > 0, "chooseIntermediatePlay: should still select a lead under extended search with debug enabled");
     assert(state.lastAiDecision, "chooseIntermediatePlay: should record debug decision data");
     assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutDepth >= 2), "chooseIntermediatePlay: qualifying search scenarios should record depth-2 rollout entries");
     assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutReachedOwnTurn), "chooseIntermediatePlay: extended rollout should reach own next turn for at least one candidate");

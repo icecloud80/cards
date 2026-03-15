@@ -615,7 +615,7 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
 }
 
 function recordAiDecisionSnapshot(snapshot) {
-  if (!snapshot || !snapshot.playerId) return;
+  if (!snapshot || !snapshot.playerId || !isAiDecisionDebugEnabled()) return;
   state.aiDecisionHistorySeq = snapshot.historyId || ((state.aiDecisionHistorySeq || 0) + 1);
   state.lastAiDecision = snapshot;
   state.aiDecisionHistory = [...(state.aiDecisionHistory || []), snapshot].slice(-120);

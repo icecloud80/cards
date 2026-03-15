@@ -1923,9 +1923,11 @@ function getResultLogText() {
   } else {
     lines.push(...state.allLogs.map((entry, index) => `${index + 1}. ${entry}`));
   }
-  lines.push("");
-  lines.push("AI 决策记录：");
-  lines.push(...getAiDecisionHistoryExportLines());
+  if (isAiDecisionDebugEnabled()) {
+    lines.push("");
+    lines.push("AI 决策记录：");
+    lines.push(...getAiDecisionHistoryExportLines());
+  }
   return lines.join("\n");
 }
 

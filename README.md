@@ -33,5 +33,6 @@ The hook only runs the headless full-game regression when staged `.js` changes e
 - AI declaration plan: [ai-plan-declaration.md](/Users/mo.li/Documents/cards/ai-plan-declaration.md)
 - AI search plan: [ai-plan-search.md](/Users/mo.li/Documents/cards/ai-plan-search.md)
 - AI status snapshot: [ai-status.md](/Users/mo.li/Documents/cards/ai-status.md)
+- PC UI redesign brief: [pc-ui-redesign.md](/Users/mo.li/Documents/cards/pc-ui-redesign.md)
 - AI implementation checklist: [ai-checklist.md](/Users/mo.li/Documents/cards/ai-checklist.md)
 - JS comment template for AI-generated code: [js-ai-comment-template.md](/Users/mo.li/Documents/cards/js-ai-comment-template.md)

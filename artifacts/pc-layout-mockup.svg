@@ -2,272 +2,312 @@
 <svg width="1560" height="878" viewBox="0 0 1560 878" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
     作用：
-    生成 PC 界面重排方案的静态 mockup，用于确认视觉分区、层级与信息密度。
+    输出一版新的 PC 界面原型图，重点展示“轻顶部信息 + 规整出牌区 + 简化玩家面板”的桌面端方向。
     
     为什么这样写：
-    当前用户希望先看设计稿、不直接改实现；SVG 方便在仓库内直接预览、迭代和版本管理。
+    本轮需求先看原型，不直接改正式实现；
+    SVG 适合在仓库里做版本化迭代，也方便后续继续拿这份设计稿对实现做切图和拆区。
     
     输入：
-    @param {void} xxx - 该文件为静态设计稿，无运行时输入。
+    @param {void} xxx - 静态设计稿，无运行时输入。
     
     输出：
-    @returns {SVGDocument} 一张 1560x878 的 PC 布局 mockup 图。
+    @returns {SVGDocument} 一张 1560x878 的 PC v2 原型图。
     
     注意：
-    - 这是设计稿，不代表当前实现已经同步。
-    - 重点是版式、层级和视觉节奏，不是最终像素级 UI 定稿。
+    - 这是设计稿，不代表运行态页面已经同步。
+    - 本稿重点验证信息层级和区域编排，不做像素级 UI 定稿。
   -->
   <defs>
-    <linearGradient id="bg" x1="780" y1="18" x2="780" y2="860" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#173E4B"/>
-      <stop offset="1" stop-color="#0C2833"/>
+    <linearGradient id="bg" x1="780" y1="0" x2="780" y2="878" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#163845"/>
+      <stop offset="1" stop-color="#08141B"/>
     </linearGradient>
-    <linearGradient id="panelWarm" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#F5EFE3"/>
-      <stop offset="1" stop-color="#E7D8B7"/>
+    <linearGradient id="surface" x1="780" y1="18" x2="780" y2="860" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F4D5C"/>
+      <stop offset="1" stop-color="#143542"/>
+    </linearGradient>
+    <linearGradient id="panelLight" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F8F2E6"/>
+      <stop offset="1" stop-color="#E6D7B7"/>
     </linearGradient>
     <linearGradient id="panelSoft" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#F3F0EA"/>
+      <stop stop-color="#FBF7F1"/>
       <stop offset="1" stop-color="#E8DFC8"/>
     </linearGradient>
-    <linearGradient id="panelCool" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#F0EFE9"/>
-      <stop offset="1" stop-color="#D7DCD7"/>
+    <linearGradient id="panelDark" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="rgba(12, 26, 34, 0.84)"/>
+      <stop offset="1" stop-color="rgba(10, 22, 29, 0.92)"/>
     </linearGradient>
-    <linearGradient id="panelDefender" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#F2ECEB"/>
-      <stop offset="1" stop-color="#DDD7D2"/>
+    <linearGradient id="slotStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="rgba(244, 225, 174, 0.48)"/>
+      <stop offset="1" stop-color="rgba(223, 187, 95, 0.22)"/>
     </linearGradient>
-    <linearGradient id="panelFriend" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#EEF2ED"/>
-      <stop offset="1" stop-color="#D4E2D6"/>
-    </linearGradient>
-    <linearGradient id="panelBanker" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#F7F0DE"/>
-      <stop offset="1" stop-color="#EAD7A2"/>
-    </linearGradient>
-    <filter id="shadowLg" x="-40" y="-40" width="1640" height="958" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="22" stdDeviation="20" flood-color="#07161B" flood-opacity="0.3"/>
+    <radialGradient id="battleGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(780 406) rotate(90) scale(288 490)">
+      <stop stop-color="rgba(255,255,255,0.12)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+    <filter id="shadowLg" x="-48" y="-48" width="1656" height="974" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="26" stdDeviation="22" flood-color="#06131A" flood-opacity="0.34"/>
     </filter>
-    <filter id="shadowMd" x="-20" y="-20" width="320" height="220" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0A1B20" flood-opacity="0.16"/>
+    <filter id="shadowMd" x="-20" y="-20" width="520" height="280" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#08161C" flood-opacity="0.24"/>
     </filter>
     <style>
-      .title { font: 700 24px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #152127; }
-      .headline { font: 700 16px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #1D2A31; }
-      .label { font: 700 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #6B6255; letter-spacing: .2px; }
-      .copy { font: 600 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #4A5961; }
-      .small { font: 600 11px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #75838A; }
-      .score { font: 700 20px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #935B1F; }
-      .hero { font: 700 48px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #9B6027; }
-      .timer { font: 800 42px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #C9574F; }
-      .tag { font: 700 11px "PingFang SC", "Microsoft YaHei", sans-serif; }
-      .mutedStroke { stroke: rgba(255,255,255,.16); }
-      .dashBox { fill: rgba(255,255,255,.02); stroke: rgba(245,235,212,.26); stroke-width: 2; stroke-dasharray: 7 5; }
-      .btnText { font: 700 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #26323A; }
-      .btnTextPrimary { font: 700 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #FFF9F4; }
+      .title { font: 700 25px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #162127; }
+      .heading { font: 700 18px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #1E2B31; }
+      .label { font: 700 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #7A6B53; letter-spacing: .24px; }
+      .copy { font: 600 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #53626A; }
+      .small { font: 600 11px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #809098; }
+      .battleLabel { font: 700 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: rgba(244, 237, 223, .92); letter-spacing: .16px; }
+      .battleCopy { font: 600 11px "PingFang SC", "Microsoft YaHei", sans-serif; fill: rgba(223, 233, 236, .74); }
+      .chipText { font: 700 11px "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .score { font: 800 34px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #96591F; }
+      .timer { font: 800 42px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #C6544D; }
+      .menuText { font: 700 12px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #243038; }
+      .menuSub { font: 600 11px "PingFang SC", "Microsoft YaHei", sans-serif; fill: #75838A; }
     </style>
   </defs>
 
-  <!-- 桌面背景与安全区 -->
-  <rect width="1560" height="878" rx="0" fill="url(#bg)"/>
-  <rect x="8" y="18" width="1544" height="852" rx="18" fill="none" stroke="rgba(255,255,255,.08)"/>
+  <rect width="1560" height="878" fill="url(#bg)"/>
+  <rect x="12" y="18" width="1536" height="842" rx="26" fill="url(#surface)" filter="url(#shadowLg)"/>
+  <rect x="22" y="28" width="1516" height="822" rx="22" fill="none" stroke="rgba(255,255,255,.08)"/>
+  <rect x="36" y="42" width="1488" height="794" rx="18" fill="none" stroke="rgba(255,255,255,.05)" stroke-dasharray="8 8"/>
 
-  <!-- 顶部条：朋友牌 / 主 HUD / 右侧控制 -->
+  <!-- 顶部轻信息带 -->
   <g filter="url(#shadowMd)">
-    <rect x="8" y="24" width="248" height="176" rx="16" fill="url(#panelWarm)"/>
-  </g>
-  <g filter="url(#shadowMd)">
-    <rect x="256" y="24" width="650" height="176" rx="16" fill="url(#panelWarm)"/>
-  </g>
-  <g filter="url(#shadowMd)">
-    <rect x="906" y="24" width="622" height="256" rx="16" fill="url(#panelSoft)"/>
+    <rect x="32" y="30" width="1496" height="126" rx="22" fill="url(#panelLight)"/>
   </g>
 
-  <!-- 顶部左：朋友牌 -->
-  <text x="24" y="54" class="headline">朋友牌</text>
-  <text x="24" y="70" class="small">朋友牌已定，先打出它的人就是朋友。</text>
-  <rect x="20" y="84" width="64" height="92" rx="4" fill="#FFFDF7" stroke="#D7A968" stroke-width="2"/>
-  <text x="30" y="110" class="small">A</text>
-  <text x="34" y="145" style="font:700 46px serif; fill:#1D1D1D;">♣</text>
-  <text x="94" y="118" class="title" style="font-size:18px;">第一张梅花 A</text>
-  <text x="94" y="136" class="copy">当前状态：已出现</text>
-  <text x="94" y="160" class="copy">朋友已揭晓：玩家5</text>
+  <text x="58" y="68" class="title">五人找朋友升级</text>
+  <rect x="232" y="44" width="62" height="28" rx="14" fill="#DED1B8"/>
+  <text x="248" y="63" class="chipText" fill="#675B45">出牌中</text>
+  <rect x="304" y="44" width="82" height="28" rx="14" fill="#EFE7D7"/>
+  <text x="320" y="63" class="chipText" fill="#7B6F5B">玩家1回合</text>
 
-  <!-- 顶部中：主 HUD -->
-  <text x="274" y="64" class="title" style="font-size:22px;">五人找朋友升级</text>
-  <rect x="750" y="40" width="54" height="28" rx="14" fill="#DDD2BA"/>
-  <text x="767" y="58" class="tag" fill="#6E654F">出牌中</text>
-  <rect x="812" y="40" width="76" height="28" rx="14" fill="#DDD2BA"/>
-  <text x="826" y="58" class="tag" fill="#6E654F">当前首家</text>
-  <text x="876" y="58" class="tag" fill="#7F7159">玩家1</text>
+  <!-- 朋友牌压缩到顶部左侧 -->
+  <rect x="56" y="84" width="54" height="74" rx="6" fill="#FFFDF7" stroke="#D6A665" stroke-width="2"/>
+  <text x="66" y="106" class="small" fill="#202328">A</text>
+  <text x="68" y="146" style="font:700 40px serif; fill:#1C1C1C;">♣</text>
+  <text x="124" y="108" class="label">朋友牌</text>
+  <text x="124" y="130" class="heading" style="font-size:16px;">第一张梅花 A</text>
+  <text x="124" y="149" class="copy">已揭晓 · 玩家5</text>
 
-  <rect x="272" y="82" width="198" height="82" rx="12" fill="rgba(255,255,255,.64)"/>
-  <rect x="480" y="82" width="198" height="82" rx="12" fill="rgba(255,255,255,.64)"/>
-  <rect x="688" y="82" width="198" height="82" rx="12" fill="rgba(255,255,255,.64)"/>
-  <text x="290" y="106" class="label">主牌 / 级牌</text>
-  <text x="290" y="132" class="headline">无主（王和级牌为主） · 2</text>
-  <text x="290" y="152" class="copy">张亮</text>
-  <text x="498" y="106" class="label">打家</text>
-  <text x="498" y="132" class="headline">玩家2</text>
-  <text x="706" y="106" class="label">轮次</text>
-  <text x="706" y="132" class="headline">第 14 轮</text>
+  <!-- 顶部关键状态三联卡 -->
+  <rect x="388" y="52" width="184" height="82" rx="16" fill="rgba(255,255,255,.66)"/>
+  <rect x="584" y="52" width="184" height="82" rx="16" fill="rgba(255,255,255,.66)"/>
+  <rect x="780" y="52" width="184" height="82" rx="16" fill="rgba(255,255,255,.66)"/>
+  <text x="406" y="78" class="label">主牌 / 级牌</text>
+  <text x="406" y="105" class="heading" style="font-size:17px;">无主 · 2 级</text>
+  <text x="406" y="123" class="copy">由翻底定主</text>
+  <text x="602" y="78" class="label">打家 / 轮次</text>
+  <text x="602" y="105" class="heading" style="font-size:17px;">玩家2 · 第14轮</text>
+  <text x="602" y="123" class="copy">当前最大：玩家4</text>
+  <text x="798" y="78" class="label">局面提示</text>
+  <text x="798" y="105" class="heading" style="font-size:17px;">优先看桌面，不靠长文案</text>
+  <text x="798" y="123" class="copy">关键状态进出牌卡，次要功能进菜单</text>
 
-  <!-- 顶部右：计时 / 总分 / 系统按钮 -->
-  <text x="922" y="58" class="timer">7</text>
-  <text x="951" y="58" class="label" fill="#C9574F">秒</text>
-  <text x="1432" y="48" class="headline" style="font-size:14px;">非打家总分</text>
-  <text x="1476" y="78" class="hero">60</text>
-  <text x="922" y="98" class="copy">当前轮到玩家1出牌</text>
+  <!-- 右上计分与按钮 -->
+  <rect x="994" y="44" width="92" height="46" rx="16" fill="rgba(255,255,255,.64)"/>
+  <text x="1016" y="77" class="timer">7</text>
+  <text x="1050" y="76" class="label" fill="#C6544D">秒</text>
 
-  <!-- 按钮区 -->
+  <text x="1108" y="63" class="label">非打家总分</text>
+  <text x="1164" y="100" class="score">60</text>
+  <text x="1108" y="122" class="copy">玩家1准备出牌</text>
+
+  <rect x="1264" y="48" width="72" height="32" rx="12" fill="#FFFDF8"/>
+  <rect x="1346" y="48" width="72" height="32" rx="12" fill="#FFFDF8"/>
+  <rect x="1428" y="48" width="72" height="32" rx="12" fill="#F1F6FF" stroke="#356CC8" stroke-width="2"/>
+  <text x="1286" y="69" class="menuText">托管</text>
+  <text x="1368" y="69" class="menuText">新局</text>
+  <text x="1450" y="69" class="menuText">更多</text>
+
+  <!-- 顶部右侧更多菜单，表示次要功能收纳 -->
+  <g filter="url(#shadowMd)">
+    <rect x="1306" y="88" width="194" height="164" rx="18" fill="url(#panelSoft)"/>
+  </g>
+  <text x="1328" y="116" class="heading" style="font-size:15px;">更多功能</text>
+  <rect x="1324" y="130" width="158" height="28" rx="10" fill="rgba(255,255,255,.7)"/>
+  <rect x="1324" y="164" width="158" height="28" rx="10" fill="rgba(255,255,255,.7)"/>
+  <rect x="1324" y="198" width="158" height="28" rx="10" fill="rgba(255,255,255,.7)"/>
+  <text x="1342" y="149" class="menuText">播报 / 上一轮 / 底牌</text>
+  <text x="1342" y="183" class="menuText">规则帮助 / 布局编辑</text>
+  <text x="1342" y="217" class="menuText">Debug / AI难度 / 牌面</text>
+  <text x="1328" y="244" class="menuSub">桌面只保留高频动作，低频操作不占战场面积。</text>
+
+  <!-- 战场主区域 -->
   <g>
-    <rect x="918" y="112" width="62" height="34" rx="10" fill="#FFFDF9"/><text x="934" y="134" class="btnText">上一轮</text>
-    <rect x="986" y="112" width="56" height="34" rx="10" fill="#FFFDF9"/><text x="1002" y="134" class="btnText">播报</text>
-    <rect x="1048" y="112" width="64" height="34" rx="10" fill="#FFFDF9"/><text x="1066" y="134" class="btnText">Debug</text>
-    <rect x="1118" y="112" width="72" height="34" rx="10" fill="#FFFDF9"/><text x="1134" y="134" class="btnText">规则帮助</text>
-    <rect x="1196" y="112" width="72" height="34" rx="10" fill="#FFFDF9"/><text x="1212" y="134" class="btnText">本局托管</text>
-    <rect x="1274" y="112" width="84" height="34" rx="10" fill="#FFFDF9"/><text x="1288" y="134" class="btnText">牌面：经典</text>
-    <rect x="1364" y="112" width="78" height="34" rx="10" fill="#EDF5FF" stroke="#2F67C7" stroke-width="2"/><text x="1378" y="134" class="btnText">布局编辑</text>
-    <rect x="1448" y="112" width="64" height="34" rx="10" fill="#FFFDF9"/><text x="1464" y="134" class="btnText">新牌局</text>
+    <rect x="118" y="176" width="1324" height="510" rx="32" fill="rgba(10,24,31,.18)" stroke="rgba(239,224,181,.18)"/>
+    <rect x="138" y="196" width="1284" height="470" rx="28" fill="url(#battleGlow)"/>
+    <path d="M780 220L1180 380L1028 630H532L380 380L780 220Z" fill="rgba(255,255,255,.02)" stroke="rgba(244,232,198,.09)" stroke-dasharray="8 10"/>
   </g>
 
-  <text x="922" y="170" class="label">AI难度</text>
-  <rect x="918" y="152" width="162" height="44" rx="12" fill="#FFFDF9"/>
-  <text x="985" y="179" class="copy">初级</text>
-  <path d="M1054 171L1060 177L1066 171" stroke="#8A8A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- 左侧玩家列 -->
+  <!-- 中央焦点提示 -->
   <g filter="url(#shadowMd)">
-    <rect x="8" y="194" width="206" height="176" rx="16" fill="url(#panelCool)"/>
-    <rect x="8" y="370" width="192" height="160" rx="16" fill="url(#panelFriend)"/>
-    <rect x="8" y="530" width="204" height="164" rx="16" fill="url(#panelDefender)" stroke="#988D62" stroke-width="2"/>
+    <rect x="600" y="360" width="360" height="88" rx="22" fill="url(#panelLight)"/>
+  </g>
+  <text x="628" y="392" class="label">中央提示</text>
+  <text x="628" y="420" class="heading" style="font-size:18px;">选择要出的牌，行动文案缩成一条焦点提示</text>
+  <text x="628" y="439" class="copy">毙牌、找朋友、甩牌失败等关键反馈继续放中央播报</text>
+
+  <!-- 玩家出牌区：统一规格卡片，把关键玩家信息并进卡片头部 -->
+  <g filter="url(#shadowMd)">
+    <rect x="278" y="214" width="308" height="156" rx="22" fill="url(#panelDark)" stroke="url(#slotStroke)" stroke-width="2"/>
+    <rect x="974" y="214" width="308" height="156" rx="22" fill="url(#panelDark)" stroke="url(#slotStroke)" stroke-width="2"/>
+    <rect x="152" y="410" width="308" height="156" rx="22" fill="url(#panelDark)" stroke="url(#slotStroke)" stroke-width="2"/>
+    <rect x="1100" y="410" width="308" height="156" rx="22" fill="url(#panelDark)" stroke="url(#slotStroke)" stroke-width="2"/>
+    <rect x="626" y="514" width="308" height="156" rx="22" fill="url(#panelDark)" stroke="#E7BD6D" stroke-width="2.4"/>
   </g>
 
   <!-- 玩家4 -->
-  <circle cx="42" cy="238" r="18" fill="#FFE6C8"/><text x="32" y="245" style="font:700 20px sans-serif; fill:#9E6A28;">🦊</text>
-  <text x="72" y="220" class="headline">玩家4</text>
-  <text x="72" y="240" class="copy">电脑操控</text>
-  <rect x="74" y="250" width="42" height="20" rx="10" fill="#E7DBC8"/><text x="82" y="264" class="tag" fill="#8B6F44">Lv:2</text>
-  <rect x="22" y="278" width="178" height="28" rx="14" fill="#DCCEC8"/><text x="30" y="296" class="tag" fill="#B04D35">非打家</text>
-  <rect x="22" y="310" width="86" height="50" rx="10" fill="#F8F8F6"/><text x="46" y="330" class="small">剩余手牌</text><text x="56" y="352" class="score" style="font-size:34px;">9</text>
-  <rect x="114" y="310" width="72" height="50" rx="10" fill="#F8F8F6"/><text x="136" y="330" class="small">个人得分</text><text x="142" y="352" class="score" style="font-size:34px;">0</text>
-
-  <!-- 玩家5 -->
-  <circle cx="42" cy="418" r="18" fill="#E4EEF4"/><text x="32" y="425" style="font:700 20px sans-serif; fill:#6A7682;">🐺</text>
-  <text x="72" y="392" class="headline">玩家5</text>
-  <text x="72" y="412" class="copy">电脑操控</text>
-  <rect x="74" y="422" width="42" height="20" rx="10" fill="#E7DBC8"/><text x="82" y="436" class="tag" fill="#8B6F44">Lv:2</text>
-  <rect x="22" y="450" width="164" height="28" rx="14" fill="#BFD8CC"/><text x="30" y="468" class="tag" fill="#227B5F">朋友</text>
-  <rect x="22" y="486" width="80" height="44" rx="10" fill="#F8F8F6"/><text x="44" y="504" class="small">剩余手牌</text><text x="56" y="522" class="score" style="font-size:26px;">9</text>
-  <rect x="106" y="486" width="80" height="44" rx="10" fill="#F8F8F6"/><text x="128" y="504" class="small">个人得分</text><text x="140" y="522" class="score" style="font-size:26px;">0</text>
-
-  <!-- 玩家1 -->
-  <circle cx="42" cy="575" r="18" fill="#FDE9D4"/><text x="32" y="582" style="font:700 20px sans-serif; fill:#B96D32;">🐻</text>
-  <text x="72" y="552" class="headline">玩家1</text>
-  <text x="72" y="572" class="copy">本人操控</text>
-  <rect x="74" y="582" width="42" height="20" rx="10" fill="#E7DBC8"/><text x="82" y="596" class="tag" fill="#8B6F44">Lv:2</text>
-  <rect x="22" y="610" width="178" height="28" rx="14" fill="#E6D1CC"/><text x="30" y="628" class="tag" fill="#B04D35">非打家</text>
-  <rect x="22" y="642" width="86" height="50" rx="10" fill="#F8F8F6"/><text x="46" y="662" class="small">剩余手牌</text><text x="42" y="684" class="tag" fill="#8B6F44">原型版 v2.0</text>
-  <rect x="114" y="642" width="72" height="50" rx="10" fill="#F8F8F6"/><text x="136" y="662" class="small">个人得分</text><text x="142" y="684" class="score" style="font-size:34px;">0</text>
-
-  <!-- 中央视觉战场 -->
-  <g>
-    <rect x="278" y="214" width="382" height="136" rx="18" class="dashBox"/>
-    <rect x="672" y="214" width="382" height="136" rx="18" class="dashBox"/>
-    <rect x="278" y="370" width="390" height="148" rx="18" class="dashBox"/>
-    <rect x="680" y="370" width="374" height="148" rx="18" class="dashBox"/>
-    <rect x="260" y="532" width="826" height="156" rx="18" fill="rgba(17,42,52,.42)" stroke="#C8A85A" stroke-width="2" stroke-dasharray="7 5"/>
-  </g>
-
-  <text x="292" y="238" class="headline" style="fill:#F4EFE4; font-size:14px;">玩家4出牌区</text>
-  <text x="696" y="238" class="headline" style="fill:#F4EFE4; font-size:14px;">玩家3出牌区</text>
-  <text x="292" y="394" class="headline" style="fill:#F4EFE4; font-size:14px;">玩家5出牌区 朋友</text>
-  <text x="696" y="394" class="headline" style="fill:#F4EFE4; font-size:14px;">玩家2出牌区 打家</text>
-  <text x="276" y="556" class="headline" style="fill:#F4EFE4; font-size:14px;">我的本轮出牌区</text>
-
-  <!-- 中央牌面示意 -->
-  <rect x="292" y="256" width="58" height="84" rx="3" fill="#FFFDF8"/>
-  <text x="296" y="273" class="small" style="fill:#101317;">A</text>
-  <text x="304" y="326" style="font:700 52px serif; fill:#1B1B1B;">♠</text>
-  <text x="292" y="366" class="copy" style="fill:#8EA1A7;">大无</text>
-
-  <text x="698" y="302" class="copy" style="fill:#AFC1C5;">本轮尚未出牌</text>
-  <text x="698" y="455" class="copy" style="fill:#AFC1C5;">本轮尚未出牌</text>
-  <rect x="294" y="410" width="58" height="84" rx="3" fill="#FFFDF8"/>
-  <text x="298" y="427" class="small" style="fill:#101317;">8</text>
-  <text x="302" y="480" style="font:700 52px serif; fill:#1B1B1B;">♠</text>
-  <text x="292" y="515" class="copy" style="fill:#8EA1A7;">大无</text>
-  <text x="274" y="620" class="copy" style="fill:#AFC1C5;">本轮尚未出牌</text>
-
-  <!-- 右侧玩家列与播报 -->
-  <g filter="url(#shadowMd)">
-    <rect x="1096" y="214" width="230" height="148" rx="16" fill="url(#panelCool)"/>
-    <rect x="1096" y="362" width="230" height="158" rx="16" fill="url(#panelBanker)"/>
-    <rect x="1090" y="524" width="412" height="152" rx="16" fill="#D7DDDA" fill-opacity=".92"/>
-  </g>
+  <circle cx="314" cy="246" r="18" fill="#FFE5C5"/>
+  <text x="305" y="253" style="font:700 18px sans-serif; fill:#A06A26;">狐</text>
+  <text x="342" y="240" class="battleLabel">玩家4</text>
+  <text x="342" y="258" class="battleCopy">非打家 · AI</text>
+  <rect x="470" y="230" width="38" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <rect x="514" y="230" width="38" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <rect x="558" y="230" width="18" height="20" rx="10" fill="#DDAF56"/>
+  <text x="479" y="244" class="chipText" fill="#F4EAD3">Lv2</text>
+  <text x="523" y="244" class="chipText" fill="#F4EAD3">分0</text>
+  <text x="563" y="244" class="chipText" fill="#182229">大</text>
+  <rect x="294" y="274" width="64" height="92" rx="6" fill="#FFFDF8"/>
+  <rect x="344" y="286" width="64" height="92" rx="6" fill="#FFFDF8"/>
+  <text x="304" y="298" class="small" fill="#101317">A</text>
+  <text x="352" y="310" class="small" fill="#101317">10</text>
+  <text x="312" y="349" style="font:700 44px serif; fill:#1A1A1A;">♠</text>
+  <text x="362" y="361" style="font:700 44px serif; fill:#D23A35;">♦</text>
+  <text x="442" y="322" class="battleCopy">出牌头部直接带身份、等级和本轮状态</text>
 
   <!-- 玩家3 -->
-  <circle cx="1132" cy="260" r="18" fill="#D9C6B6"/><text x="1122" y="267" style="font:700 20px sans-serif; fill:#6B4930;">🐻</text>
-  <text x="1164" y="242" class="headline">玩家3</text>
-  <text x="1164" y="260" class="copy">电脑操控</text>
-  <rect x="1162" y="268" width="42" height="20" rx="10" fill="#E7DBC8"/><text x="1170" y="282" class="tag" fill="#8B6F44">Lv:2</text>
-  <rect x="1112" y="300" width="200" height="24" rx="12" fill="#DCCEC8"/><text x="1120" y="317" class="tag" fill="#B04D35">非打家</text>
-  <rect x="1148" y="332" width="70" height="46" rx="10" fill="#F8F8F6"/><text x="1158" y="350" class="small">剩余手牌</text><text x="1153" y="372" class="score" style="font-size:30px;">10</text>
-  <rect x="1222" y="332" width="74" height="46" rx="10" fill="#F8F8F6"/><text x="1234" y="350" class="small">个人得分</text><text x="1250" y="372" class="score" style="font-size:30px;">0</text>
+  <circle cx="1010" cy="246" r="18" fill="#D9E6EE"/>
+  <text x="1001" y="253" style="font:700 18px sans-serif; fill:#617584;">狼</text>
+  <text x="1038" y="240" class="battleLabel">玩家3</text>
+  <text x="1038" y="258" class="battleCopy">未知身份 · AI</text>
+  <rect x="1166" y="230" width="38" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <rect x="1210" y="230" width="38" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <text x="1175" y="244" class="chipText" fill="#F4EAD3">Lv2</text>
+  <text x="1219" y="244" class="chipText" fill="#F4EAD3">剩10</text>
+  <text x="1038" y="325" class="battleCopy">未出牌时保留清晰空态，不再写长句说明。</text>
+  <rect x="1030" y="284" width="196" height="56" rx="16" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.09)" stroke-dasharray="6 6"/>
+  <text x="1091" y="318" class="battleLabel" fill="rgba(244,237,223,.66)">待出</text>
+
+  <!-- 玩家5 -->
+  <circle cx="188" cy="442" r="18" fill="#E0F0E6"/>
+  <text x="179" y="449" style="font:700 18px sans-serif; fill:#2A7A5E;">熊</text>
+  <text x="216" y="436" class="battleLabel">玩家5</text>
+  <text x="216" y="454" class="battleCopy">朋友 · AI</text>
+  <rect x="338" y="426" width="38" height="20" rx="10" fill="#2A7A5E"/>
+  <rect x="382" y="426" width="38" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <text x="347" y="440" class="chipText" fill="#F7FFF9">友</text>
+  <text x="391" y="440" class="chipText" fill="#F4EAD3">分0</text>
+  <rect x="180" y="470" width="64" height="92" rx="6" fill="#FFFDF8"/>
+  <text x="190" y="494" class="small" fill="#101317">8</text>
+  <text x="196" y="544" style="font:700 44px serif; fill:#1A1A1A;">♠</text>
+  <text x="278" y="515" class="battleCopy">朋友身份不再放独立大面板，直接挂在出牌区头部。</text>
 
   <!-- 玩家2 -->
-  <circle cx="1132" cy="404" r="18" fill="#D6E8F7"/><text x="1122" y="411" style="font:700 20px sans-serif; fill:#4C7298;">🦉</text>
-  <text x="1164" y="386" class="headline">玩家2</text>
-  <text x="1164" y="404" class="copy">电脑操控</text>
-  <rect x="1162" y="414" width="42" height="20" rx="10" fill="#E7DBC8"/><text x="1170" y="428" class="tag" fill="#8B6F44">Lv:2</text>
-  <rect x="1110" y="444" width="186" height="26" rx="13" fill="#F3E3B4"/><text x="1120" y="462" class="tag" fill="#A27622">打家</text>
-  <rect x="1140" y="478" width="72" height="50" rx="10" fill="#F9F6EE"/><text x="1152" y="498" class="small">剩余手牌</text><text x="1154" y="520" class="score" style="font-size:32px;">10</text>
-  <rect x="1218" y="478" width="74" height="50" rx="10" fill="#F9F6EE"/><text x="1230" y="498" class="small">个人得分</text><text x="1248" y="520" class="score" style="font-size:32px;">0</text>
+  <circle cx="1136" cy="442" r="18" fill="#F4E6C6"/>
+  <text x="1127" y="449" style="font:700 18px sans-serif; fill:#A47623;">猫</text>
+  <text x="1164" y="436" class="battleLabel">玩家2</text>
+  <text x="1164" y="454" class="battleCopy">打家 · AI</text>
+  <rect x="1278" y="426" width="38" height="20" rx="10" fill="#DDB05C"/>
+  <rect x="1322" y="426" width="44" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <text x="1287" y="440" class="chipText" fill="#20262B">庄</text>
+  <text x="1331" y="440" class="chipText" fill="#F4EAD3">剩10</text>
+  <rect x="1156" y="480" width="196" height="56" rx="16" fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.09)" stroke-dasharray="6 6"/>
+  <text x="1217" y="514" class="battleLabel" fill="rgba(244,237,223,.66)">待出</text>
+  <text x="1164" y="550" class="battleCopy">打家状态、剩余张数等信息并入战场，不再依赖边栏。</text>
 
-  <!-- 牌局播报 -->
-  <text x="1112" y="554" class="headline">牌局播报</text>
-  <rect x="1458" y="538" width="26" height="26" rx="8" fill="#C0C9C6"/><text x="1466" y="556" class="headline" style="font-size:16px; fill:#6B7476;">×</text>
-  <text x="1112" y="592" class="copy">• 玩家5 出牌：♠8。</text>
-  <text x="1112" y="614" class="copy">• 玩家4 出牌：♠A。</text>
-  <text x="1112" y="636" class="copy">• 玩家4 赢下第 13 轮，获得 20 分。</text>
-  <text x="1112" y="658" class="copy">• 玩家1 出牌：♦10。</text>
-  <text x="1112" y="680" class="copy">• 玩家5 出牌：♠Q。</text>
+  <!-- 玩家1 -->
+  <circle cx="662" cy="546" r="18" fill="#F8E2D4"/>
+  <text x="653" y="553" style="font:700 18px sans-serif; fill:#AF6A31;">我</text>
+  <text x="690" y="540" class="battleLabel">玩家1</text>
+  <text x="690" y="558" class="battleCopy">本人 · 非打家</text>
+  <rect x="810" y="530" width="38" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <rect x="854" y="530" width="44" height="20" rx="10" fill="rgba(255,255,255,.14)"/>
+  <text x="819" y="544" class="chipText" fill="#F4EAD3">Lv2</text>
+  <text x="863" y="544" class="chipText" fill="#F4EAD3">剩9</text>
+  <text x="690" y="610" class="battleCopy">我的信息也放进出牌头部，玩家面板退化为轻状态条。</text>
+  <rect x="690" y="578" width="176" height="56" rx="16" fill="rgba(255,255,255,.05)" stroke="rgba(231,189,109,.32)" stroke-dasharray="6 6"/>
+  <text x="742" y="612" class="battleLabel" fill="rgba(244,237,223,.72)">准备出牌</text>
 
-  <!-- 底部手牌区 -->
+  <!-- 左侧简化玩家面板 -->
   <g filter="url(#shadowMd)">
-    <rect x="8" y="692" width="1120" height="166" rx="18" fill="url(#panelSoft)"/>
-    <rect x="1142" y="690" width="386" height="156" rx="18" fill="url(#panelWarm)"/>
+    <rect x="34" y="212" width="86" height="368" rx="24" fill="url(#panelSoft)"/>
   </g>
+  <text x="52" y="238" class="label">玩家列</text>
+  <text x="52" y="256" class="copy">只保留头像与身份</text>
+  <rect x="48" y="278" width="58" height="52" rx="16" fill="#FFFDF8"/>
+  <rect x="48" y="340" width="58" height="52" rx="16" fill="#FFFDF8"/>
+  <rect x="48" y="402" width="58" height="52" rx="16" fill="#FFFDF8"/>
+  <rect x="48" y="464" width="58" height="52" rx="16" fill="#FFF3D8" stroke="#DEB05C" stroke-width="2"/>
+  <text x="65" y="308" class="menuText">4</text>
+  <text x="65" y="370" class="menuText">5</text>
+  <text x="65" y="432" class="menuText">3</text>
+  <text x="65" y="494" class="menuText">2</text>
+  <text x="52" y="540" class="menuSub">不再展示手牌数和个人大卡片。</text>
 
-  <!-- 手牌分组标签 -->
-  <rect x="30" y="706" width="44" height="26" rx="13" fill="#F5D8CF"/><text x="34" y="723" class="tag" fill="#B14D3A">主牌</text>
-  <rect x="96" y="706" width="54" height="26" rx="13" fill="#D8DDD9"/><text x="104" y="723" class="tag" fill="#6F7376">梅花</text>
-  <rect x="276" y="706" width="44" height="26" rx="13" fill="#F5D8CF"/><text x="284" y="723" class="tag" fill="#B14D3A">方块</text>
-  <rect x="386" y="706" width="54" height="26" rx="13" fill="#D8DDD9"/><text x="396" y="723" class="tag" fill="#6F7376">黑桃</text>
-  <rect x="460" y="706" width="44" height="26" rx="13" fill="#F5D8CF"/><text x="468" y="723" class="tag" fill="#B14D3A">红桃</text>
+  <!-- 底部手牌与操作 -->
+  <g filter="url(#shadowMd)">
+    <rect x="32" y="704" width="1496" height="142" rx="24" fill="url(#panelSoft)"/>
+  </g>
+  <rect x="50" y="722" width="208" height="106" rx="18" fill="rgba(255,255,255,.62)"/>
+  <circle cx="84" cy="754" r="20" fill="#F8E2D4"/>
+  <text x="74" y="761" style="font:700 18px sans-serif; fill:#AF6A31;">我</text>
+  <text x="112" y="748" class="heading" style="font-size:16px;">玩家1</text>
+  <text x="112" y="768" class="copy">非打家 · Lv2 · 当前回合</text>
+  <text x="112" y="792" class="small">自己的出牌状态优先放在手牌区起点，阅读路径更顺。</text>
 
-  <!-- 手牌示意 -->
+  <rect x="286" y="722" width="54" height="24" rx="12" fill="#F2D7D0"/>
+  <rect x="352" y="722" width="48" height="24" rx="12" fill="#D7DEDA"/>
+  <rect x="472" y="722" width="48" height="24" rx="12" fill="#F2D7D0"/>
+  <rect x="580" y="722" width="48" height="24" rx="12" fill="#D7DEDA"/>
+  <rect x="688" y="722" width="48" height="24" rx="12" fill="#F2D7D0"/>
+  <text x="302" y="738" class="chipText" fill="#A24437">主牌</text>
+  <text x="365" y="738" class="chipText" fill="#68757D">梅花</text>
+  <text x="485" y="738" class="chipText" fill="#A24437">方块</text>
+  <text x="593" y="738" class="chipText" fill="#68757D">黑桃</text>
+  <text x="701" y="738" class="chipText" fill="#A24437">红桃</text>
+
   <g>
-    <rect x="26" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="30" y="755" class="small" style="fill:#C24132;">2</text><text x="36" y="808" style="font:700 48px serif; fill:#D02E2E;">♦</text>
-    <rect x="98" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="102" y="755" class="small">A</text><text x="108" y="808" style="font:700 48px serif; fill:#1D1D1D;">♣</text>
-    <rect x="134" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="138" y="755" class="small">A</text><text x="144" y="808" style="font:700 48px serif; fill:#1D1D1D;">♣</text>
-    <rect x="170" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="174" y="755" class="small">Q</text><text x="180" y="808" style="font:700 48px serif; fill:#1D1D1D;">♣</text>
-    <rect x="206" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="210" y="755" class="small">9</text><text x="216" y="808" style="font:700 48px serif; fill:#1D1D1D;">♣</text>
-
-    <rect x="284" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="288" y="755" class="small" style="fill:#D02E2E;">K</text><text x="294" y="808" style="font:700 48px serif; fill:#D02E2E;">♦</text>
-    <rect x="320" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="324" y="755" class="small" style="fill:#D02E2E;">5</text><text x="330" y="808" style="font:700 48px serif; fill:#D02E2E;">♦</text>
-
-    <rect x="398" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="402" y="755" class="small">7</text><text x="408" y="808" style="font:700 48px serif; fill:#1D1D1D;">♠</text>
-
-    <rect x="458" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="462" y="755" class="small" style="fill:#D02E2E;">K</text><text x="468" y="808" style="font:700 48px serif; fill:#D02E2E;">♥</text>
-    <rect x="494" y="738" width="58" height="84" rx="2" fill="#FFFDF8"/><text x="498" y="755" class="small" style="fill:#D02E2E;">5</text><text x="504" y="808" style="font:700 48px serif; fill:#D02E2E;">♥</text>
+    <rect x="288" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="332" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="376" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="454" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="498" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="576" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="620" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="698" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <rect x="742" y="756" width="56" height="82" rx="4" fill="#FFFDF8"/>
+    <text x="296" y="778" class="small" fill="#C83D34">2</text>
+    <text x="340" y="778" class="small">A</text>
+    <text x="384" y="778" class="small">Q</text>
+    <text x="462" y="778" class="small" fill="#C83D34">K</text>
+    <text x="506" y="778" class="small" fill="#C83D34">5</text>
+    <text x="584" y="778" class="small">A</text>
+    <text x="628" y="778" class="small">10</text>
+    <text x="706" y="778" class="small" fill="#C83D34">Q</text>
+    <text x="750" y="778" class="small" fill="#C83D34">8</text>
+    <text x="302" y="826" style="font:700 42px serif; fill:#D2302F;">♦</text>
+    <text x="346" y="826" style="font:700 42px serif; fill:#1A1A1A;">♣</text>
+    <text x="390" y="826" style="font:700 42px serif; fill:#1A1A1A;">♣</text>
+    <text x="468" y="826" style="font:700 42px serif; fill:#D2302F;">♦</text>
+    <text x="512" y="826" style="font:700 42px serif; fill:#D2302F;">♦</text>
+    <text x="590" y="826" style="font:700 42px serif; fill:#1A1A1A;">♠</text>
+    <text x="632" y="826" style="font:700 42px serif; fill:#1A1A1A;">♠</text>
+    <text x="714" y="826" style="font:700 42px serif; fill:#D2302F;">♥</text>
+    <text x="756" y="826" style="font:700 42px serif; fill:#D2302F;">♥</text>
   </g>
 
-  <!-- 底部行动区 -->
-  <text x="1156" y="720" class="copy">选择要出的牌。出牌直接落在桌布虚线区；轮到你时有 15 秒，</text>
-  <text x="1156" y="740" class="copy">超时会自动选择一手合法牌。</text>
-  <circle cx="1472" cy="726" r="28" fill="#F2E0B7"/><text x="1456" y="720" class="tag" fill="#A36F29">玩家1</text><text x="1454" y="736" class="tag" fill="#A36F29">行动中</text>
-  <rect x="1156" y="770" width="74" height="34" rx="12" fill="#FFFDF9"/><text x="1182" y="792" class="btnText">选择</text>
-  <rect x="1238" y="770" width="72" height="34" rx="12" fill="#F0AA9B"/><text x="1260" y="792" class="btnTextPrimary">出牌</text>
+  <rect x="1100" y="724" width="406" height="104" rx="18" fill="rgba(255,255,255,.56)"/>
+  <text x="1124" y="750" class="label">底部操作条</text>
+  <text x="1124" y="775" class="heading" style="font-size:16px;">出牌 / 毙牌 / 亮主 / 叫朋友</text>
+  <text x="1124" y="797" class="copy">高频动作保留在桌面底部；低频功能继续收纳到右上更多菜单。</text>
+  <rect x="1124" y="808" width="68" height="30" rx="12" fill="#FFFDF8"/>
+  <rect x="1200" y="808" width="68" height="30" rx="12" fill="#FFFDF8"/>
+  <rect x="1276" y="808" width="76" height="30" rx="12" fill="#C9524B"/>
+  <text x="1148" y="828" class="menuText">毙牌</text>
+  <text x="1222" y="828" class="menuText">提示</text>
+  <text x="1302" y="828" class="chipText" fill="#FFF8F1">出牌</text>
 </svg>

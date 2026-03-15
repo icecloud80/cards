@@ -288,6 +288,29 @@
         margin-top: 8px;
       }
 
+      .score-select-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .score-select {
+        min-width: 96px;
+        border: 1px solid rgba(120, 74, 24, 0.18);
+        border-radius: 8px;
+        padding: 5px 8px;
+        font: inherit;
+        font-size: 12px;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.92);
+      }
+
       .tiny-btn {
         border: 0;
         border-radius: 9px;
@@ -1003,7 +1026,8 @@
       }
 
       button.action-btn:disabled,
-      .tiny-btn:disabled {
+      .tiny-btn:disabled,
+      .score-select:disabled {
         opacity: 0.5;
         cursor: default;
       }
@@ -1463,6 +1487,13 @@
             <button id="toggleCardFaceBtn" class="tiny-btn">牌面：经典</button>
             <button id="layoutEditBtn" class="tiny-btn">布局编辑</button>
             <button id="newGameBtn" class="tiny-btn">新牌局</button>
+            <label class="score-select-control" for="aiDifficultySelect">
+              <span>AI难度</span>
+              <select id="aiDifficultySelect" class="score-select">
+                <option value="beginner">初级</option>
+                <option value="intermediate">中级</option>
+              </select>
+            </label>
           </div>
         </section>
 
@@ -1529,15 +1560,6 @@
               <span id="actionHint" class="subtle"></span>
             </div>
             <div id="centerTag" class="center-tag"></div>
-          </div>
-          <div id="setupOptions" class="setup-options" hidden>
-            <label class="setup-field" for="aiDifficultySelect">
-              <span>AI难度</span>
-              <select id="aiDifficultySelect" class="setup-select">
-                <option value="beginner">初级</option>
-                <option value="intermediate">中级</option>
-              </select>
-            </label>
           </div>
           <div class="action-row">
             <button id="beatBtn" class="action-btn">毙牌</button>

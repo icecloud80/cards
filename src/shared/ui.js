@@ -720,7 +720,6 @@ function renderDebugPanel() {
 function renderCenterPanel() {
   const humanDeclaration = getBestDeclarationForPlayer(1);
   const humanCounter = getCounterDeclarationForPlayer(1);
-  const difficultyOption = AI_DIFFICULTY_OPTIONS.find((option) => option.value === state.aiDifficulty) || AI_DIFFICULTY_OPTIONS[0];
   const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
   const canDeclareNow = state.phase === "dealing"
     ? canOverrideDeclaration(humanDeclaration)
@@ -760,9 +759,6 @@ function renderCenterPanel() {
   dom.focusAnnouncement.classList.toggle("strong", state.centerAnnouncement?.tone === "strong");
   dom.focusAnnouncement.classList.toggle("ally", state.centerAnnouncement?.tone === "ally");
   dom.focusAnnouncement.classList.toggle("friend", state.centerAnnouncement?.tone === "friend");
-  if (dom.centerDifficulty) {
-    dom.centerDifficulty.innerHTML = `难度：<strong>${difficultyOption.label}</strong>`;
-  }
   updateActionHint();
   const humanTurn = isHumanTurnActive();
   dom.beatBtn.hidden = state.phase !== "playing" || !selectedBeat;

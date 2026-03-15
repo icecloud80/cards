@@ -947,25 +947,6 @@
         font-weight: 700;
       }
 
-      .center-footer {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        min-height: 16px;
-        margin-top: 10px;
-      }
-
-      .center-difficulty {
-        color: var(--muted);
-        font-size: 11px;
-        font-weight: 700;
-      }
-
-      .center-difficulty strong {
-        color: #88561f;
-        font-weight: 800;
-      }
-
       .visually-hidden-select {
         position: absolute !important;
         width: 1px;
@@ -2826,15 +2807,6 @@
         gap: 6px;
       }
 
-      body.mobile-index2 .center-footer {
-        margin-top: 6px;
-        padding-right: 2px;
-      }
-
-      body.mobile-index2 .center-difficulty {
-        font-size: 10px;
-      }
-
       body.mobile-index2 button.action-btn {
         min-height: 30px;
         padding: 5px 4px;
@@ -3138,6 +3110,10 @@
               <span>计秒</span>
               <strong id="mobileTimer">--</strong>
             </div>
+            <div class="mobile-stat">
+              <span>难度</span>
+              <strong id="mobileDifficulty">初</strong>
+            </div>
           </div>
           <div class="mobile-topbar-sub">
             <div class="mobile-state">
@@ -3238,7 +3214,8 @@
               <button id="mobileCloseMenuBtn" class="mobile-icon-btn" type="button" aria-label="关闭设定菜单">×</button>
             </div>
             <div class="mobile-menu-actions">
-              <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">开始新游戏</button>
+              <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">重开此局</button>
+              <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
               <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌面</button>
               <button id="mobileMenuLayoutBtn" class="mobile-menu-btn" type="button">布局编辑</button>
               <button id="mobileMenuBottomBtn" class="mobile-menu-btn" type="button">底牌</button>
@@ -3385,9 +3362,6 @@
             <button id="declareBtn" class="action-btn">亮主</button>
             <button id="passCounterBtn" class="action-btn">不反主</button>
           </div>
-          <div class="center-footer">
-            <div id="centerDifficulty" class="center-difficulty">难度：<strong>初级</strong></div>
-          </div>
           <select id="aiDifficultySelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
             <option value="beginner">初级</option>
             <option value="intermediate">中级</option>
@@ -3528,6 +3502,7 @@
           setupScreen: document.getElementById("mobileSetupScreen"),
           score: document.getElementById("mobileScore"),
           timer: document.getElementById("mobileTimer"),
+          difficulty: document.getElementById("mobileDifficulty"),
           autoBtn: document.getElementById("mobileAutoBtn"),
           trumpCard: document.getElementById("mobileTrumpCard"),
           trumpLevel: document.getElementById("mobileTrumpLevel"),
@@ -3558,6 +3533,7 @@
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
           menuRulesBtn: document.getElementById("mobileMenuRulesBtn"),
           menuNewBtn: document.getElementById("mobileMenuNewBtn"),
+          menuHomeBtn: document.getElementById("mobileMenuHomeBtn"),
         };
 
         const originalDom = {
@@ -3637,6 +3613,15 @@
         function buildTopStatusCardHtml(card, altText) {
           if (!card?.img) return "";
           return `<button type="button" class="friend-card" tabindex="-1" aria-hidden="true"><img src="${card.img}" alt="${altText}" /></button>`;
+        }
+
+        function getMobileDifficultyLabel(value) {
+          return ({
+            beginner: "初",
+            intermediate: "中",
+            advanced: "高",
+            master: "师",
+          })[value] || "初";
         }
 
         function syncFriendCard(snapshot) {
@@ -3981,6 +3966,11 @@
           }
           mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
           mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
+          if (mobileDom.difficulty) {
+            mobileDom.difficulty.textContent = getMobileDifficultyLabel(
+              originalDom.aiDifficultySelect?.value || snapshot.aiDifficulty || "beginner"
+            );
+          }
           syncTrumpStatus(snapshot);
           syncFriendCard(snapshot);
           syncAutoManagedButton();
@@ -4019,7 +4009,18 @@
         mobileDom.menuLayoutBtn.addEventListener("click", () => clickOriginal(originalDom.layoutEditBtn));
         mobileDom.menuBottomBtn.addEventListener("click", () => clickOriginal(originalDom.toggleBottomBtn));
         mobileDom.menuRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
-        mobileDom.menuNewBtn.addEventListener("click", () => clickOriginal(originalDom.newGameBtn));
+        mobileDom.menuNewBtn.addEventListener("click", () => {
+          if (typeof restartCurrentRound === "function") {
+            restartCurrentRound();
+          }
+          mobileDom.settingsSheet.classList.remove("show");
+        });
+        mobileDom.menuHomeBtn.addEventListener("click", () => {
+          if (typeof goToMainMenu === "function") {
+            goToMainMenu();
+          }
+          mobileDom.settingsSheet.classList.remove("show");
+        });
 
         mobileDom.infoBtn.addEventListener("click", () => {
           mobileDom.settingsSheet.classList.remove("show");

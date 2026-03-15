@@ -137,7 +137,6 @@ const dom = {
   timerHint: document.getElementById("timerHint"),
   logList: document.getElementById("logList"),
   actionHint: document.getElementById("actionHint"),
-  centerDifficulty: document.getElementById("centerDifficulty"),
   setupOptions: document.getElementById("setupOptions"),
   aiDifficultySelect: document.getElementById("aiDifficultySelect"),
   centerTag: document.getElementById("centerTag"),

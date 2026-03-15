@@ -29,6 +29,12 @@ function continueSavedProgress(autoStart = false) {
   }
 }
 
+function restartCurrentRound() {
+  dom.resultOverlay.classList.remove("show");
+  setupGame();
+  startDealing();
+}
+
 function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);

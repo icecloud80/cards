@@ -23,6 +23,10 @@ function shouldSkipHeadlessFullGameSuite() {
 
 const UNIT_TEST_SUITES = [
   {
+    name: "AI declaration strategy regression",
+    file: path.join(__dirname, "check-ai-declaration-strategy.js"),
+  },
+  {
     name: "AI friend strategy regression",
     file: path.join(__dirname, "check-ai-friend-strategy.js"),
   },

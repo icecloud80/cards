@@ -877,6 +877,152 @@ function getDeclarationCards(entry = state.declaration) {
     .slice(0, entry.count);
 }
 
+/**
+ * 作用：
+ * 统计玩家当前手牌中的常主数量。
+ *
+ * 为什么这样写：
+ * 初级 AI 在判断是否适合反无主时，不能只看自己有没有两王或三王，
+ * 还要确认手里是否已经有足够数量的稳定主力。这里把级牌和王统一视为“常主”，
+ * 便于用一个简单阈值控制初级 AI 的无主反主意愿。
+ *
+ * 输入：
+ * @param {number} playerId - 需要统计常主数量的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 玩家当前手里常主的张数。
+ *
+ * 注意：
+ * - 常主只包括级牌和大小王，不包括普通主花色牌。
+ * - 这里使用玩家自己的等级牌来判定级牌，和亮主规则保持一致。
+ */
+function countCommonTrumpCardsForPlayer(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return 0;
+  const playerLevelRank = getPlayerLevelRank(playerId);
+  return player.hand.filter((card) => card.suit === "joker" || card.rank === playerLevelRank).length;
+}
+
+/**
+ * 作用：
+ * 统计指定亮主方案下，玩家当前手牌会成为主牌的总张数。
+ *
+ * 为什么这样写：
+ * 初级 AI 的小幅优化重点，是避免用明显过短的主花色过早坐庄。
+ * 由于亮主阶段主牌尚未真正确定，这里需要按候选方案临时重算主牌数量，
+ * 而不能直接依赖 live state 中已经落地的 `trumpSuit`。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估亮主方案的玩家 ID。
+ * @param {object} declaration - 候选亮主方案，可能是花色主或无主。
+ *
+ * 输出：
+ * @returns {number} 在该候选方案下，玩家当前会拥有的主牌总数。
+ *
+ * 注意：
+ * - 无主时，这个函数返回的实际上就是常主数量。
+ * - 花色主时，主级牌同时满足“级牌”和“主花色牌”条件，但只能计一次。
+ */
+function countTrumpCardsForDeclaration(playerId, declaration) {
+  const player = getPlayer(playerId);
+  if (!player || !declaration) return 0;
+  const playerLevelRank = getPlayerLevelRank(playerId);
+  if (declaration.suit === "notrump") {
+    return countCommonTrumpCardsForPlayer(playerId);
+  }
+  return player.hand.filter((card) =>
+    card.suit === "joker" || card.rank === playerLevelRank || card.suit === declaration.suit
+  ).length;
+}
+
+/**
+ * 作用：
+ * 判断初级 AI 是否满足自动亮主或自动反主的最小启发式条件。
+ *
+ * 为什么这样写：
+ * 用户要求保留初级现有风格，只做很小的策略修正。
+ * 因此这里不引入复杂评分器，只加两条简单门槛：
+ * 1. 花色主至少要有足够主牌数量，避免短主硬坐庄。
+ * 2. 反无主至少要有 4 张常主，避免只有两王就轻率反无主。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估自动决策的玩家 ID。
+ * @param {object} declaration - 候选亮主或反主方案。
+ * @param {string} mode - `"declare"` 表示自动亮主，`"counter"` 表示自动反主。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示初级 AI 可以继续考虑这个方案。
+ *
+ * 注意：
+ * - 只对初级 AI 的自动行为生效，不影响人类玩家的合法按钮与提示。
+ * - 花色主门槛采用“主牌数大于 7 或达到当前手牌的 1/4”。
+ * - 反无主门槛采用“常主至少 4 张”。
+ */
+function meetsBeginnerAutoDeclarationHeuristic(playerId, declaration, mode = "declare") {
+  const player = getPlayer(playerId);
+  if (!player || !declaration) return false;
+
+  if (declaration.suit === "notrump") {
+    if (mode !== "counter") return true;
+    return countCommonTrumpCardsForPlayer(playerId) >= 4;
+  }
+
+  const trumpCount = countTrumpCardsForDeclaration(playerId, declaration);
+  const handCount = player.hand.length;
+  return trumpCount > 7 || trumpCount >= Math.ceil(handCount / 4);
+}
+
+/**
+ * 作用：
+ * 返回自动流程下应该采用的亮主方案。
+ *
+ * 为什么这样写：
+ * 合法亮主方案和 AI 是否愿意自动亮主是两层概念。
+ * 这里单独做一层自动决策筛选，可以把初级启发式收在 AI 侧，
+ * 同时保留人类玩家的全部合法操作与原有 UI 提示。
+ *
+ * 输入：
+ * @param {number} playerId - 需要自动亮主的玩家 ID。
+ *
+ * 输出：
+ * @returns {?object} 自动流程愿意采用的亮主方案；没有则返回 `null`。
+ *
+ * 注意：
+ * - 初级会额外应用轻量 heuristic。
+ * - 其他难度目前继续沿用原有“取最高档”的逻辑。
+ */
+function getAutoDeclarationForPlayer(playerId) {
+  const best = getBestDeclarationForPlayer(playerId);
+  if (!best) return null;
+  if (state.aiDifficulty !== "beginner") return best;
+  return meetsBeginnerAutoDeclarationHeuristic(playerId, best, "declare") ? best : null;
+}
+
+/**
+ * 作用：
+ * 返回自动流程下应该采用的反主方案。
+ *
+ * 为什么这样写：
+ * 反主阶段的人类提示仍应展示所有合法选择，但 AI 自动反主应允许保留更保守的初级阈值。
+ * 因此把“合法反主”和“自动反主意愿”拆开，避免策略门槛污染规则层。
+ *
+ * 输入：
+ * @param {number} playerId - 需要自动反主的玩家 ID。
+ *
+ * 输出：
+ * @returns {?object} 自动流程愿意采用的反主方案；没有则返回 `null`。
+ *
+ * 注意：
+ * - 初级会额外要求反无主时至少拥有 4 张常主。
+ * - 其他难度目前继续沿用原有合法最高档方案。
+ */
+function getAutoCounterDeclarationForPlayer(playerId) {
+  const best = getCounterDeclarationForPlayer(playerId);
+  if (!best) return null;
+  if (state.aiDifficulty !== "beginner") return best;
+  return meetsBeginnerAutoDeclarationHeuristic(playerId, best, "counter") ? best : null;
+}
+
 // 执行一次叫主。
 function declareTrump(playerId, declaration, source = "manual") {
   if (!declaration || !canOverrideDeclaration(declaration)) return false;
@@ -912,7 +1058,7 @@ function declareTrump(playerId, declaration, source = "manual") {
 function maybeAutoDeclare(playerId) {
   const player = getPlayer(playerId);
   if (!player || player.isHuman) return;
-  const best = getBestDeclarationForPlayer(playerId);
+  const best = getAutoDeclarationForPlayer(playerId);
   if (!best || !canOverrideDeclaration(best)) return;
 
   const willing = best.count >= 3 || Math.random() < 0.65;
@@ -949,7 +1095,9 @@ function startCounterTurn() {
   if (state.gameOver || state.phase !== "countering") return;
 
   const player = getPlayer(state.currentTurnId);
-  const option = getCounterDeclarationForPlayer(state.currentTurnId);
+  const option = player?.isHuman
+    ? getCounterDeclarationForPlayer(state.currentTurnId)
+    : getAutoCounterDeclarationForPlayer(state.currentTurnId);
   if (!option) {
     state.countdown = 0;
     state.aiTimer = window.setTimeout(() => {

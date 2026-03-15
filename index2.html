@@ -2376,6 +2376,12 @@
         color: var(--text);
       }
 
+      body.mobile-index2 .mobile-secondary-btn:disabled,
+      body.mobile-index2 .mobile-menu-btn:disabled {
+        opacity: 0.42;
+        cursor: default;
+      }
+
       body.mobile-index2 .mobile-menu-btn.danger {
         background: rgba(207, 74, 68, 0.12);
         color: #9f3c37;
@@ -3036,7 +3042,6 @@
               <button id="mobileStartBtn" class="mobile-primary-btn" type="button">开始游戏</button>
               <button id="mobileSetupContinueBtn" class="mobile-secondary-btn" type="button">继续游戏</button>
               <button id="mobileSetupRulesBtn" class="mobile-secondary-btn" type="button">规则</button>
-              <button id="mobileSetupNewBtn" class="mobile-secondary-btn" type="button">重置牌局</button>
             </div>
           </div>
         </section>
@@ -3371,7 +3376,6 @@
           startBtn: document.getElementById("mobileStartBtn"),
           setupContinueBtn: document.getElementById("mobileSetupContinueBtn"),
           setupRulesBtn: document.getElementById("mobileSetupRulesBtn"),
-          setupNewBtn: document.getElementById("mobileSetupNewBtn"),
           menuCardFaceBtn: document.getElementById("mobileMenuCardFaceBtn"),
           menuLayoutBtn: document.getElementById("mobileMenuLayoutBtn"),
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
@@ -3773,7 +3777,6 @@
         mobileDom.startBtn.addEventListener("click", () => clickOriginal(originalDom.startGameBtn));
         mobileDom.setupContinueBtn?.addEventListener("click", () => clickOriginal(originalDom.continueGameBtn));
         mobileDom.setupRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
-        mobileDom.setupNewBtn.addEventListener("click", () => clickOriginal(originalDom.newGameBtn));
         mobileDom.autoBtn.addEventListener("click", () => {
           if (typeof getPlayer !== "function") return;
           const human = getPlayer(1);

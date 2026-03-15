@@ -3681,7 +3681,7 @@
         function syncTrickSpotDecorations(snapshot) {
           const humanManaged = typeof getPlayer === "function" ? !!getPlayer(1) && !getPlayer(1).isHuman : false;
           const winningPlay = typeof getCurrentWinningPlay === "function" ? getCurrentWinningPlay() : null;
-          const winningPlayerId = snapshot.phase === "playing" && snapshot.currentTrick?.length ? winningPlay?.playerId || null : null;
+          const winningPlayerId = snapshot.phase === "playing" ? winningPlay?.playerId || null : null;
           for (const player of snapshot.players) {
             const spot = document.getElementById(`trickSpot-${player.id}`);
             const label = spot?.querySelector(".label");

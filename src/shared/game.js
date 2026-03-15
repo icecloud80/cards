@@ -59,6 +59,7 @@ function setupGame() {
   state.leaderId = 1;
   state.trickNumber = 1;
   state.currentTrick = [];
+  state.currentTrickBeatCount = 0;
   state.leadSpec = null;
   state.lastTrick = null;
   state.bottomCards = [];
@@ -1019,7 +1020,6 @@ function playCards(playerId, cardIds, options = {}) {
   }
   const currentWinningPlay = state.currentTrick.length > 0 ? getCurrentWinningPlay() : null;
   const beatPlay = !!currentWinningPlay && doesSelectionBeatCurrent(playerId, cards);
-  const beatAnnouncementKey = beatPlay ? getBeatAnnouncementKey(currentWinningPlay) : null;
   const validation = validateSelection(playerId, cards);
   if (!validation.ok) {
     if (player.isHuman) {
@@ -1082,8 +1082,12 @@ function playCards(playerId, cardIds, options = {}) {
   } else if (friendProgressAnnouncement?.message) {
     queueCenterAnnouncement(friendProgressAnnouncement.message, friendProgressAnnouncement.tone || "default");
   }
-  if (beatAnnouncementKey) {
-    queueCenterAnnouncement(TEXT.log[beatAnnouncementKey](player.name), "strong");
+  if (beatPlay) {
+    const announcement = state.currentTrickBeatCount > 0
+      ? TEXT.log.coverBeatAnnouncement(player.name)
+      : TEXT.log.beatAnnouncement(player.name);
+    queueCenterAnnouncement(announcement, "strong");
+    state.currentTrickBeatCount += 1;
   }
   const playAnnouncement = throwFailure || (pattern.type === "throw" && state.currentTrick.length > 1)
     ? ""
@@ -1226,6 +1230,7 @@ function resolveTrick(options = {}) {
 
   const advanceToNextTrick = () => {
     state.currentTrick = [];
+    state.currentTrickBeatCount = 0;
     state.leadSpec = null;
     for (const player of state.players) {
       player.played = [];
@@ -1317,11 +1322,6 @@ function doesSelectionBeatCurrent(playerId, cards) {
   if (!currentWinningPlay) return false;
   const currentPattern = classifyPlay(currentWinningPlay.cards);
   return compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) > 0;
-}
-
-function getBeatAnnouncementKey(currentWinningPlay = getCurrentWinningPlay()) {
-  if (!state.leadSpec || !currentWinningPlay) return null;
-  return currentWinningPlay.playerId === state.leadSpec.leaderId ? "beatAnnouncement" : "coverBeatAnnouncement";
 }
 
 function isDefenderTeam(playerId) {

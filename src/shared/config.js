@@ -219,6 +219,7 @@ const state = {
   leaderId: 1,
   trickNumber: 1,
   currentTrick: [],
+  currentTrickBeatCount: 0,
   leadSpec: null,
   lastTrick: null,
   bottomCards: [],

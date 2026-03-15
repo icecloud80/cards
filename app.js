@@ -156,6 +156,7 @@ const state = {
   leaderId: 1,
   trickNumber: 1,
   currentTrick: [],
+  currentTrickBeatCount: 0,
   leadSpec: null,
   lastTrick: null,
   bottomCards: [],
@@ -492,6 +493,7 @@ function setupGame() {
   state.leaderId = 1;
   state.trickNumber = 1;
   state.currentTrick = [];
+  state.currentTrickBeatCount = 0;
   state.leadSpec = null;
   state.lastTrick = null;
   state.bottomCards = [];
@@ -2416,9 +2418,6 @@ function playCards(playerId, cardIds, options = {}) {
   }
   const currentWinningPlay = state.currentTrick.length > 0 ? getCurrentWinningPlay() : null;
   const beatPlay = !!currentWinningPlay && doesSelectionBeatCurrent(playerId, cards);
-  const beatAnnouncement = beatPlay
-    ? (currentWinningPlay.playerId === state.leadSpec?.leaderId ? `${player.name} 毙牌` : `${player.name} 盖毙`)
-    : "";
   const validation = validateSelection(playerId, cards);
   if (!validation.ok) {
     if (player.isHuman) {
@@ -2473,8 +2472,12 @@ function playCards(playerId, cardIds, options = {}) {
   } else if (friendProgressAnnouncement?.message) {
     queueCenterAnnouncement(friendProgressAnnouncement.message, friendProgressAnnouncement.tone || "default");
   }
-  if (beatAnnouncement) {
+  if (beatPlay) {
+    const beatAnnouncement = state.currentTrickBeatCount > 0
+      ? `${player.name} 盖毙`
+      : `${player.name} 毙牌`;
     queueCenterAnnouncement(beatAnnouncement, "strong");
+    state.currentTrickBeatCount += 1;
   }
   const playAnnouncement = throwFailure || (pattern.type === "throw" && state.currentTrick.length > 1)
     ? ""
@@ -2617,6 +2620,7 @@ function resolveTrick(options = {}) {
 
   const advanceToNextTrick = () => {
     state.currentTrick = [];
+    state.currentTrickBeatCount = 0;
     state.leadSpec = null;
     for (const player of state.players) {
       player.played = [];

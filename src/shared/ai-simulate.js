@@ -211,10 +211,10 @@ function simulateTrickToEnd(simState, chooser = getSimulationHintForPlayer) {
       const playerId = state.currentTurnId;
       if (!PLAYER_ORDER.includes(playerId)) break;
       let cards = chooser(playerId, cloneSimulationState(state), trace);
-      if (!Array.isArray(cards) || cards.length === 0) {
+      if (!Array.isArray(cards) || cards.length === 0 || cards.some((card) => !card || !card.id)) {
         cards = getSimulationHintForPlayer(playerId);
       }
-      if (!Array.isArray(cards) || cards.length === 0) {
+      if (!Array.isArray(cards) || cards.length === 0 || cards.some((card) => !card || !card.id)) {
         break;
       }
       const ok = playCards(playerId, cards.map((card) => card.id), {

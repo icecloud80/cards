@@ -39,6 +39,33 @@ function restartCurrentRound() {
   startDealing();
 }
 
+function getAiDifficultyLogLabel() {
+  return AI_DIFFICULTY_OPTIONS.find((option) => option.value === state.aiDifficulty)?.label || "初级";
+}
+
+function getPlatformLogLabel() {
+  return APP_PLATFORM === "mobile" ? "手机" : "PC";
+}
+
+function getLogTimestamp() {
+  return new Date().toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function appendSessionHeaderLogs() {
+  appendLog(`游戏版本：${APP_VERSION_LABEL}`);
+  appendLog(`AI难度：${getAiDifficultyLogLabel()}`);
+  appendLog(`时间：${getLogTimestamp()}`);
+  appendLog(`设备：${getPlatformLogLabel()}`);
+}
+
 // 初始化一局新的牌局状态。
 function setupGame() {
   clearTimers();
@@ -112,6 +139,7 @@ function setupGame() {
   state.dealCards = deck.splice(0, 31 * 5);
   state.bottomCards = deck.splice(0, 7);
 
+  appendSessionHeaderLogs();
   appendLog(getReadyStartMessage());
 
   render();

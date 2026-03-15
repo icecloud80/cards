@@ -542,6 +542,7 @@ function getComboKey(combo) {
 // 将未出现过的牌组加入候选列表。
 function addUniqueCombo(candidates, seen, combo) {
   if (!Array.isArray(combo) || combo.length === 0) return;
+  if (combo.some((card) => !card || !card.id)) return;
   const key = getComboKey(combo);
   if (seen.has(key)) return;
   seen.add(key);

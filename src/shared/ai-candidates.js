@@ -1,4 +1,6 @@
 function createCandidateEntry(cards, source, tags = []) {
+  if (!Array.isArray(cards) || cards.length === 0) return null;
+  if (cards.some((card) => !card || !card.id)) return null;
   return {
     cards,
     source,
@@ -9,6 +11,8 @@ function createCandidateEntry(cards, source, tags = []) {
 function dedupeCandidateEntries(entries) {
   const seen = new Set();
   return entries.filter((entry) => {
+    if (!entry || !Array.isArray(entry.cards) || entry.cards.length === 0) return false;
+    if (entry.cards.some((card) => !card || !card.id)) return false;
     const key = getComboKey(entry.cards);
     if (seen.has(key)) return false;
     seen.add(key);

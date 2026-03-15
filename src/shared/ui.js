@@ -332,6 +332,9 @@ function getVisibleRole(playerId) {
 
 // 渲染当前一墩中各玩家的出牌位置。
 function renderTrickSpots() {
+  const winningPlay = state.phase === "playing" && typeof getCurrentWinningPlay === "function"
+    ? getCurrentWinningPlay()
+    : null;
   for (const player of state.players) {
     const spot = document.getElementById(`trickSpot-${player.id}`);
     const play = state.currentTrick.find((entry) => entry.playerId === player.id);
@@ -361,8 +364,18 @@ function renderTrickSpots() {
       : state.phase === "burying"
         ? TEXT.trickSpot.burying
       : state.phase === "callingFriend"
-        ? TEXT.trickSpot.callingFriend
+      ? TEXT.trickSpot.callingFriend
       : TEXT.trickSpot.default;
+    const showNoTrumpBadge = APP_PLATFORM !== "mobile"
+      && ["playing", "pause", "ending"].includes(state.phase)
+      && player.hand.length > 0
+      && !!state.exposedTrumpVoid[player.id];
+    const winningBadge = APP_PLATFORM !== "mobile" && winningPlay?.playerId === player.id
+      ? '<span class="spot-winning-badge" aria-label="本轮当前最大">大</span>'
+      : "";
+    const noTrumpBadge = showNoTrumpBadge
+      ? '<span class="spot-no-trump-badge" aria-label="无主牌">无</span>'
+      : "";
     spot.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
     spot.classList.toggle("zoomable", zoomEnabled);
     if (!zoomEnabled) {
@@ -374,6 +387,8 @@ function renderTrickSpots() {
         ${cardsHtml || `<div class="empty-note">${emptyText}</div>`}
         ${zoomHtml}
       </div>
+      ${winningBadge}
+      ${noTrumpBadge}
     `;
     spot.onclick = zoomEnabled
       ? (event) => {

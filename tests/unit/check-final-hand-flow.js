@@ -128,7 +128,18 @@ function runSuite(context) {
       makeCard("mixed-d5", "diamonds", "5"),
       makeCard("mixed-s7", "spades", "7"),
     ];
-    assert(!validateSelection(2, [...state.players[1].hand]).ok, "mixed-suit final hand should still be illegal");
+    const mixedLead = [...state.players[1].hand];
+    assert(!validateSelection(2, mixedLead).ok, "mixed-suit final hand should still be illegal");
+
+    state.aiDifficulty = "beginner";
+    const mixedBeginnerHint = getLegalHintForPlayer(2);
+    assert(mixedBeginnerHint.length === 1, "beginner AI should fall back to a normal legal single instead of mixed-suit all-in");
+
+    state.aiDifficulty = "intermediate";
+    const mixedIntermediateHint = getLegalHintForPlayer(2);
+    assert(mixedIntermediateHint.length === 1, "intermediate AI should also avoid mixed-suit all-in on the final lead");
+
+    assert(!playCards(2, mixedLead.map((card) => card.id), { skipStartTurn: true }), "playCards should reject a mixed-suit final all-in");
 
     state.players[1].hand = [
       makeCard("p2-hA-a", "hearts", "A"),
@@ -184,6 +195,8 @@ function runSuite(context) {
     assert(state.lastTrick && state.lastTrick.winnerId === 2, "the strongest full-hand selection should win the final trick");
 
     globalThis.__finalHandFlowResults = {
+      mixedBeginnerHintCount: mixedBeginnerHint.length,
+      mixedIntermediateHintCount: mixedIntermediateHint.length,
       beginnerHintCount: beginnerHint.length,
       intermediateHintCount: intermediateHint.length,
       leadType: state.leadSpec?.type || null,
@@ -200,6 +213,8 @@ const context = loadGameContext();
 const output = runSuite(context);
 
 console.log("Final-hand flow regression passed:");
+console.log(`- mixed beginner hint count: ${output.mixedBeginnerHintCount}`);
+console.log(`- mixed intermediate hint count: ${output.mixedIntermediateHintCount}`);
 console.log(`- beginner hint count: ${output.beginnerHintCount}`);
 console.log(`- intermediate hint count: ${output.intermediateHintCount}`);
 console.log(`- lead type: ${output.leadType}`);

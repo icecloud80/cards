@@ -1,5 +1,26 @@
 const path = require("path");
 
+/**
+ * 作用：
+ * 判断当前运行是否需要跳过无 UI 全流程回归。
+ *
+ * 为什么这样写：
+ * pre-commit 需要根据改动规模决定是否执行耗时较长的 headless full-game，而常规 `npm test` 仍应保留完整覆盖。
+ *
+ * 输入：
+ * @param {void} - 通过环境变量读取开关。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应跳过 headless full-game suite。
+ *
+ * 注意：
+ * - 仅把字符串 `"1"` 视为开启，避免其他环境值误触发。
+ * - 默认必须返回 `false`，保证常规测试不被静默降级。
+ */
+function shouldSkipHeadlessFullGameSuite() {
+  return process.env.SKIP_HEADLESS_FULL_GAME === "1";
+}
+
 const UNIT_TEST_SUITES = [
   {
     name: "AI friend strategy regression",
@@ -32,6 +53,7 @@ const UNIT_TEST_SUITES = [
   {
     name: "Headless full-game regression",
     file: path.join(__dirname, "check-headless-full-game.js"),
+    skip: shouldSkipHeadlessFullGameSuite(),
   },
   {
     name: "Result subinfo regression",
@@ -41,7 +63,7 @@ const UNIT_TEST_SUITES = [
     name: "Throw pattern regression",
     file: path.join(__dirname, "check-throw-patterns.js"),
   },
-];
+].filter((suite) => !suite.skip);
 
 module.exports = {
   UNIT_TEST_SUITES,

@@ -12,7 +12,20 @@ Run the same suite explicitly:
 npm run test:unit
 ```
 
-Git commits are blocked by `.githooks/pre-commit` until the unit regression suite passes.
+Run the fast pre-commit suite explicitly:
+
+```bash
+npm run test:unit:fast
+```
+
+Run the headless full-game regression explicitly:
+
+```bash
+npm run test:headless
+```
+
+Git commits are blocked by `.githooks/pre-commit` until the fast regression suite passes.
+The hook only runs the headless full-game regression when staged `.js` changes exceed 200 total lines.
 
 ## Docs
 

@@ -829,14 +829,35 @@ function buildIntermediateDecisionBundle(playerId, mode, liveCandidates = null) 
   return buildIntermediateDecisionBundleForState(playerId, mode, state, liveCandidates);
 }
 
+/**
+ * 作用：
+ * 把外部已枚举好的 liveCandidates 转成中级决策可消费的候选条目。
+ *
+ * 为什么这样写：
+ * 跟牌候选有时已经在调用方完成合法性枚举，这里只补齐 source、tags 等元数据，
+ * 同时保证这些标签按传入的 sourceState 计算，而不是继续偷读 live state。
+ *
+ * 输入：
+ * @param {object|null} sourceState - 当前决策使用的真实或模拟牌局状态。
+ * @param {number} playerId - 需要构建候选条目的玩家 ID。
+ * @param {Array<Array<object>>} liveCandidates - 调用方传入的合法候选牌组集合。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回去重后的候选条目列表。
+ *
+ * 注意：
+ * - 这里不会重新校验合法性，默认 `liveCandidates` 已经合法。
+ * - `beats` 与 `matched` 必须基于 sourceState 计算，否则 debug 信息会和真实 rollout 上下文错位。
+ */
 function buildIntermediateCandidateEntriesFromLiveCandidates(sourceState, playerId, liveCandidates) {
-  return withCandidateSourceState(sourceState, () => dedupeCandidateEntries(liveCandidates.map((cards) => {
+  const leadSpec = sourceState?.leadSpec || null;
+  return dedupeCandidateEntries(liveCandidates.map((cards) => {
     const pattern = classifyPlay(cards);
     const tags = [pattern.type, pattern.suit || effectiveSuit(cards[0])];
-    if (doesSelectionBeatCurrent(playerId, cards)) tags.push("beats");
-    if (matchesLeadPattern(pattern, state.leadSpec)) tags.push("matched");
+    if (doesSelectionBeatCurrentForState(sourceState, playerId, cards)) tags.push("beats");
+    if (leadSpec && matchesLeadPattern(pattern, leadSpec)) tags.push("matched");
     return createCandidateEntry(cards, "legal", tags);
-  })));
+  }));
 }
 
 function buildIntermediateDecisionBundleForState(playerId, mode, sourceState = state, liveCandidates = null) {

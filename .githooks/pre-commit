@@ -1,5 +1,37 @@
 #!/bin/sh
 set -eu
 
-printf '%s\n' 'Running unit regression tests before commit...'
-node --test --test-reporter=spec tests/unit/regressions.test.js
+# 作用：
+# 在提交前先跑快速回归，并仅在 JS 改动规模较大时追加 headless full-game。
+#
+# 为什么这样写：
+# headless full-game 约 28 秒，适合作为“大改动防回归”门禁，不适合所有提交都阻塞。
+#
+# 输入：
+# - 读取暂存区里 `.js` 文件的增删行数总和。
+#
+# 输出：
+# - 快速回归始终执行。
+# - 当 JS 改动总行数大于 200 时，额外执行 headless full-game。
+#
+# 注意：
+# - 只统计已暂存改动，避免工作区未暂存内容误触发。
+# - 这里的“修改行数”按新增 + 删除合计计算。
+
+HEADLESS_JS_THRESHOLD=200
+
+printf '%s\n' 'Running fast unit regression tests before commit...'
+npm run test:unit:fast
+
+# 统计暂存区 `.js` 文件的总改动行数，二进制或异常项用 `-` 表示时直接跳过。
+JS_CHANGED_LINES=$(
+  git diff --cached --numstat -- '*.js' \
+    | awk 'BEGIN { total = 0 } $1 != "-" && $2 != "-" { total += $1 + $2 } END { print total + 0 }'
+)
+
+if [ "$JS_CHANGED_LINES" -gt "$HEADLESS_JS_THRESHOLD" ]; then
+  printf '%s\n' "Detected ${JS_CHANGED_LINES} staged JS line changes (> ${HEADLESS_JS_THRESHOLD}); running headless full-game regression..."
+  npm run test:headless
+else
+  printf '%s\n' "Staged JS line changes: ${JS_CHANGED_LINES}. Skipping headless full-game regression."
+fi

@@ -150,6 +150,36 @@ function runIntermediateFoundationSuite(context) {
     assert(simulatedLeadCandidates.length > 0, "generateCandidatePlays: should also produce lead candidates from simulation state");
     assert(simulatedLeadCandidates.every((entry) => Array.isArray(entry.cards) && typeof entry.source === "string"), "generateCandidatePlays: simulation-state entries should preserve candidate metadata");
 
+    // 验证候选层的跟牌标签优先使用 sourceState，而不是偷读当前 live state。
+    resetCommonState();
+    state.trumpSuit = "clubs";
+    state.currentTurnId = 3;
+    state.leaderId = 1;
+    state.players = [
+      basePlayer(1, [makeCard("follow-p1-h-9", "hearts", "9")], true),
+      basePlayer(2, [makeCard("follow-p2-s-9", "spades", "9")]),
+      basePlayer(3, [
+        makeCard("follow-p3-c-7", "clubs", "7"),
+        makeCard("follow-p3-d-6", "diamonds", "6"),
+        makeCard("follow-p3-s-8", "spades", "8"),
+      ]),
+      basePlayer(4, [makeCard("follow-p4-d-8", "diamonds", "8")]),
+      basePlayer(5, [makeCard("follow-p5-s-k", "spades", "K")]),
+    ];
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("follow-lead-h-9", "hearts", "9")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    const followSourceState = cloneSimulationState(state);
+    const sourceTrumpSingle = [followSourceState.players[2].hand.find((card) => card.id === "follow-p3-c-7")];
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("live-lead-s-7", "spades", "7")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    assert(doesSelectionBeatCurrentForState(followSourceState, 3, sourceTrumpSingle), "doesSelectionBeatCurrentForState: should evaluate beatability from sourceState instead of live state");
+    const followCandidates = generateCandidatePlays(followSourceState, 3, "follow");
+    assert(followCandidates.some((entry) => getComboKey(entry.cards) === getComboKey(sourceTrumpSingle) && entry.tags.includes("beats")), "generateCandidatePlays follow: should tag beating candidates from sourceState context");
+
     resetCommonState();
     state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false };
     const objective = getIntermediateObjective(3, "lead", cloneSimulationState(state));

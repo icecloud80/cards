@@ -2546,11 +2546,22 @@
 
       body.mobile-index2 .mobile-spot-no-trump {
         position: absolute;
-        top: 6px;
-        right: 8px;
-        font-size: 14px;
+        left: 8px;
+        bottom: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, rgba(120, 170, 186, 0.96), rgba(67, 120, 136, 0.96));
+        color: #effbff;
+        font-size: 9px;
+        font-weight: 900;
         line-height: 1;
-        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.18));
+        letter-spacing: 0.2px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
       }
 
       body.mobile-index2 .trick-spot .spot-row {
@@ -3705,7 +3716,7 @@
               const badge = document.createElement("span");
               badge.className = "mobile-spot-no-trump";
               badge.setAttribute("aria-label", "无主牌");
-              badge.textContent = "🈚️";
+              badge.textContent = "无";
               spot.appendChild(badge);
             }
             const existingWinningBadge = spot.querySelector(".mobile-spot-winning");

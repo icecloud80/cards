@@ -602,6 +602,9 @@ function renderFriendPicker() {
   dom.friendPickerPanel.classList.toggle("hidden", !visible);
   if (!visible) return;
 
+  const recommendation = typeof getFriendPickerRecommendation === "function"
+    ? getFriendPickerRecommendation()
+    : null;
   const suitOptions = TEXT.friendPicker.suitOptions;
   const occurrenceOptions = TEXT.friendPicker.occurrenceOptions;
   const suitGlyphMap = {
@@ -621,7 +624,9 @@ function renderFriendPicker() {
     rank: state.selectedFriendRank,
   });
 
-  dom.friendPickerHint.textContent = TEXT.friend.pickerHint;
+  dom.friendPickerHint.textContent = recommendation
+    ? `已按你扣下的牌和当前剩余手牌，默认推荐 ${recommendation.target.label}。${recommendation.reason}`
+    : TEXT.friend.pickerHint;
   dom.friendOccurrenceOptions.innerHTML = occurrenceOptions
     .map((option) => `<button type="button" class="tiny-btn${state.selectedFriendOccurrence === option.value ? " alert" : ""}" data-friend-occurrence="${option.value}">${option.label}</button>`)
     .join("");
@@ -640,6 +645,9 @@ function renderFriendPicker() {
     <div class="subtle">${TEXT.friend.pickerPreview(previewTarget.label)}</div>
     <div>${buildCardNode(previewTarget, "friend-card").outerHTML}</div>
   `;
+  if (dom.autoFriendBtn) {
+    dom.autoFriendBtn.textContent = recommendation ? `用推荐：${recommendation.target.label}` : "用推荐";
+  }
 }
 
 function renderLogs() {
@@ -809,8 +817,9 @@ function renderCenterPanel() {
   dom.declareBtn.hidden = !isOpeningPhase;
   dom.declareBtn.disabled = state.gameOver || !canDeclareNow;
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
-  dom.passCounterBtn.disabled = state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1;
-  dom.passCounterBtn.hidden = state.phase !== "countering" || state.currentTurnId !== 1;
+  const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!humanCounter;
+  dom.passCounterBtn.disabled = state.gameOver || !showPassCounterBtn;
+  dom.passCounterBtn.hidden = !showPassCounterBtn;
   if (dom.setupOptions) {
     dom.setupOptions.hidden = true;
   }

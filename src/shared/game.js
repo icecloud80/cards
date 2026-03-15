@@ -187,6 +187,160 @@ function chooseFriendTarget() {
   };
 }
 
+function getCardsForFriendSuit(cards, suit) {
+  return cards.filter((card) => (suit === "joker" ? card.suit === "joker" : card.suit === suit));
+}
+
+function getFriendRecommendationRankPriority() {
+  return getPlayerLevelRank(state.bankerId) === "A"
+    ? ["K", "A", "Q", "J", "10"]
+    : ["A", "K", "Q", "J", "10"];
+}
+
+function scoreFriendRecommendationCandidate(target, meta) {
+  const { ownCopies, buriedCopies, remainingSuitCards, buriedSuitCards } = meta;
+  const supportCards = remainingSuitCards.filter((card) => card.rank !== target.rank);
+  const targetPower = target.suit === "joker"
+    ? (target.rank === "RJ" ? 200 : 190)
+    : cardStrength({ suit: target.suit, rank: target.rank, deckIndex: 0, id: `friend-recommend-${target.suit}-${target.rank}` });
+  const lowSupportCount = supportCards.filter((card) => cardStrength(card) < targetPower).length;
+  const highSupportCount = supportCards.length - lowSupportCount;
+  const rankBonus = {
+    A: 56,
+    K: 48,
+    Q: 38,
+    J: 30,
+    "10": 22,
+    RJ: 50,
+    BJ: 42,
+  }[target.rank] || 0;
+  const occurrenceBonus = target.occurrence === ownCopies + 1
+    ? 14
+    : target.occurrence === 2
+      ? 9
+      : 5;
+  const shortSuitBonus = remainingSuitCards.length === 0
+    ? 4
+    : supportCards.length === 0
+      ? 18
+      : supportCards.length === 1
+        ? 16
+        : supportCards.length === 2
+          ? 8
+          : 0;
+  const lowSupportBonus = lowSupportCount === 1
+    ? 12
+    : lowSupportCount === 2
+      ? 6
+      : lowSupportCount === 0 && ownCopies > 0
+        ? 4
+        : 0;
+  const buriedSuitBonus = Math.min(buriedSuitCards.length, 4) * 4;
+  const buriedTargetPenalty = buriedCopies * 18;
+  const highSupportPenalty = highSupportCount * 5;
+  const clutterPenalty = Math.max(0, supportCards.length - 2) * 7;
+  const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
+  const jokerPenalty = target.suit === "joker" ? 16 : 0;
+  const selfHoldBonus = ownCopies > 0 ? ownCopies * 6 : 8;
+  const controlPenalty = remainingSuitCards.length === 0 ? 10 : 0;
+  const score = rankBonus
+    + occurrenceBonus
+    + shortSuitBonus
+    + lowSupportBonus
+    + buriedSuitBonus
+    + selfHoldBonus
+    - buriedTargetPenalty
+    - highSupportPenalty
+    - clutterPenalty
+    - trumpPenalty
+    - jokerPenalty
+    - controlPenalty;
+
+  const reasons = [];
+  if (ownCopies > 0) {
+    reasons.push(`你手里还留着 ${ownCopies} 张同牌，默认改叫${getOccurrenceLabel(target.occurrence)}来避开自己先打出`);
+  }
+  if (supportCards.length <= 1 && remainingSuitCards.length > 0 && target.suit !== "joker") {
+    reasons.push(`这门现在只剩 ${supportCards.length} 张非目标牌，比较容易顺手把牌权送回这门`);
+  }
+  if (buriedSuitCards.length >= 2 && target.suit !== "joker") {
+    reasons.push(`你刚扣下了 ${buriedSuitCards.length} 张这门牌，这门已经被压短了`);
+  }
+  if (remainingSuitCards.length === 0 && target.suit !== "joker") {
+    reasons.push("这门已经空掉了，但你对它的主动控制会更少");
+  }
+  if (target.suit === state.trumpSuit) {
+    reasons.push("这张是主牌，找人会更稳，但通常也更慢一些");
+  }
+  if (target.suit === "joker") {
+    reasons.push("王张够硬，但朋友往往会出现得更晚");
+  }
+  if (reasons.length === 0) {
+    reasons.push("这张高张在常见找法里更稳，适合作为默认选择");
+  }
+
+  return {
+    score,
+    reason: reasons.slice(0, 2).join("；"),
+  };
+}
+
+function getFriendPickerRecommendation() {
+  const banker = getPlayer(state.bankerId);
+  if (!banker) {
+    const fallback = chooseFriendTarget().target;
+    return {
+      target: fallback,
+      reason: "先按常见找法给出一个默认高张，你也可以手动改。",
+    };
+  }
+
+  const rankPriority = getFriendRecommendationRankPriority();
+  const suitPriority = [...SUITS.filter((suit) => suit !== state.trumpSuit), state.trumpSuit, "joker"].filter(Boolean);
+  const targetCandidates = [];
+
+  for (const suit of suitPriority) {
+    const remainingSuitCards = getCardsForFriendSuit(banker.hand, suit);
+    const buriedSuitCards = getCardsForFriendSuit(state.bottomCards, suit);
+    const rankOptions = suit === "joker" ? ["RJ", "BJ"] : rankPriority;
+
+    for (const rank of rankOptions) {
+      const ownCopies = remainingSuitCards.filter((card) => card.rank === rank).length;
+      const buriedCopies = buriedSuitCards.filter((card) => card.rank === rank).length;
+      const maxOccurrence = Math.min(3, 3 - buriedCopies);
+
+      for (let occurrence = ownCopies + 1; occurrence <= maxOccurrence; occurrence += 1) {
+        const target = { suit, rank, occurrence };
+        const scored = scoreFriendRecommendationCandidate(target, {
+          ownCopies,
+          buriedCopies,
+          remainingSuitCards,
+          buriedSuitCards,
+        });
+        targetCandidates.push({
+          target,
+          score: scored.score,
+          reason: scored.reason,
+        });
+      }
+    }
+  }
+
+  const best = targetCandidates.sort((a, b) => b.score - a.score)[0];
+  if (best) {
+    return {
+      target: buildFriendTarget(best.target),
+      reason: best.reason,
+    };
+  }
+
+  const fallback = chooseFriendTarget().target;
+  return {
+    target: fallback,
+    reason: "先按常见找法给出一个默认高张，你也可以手动改。",
+  };
+}
+
 function scoreFriendTargetCandidate(target, banker, owners) {
   const bankerSuitCards = banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
   const bankerTargetCopies = bankerSuitCards.filter((card) => card.rank === target.rank).length;
@@ -273,7 +427,9 @@ function setFriendTarget(target) {
 }
 
 function getDefaultFriendSelection() {
-  const suggested = chooseFriendTarget().target;
+  const suggested = state.bankerId === 1
+    ? getFriendPickerRecommendation().target
+    : chooseFriendTarget().target;
   return {
     occurrence: suggested.occurrence || 1,
     suit: suggested.suit,

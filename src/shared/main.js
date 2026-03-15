@@ -77,7 +77,11 @@ function applyAutoManagedState(enabled) {
   }
 
   if (state.phase === "callingFriend" && state.bankerId === 1 && typeof confirmFriendTargetSelection === "function") {
-    const best = typeof chooseFriendTarget === "function" ? chooseFriendTarget()?.target : null;
+    const best = typeof getFriendPickerRecommendation === "function"
+      ? getFriendPickerRecommendation()?.target
+      : typeof chooseFriendTarget === "function"
+        ? chooseFriendTarget()?.target
+        : null;
     if (best) {
       confirmFriendTargetSelection(best);
     }
@@ -215,7 +219,9 @@ dom.confirmFriendBtn.addEventListener("click", () => {
 
 dom.autoFriendBtn?.addEventListener("click", () => {
   if (state.phase !== "callingFriend" || state.bankerId !== 1) return;
-  const best = chooseFriendTarget()?.target;
+  const best = typeof getFriendPickerRecommendation === "function"
+    ? getFriendPickerRecommendation()?.target
+    : chooseFriendTarget()?.target;
   if (!best) return;
   state.selectedFriendOccurrence = best.occurrence || 1;
   state.selectedFriendSuit = best.suit;

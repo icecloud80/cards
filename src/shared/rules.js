@@ -661,9 +661,6 @@ function matchesThrowShape(pattern, leadSpec) {
 function matchesLeadPattern(pattern, leadSpec) {
   if (!pattern?.ok || !leadSpec) return false;
   if (pattern.count !== leadSpec.count) return false;
-  if (leadSpec.type === "lastHand") {
-    return pattern.type === "lastHand";
-  }
   if (pattern.type !== leadSpec.type) return false;
   if (pattern.type === "tractor" || pattern.type === "train" || pattern.type === "bulldozer") {
     return pattern.chainLength === leadSpec.chainLength;
@@ -690,9 +687,6 @@ function hasMatchingPattern(cards, leadSpec) {
 // 枚举符合条件的牌型组合。
 function getPatternCombos(cards, leadSpec) {
   if (!leadSpec) return [];
-  if (leadSpec.type === "lastHand") {
-    return cards.length === leadSpec.count ? [[...cards]] : [];
-  }
   if (leadSpec.type === "single") return cards.map((card) => [card]).sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
   if (leadSpec.type === "pair") return findPairs(cards);
   if (leadSpec.type === "triple") return findTriples(cards);
@@ -821,7 +815,7 @@ function validateSelection(playerId, cards) {
   if (!player || cards.length === 0) {
     return { ok: false, reason: TEXT.rules.validation.selectCards };
   }
-  const pattern = getResolvedPlayPattern?.(playerId, cards, classifyPlay(cards)) || classifyPlay(cards);
+  const pattern = classifyPlay(cards);
 
   if (state.currentTrick.length === 0) {
     if (pattern.ok) return { ok: true };
@@ -830,15 +824,6 @@ function validateSelection(playerId, cards) {
 
   if (cards.length !== state.leadSpec.count) {
     return { ok: false, reason: TEXT.rules.validation.followCount(state.leadSpec.count) };
-  }
-
-  if (state.leadSpec.type === "lastHand") {
-    if (player.hand.length !== state.leadSpec.count) {
-      return { ok: false, reason: TEXT.rules.validation.followCount(state.leadSpec.count) };
-    }
-    return cards.length === player.hand.length
-      ? { ok: true }
-      : { ok: false, reason: TEXT.rules.validation.followCount(state.leadSpec.count) };
   }
 
   const suited = player.hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);

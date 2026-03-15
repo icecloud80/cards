@@ -124,29 +124,36 @@ function runSuite(context) {
     }));
 
     state.players[1].hand = [
-      makeCard("p2-c3", "clubs", "3"),
-      makeCard("p2-d5", "diamonds", "5"),
-      makeCard("p2-s7", "spades", "7"),
+      makeCard("mixed-c3", "clubs", "3"),
+      makeCard("mixed-d5", "diamonds", "5"),
+      makeCard("mixed-s7", "spades", "7"),
+    ];
+    assert(!validateSelection(2, [...state.players[1].hand]).ok, "mixed-suit final hand should still be illegal");
+
+    state.players[1].hand = [
+      makeCard("p2-hA-a", "hearts", "A"),
+      makeCard("p2-hA-b", "hearts", "A"),
+      makeCard("p2-hK", "hearts", "K"),
     ];
     state.players[2].hand = [
-      makeCard("p3-c4", "clubs", "4"),
-      makeCard("p3-d6", "diamonds", "6"),
-      makeCard("p3-s8", "spades", "8"),
+      makeCard("p3-hQ-a", "hearts", "Q"),
+      makeCard("p3-hQ-b", "hearts", "Q"),
+      makeCard("p3-hJ", "hearts", "J"),
     ];
     state.players[3].hand = [
-      makeCard("p4-c5", "clubs", "5"),
-      makeCard("p4-d7", "diamonds", "7"),
-      makeCard("p4-s9", "spades", "9"),
+      makeCard("p4-h10-a", "hearts", "10"),
+      makeCard("p4-h10-b", "hearts", "10"),
+      makeCard("p4-h9", "hearts", "9"),
     ];
     state.players[4].hand = [
-      makeCard("p5-c6", "clubs", "6"),
-      makeCard("p5-d8", "diamonds", "8"),
-      makeCard("p5-s10", "spades", "10"),
+      makeCard("p5-h8-a", "hearts", "8"),
+      makeCard("p5-h8-b", "hearts", "8"),
+      makeCard("p5-h7", "hearts", "7"),
     ];
     state.players[0].hand = [
-      makeCard("p1-c2", "clubs", "2"),
-      makeCard("p1-d4", "diamonds", "4"),
-      makeCard("p1-s6", "spades", "6"),
+      makeCard("p1-h6-a", "hearts", "6"),
+      makeCard("p1-h6-b", "hearts", "6"),
+      makeCard("p1-h5", "hearts", "5"),
     ];
 
     state.aiDifficulty = "beginner";
@@ -163,18 +170,18 @@ function runSuite(context) {
 
     const leadPlayed = playCards(2, leadCards.map((card) => card.id), { skipStartTurn: true });
     assert(leadPlayed, "playCards should accept the final-hand lead");
-    assert(state.leadSpec && state.leadSpec.type === "lastHand", "lead should be recognized as lastHand");
+    assert(state.leadSpec && state.leadSpec.type === "throw", "lead should stay on the normal throw rules");
 
     const partialFollowValidation = validateSelection(3, [state.players[2].hand[0]]);
-    assert(!partialFollowValidation.ok, "followers should still have to play their whole remaining hand on lastHand");
+    assert(!partialFollowValidation.ok, "followers should still respect the normal same-count follow rules");
 
     assert(playCards(3, state.players[2].hand.map((card) => card.id), { skipStartTurn: true }), "player 3 should be able to follow");
     assert(playCards(4, state.players[3].hand.map((card) => card.id), { skipStartTurn: true }), "player 4 should be able to follow");
     assert(playCards(5, state.players[4].hand.map((card) => card.id), { skipStartTurn: true }), "player 5 should be able to follow");
     assert(playCards(1, state.players[0].hand.map((card) => card.id), { skipStartTurn: true, skipResolveDelay: true }), "player 1 should finish the trick");
 
-    assert(state.gameOver === true, "the game should finish immediately after the lastHand trick resolves");
-    assert(state.lastTrick && state.lastTrick.winnerId === 5, "the strongest full-hand selection should win the final trick");
+    assert(state.gameOver === true, "the game should finish immediately after the final trick resolves");
+    assert(state.lastTrick && state.lastTrick.winnerId === 2, "the strongest full-hand selection should win the final trick");
 
     globalThis.__finalHandFlowResults = {
       beginnerHintCount: beginnerHint.length,

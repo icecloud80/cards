@@ -130,8 +130,9 @@ function getBeginnerLegalHintForPlayer(playerId) {
 
   const hand = player.hand;
   if (state.currentTrick.length === 0) {
-    if (isFinalHandLeadSelection(playerId, hand)) {
-      return [...hand];
+    const finalLead = getFinalTrickLegalLeadCards(playerId);
+    if (finalLead.length > 0) {
+      return finalLead;
     }
     const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
     if (forcedReveal.length > 0) return forcedReveal;

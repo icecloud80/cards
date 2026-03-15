@@ -1329,48 +1329,22 @@ function areSameSide(playerA, playerB) {
   return isDefenderTeam(playerA) === isDefenderTeam(playerB);
 }
 
-// 判断是否为首家打出自己最后剩余整手牌的末手兜底场景。
-function isFinalHandLeadSelection(playerId, cards) {
-  if (state.currentTrick.length !== 0) return false;
+// 返回末手场景下可直接整手打出的合法首发。
+function getFinalTrickLegalLeadCards(playerId) {
   const player = getPlayer(playerId);
-  if (!player || !Array.isArray(cards) || cards.length === 0) return false;
-  if (player.hand.length !== cards.length) return false;
-
-  const selectedIds = new Set(cards.map((card) => card.id));
-  if (selectedIds.size !== player.hand.length) return false;
-  if (!player.hand.every((card) => selectedIds.has(card.id))) return false;
-
-  return state.players.every((otherPlayer) => otherPlayer.hand.length === cards.length);
+  if (!player || state.currentTrick.length !== 0 || player.hand.length === 0) return [];
+  const hand = [...player.hand];
+  const pattern = classifyPlay(hand);
+  if (!pattern.ok) return [];
+  if (!state.players.every((otherPlayer) => otherPlayer.hand.length === hand.length)) return [];
+  return hand;
 }
 
-// 构建末手整手牌的兜底牌型，保证最后一手可以正常打穿到结算。
-function createFinalHandLeadPattern(cards) {
-  const sorted = sortPlayedCards(cards);
-  const topStrength = sorted.length > 0 ? cardStrength(sorted[sorted.length - 1]) : 0;
-  return {
-    ok: true,
-    type: "lastHand",
-    count: sorted.length,
-    suit: "lastHand",
-    power: topStrength,
-  };
-}
-
-// 获取当前选择实际用于本轮比较的牌型。
-function getResolvedPlayPattern(playerId, cards, pattern = classifyPlay(cards)) {
-  if (pattern?.ok) return pattern;
-  return isFinalHandLeadSelection(playerId, cards) ? createFinalHandLeadPattern(cards) : pattern;
-}
-
-// 比较两手末手整手牌，先比最大张，再逐张向下比较。
-function compareLastHandPlay(candidateCards, currentCards) {
-  const candidateSorted = sortPlayedCards(candidateCards);
-  const currentSorted = sortPlayedCards(currentCards);
-  for (let index = candidateSorted.length - 1; index >= 0; index -= 1) {
-    const diff = cardStrength(candidateSorted[index]) - cardStrength(currentSorted[index]);
-    if (diff !== 0) return diff;
-  }
-  return 0;
+// 判断是否为末手且整手本身就是合法首发牌型。
+function isFinalTrickLegalLead(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return false;
+  return getFinalTrickLegalLeadCards(playerId).length === player.hand.length;
 }
 
 // 处理一次出牌。
@@ -1379,11 +1353,11 @@ function playCards(playerId, cardIds, options = {}) {
   if (!player || state.gameOver) return false;
 
   let cards = cardIds.map((id) => player.hand.find((card) => card.id === id)).filter(Boolean);
-  let pattern = getResolvedPlayPattern(playerId, cards);
+  let pattern = classifyPlay(cards);
   const throwFailure = getThrowFailure(playerId, pattern);
   if (throwFailure) {
     cards = throwFailure.forcedCards;
-    pattern = getResolvedPlayPattern(playerId, cards);
+    pattern = classifyPlay(cards);
   }
   const currentWinningPlay = state.currentTrick.length > 0 ? getCurrentWinningPlay() : null;
   const beatPlay = !!currentWinningPlay && doesSelectionBeatCurrent(playerId, cards);
@@ -1631,15 +1605,6 @@ function resolveTrick(options = {}) {
 // 结算本墩的获胜玩家。
 function pickTrickWinner() {
   if (!state.leadSpec) return state.leaderId;
-  if (state.leadSpec.type === "lastHand") {
-    let winner = state.currentTrick[0];
-    for (const play of state.currentTrick.slice(1)) {
-      if (compareLastHandPlay(play.cards, winner.cards) > 0) {
-        winner = play;
-      }
-    }
-    return winner.playerId;
-  }
   if (state.leadSpec.type === "single") {
     let winner = state.currentTrick[0];
     for (const play of state.currentTrick.slice(1)) {
@@ -1701,11 +1666,6 @@ function doesSelectionBeatCurrent(playerId, cards) {
   if (!state.leadSpec || state.currentTrick.length === 0 || cards.length === 0) return false;
   const player = getPlayer(playerId);
   if (!player) return false;
-  if (state.leadSpec.type === "lastHand") {
-    if (player.hand.length !== cards.length) return false;
-    const currentWinningPlay = getCurrentWinningPlay();
-    return !!currentWinningPlay && compareLastHandPlay(cards, currentWinningPlay.cards) > 0;
-  }
   const hand = player.hand;
   const suited = hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
   if (suited.length > 0) return false;

@@ -780,9 +780,9 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
 
 // 选择中级 AI 的首发出牌。
 function chooseIntermediateLeadPlay(playerId) {
-  const player = getPlayer(playerId);
-  if (player && isFinalHandLeadSelection(playerId, player.hand)) {
-    return [...player.hand];
+  const finalLead = getFinalTrickLegalLeadCards(playerId);
+  if (finalLead.length > 0) {
+    return finalLead;
   }
   return chooseIntermediatePlay(playerId, "lead");
 }
@@ -931,8 +931,9 @@ function getBeginnerLegalHintForPlayer(playerId) {
 
   const hand = player.hand;
   if (state.currentTrick.length === 0) {
-    if (isFinalHandLeadSelection(playerId, hand)) {
-      return [...hand];
+    const finalLead = getFinalTrickLegalLeadCards(playerId);
+    if (finalLead.length > 0) {
+      return finalLead;
     }
     const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
     if (forcedReveal.length > 0) return forcedReveal;

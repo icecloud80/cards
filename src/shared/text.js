@@ -193,7 +193,7 @@ const TEXT = {
     callingFriendOther: (count) => `当前共 ${count} 张，等待打家叫朋友。`,
     playing: (count) => `当前共 ${count} 张，点击牌即可选择；首家只能出同一门的合法牌型，支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和甩牌。`,
     setupSpecialLabelWithTrump: "当前主牌",
-    setupSpecialLabelWithoutTrump: "级牌 / 王",
+    setupSpecialLabelWithoutTrump: "常主",
     specialLabelNormal: "主牌",
   },
   actionHint: {

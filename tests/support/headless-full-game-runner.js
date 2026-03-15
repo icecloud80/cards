@@ -4,6 +4,8 @@ const path = require("path");
 const { loadHeadlessGameContext } = require("./headless-game-context");
 
 const DEFAULT_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
+const DECISION_SIGNAL_SAMPLE_LIMIT = 5;
+const CONTROL_SHIFT_OBJECTIVES = new Set(["clear_trump", "keep_control", "pressure_void"]);
 
 /**
  * 作用：
@@ -184,6 +186,37 @@ function summarizeFriendTarget(friendTarget) {
 
 /**
  * 作用：
+ * 将朋友目标对象归一化为当前时刻的朋友状态标签。
+ *
+ * 为什么这样写：
+ * headless 结构化事件需要记录“这一步发生时朋友是否已经揭晓”，
+ * 这样后续才能在批量复盘里判断策略是否已从“找朋友”切到“协同 / 清主 / 保先手”。
+ *
+ * 输入：
+ * @param {object|null} friendTarget - 当前状态中的朋友目标牌摘要或原始对象。
+ *
+ * 输出：
+ * @returns {"not_called"|"revealed"|"failed"|"unrevealed"} 当前朋友状态标签。
+ *
+ * 注意：
+ * - 这里不推导阵营强弱，只忠实反映状态机公开出来的信息。
+ * - 调用方可以传摘要对象，也可以传原始 `state.friendTarget`，只要字段兼容即可。
+ */
+function getFriendStateLabel(friendTarget) {
+  if (!friendTarget) {
+    return "not_called";
+  }
+  if (friendTarget.revealed) {
+    return "revealed";
+  }
+  if (friendTarget.failed) {
+    return "failed";
+  }
+  return "unrevealed";
+}
+
+/**
+ * 作用：
  * 提取一份适合训练数据与回归日志复盘的 AI 决策摘要。
  *
  * 为什么这样写：
@@ -205,21 +238,52 @@ function summarizeAiDecision(decision) {
   }
   return {
     mode: decision.mode || null,
+    objective: decision.objective
+      ? {
+          primary: decision.objective.primary || null,
+          secondary: decision.objective.secondary || null,
+        }
+      : null,
     decisionTimeMs: typeof decision.decisionTimeMs === "number" ? decision.decisionTimeMs : null,
     debugStats: decision.debugStats
       ? {
           candidateCount: decision.debugStats.candidateCount,
+          filteredCandidateCount: decision.debugStats.filteredCandidateCount,
+          filteredReasonCounts: decision.debugStats.filteredReasonCounts ? { ...decision.debugStats.filteredReasonCounts } : {},
           completedRolloutCount: decision.debugStats.completedRolloutCount,
           extendedRolloutCount: decision.debugStats.extendedRolloutCount,
+          turnAccessRiskCount: decision.debugStats.turnAccessRiskCount,
+          pointRunRiskCount: decision.debugStats.pointRunRiskCount,
           maxRolloutDepth: decision.debugStats.maxRolloutDepth,
         }
       : null,
+    selectedSource: decision.selectedSource || null,
+    selectedTags: Array.isArray(decision.selectedTags) ? [...decision.selectedTags] : [],
+    selectedScore: typeof decision.selectedScore === "number" ? decision.selectedScore : null,
+    selectedDangerousPointLeadPenalty: typeof decision.selectedDangerousPointLeadPenalty === "number"
+      ? decision.selectedDangerousPointLeadPenalty
+      : null,
+    selectedStructureControlPenalty: typeof decision.selectedStructureControlPenalty === "number"
+      ? decision.selectedStructureControlPenalty
+      : null,
+    selectedRolloutTriggerFlags: Array.isArray(decision.selectedRolloutTriggerFlags)
+      ? [...decision.selectedRolloutTriggerFlags]
+      : [],
     selectedCards: summarizeCards(decision.selectedCards),
     topCandidates: (Array.isArray(decision.candidateEntries) ? decision.candidateEntries : [])
       .slice(0, 3)
       .map((entry) => ({
         cards: summarizeCards(entry.cards),
+        source: entry.source || null,
+        tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
+        score: typeof entry.score === "number" ? entry.score : null,
         heuristicScore: typeof entry.heuristicScore === "number" ? entry.heuristicScore : null,
+        dangerousPointLeadPenalty: typeof entry.dangerousPointLeadPenalty === "number"
+          ? entry.dangerousPointLeadPenalty
+          : null,
+        structureControlPenalty: typeof entry.structureControlPenalty === "number"
+          ? entry.structureControlPenalty
+          : null,
         rolloutScore: typeof entry.rolloutScore === "number" ? entry.rolloutScore : null,
         rolloutDepth: entry.rolloutDepth || 0,
         rolloutCompleted: !!entry.rolloutCompleted,
@@ -227,6 +291,279 @@ function summarizeAiDecision(decision) {
         rolloutTriggerFlags: Array.isArray(entry.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [],
       })),
   };
+}
+
+/**
+ * 作用：
+ * 在 headless 回归上下文里显式打开 AI 决策调试快照。
+ *
+ * 为什么这样写：
+ * 中高级 AI 的 `lastAiDecision` 只有在调试开关开启时才会记录；
+ * 如果 headless 不主动打开，这轮新增的批量复盘摘要就只能看到一堆 0，失去里程碑 3.5 的价值。
+ *
+ * 输入：
+ * @param {object} context - 当前 VM 游戏上下文。
+ *
+ * 输出：
+ * @returns {void} 直接原地修改状态开关。
+ *
+ * 注意：
+ * - 这里只打开数据采集，不依赖任何 UI 渲染路径。
+ * - 必须在 `setupGame` 之后调用，因为新局初始化会把该开关重置为 `false`。
+ */
+function enableHeadlessAiDecisionDebug(context) {
+  if (!context?.state) {
+    return;
+  }
+  context.state.showDebugPanel = true;
+}
+
+/**
+ * 作用：
+ * 构造一份用于 headless 批量复盘的空决策信号汇总桶。
+ *
+ * 为什么这样写：
+ * 里程碑 3.5 需要把“牌权续控风险、连续跑分风险、危险带分领牌、朋友已揭晓策略切换”
+ * 统一沉淀到同一份摘要结构里，先定义稳定骨架，后续加信号时才不会反复改 JSON 形状。
+ *
+ * 输入：
+ * @param {void} - 无额外输入。
+ *
+ * 输出：
+ * @returns {object} 带有计数、过滤统计和样本列表的空汇总桶。
+ *
+ * 注意：
+ * - `samples` 数量必须受限，避免一批长回归把 summary.json 撑得过大。
+ * - 这里统计的是“决策层信号”，不是整局胜负好坏的最终评价。
+ */
+function buildEmptyDecisionSignalSummary() {
+  return {
+    totalDecisions: 0,
+    selectedSignals: {
+      turnAccessRisk: 0,
+      pointRunRisk: 0,
+      dangerousPointLead: 0,
+      revealedFriendControlShift: 0,
+    },
+    candidateAudit: {
+      turnAccessRiskCandidates: 0,
+      pointRunRiskCandidates: 0,
+      filteredCandidates: 0,
+      filteredReasonCounts: {},
+    },
+    samples: {
+      turnAccessRisk: [],
+      pointRunRisk: [],
+      dangerousPointLead: [],
+      revealedFriendControlShift: [],
+    },
+    topSignalGames: [],
+  };
+}
+
+/**
+ * 作用：
+ * 向某类决策信号样本列表中追加一条去重后的复盘样本。
+ *
+ * 为什么这样写：
+ * 批量回归最需要的是“有代表性的种子和步数”，而不是把所有命中都塞进 summary；
+ * 做有限样本保留后，分析报告既可读，又能直接复跑定位。
+ *
+ * 输入：
+ * @param {object[]} samples - 某个信号类型当前已有的样本列表。
+ * @param {object} sample - 待追加的简要样本。
+ *
+ * 输出：
+ * @returns {void} 原地修改样本数组。
+ *
+ * 注意：
+ * - 去重键优先使用 `seed + step + playerId + signal`，避免同一步重复记两次。
+ * - 达到上限后直接忽略后续样本，保持摘要稳定。
+ */
+function pushDecisionSignalSample(samples, sample) {
+  if (!Array.isArray(samples) || !sample) {
+    return;
+  }
+  const duplicate = samples.some((entry) => (
+    entry.seed === sample.seed
+    && entry.step === sample.step
+    && entry.playerId === sample.playerId
+    && entry.signal === sample.signal
+  ));
+  if (duplicate || samples.length >= DECISION_SIGNAL_SAMPLE_LIMIT) {
+    return;
+  }
+  samples.push(sample);
+}
+
+/**
+ * 作用：
+ * 维护一个“单局命中决策信号最多”的固定 seed 榜单。
+ *
+ * 为什么这样写：
+ * 批量采样后最常见的问题不是“有没有命中”，而是“哪几局最值得优先复跑”；
+ * 用轻量榜单把高密度异常种子直接挑出来，可以明显减少人工翻日志时间。
+ *
+ * 输入：
+ * @param {object[]} leaders - 当前榜单数组。
+ * @param {object} candidate - 待加入榜单的单局摘要。
+ *
+ * 输出：
+ * @returns {void} 原地更新榜单数组。
+ *
+ * 注意：
+ * - 这里只保留少量高价值样本，避免 summary 再次膨胀。
+ * - 排序优先级是 `signalCount`，然后才是候选审计数量。
+ */
+function pushTopSignalGame(leaders, candidate) {
+  if (!Array.isArray(leaders) || !candidate || candidate.signalCount <= 0) {
+    return;
+  }
+  leaders.push(candidate);
+  leaders.sort((left, right) => {
+    const signalDiff = (right.signalCount || 0) - (left.signalCount || 0);
+    if (signalDiff !== 0) return signalDiff;
+    return (right.auditCount || 0) - (left.auditCount || 0);
+  });
+  if (leaders.length > DECISION_SIGNAL_SAMPLE_LIMIT) {
+    leaders.length = DECISION_SIGNAL_SAMPLE_LIMIT;
+  }
+}
+
+/**
+ * 作用：
+ * 从单次出牌事件构造一条适合写入 summary 的决策信号样本。
+ *
+ * 为什么这样写：
+ * 后续复盘时最常见的动作是“拿着 seed 回放这一步”，所以样本里要保留种子、步数、玩家、牌型和目标权重。
+ *
+ * 输入：
+ * @param {object} game - 当前单局回归结果。
+ * @param {object} event - 单次 `play` 事件。
+ * @param {string} signal - 当前命中的信号名。
+ *
+ * 输出：
+ * @returns {object} 可直接写入 summary 的轻量复盘样本。
+ *
+ * 注意：
+ * - 这里依赖事件里已经落好的 `decision` 摘要，不直接读取 live state。
+ * - 只保留最关键字段，详细 trace 继续看 events.ndjson 和单局日志。
+ */
+function buildDecisionSignalSample(game, event, signal) {
+  const decision = event.decision || {};
+  return {
+    signal,
+    seed: game.summary.seed,
+    difficulty: game.summary.difficulty,
+    gameIndex: game.summary.gameIndex,
+    step: event.step,
+    trickNumber: event.trickNumber,
+    playerId: event.playerId,
+    mode: event.mode,
+    friendState: event.friendState || "not_called",
+    source: decision.selectedSource || event.source || null,
+    objectivePrimary: decision.objective?.primary || null,
+    objectiveSecondary: decision.objective?.secondary || null,
+    selectedDangerousPointLeadPenalty: decision.selectedDangerousPointLeadPenalty || 0,
+    selectedRolloutTriggerFlags: Array.isArray(decision.selectedRolloutTriggerFlags)
+      ? [...decision.selectedRolloutTriggerFlags]
+      : [],
+    cards: Array.isArray(event.cards) ? event.cards.map((card) => ({ ...card })) : [],
+  };
+}
+
+/**
+ * 作用：
+ * 汇总一组已完成对局中的决策信号与候选审计数据。
+ *
+ * 为什么这样写：
+ * 里程碑 3.5 的目标不是再做一套搜索，而是让批量回归可以直接告诉我们：
+ * “哪些种子出现了掉控风险、连续跑分风险、危险带分领牌，以及朋友揭晓后的控制型策略切换”。
+ *
+ * 输入：
+ * @param {object[]} games - 已完成的单局回归结果列表。
+ *
+ * 输出：
+ * @returns {object} 聚合后的决策信号摘要。
+ *
+ * 注意：
+ * - 这里只统计 `play` 事件，因为这些信号都依附于实际出牌决策。
+ * - `revealedFriendControlShift` 记的是策略切换信号，不等同于“错误”。
+ */
+function summarizeDecisionSignalsForGames(games) {
+  const summary = buildEmptyDecisionSignalSummary();
+
+  for (const game of Array.isArray(games) ? games : []) {
+    let gameSignalCount = 0;
+    let gameAuditCount = 0;
+    for (const event of Array.isArray(game.events) ? game.events : []) {
+      if (event.type !== "play" || !event.decision) {
+        continue;
+      }
+      const decision = event.decision;
+      const debugStats = decision.debugStats || {};
+      const selectedFlags = Array.isArray(decision.selectedRolloutTriggerFlags)
+        ? decision.selectedRolloutTriggerFlags
+        : [];
+
+      summary.totalDecisions += 1;
+      summary.candidateAudit.turnAccessRiskCandidates += debugStats.turnAccessRiskCount || 0;
+      summary.candidateAudit.pointRunRiskCandidates += debugStats.pointRunRiskCount || 0;
+      summary.candidateAudit.filteredCandidates += debugStats.filteredCandidateCount || 0;
+      gameAuditCount += (debugStats.turnAccessRiskCount || 0) + (debugStats.pointRunRiskCount || 0) + (debugStats.filteredCandidateCount || 0);
+
+      for (const [reason, count] of Object.entries(debugStats.filteredReasonCounts || {})) {
+        summary.candidateAudit.filteredReasonCounts[reason] = (
+          summary.candidateAudit.filteredReasonCounts[reason] || 0
+        ) + count;
+      }
+
+      if (selectedFlags.includes("turn_access_risk")) {
+        summary.selectedSignals.turnAccessRisk += 1;
+        gameSignalCount += 1;
+        pushDecisionSignalSample(summary.samples.turnAccessRisk, buildDecisionSignalSample(game, event, "turn_access_risk"));
+      }
+
+      if (selectedFlags.includes("point_run_risk")) {
+        summary.selectedSignals.pointRunRisk += 1;
+        gameSignalCount += 1;
+        pushDecisionSignalSample(summary.samples.pointRunRisk, buildDecisionSignalSample(game, event, "point_run_risk"));
+      }
+
+      if ((decision.selectedDangerousPointLeadPenalty || 0) > 0 && event.mode === "lead") {
+        summary.selectedSignals.dangerousPointLead += 1;
+        gameSignalCount += 1;
+        pushDecisionSignalSample(
+          summary.samples.dangerousPointLead,
+          buildDecisionSignalSample(game, event, "dangerous_point_lead")
+        );
+      }
+
+      const objectivePrimary = decision.objective?.primary || null;
+      const objectiveSecondary = decision.objective?.secondary || null;
+      const shiftedAfterReveal = event.friendState === "revealed"
+        && objectivePrimary !== "find_friend"
+        && (CONTROL_SHIFT_OBJECTIVES.has(objectivePrimary) || CONTROL_SHIFT_OBJECTIVES.has(objectiveSecondary));
+      if (shiftedAfterReveal) {
+        summary.selectedSignals.revealedFriendControlShift += 1;
+        gameSignalCount += 1;
+        pushDecisionSignalSample(
+          summary.samples.revealedFriendControlShift,
+          buildDecisionSignalSample(game, event, "revealed_friend_control_shift")
+        );
+      }
+    }
+    pushTopSignalGame(summary.topSignalGames, {
+      seed: game.summary.seed,
+      difficulty: game.summary.difficulty,
+      gameIndex: game.summary.gameIndex,
+      signalCount: gameSignalCount,
+      auditCount: gameAuditCount,
+      friendState: game.summary.friendState || "not_called",
+    });
+  }
+
+  return summary;
 }
 
 /**
@@ -390,6 +727,7 @@ function runSingleHeadlessGame(options) {
   const { context, capture, timers } = loadHeadlessGameContext({ seed: options.seed });
   context.state.aiDifficulty = options.difficulty;
   context.setupGame();
+  enableHeadlessAiDecisionDebug(context);
   setAllPlayersToManagedAi(context);
 
   const events = [];
@@ -524,6 +862,7 @@ function runSingleHeadlessGame(options) {
         mode,
         source: choice.source,
         cards: summarizeCards(choice.cards),
+        friendState: getFriendStateLabel(context.state.friendTarget),
         handCountBefore,
         handCountAfter: context.getPlayer(playerId)?.hand?.length || 0,
         trickNumber: context.state.lastTrick?.trickNumber || context.state.trickNumber,
@@ -554,13 +893,7 @@ function runSingleHeadlessGame(options) {
     bottomPenalty: bottomResult?.penalty || null,
   });
   const friendTarget = summarizeFriendTarget(context.state.friendTarget);
-  const friendState = !friendTarget
-    ? "not_called"
-    : friendTarget.revealed
-      ? "revealed"
-      : friendTarget.failed
-        ? "failed"
-        : "unrevealed";
+  const friendState = getFriendStateLabel(friendTarget);
   const textLog = context.getResultLogText();
   const gameSummary = {
     gameIndex: options.gameIndex,
@@ -641,6 +974,7 @@ function summarizeRegressionBatch(games, options) {
 
   const byDifficulty = Object.fromEntries(options.difficulties.map((difficulty) => {
     const scopedGames = completedGames.filter((game) => game.summary.difficulty === difficulty);
+    const decisionSignals = summarizeDecisionSignalsForGames(scopedGames);
     const winnerBreakdown = scopedGames.reduce((accumulator, game) => {
       accumulator[game.summary.winner] = (accumulator[game.summary.winner] || 0) + 1;
       return accumulator;
@@ -655,6 +989,7 @@ function summarizeRegressionBatch(games, options) {
         averageWarnings: Math.round((scopedGames.reduce((sum, game) => sum + game.summary.warnings.length, 0) / Math.max(scopedGames.length, 1)) * 100) / 100,
         averageDecisionTimeMs: averageOf(scopedGames, "averageDecisionTimeMs"),
         winnerBreakdown,
+        decisionSignals,
       },
     ];
   }));
@@ -690,6 +1025,7 @@ function summarizeRegressionBatch(games, options) {
       accumulator[game.summary.friendState] = (accumulator[game.summary.friendState] || 0) + 1;
       return accumulator;
     }, { revealed: 0, failed: 0, unrevealed: 0, not_called: 0 }),
+    decisionSignals: summarizeDecisionSignalsForGames(completedGames),
     byDifficulty,
     topWarnings: [...warningCounts.entries()]
       .sort((left, right) => right[1] - left[1])
@@ -722,6 +1058,7 @@ function summarizeRegressionBatch(games, options) {
  * - 报告内容要和 summary 对齐，不要额外引入不可复现的推测数据。
  */
 function buildAnalysisMarkdown(summary) {
+  const overallSignals = summary.decisionSignals || buildEmptyDecisionSignalSummary();
   const lines = [
     "# 无 UI 全游戏回归分析",
     "",
@@ -750,6 +1087,16 @@ function buildAnalysisMarkdown(summary) {
     `- 朋友牌误出 / 1 打 4：${summary.friendBreakdown.failed}`,
     `- 直到结算仍未揭晓：${summary.friendBreakdown.unrevealed}`,
     "",
+    "## 决策信号摘要",
+    "",
+    `- 触发 turn_access_risk 的已选动作：${overallSignals.selectedSignals.turnAccessRisk}`,
+    `- 触发 point_run_risk 的已选动作：${overallSignals.selectedSignals.pointRunRisk}`,
+    `- 仍被选中的危险带分领牌：${overallSignals.selectedSignals.dangerousPointLead}`,
+    `- 朋友已揭晓后的控制型策略切换：${overallSignals.selectedSignals.revealedFriendControlShift}`,
+    `- 候选池内 turn_access_risk 总数：${overallSignals.candidateAudit.turnAccessRiskCandidates}`,
+    `- 候选池内 point_run_risk 总数：${overallSignals.candidateAudit.pointRunRiskCandidates}`,
+    `- 被过滤候选总数：${overallSignals.candidateAudit.filteredCandidates}`,
+    "",
     "## 各难度表现",
     "",
   ];
@@ -765,6 +1112,10 @@ function buildAnalysisMarkdown(summary) {
     lines.push(`- 平均 AI 决策耗时：${detail.averageDecisionTimeMs} ms`);
     lines.push(`- 打家方胜局：${detail.winnerBreakdown.banker}`);
     lines.push(`- 闲家方胜局：${detail.winnerBreakdown.defender}`);
+    lines.push(`- 已选 turn_access_risk：${detail.decisionSignals.selectedSignals.turnAccessRisk}`);
+    lines.push(`- 已选 point_run_risk：${detail.decisionSignals.selectedSignals.pointRunRisk}`);
+    lines.push(`- 已选危险带分领牌：${detail.decisionSignals.selectedSignals.dangerousPointLead}`);
+    lines.push(`- 朋友揭晓后控制型切换：${detail.decisionSignals.selectedSignals.revealedFriendControlShift}`);
     lines.push("");
   }
 
@@ -789,6 +1140,52 @@ function buildAnalysisMarkdown(summary) {
   } else {
     for (const warning of summary.topWarnings) {
       lines.push(`- ${warning.count} 次：${warning.message}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("## 高频异常种子");
+  lines.push("");
+  if (!overallSignals.topSignalGames.length) {
+    lines.push("- 本轮没有出现高密度策略信号样本。");
+  } else {
+    for (const game of overallSignals.topSignalGames) {
+      lines.push(
+        `- [${game.difficulty}] ${game.seed} signalCount=${game.signalCount} auditCount=${game.auditCount} friend=${game.friendState}`
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push("## 决策信号样本");
+  lines.push("");
+  if (
+    overallSignals.samples.turnAccessRisk.length === 0
+    && overallSignals.samples.pointRunRisk.length === 0
+    && overallSignals.samples.dangerousPointLead.length === 0
+    && overallSignals.samples.revealedFriendControlShift.length === 0
+  ) {
+    lines.push("- 本轮未采到需要重点复跑的策略信号样本。");
+  } else {
+    const sampleSections = [
+      ["turn_access_risk", overallSignals.samples.turnAccessRisk],
+      ["point_run_risk", overallSignals.samples.pointRunRisk],
+      ["dangerous_point_lead", overallSignals.samples.dangerousPointLead],
+      ["revealed_friend_control_shift", overallSignals.samples.revealedFriendControlShift],
+    ];
+    for (const [label, samples] of sampleSections) {
+      if (!samples.length) {
+        continue;
+      }
+      lines.push(`### ${label}`);
+      lines.push("");
+      for (const sample of samples) {
+        lines.push(
+          `- [${sample.difficulty}] ${sample.seed} step=${sample.step} player=${sample.playerId} trick=${sample.trickNumber} `
+          + `friend=${sample.friendState} objective=${sample.objectivePrimary || "none"}/${sample.objectiveSecondary || "none"}`
+        );
+      }
+      lines.push("");
     }
   }
 

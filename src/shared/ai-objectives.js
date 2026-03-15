@@ -68,6 +68,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     tempo: 0.85,
     turnAccess: 0.95,
     controlRisk: lateRound ? 1.05 : 0.75,
+    pointRunRisk: lateRound ? 1.0 : 0.65,
     safeLead: lateRound ? 0.8 : 0.2,
     friendRisk: unresolvedFriend ? 0.75 : resolvedFriend ? 0.05 : 0.2,
     bottomRisk: lateRound ? 0.85 : 0.2,
@@ -95,6 +96,8 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "keep_control" || secondary === "clear_trump") weights.turnAccess += 0.2;
   if (primary === "keep_control" || primary === "clear_trump") weights.controlRisk += 0.35;
   if (secondary === "keep_control" || secondary === "clear_trump") weights.controlRisk += 0.15;
+  if (primary === "keep_control" || primary === "clear_trump") weights.pointRunRisk += 0.3;
+  if (secondary === "keep_control" || secondary === "clear_trump") weights.pointRunRisk += 0.15;
   if (resolvedFriend) weights.allySupport += 0.25;
   if (resolvedFriend && (primary === "keep_control" || primary === "clear_trump")) weights.allySupport += 0.35;
   if (resolvedFriend && (secondary === "keep_control" || secondary === "clear_trump")) weights.allySupport += 0.15;
@@ -104,6 +107,8 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "protect_bottom") weights.safeLead += 0.15;
   if (primary === "protect_bottom") weights.turnAccess += 0.2;
   if (secondary === "protect_bottom") weights.turnAccess += 0.1;
+  if (primary === "protect_bottom") weights.pointRunRisk += 0.25;
+  if (secondary === "protect_bottom") weights.pointRunRisk += 0.1;
 
   return {
     primary,

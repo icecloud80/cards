@@ -29,6 +29,8 @@
         --score-panel-width: 192px;
         --player1-seat-width: 204px;
         --player1-seat-height: 162px;
+        --hand-panel-height: 188px;
+        --action-panel-width: 276px;
       }
 
       * {
@@ -400,8 +402,9 @@
 
       .version-badge {
         position: absolute;
-        left: var(--edge-gap);
-        bottom: calc(var(--edge-gap) + var(--player1-seat-height) + 10px);
+        right: var(--edge-gap);
+        left: auto;
+        bottom: calc(var(--edge-gap) + var(--hand-panel-height) + 10px);
         display: inline-flex;
         align-items: center;
         padding: 6px 10px;
@@ -753,6 +756,40 @@
         margin-left: 0;
       }
 
+      /* PC v2：角标单独定位，避免头部精简后“无 / 大”漂移。 */
+      .spot-winning-badge,
+      .spot-no-trump-badge {
+        position: absolute;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        font-size: 9px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0.2px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .spot-winning-badge {
+        top: 12px;
+        right: 12px;
+        background: linear-gradient(180deg, rgba(233, 195, 116, 0.96), rgba(189, 139, 43, 0.96));
+        color: #fff8e8;
+      }
+
+      .spot-no-trump-badge {
+        left: 12px;
+        bottom: 12px;
+        background: linear-gradient(180deg, rgba(120, 170, 186, 0.96), rgba(67, 120, 136, 0.96));
+        color: #effbff;
+      }
+
       .trick-spot.left .played-card,
       .trick-spot.right .played-card {
         margin-left: -20px;
@@ -922,15 +959,17 @@
         box-shadow: inset 0 0 0 2px rgba(255, 247, 228, 0.3);
       }
 
+      /* PC v2：底部右侧改成独立操作区，和左侧手牌区并排。 */
       .center-panel {
         position: absolute;
-        left: 27%;
-        right: 27%;
-        bottom: calc(1.4% + 187px);
-        padding: 10px 14px;
-        min-height: 84px;
+        right: var(--edge-gap);
+        bottom: var(--edge-gap);
+        width: var(--action-panel-width);
+        min-height: var(--hand-panel-height);
+        height: var(--hand-panel-height);
+        padding: 14px;
         background:
-          linear-gradient(180deg, rgba(255, 249, 239, 0.98), rgba(239, 228, 202, 0.95));
+          linear-gradient(180deg, rgba(255, 249, 239, 0.98), rgba(236, 225, 197, 0.95));
       }
 
       .friend-picker {
@@ -960,20 +999,8 @@
         margin-top: 8px;
       }
 
-      .center-head {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        align-items: start;
-      }
-
-      .center-copy strong,
-      .center-copy span {
-        display: block;
-      }
-
-      .center-copy span {
-        margin-top: 8px;
+      .center-panel-shell {
+        height: 100%;
       }
 
       .focus-announcement {
@@ -1031,6 +1058,23 @@
         margin-top: 20px;
       }
 
+      .bottom-action-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-content: start;
+        gap: 10px;
+        height: 100%;
+      }
+
+      .bottom-action-row::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .bottom-action-row::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: rgba(120, 74, 24, 0.16);
+      }
+
       .setup-options {
         display: flex;
         align-items: center;
@@ -1072,6 +1116,15 @@
           inset 0 1px 0 rgba(255, 255, 255, 0.7),
           0 8px 16px rgba(0, 0, 0, 0.08);
         cursor: pointer;
+      }
+
+      .center-panel button.action-btn {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        white-space: nowrap;
       }
 
       button.action-btn.primary {
@@ -1345,39 +1398,150 @@
         margin-left: 0;
       }
 
+      /* PC v2：底部左侧整块作为手牌区。 */
       .hand-panel {
         position: absolute;
-        left: calc(var(--edge-gap) + var(--player1-seat-width) + var(--panel-gap) + 10px);
-        right: var(--edge-gap);
+        left: var(--edge-gap);
+        right: calc(var(--edge-gap) + var(--action-panel-width) + 10px);
         bottom: var(--edge-gap);
-        min-height: var(--player1-seat-height);
-        height: var(--player1-seat-height);
-        padding: 12px 16px 14px;
-        background:
-          linear-gradient(180deg, rgba(248, 244, 235, 0.98), rgba(235, 228, 214, 0.94));
+        min-height: var(--hand-panel-height);
+        height: var(--hand-panel-height);
+        padding: 8px 0 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        backdrop-filter: none;
         overflow: hidden;
       }
 
-      /* PC 底部手牌区取消顶部说明行，把垂直空间完整留给手牌分组。 */
+      .hand-shell {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 0;
+        height: 100%;
+      }
+
       .hand-head {
         display: none;
       }
 
+      .hand-head-main {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .hand-avatar {
+        flex: 0 0 auto;
+        width: 42px;
+        height: 42px;
+        border-radius: 16px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      }
+
+      .hand-avatar img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
+
+      .hand-head-copy {
+        min-width: 0;
+      }
+
+      .hand-head-copy strong,
+      .hand-head-copy span {
+        display: block;
+      }
+
+      .hand-head-copy strong {
+        font-size: 16px;
+        line-height: 1.2;
+        color: #1a252c;
+      }
+
+      .hand-head-copy span {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .hand-head-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .hand-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(16, 44, 54, 0.08);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .hand-role-badge {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(16, 44, 54, 0.08);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .hand-role-badge.banker {
+        background: rgba(225, 185, 111, 0.18);
+        color: #85541d;
+      }
+
+      .hand-role-badge.friend {
+        background: rgba(47, 143, 106, 0.18);
+        color: #206e52;
+      }
+
+      .hand-role-badge.defender {
+        background: rgba(74, 132, 207, 0.16);
+        color: #2f609c;
+      }
+
+      .hand-main {
+        min-width: 0;
+      }
+
       .hand-groups {
         display: flex;
-        align-items: end;
-        gap: 14px;
+        align-items: stretch;
+        justify-content: space-between;
+        gap: 10px;
+        min-width: 0;
         overflow: hidden;
-        padding-right: 10px;
+        padding: 2px 0 6px;
       }
 
       .hand-group {
+        flex: 1 1 0;
         min-width: 0;
       }
 
       .group-chip {
         display: inline-flex;
         align-items: center;
+        gap: 8px;
         margin-bottom: 8px;
         padding: 4px 9px;
         border-radius: 999px;
@@ -1392,9 +1556,27 @@
         color: #9f3c37;
       }
 
+      .group-chip-count {
+        display: inline-grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        font-size: 10px;
+      }
+
       .cards-row {
         display: flex;
         align-items: end;
+        width: 100%;
+        min-width: 0;
+        min-height: 102px;
+        padding: 6px 4px 6px 0;
+        border-radius: 0;
+        background: transparent;
+        border: 0;
       }
 
       .card-btn,
@@ -1418,6 +1600,10 @@
       .card-btn {
         cursor: pointer;
         transition: transform 140ms ease, filter 140ms ease;
+      }
+
+      .cards-row .card-btn {
+        margin-left: calc(var(--pc-card-overlap, 22px) * -1);
       }
 
       .card-btn:hover {
@@ -1532,6 +1718,819 @@
         color: #7b5a2a;
       }
 
+      /* PC v2：顶部状态条改成更接近手游的信息密度。 */
+      .topbar {
+        top: var(--edge-gap);
+        left: var(--edge-gap);
+        right: var(--edge-gap);
+        min-height: 132px;
+        height: 132px;
+        padding: 12px 14px;
+        border-radius: 22px;
+        background:
+          linear-gradient(180deg, rgba(244, 236, 219, 0.96), rgba(225, 213, 189, 0.92));
+        border-color: rgba(132, 96, 43, 0.14);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.64),
+          var(--shadow-md);
+      }
+
+      .topbar-main {
+        display: grid;
+        grid-template-columns: 196px minmax(0, 1fr) 252px;
+        gap: 12px;
+        height: 100%;
+      }
+
+      .topbar-summary {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-content: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .topbar-summary-block {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(132, 96, 43, 0.08);
+      }
+
+      .topbar-summary-label {
+        color: #7a6b53;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+      }
+
+      .topbar-summary-block .timer-ring {
+        align-items: center;
+      }
+
+      .topbar-summary-block .timer-ring strong {
+        font-size: 28px;
+      }
+
+      .topbar-summary-block .score-big {
+        font-size: 28px;
+      }
+
+      .topbar-status-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        align-content: center;
+        min-width: 0;
+      }
+
+      .topbar-state-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        padding: 12px;
+        border-radius: 18px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(247, 241, 229, 0.68));
+        border: 1px solid rgba(134, 100, 48, 0.08);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.54);
+      }
+
+      .topbar-state-card.friend {
+        gap: 10px;
+      }
+
+      .topbar-state-key {
+        flex: 0 0 auto;
+        width: 30px;
+        height: 30px;
+        border-radius: 11px;
+        display: grid;
+        place-items: center;
+        background: rgba(120, 74, 24, 0.1);
+        color: #85541d;
+        font-size: 14px;
+        font-weight: 900;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
+      }
+
+      .topbar-state-key.friend {
+        color: #2d8566;
+        background: rgba(45, 133, 102, 0.16);
+      }
+
+      .topbar-state-copy {
+        min-width: 0;
+        flex: 1;
+      }
+
+      .topbar-state-meta {
+        display: grid;
+        gap: 6px;
+        justify-items: end;
+      }
+
+      .topbar-state-copy strong,
+      .topbar-state-copy span {
+        display: block;
+      }
+
+      .topbar-state-copy strong {
+        font-size: 14px;
+        line-height: 1.3;
+        color: #1a252c;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .topbar-state-copy span {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.35;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .topbar-state-meta .pill.compact {
+        min-width: 0;
+        max-width: 108px;
+        padding: 5px 8px;
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .topbar-friend-card {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+      }
+
+      .topbar-friend-card .friend-card,
+      .topbar-friend-card .played-card {
+        width: 40px;
+        height: 58px;
+      }
+
+      .topbar-friend-owner {
+        display: none !important;
+      }
+
+      .topbar-trump-badge {
+        flex: 0 0 auto;
+        width: 38px;
+        height: 56px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(241, 232, 214, 0.92));
+        border: 1px solid rgba(132, 96, 43, 0.1);
+        color: #1a252c;
+        font-size: 22px;
+        font-weight: 900;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+      }
+
+      .topbar-trump-badge.red {
+        color: #b33a34;
+      }
+
+      .topbar-tools {
+        display: grid;
+        align-content: center;
+        padding-left: 12px;
+        border-left: 1px solid rgba(128, 95, 48, 0.12);
+      }
+
+      .battle-range {
+        position: absolute;
+        left: 156px;
+        top: 176px;
+        width: 1286px;
+        height: 510px;
+        border-radius: 32px;
+        background: rgba(10, 24, 31, 0.16);
+        border: 1px solid rgba(239, 224, 181, 0.16);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .battle-range-core {
+        position: absolute;
+        inset: 20px;
+        border-radius: 28px;
+        background:
+          radial-gradient(circle at 50% 40%, rgba(101, 153, 178, 0.26), transparent 54%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(7, 18, 24, 0.12));
+      }
+
+      .battle-range-route {
+        position: absolute;
+        left: 244px;
+        top: 44px;
+        width: 798px;
+        height: 410px;
+        border: 1px dashed rgba(244, 232, 198, 0.14);
+        background: rgba(255, 255, 255, 0.018);
+        clip-path: polygon(50% 0%, 100% 39%, 81% 100%, 19% 100%, 0% 39%);
+      }
+
+      .toolbar-icon-row {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .icon-btn {
+        position: relative;
+        width: 100%;
+        min-width: 0;
+        min-height: 40px;
+        padding: 0;
+        overflow: hidden;
+        font-size: 0;
+        border: 1px solid rgba(116, 82, 40, 0.1);
+        border-radius: 14px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 234, 221, 0.92));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.8),
+          0 8px 14px rgba(0, 0, 0, 0.06);
+      }
+
+      .icon-btn::after {
+        content: attr(data-icon);
+        display: grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+      }
+
+      .icon-image-btn {
+        display: grid;
+        place-items: center;
+      }
+
+      .icon-image-btn::after {
+        content: none;
+      }
+
+      .icon-image-btn img {
+        width: 20px;
+        height: 20px;
+        display: block;
+        object-fit: contain;
+        filter: brightness(0) saturate(100%) opacity(0.92);
+      }
+
+      .toolbar-menu {
+        top: 154px;
+        right: var(--edge-gap);
+        width: 316px;
+        padding: 14px;
+        z-index: 12;
+        border-radius: 20px;
+        background:
+          linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(236, 228, 212, 0.96));
+        border-color: rgba(132, 96, 43, 0.12);
+        box-shadow: 0 20px 34px rgba(0, 0, 0, 0.2);
+      }
+
+      .toolbar-menu::before {
+        content: "";
+        position: absolute;
+        right: 54px;
+        top: -8px;
+        width: 16px;
+        height: 16px;
+        background: rgba(255, 249, 239, 0.98);
+        border-left: 1px solid rgba(132, 96, 43, 0.12);
+        border-top: 1px solid rgba(132, 96, 43, 0.12);
+        transform: rotate(45deg);
+      }
+
+      .toolbar-menu-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .toolbar-menu-head .subtle {
+        text-align: right;
+        font-size: 10px;
+      }
+
+      .toolbar-menu-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .toolbar-menu-btn {
+        min-height: 42px;
+        padding: 10px 12px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 232, 221, 0.92));
+      }
+
+      /* PC v2：玩家面板退化成轻量身份条，关键信息并到出牌区。 */
+      .seat {
+        width: 136px;
+        min-height: 70px;
+        padding: 8px 10px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(242, 249, 252, 0.14), rgba(230, 241, 246, 0.08));
+        border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: none;
+        z-index: 1;
+      }
+
+      .seat.seat-role-banker {
+        background: linear-gradient(180deg, rgba(236, 211, 156, 0.22), rgba(241, 240, 229, 0.1));
+      }
+
+      .seat.seat-role-friend {
+        background: linear-gradient(180deg, rgba(119, 184, 155, 0.22), rgba(231, 245, 240, 0.1));
+      }
+
+      .seat.seat-role-defender {
+        background: linear-gradient(180deg, rgba(120, 166, 197, 0.22), rgba(230, 241, 247, 0.1));
+      }
+
+      .seat.player-4,
+      .seat.player-3 {
+        width: 136px;
+        min-height: 70px;
+        height: auto;
+      }
+
+      .seat.player-4 {
+        top: 194px;
+        left: 24px;
+      }
+
+      .seat.player-3 {
+        top: 276px;
+        left: 24px;
+      }
+
+      .seat.player-5,
+      .seat.player-2 {
+        width: 136px;
+        min-height: 70px;
+      }
+
+      .seat.player-5 {
+        top: 358px;
+        left: 24px;
+      }
+
+      .seat.player-2 {
+        top: 440px;
+        left: 24px;
+        bottom: auto;
+      }
+
+      .seat.player-1 {
+        left: 24px;
+        top: 514px;
+        bottom: auto;
+        width: 136px;
+        min-height: 136px;
+        height: 136px;
+        padding: 10px 10px;
+      }
+
+      .version-badge {
+        right: var(--edge-gap);
+        left: auto;
+        top: auto;
+        bottom: calc(var(--edge-gap) + var(--hand-panel-height) + 10px);
+      }
+
+      .seat .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+      }
+
+      .seat .title {
+        font-size: 14px;
+      }
+
+      .seat-copy {
+        display: grid;
+        gap: 5px;
+      }
+
+      .seat .seat-level-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+      }
+
+      .seat .seat-level {
+        margin-top: 0;
+        padding: 2px 7px;
+        font-size: 10px;
+      }
+
+      .seat-role-icon {
+        width: 22px;
+        height: 22px;
+        display: inline-grid;
+        place-items: center;
+        border-radius: 999px;
+        background: rgba(16, 44, 54, 0.08);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .seat-role-icon.banker {
+        background: rgba(225, 185, 111, 0.18);
+        color: #85541d;
+      }
+
+      .seat-role-icon.friend {
+        background: rgba(47, 143, 106, 0.18);
+        color: #206e52;
+      }
+
+      .seat-role-icon.defender {
+        background: rgba(74, 132, 207, 0.16);
+        color: #2f609c;
+      }
+
+      .seat.player-1 .avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+      }
+
+      .seat-top-self {
+        align-items: flex-start;
+      }
+
+      .seat-self-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+
+      .seat-self-tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 20px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+        color: rgba(255, 247, 230, 0.88);
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .seat-self-status {
+        color: rgba(222, 234, 239, 0.72);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      /* PC v2：5 个出牌区统一规格，并把玩家状态直接挂在出牌区头部。 */
+      .trick-spot {
+        padding: 12px;
+        min-height: 162px;
+        border-radius: 18px;
+        border: 1px solid rgba(229, 208, 160, 0.28);
+        background: rgba(9, 24, 31, 0.34);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.06),
+          0 14px 28px rgba(0, 0, 0, 0.16);
+        z-index: 1;
+      }
+
+      .trick-spot.top-left,
+      .trick-spot.top-right,
+      .trick-spot.left,
+      .trick-spot.right {
+        width: 312px;
+      }
+
+      .trick-spot.top-left,
+      .trick-spot.top-right {
+        top: 198px;
+      }
+
+      .trick-spot.top-left {
+        left: 190px;
+      }
+
+      .trick-spot.top-right {
+        right: 190px;
+      }
+
+      .trick-spot.left,
+      .trick-spot.right {
+        top: 392px;
+      }
+
+      .trick-spot.left {
+        left: 190px;
+      }
+
+      .trick-spot.right {
+        right: 190px;
+      }
+
+      .trick-spot.bottom {
+        left: 50%;
+        right: auto;
+        width: 420px;
+        min-height: 176px;
+        bottom: 226px;
+        transform: translateX(-50%);
+      }
+
+      .trick-spot .label {
+        margin-bottom: 12px;
+      }
+
+      .spot-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .spot-player {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .spot-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      }
+
+      .spot-avatar img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .spot-info {
+        min-width: 0;
+      }
+
+      .spot-name-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .spot-name {
+        color: rgba(255, 247, 230, 0.94);
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .spot-role-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 20px;
+        padding: 0 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      .spot-role-chip.banker {
+        background: rgba(225, 185, 111, 0.22);
+        color: #f1c97d;
+      }
+
+      .spot-role-chip.friend {
+        background: rgba(47, 143, 106, 0.22);
+        color: #8fdfbb;
+      }
+
+      .spot-metrics {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+        max-width: 96px;
+      }
+
+      .spot-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 22px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 247, 230, 0.9);
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .spot-chip.highlight {
+        background: rgba(225, 185, 111, 0.22);
+        color: #f3cc85;
+      }
+
+      .spot-body-note {
+        color: rgba(220, 231, 235, 0.6);
+        font-size: 12px;
+      }
+
+      .trick-spot .spot-row {
+        min-height: 84px;
+      }
+
+      .trick-spot .played-card {
+        margin-left: -16px;
+      }
+
+      .trick-spot .played-card:first-child {
+        margin-left: 0;
+      }
+
+      .trick-spot .played-card.trump::after {
+        content: none;
+      }
+
+      .trick-spot.zoomable::before {
+        right: 12px;
+        top: 56px;
+      }
+
+      .trick-spot.zoomable .spot-winning-badge {
+        top: 14px;
+      }
+
+      .focus-banner {
+        left: 36%;
+        right: 36%;
+        bottom: calc(55% - 8px);
+      }
+
+      .center-panel {
+        right: var(--edge-gap);
+        bottom: var(--edge-gap);
+        border-color: rgba(89, 131, 162, 0.28);
+        background:
+          linear-gradient(180deg, rgba(226, 239, 248, 0.98), rgba(172, 197, 216, 0.94));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.68),
+          0 18px 30px rgba(19, 43, 61, 0.22);
+        z-index: 2;
+      }
+
+      .center-panel button.action-btn {
+        border: 1px solid rgba(83, 124, 156, 0.22);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(216, 231, 241, 0.96));
+        color: #14384c;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.82),
+          0 10px 16px rgba(43, 86, 122, 0.14);
+      }
+
+      .center-panel button.action-btn.primary {
+        background: linear-gradient(180deg, #5ea6e0, #2f70b5);
+        color: #f7fbff;
+      }
+
+      /* PC v2：ready 阶段增加独立开始界面。 */
+      .start-lobby {
+        position: absolute;
+        inset: 0;
+        z-index: 11;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+      }
+
+      .start-lobby.hidden {
+        display: none !important;
+      }
+
+      .start-lobby-backdrop {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at center, rgba(255, 255, 255, 0.08), transparent 36%),
+          rgba(7, 18, 23, 0.34);
+        backdrop-filter: blur(6px);
+      }
+
+      .start-lobby-card {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: min(620px, calc(100% - 96px));
+        padding: 28px 30px;
+        border-radius: 24px;
+        transform: translate(-50%, -50%);
+        background:
+          linear-gradient(180deg, rgba(250, 246, 239, 0.98), rgba(233, 225, 209, 0.95));
+        box-shadow: 0 28px 56px rgba(0, 0, 0, 0.26);
+      }
+
+      .start-lobby-hero {
+        overflow: hidden;
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(18, 43, 54, 0.22), rgba(12, 28, 36, 0.08));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      }
+
+      .start-lobby-hero img {
+        display: block;
+        width: 100%;
+        height: 184px;
+        object-fit: cover;
+      }
+
+      .rules-panel {
+        z-index: 13;
+      }
+
+      .start-lobby-title {
+        margin: 8px 0 0;
+        font-family: "Heiti SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+        font-size: 34px;
+        line-height: 1.1;
+      }
+
+      .start-lobby-title-wrap .subtle {
+        margin-top: 12px;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .start-lobby-select {
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        margin-top: 18px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.56);
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .start-lobby-select .score-select {
+        min-width: 132px;
+      }
+
+      .start-lobby-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .start-lobby-actions .action-btn {
+        flex: 1;
+        min-height: 48px;
+        font-size: 14px;
+      }
+
       @media (max-width: 1260px) {
         body {
           overflow: auto;
@@ -1552,73 +2551,86 @@
   <body>
     <div class="scene">
       <main class="table">
-        <section class="panel friend-panel" data-layout-id="friend-panel">
-          <div class="label">朋友牌</div>
-          <div id="friendHint" class="subtle"></div>
-          <div class="friend-row">
-            <div id="friendCardMount"></div>
-            <div class="friend-copy">
-              <strong id="friendLabel" class="title"></strong>
-              <span id="friendState" class="subtle"></span>
-              <span id="friendOwner" class="subtle"></span>
+        <section class="panel topbar" data-layout-id="topbar-panel">
+          <div class="topbar-main">
+            <div class="topbar-summary">
+              <div class="topbar-summary-block timer">
+                <span class="topbar-summary-label">计时</span>
+                <div class="timer-ring">
+                  <strong id="turnTimer">15</strong>
+                  <span class="subtle">秒</span>
+                </div>
+              </div>
+              <div class="topbar-summary-block score">
+                <span class="topbar-summary-label">总分</span>
+                <div id="defenderScore" class="score-big">0</div>
+              </div>
+            </div>
+            <div class="topbar-status-row">
+              <div class="topbar-state-card">
+                <div class="topbar-state-key">局</div>
+                <div class="topbar-state-copy">
+                  <strong id="trickLabel"></strong>
+                  <span id="timerHint"></span>
+                </div>
+                <div class="topbar-state-meta">
+                  <div class="pill compact" id="phaseLabel"></div>
+                  <div class="pill compact" id="leaderLabel"></div>
+                </div>
+              </div>
+              <div class="topbar-state-card">
+                <div class="topbar-state-key">主</div>
+                <div id="topbarTrumpBadge" class="topbar-trump-badge"></div>
+                <div class="topbar-state-copy">
+                  <strong id="trumpLabel"></strong>
+                  <span id="bankerLabel"></span>
+                </div>
+              </div>
+              <div class="topbar-state-card friend">
+                <div class="topbar-state-key friend">朋</div>
+                <div id="friendCardMount" class="topbar-friend-card"></div>
+                <div class="topbar-state-copy">
+                  <strong id="friendLabel"></strong>
+                  <span id="friendState"></span>
+                  <span id="friendOwner" class="topbar-friend-owner"></span>
+                </div>
+              </div>
+            </div>
+            <div class="topbar-tools">
+              <div class="toolbar-icon-row">
+                <button id="autoManagedBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-pressed="false" aria-label="本局托管" title="本局托管">
+                  <img src="./icons/icon_robot.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="toggleLogBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="信息" title="信息">
+                  <img src="./icons/info-button.svg" alt="" aria-hidden="true" />
+                </button>
+                <button id="toggleLastTrickBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="上一轮回看" title="上一轮回看">
+                  <img src="./icons/icon_back.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="newGameBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="新游戏" title="新游戏">
+                  <img src="./icons/icon_new_game.png" alt="" aria-hidden="true" />
+                </button>
+                <button id="toggleRulesBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="更多设置" title="更多设置">
+                  <img src="./icons/icon_menu.png" alt="" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
+          <span id="friendHint" class="hidden"></span>
         </section>
 
-        <section class="panel hud" data-layout-id="hud-panel">
-          <div class="hud-head">
-            <div class="game-title">五人找朋友升级</div>
-            <div class="hud-tag-row">
-              <div class="pill" id="phaseLabel"></div>
-              <div class="pill" id="leaderLabel"></div>
-            </div>
+        <section id="toolbarMenuPanel" class="panel toolbar-menu hidden">
+          <div class="toolbar-menu-head">
+            <strong class="label">更多功能</strong>
+            <span class="subtle">低频功能收纳到这里</span>
           </div>
-          <div class="status-grid">
-            <div class="chip">
-              <strong>主牌 / 级牌</strong>
-              <span id="trumpLabel"></span>
-            </div>
-            <div class="chip">
-              <strong>打家</strong>
-              <span id="bankerLabel"></span>
-            </div>
-            <div class="chip">
-              <strong>轮次</strong>
-              <span id="trickLabel"></span>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel score-panel" data-layout-id="score-panel">
-          <div class="score-top">
-            <div class="timer-ring">
-              <strong id="turnTimer">15</strong>
-              <span class="subtle">秒</span>
-            </div>
-            <div class="score-stack">
-              <div class="label">非打家总分</div>
-              <div id="defenderScore" class="score-big">0</div>
-            </div>
-          </div>
-          <div class="subtle" id="timerHint">当前轮到玩家1出牌</div>
-          <div class="score-actions">
-            <button id="toggleLastTrickBtn" class="tiny-btn">上一轮</button>
-            <button id="toggleLogBtn" class="tiny-btn">播报</button>
-            <button id="toggleDebugBtn" class="tiny-btn">Debug</button>
-            <button id="toggleBottomBtn" class="tiny-btn">底牌</button>
-            <button id="toggleRulesBtn" class="tiny-btn">规则帮助</button>
-            <button id="autoManagedBtn" class="tiny-btn" type="button" aria-pressed="false">本局托管</button>
-            <button id="toggleCardFaceBtn" class="tiny-btn">牌面：经典</button>
-            <button id="layoutEditBtn" class="tiny-btn">布局编辑</button>
-            <button id="newGameBtn" class="tiny-btn">新牌局</button>
-            <label class="score-select-control" for="aiDifficultySelect">
-              <span>AI难度</span>
-              <select id="aiDifficultySelect" class="score-select">
-                <option value="beginner">初级</option>
-                <option value="intermediate">中级</option>
-                <option value="advanced">高级</option>
-              </select>
-            </label>
+          <div class="toolbar-menu-grid">
+            <button id="menuRulesBtn" class="tiny-btn toolbar-menu-btn" type="button">规则帮助</button>
+            <button id="toggleBottomBtn" class="tiny-btn toolbar-menu-btn" type="button">查看底牌</button>
+            <button id="toggleDebugBtn" class="tiny-btn toolbar-menu-btn" type="button">调试信息</button>
+            <button id="toggleCardFaceBtn" class="tiny-btn toolbar-menu-btn" type="button">切换牌面</button>
+            <button id="layoutEditBtn" class="tiny-btn toolbar-menu-btn" type="button">布局编辑</button>
+            <button id="menuNewRoundBtn" class="tiny-btn toolbar-menu-btn" type="button">重新开局</button>
           </div>
         </section>
 
@@ -1628,6 +2640,11 @@
         <section id="playerSeat-2" class="panel seat player-2" data-layout-id="player-seat-2"></section>
         <div id="versionBadge" class="version-badge"></div>
         <section id="playerSeat-1" class="panel seat player-1" data-layout-id="player-seat-1"></section>
+
+        <div class="battle-range" aria-hidden="true">
+          <div class="battle-range-core"></div>
+          <div class="battle-range-route"></div>
+        </div>
 
         <section id="trickSpot-4" class="panel trick-spot top-left" data-layout-id="trick-spot-4"></section>
         <section id="trickSpot-3" class="panel trick-spot top-right" data-layout-id="trick-spot-3"></section>
@@ -1657,7 +2674,7 @@
 
         <section id="logPanel" class="panel floating-panel log-panel" data-layout-id="log-panel">
           <div id="logPanelDrag" class="panel-head panel-drag">
-            <div class="label">牌局播报</div>
+            <div class="label">信息</div>
             <div class="panel-controls">
               <button id="closeLogBtn" class="panel-close" type="button">×</button>
             </div>
@@ -1695,22 +2712,50 @@
           </div>
         </section>
 
-        <section class="panel center-panel" data-layout-id="center-panel">
-          <div class="center-head">
-            <div class="center-copy">
-              <span id="actionHint" class="subtle"></span>
+        <section id="centerPanel" class="panel center-panel" data-layout-id="center-panel">
+          <div class="center-panel-shell">
+            <div class="bottom-action-row">
+              <button id="beatBtn" class="action-btn">毙牌</button>
+              <button id="hintBtn" class="action-btn">选择</button>
+              <button id="playBtn" class="action-btn primary">出牌</button>
+              <button id="newProgressBtn" class="action-btn">新的游戏</button>
+              <button id="continueGameBtn" class="action-btn">继续游戏</button>
+              <button id="startGameBtn" class="action-btn primary">开始发牌</button>
+              <button id="declareBtn" class="action-btn">亮主</button>
+              <button id="passCounterBtn" class="action-btn">不反主</button>
             </div>
-            <div id="centerTag" class="center-tag"></div>
           </div>
-          <div class="action-row">
-            <button id="beatBtn" class="action-btn">毙牌</button>
-            <button id="hintBtn" class="action-btn">选择</button>
-            <button id="playBtn" class="action-btn primary">出牌</button>
-            <button id="newProgressBtn" class="action-btn">新的游戏</button>
-            <button id="continueGameBtn" class="action-btn">继续游戏</button>
-            <button id="startGameBtn" class="action-btn primary">开始发牌</button>
-            <button id="declareBtn" class="action-btn">亮主</button>
-            <button id="passCounterBtn" class="action-btn">不反主</button>
+          <div class="hidden">
+            <span id="centerTag"></span>
+            <span id="actionHint"></span>
+            <span id="actionSelectionBadge"></span>
+          </div>
+        </section>
+
+        <section id="startLobbyPanel" class="panel start-lobby hidden">
+          <div class="start-lobby-backdrop"></div>
+          <div class="start-lobby-card">
+            <div class="start-lobby-hero">
+              <img src="./poker.png" alt="游戏主视觉" />
+            </div>
+            <div class="start-lobby-title-wrap">
+              <div class="label">PC 开始界面</div>
+              <h1 class="start-lobby-title">五人找朋友升级</h1>
+              <p id="startLobbyStatus" class="subtle"></p>
+            </div>
+            <label class="start-lobby-select" for="aiDifficultySelect">
+              <span>AI难度</span>
+              <select id="aiDifficultySelect" class="score-select">
+                <option value="beginner">初级</option>
+                <option value="intermediate">中级</option>
+                <option value="advanced">高级</option>
+              </select>
+            </label>
+            <div class="start-lobby-actions">
+              <button id="startLobbyStartBtn" class="action-btn primary" type="button">开始游戏</button>
+              <button id="startLobbyContinueBtn" class="action-btn" type="button">继续游戏</button>
+              <button id="startLobbyRulesBtn" class="action-btn" type="button">查看规则</button>
+            </div>
           </div>
         </section>
 
@@ -1784,10 +2829,28 @@
         </section>
 
         <section class="panel hand-panel" data-layout-id="hand-panel">
-          <div class="hand-head">
-            <span id="handSummary"></span>
+          <div class="hand-shell">
+            <div class="hand-head">
+              <div class="hand-head-main">
+                <div class="hand-avatar">
+                  <img id="handPlayerAvatar" src="./avatars/fox.svg" alt="我的头像" />
+                </div>
+                <div class="hand-head-copy">
+                  <strong id="handPanelTitle">我的手牌</strong>
+                  <div class="hand-head-meta">
+                    <span id="handCountPill" class="hand-pill">手牌 0</span>
+                    <span id="handRoleBadge" class="hand-role-badge hidden"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="handGroups" class="hand-groups"></div>
+            <span id="handSummary" class="hidden"></span>
+            <span id="handPlayerRole" class="hidden"></span>
+            <span id="handPhasePill" class="hidden"></span>
+            <span id="handSelectedPill" class="hidden"></span>
+            <span id="handSelectionNote" class="hidden"></span>
           </div>
-          <div id="handGroups" class="hand-groups"></div>
         </section>
 
         <div id="resultOverlay" class="result-overlay">

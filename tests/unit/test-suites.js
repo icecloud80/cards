@@ -59,6 +59,18 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-play-announcements.js"),
   },
   {
+    name: "Start lobby regression",
+    file: path.join(__dirname, "check-start-lobby.js"),
+  },
+  {
+    name: "Mobile UI isolation regression",
+    file: path.join(__dirname, "check-mobile-ui-isolation.js"),
+  },
+  {
+    name: "PC compact UI regression",
+    file: path.join(__dirname, "check-hand-panel-snapshot.js"),
+  },
+  {
     name: "Final-hand flow regression",
     file: path.join(__dirname, "check-final-hand-flow.js"),
   },

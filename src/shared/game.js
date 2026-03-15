@@ -3,6 +3,50 @@ function getReadyStartMessage() {
   return "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
 }
 
+/**
+ * 作用：
+ * 判断当前是否应该显示 PC 端准备阶段的独立开始界面。
+ *
+ * 为什么这样写：
+ * PC 新版首页把“开始游戏 / 继续游戏 / 查看规则”从中央操作条里独立出来，
+ * 用单独 helper 统一显示条件，可以避免不同渲染入口各自维护一套 ready 判断。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前平台和全局状态。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应显示 PC 开始界面。
+ *
+ * 注意：
+ * - 仅 PC 平台显示该开始界面，mobile 继续沿用原有入口。
+ * - 只要离开 `ready` 阶段，就必须立即隐藏，避免遮住正式牌局。
+ */
+function shouldShowPcReadyLobby() {
+  return APP_PLATFORM === "pc" && state.phase === "ready" && !state.gameOver;
+}
+
+/**
+ * 作用：
+ * 判断当前是否应该显示 PC 顶部的更多功能菜单。
+ *
+ * 为什么这样写：
+ * 顶部工具区改成“高频图标 + 更多菜单”后，菜单显示条件需要统一收口，
+ * 否则不同按钮和渲染入口各自判断，容易出现 ready 阶段或移动端误显示。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前平台和全局状态。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应显示桌面端更多功能菜单。
+ *
+ * 注意：
+ * - 仅 PC 平台显示该菜单。
+ * - ready 阶段由独立开始界面接管入口，因此这里必须返回 `false`。
+ */
+function shouldShowPcToolbarMenu() {
+  return APP_PLATFORM === "pc" && state.phase !== "ready" && !state.gameOver && !!state.showToolbarMenu;
+}
+
 // 按新进度重置等级并准备开始新局。
 function startNewProgress(autoStart = false) {
   state.playerLevels = { ...INITIAL_LEVELS };
@@ -114,6 +158,7 @@ function setupGame() {
   state.showLastTrick = false;
   state.showLogPanel = true;
   state.showDebugPanel = false;
+  state.showToolbarMenu = false;
   state.showBottomPanel = false;
   state.showRulesPanel = false;
   state.logs = [];

@@ -277,6 +277,68 @@ function scoreIntermediateSidePatternSafety(playerId, combo, handBefore) {
   return -(30 + Math.min(enemyTrumpPressure, 24) + Math.min(sidePatternPressure, 18));
 }
 
+/**
+ * 作用：
+ * 评估一手“带分首发”是否属于高风险试探，并返回应施加的惩罚。
+ *
+ * 为什么这样写：
+ * 里程碑 3 要把“危险带分领牌”从经验口径沉到正式评分里。
+ * 对中级来说，像高分主单、高分主对这类动作，如果打出去后既可能送分又可能失先手，
+ * 就应该在启发式阶段先显著降权，而不是完全依赖 rollout 事后补救。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的首发牌组。
+ * @param {Array<object>} handBefore - 出牌前完整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回应扣除的风险惩罚分；越大表示越不该这样带分试探。
+ *
+ * 注意：
+ * - 这里只基于公开信息和己方手牌结构做保守惩罚，不读取对手暗手。
+ * - 该函数重点约束“高分主单 / 高分主对”和高风险带分副牌单张，不替代 rollout 对真实得失分的判断。
+ */
+function scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore) {
+  if (!Array.isArray(combo) || combo.length === 0 || !Array.isArray(handBefore)) return 0;
+  const comboPoints = getComboPointValue(combo);
+  if (comboPoints <= 0) return 0;
+
+  const pattern = classifyPlay(combo);
+  const leadSuit = effectiveSuit(combo[0]);
+  const cardsLeft = state.players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
+  const lateRound = cardsLeft <= 20;
+  const handAfter = getHandAfterCombo(handBefore, combo);
+  const trumpBefore = handBefore.filter((card) => effectiveSuit(card) === "trump");
+  const trumpAfter = handAfter.filter((card) => effectiveSuit(card) === "trump");
+  const potentialTrumpResponders = getIntermediateEnemyIds(playerId).filter((enemyId) => !state.exposedTrumpVoid?.[enemyId]).length;
+  const averageLeadPower = combo.reduce((sum, card) => sum + getPatternUnitPower(card, leadSuit), 0) / combo.length;
+  let penalty = 0;
+
+  if (leadSuit === "trump") {
+    if (!["single", "pair"].includes(pattern.type)) return 0;
+    penalty += comboPoints * 6;
+    if (pattern.type === "single") penalty += 10;
+    if (pattern.type === "pair") penalty += 24;
+    if (averageLeadPower >= 14) penalty += 12;
+    if (trumpBefore.length <= 4) penalty += 10;
+    if (trumpAfter.length <= 2) penalty += 16;
+    if (potentialTrumpResponders >= 2) penalty += 14;
+    if (lateRound) penalty += 14;
+    if (playerId === state.bankerId || (isFriendTeamResolved() && areSameSide(playerId, state.bankerId))) {
+      penalty += 8;
+    }
+    return penalty;
+  }
+
+  if (pattern.type === "single" && comboPoints >= 10) {
+    penalty += comboPoints * 3;
+    if (lateRound) penalty += 10;
+    if (isAiDangerousBankerRuffSuit(playerId, leadSuit)) penalty += 18;
+  }
+
+  return penalty;
+}
+
 // 收集中级 AI 可用的首发候选牌组。
 function getIntermediateLeadCandidates(playerId) {
   const player = getPlayer(playerId);
@@ -363,6 +425,11 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candida
   score += scoreLeadTripleBreakPenalty(handBefore, combo);
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
+  const dangerousPointLeadPenalty = scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore);
+  if (candidateEntry && typeof candidateEntry === "object") {
+    candidateEntry.dangerousPointLeadPenalty = dangerousPointLeadPenalty;
+  }
+  score -= dangerousPointLeadPenalty;
   score += scoreRememberedStructurePromotion(playerId, combo);
 
   const throwAssessment = candidateEntry?.throwAssessment || assessThrowCandidateForState(state, playerId, combo);
@@ -657,6 +724,9 @@ function summarizeCandidateDebugStats(candidateEntries, filteredCandidateEntries
   const turnAccessRiskCount = entries.filter((entry) =>
     Array.isArray(entry.rolloutTriggerFlags) && entry.rolloutTriggerFlags.includes("turn_access_risk")
   ).length;
+  const pointRunRiskCount = entries.filter((entry) =>
+    Array.isArray(entry.rolloutTriggerFlags) && entry.rolloutTriggerFlags.includes("point_run_risk")
+  ).length;
   const filteredReasonCounts = filteredEntries.reduce((acc, entry) => {
     const key = entry?.filterReason || "filtered";
     acc[key] = (acc[key] || 0) + 1;
@@ -669,6 +739,7 @@ function summarizeCandidateDebugStats(candidateEntries, filteredCandidateEntries
     completedRolloutCount,
     extendedRolloutCount,
     turnAccessRiskCount,
+    pointRunRiskCount,
     maxRolloutDepth,
   };
 }
@@ -686,6 +757,12 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
       tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
       score: typeof entry.score === "number" ? entry.score : null,
       heuristicScore: typeof entry.heuristicScore === "number" ? entry.heuristicScore : null,
+      dangerousPointLeadPenalty: typeof entry.dangerousPointLeadPenalty === "number"
+        ? entry.dangerousPointLeadPenalty
+        : null,
+      structureControlPenalty: typeof entry.structureControlPenalty === "number"
+        ? entry.structureControlPenalty
+        : null,
       rolloutScore: typeof entry.rolloutScore === "number" ? entry.rolloutScore : null,
       rolloutFutureDelta: typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : null,
       rolloutDepth: entry.rolloutDepth ?? 0,
@@ -722,6 +799,13 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
     selectedSource: bestEntry?.source || null,
     selectedTags: Array.isArray(bestEntry?.tags) ? [...bestEntry.tags] : [],
     selectedScore: typeof bestEntry?.score === "number" ? bestEntry.score : null,
+    selectedDangerousPointLeadPenalty: typeof bestEntry?.dangerousPointLeadPenalty === "number"
+      ? bestEntry.dangerousPointLeadPenalty
+      : null,
+    selectedStructureControlPenalty: typeof bestEntry?.structureControlPenalty === "number"
+      ? bestEntry.structureControlPenalty
+      : null,
+    selectedRolloutTriggerFlags: Array.isArray(bestEntry?.rolloutTriggerFlags) ? [...bestEntry.rolloutTriggerFlags] : [],
     selectedCards: cloneCardsForSimulation(bestEntry?.cards || []),
     selectedBreakdown: cloneDebugValue(bestEntry?.rolloutEvaluation) || summarizeEvaluationForDebug(bundle.evaluation),
     debugStats: summarizeCandidateDebugStats(scoredEntries, bundle.filteredCandidateEntries),
@@ -891,6 +975,10 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
           score += 10;
         }
       }
+      if ((futureEvaluation?.breakdown?.pointRunRisk || 0) <= -24) {
+        triggerFlags.push("point_run_risk");
+        score -= 14;
+      }
       return {
         score,
         delta,
@@ -930,6 +1018,60 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
   };
 }
 
+/**
+ * 作用：
+ * 对“结构首发但 rollout 明确提示会掉控”的候选追加惩罚。
+ *
+ * 为什么这样写：
+ * 里程碑 3 的收口问题之一，是结构牌型本身的正向奖励在某些局面仍然过高，
+ * 会压过 `turn_access_risk / point_run_risk` 带来的负面价值。
+ * 这里把这类惩罚放到 rollout 之后，确保它基于真实前瞻信号而不是静态猜测。
+ *
+ * 输入：
+ * @param {object|null} entry - 已经带有 rollout 结果的首发候选条目。
+ * @param {object|null} objective - 当前首发局面的目标配置。
+ *
+ * 输出：
+ * @returns {number} 返回应从候选总分里额外扣除的续控风险惩罚。
+ *
+ * 注意：
+ * - 这里只惩罚 `triple / train / tractor / bulldozer` 这类结构首发，不影响普通单张试探逻辑。
+ * - 惩罚依赖 rollout flags 与 future evaluation，不能提前挪回纯 heuristic 阶段。
+ */
+function scoreIntermediateStructureControlPenalty(entry, objective = null) {
+  if (!entry || !Array.isArray(entry.cards) || entry.cards.length === 0) return 0;
+  const pattern = classifyPlay(entry.cards);
+  if (!["triple", "train", "tractor", "bulldozer"].includes(pattern.type)) return 0;
+
+  const triggerFlags = Array.isArray(entry.rolloutTriggerFlags) ? entry.rolloutTriggerFlags : [];
+  const hasTurnAccessRisk = triggerFlags.includes("turn_access_risk");
+  const hasPointRunRisk = triggerFlags.includes("point_run_risk");
+  if (!hasTurnAccessRisk && !hasPointRunRisk) return 0;
+
+  const primary = objective?.primary || null;
+  const secondary = objective?.secondary || null;
+  const controlFocusedObjectives = new Set(["keep_control", "clear_trump", "pressure_void", "protect_bottom"]);
+  const controlFocused = controlFocusedObjectives.has(primary) || controlFocusedObjectives.has(secondary);
+  const futureBreakdown = entry.rolloutFutureEvaluation?.breakdown || {};
+  let penalty = 0;
+
+  if (pattern.type === "triple") penalty += 14;
+  if (pattern.type === "train") penalty += 18;
+  if (pattern.type === "tractor") penalty += 22;
+  if (pattern.type === "bulldozer") penalty += 30;
+
+  if (hasTurnAccessRisk) penalty += 18;
+  if (hasPointRunRisk) penalty += 16;
+  if (hasTurnAccessRisk && hasPointRunRisk) penalty += 12;
+  if (controlFocused) penalty += 14;
+  if (isFriendTeamResolved() && primary !== "find_friend") penalty += 8;
+  if ((futureBreakdown.safeLead || 0) < 0) penalty += 8;
+  if ((futureBreakdown.turnAccess || 0) < 0) penalty += 8;
+  if ((futureBreakdown.pointRunRisk || 0) <= -24) penalty += 10;
+
+  return penalty;
+}
+
 function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginnerChoice, baselineEvaluation = null) {
   if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return [];
   const baseEvaluation = baselineEvaluation || evaluateState(
@@ -941,7 +1083,7 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
     .map((entry) => {
       const heuristicScore = scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice, entry);
       const rollout = getIntermediateRolloutSummary(playerId, entry.cards, baseEvaluation, "lead");
-      return {
+      const rolloutEntry = {
         ...entry,
         heuristicScore,
         rolloutScore: rollout.score,
@@ -958,7 +1100,12 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
         rolloutTriggerFlags: rollout.triggerFlags,
         rolloutEvaluation: rollout.nextEvaluation,
         rolloutFutureEvaluation: rollout.futureEvaluation,
-        score: heuristicScore + rollout.score,
+      };
+      const structureControlPenalty = scoreIntermediateStructureControlPenalty(rolloutEntry, baseEvaluation?.objective);
+      return {
+        ...rolloutEntry,
+        structureControlPenalty,
+        score: heuristicScore + rollout.score - structureControlPenalty,
       };
     })
     .sort((a, b) => {

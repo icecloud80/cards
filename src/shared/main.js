@@ -3,6 +3,29 @@ function isHumanTurnActive() {
   return !state.gameOver && state.phase === "playing" && state.currentTurnId === 1;
 }
 
+/**
+ * 作用：
+ * 收起 PC 顶部的更多功能菜单。
+ *
+ * 为什么这样写：
+ * 设置菜单里的入口会同时打开别的浮层；统一收口成一个 helper 后，
+ * 各个按钮点击后都能保持相同的“执行动作后顺手收起菜单”体验。
+ *
+ * 输入：
+ * @param {void} - 直接修改全局状态。
+ *
+ * 输出：
+ * @returns {void} 只收起菜单，不返回额外结果。
+ *
+ * 注意：
+ * - 这里只改菜单显隐，不额外触发别的面板逻辑。
+ * - 若当前项目不是 PC，调用也应保持安全无副作用。
+ */
+function closeToolbarMenu() {
+  if (!state.showToolbarMenu) return;
+  state.showToolbarMenu = false;
+}
+
 // 同步托管按钮的显示和状态。
 function syncAutoManagedButton() {
   if (!dom.autoManagedBtn || typeof getPlayer !== "function") return;
@@ -100,6 +123,11 @@ dom.startGameBtn.addEventListener("click", () => {
   startNewProgress(true);
 });
 
+dom.startLobbyStartBtn?.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "ready") return;
+  startNewProgress(true);
+});
+
 dom.newProgressBtn?.addEventListener("click", () => {
   if (state.gameOver || state.phase !== "ready") return;
   startNewProgress();
@@ -108,6 +136,16 @@ dom.newProgressBtn?.addEventListener("click", () => {
 dom.continueGameBtn?.addEventListener("click", () => {
   if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
   continueSavedProgress(true);
+});
+
+dom.startLobbyContinueBtn?.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
+  continueSavedProgress(true);
+});
+
+dom.startLobbyRulesBtn?.addEventListener("click", () => {
+  state.showRulesPanel = true;
+  renderLogs();
 });
 
 dom.playBtn.addEventListener("click", () => {
@@ -239,6 +277,11 @@ document.addEventListener("click", (event) => {
   for (const playerId of PLAYER_ORDER) {
     document.getElementById(`trickSpot-${playerId}`)?.classList.remove("show-zoom");
   }
+  if (dom.toolbarMenuPanel && !event.target.closest("#toolbarMenuPanel") && !event.target.closest("#toggleRulesBtn")) {
+    closeToolbarMenu();
+    renderToolbarMenu?.();
+    renderScorePanel?.();
+  }
 });
 
 dom.toggleLastTrickBtn.addEventListener("click", () => {
@@ -261,18 +304,33 @@ dom.toggleLogBtn.addEventListener("click", () => {
 
 dom.toggleDebugBtn?.addEventListener("click", () => {
   state.showDebugPanel = !state.showDebugPanel;
+  closeToolbarMenu();
   renderDebugPanel();
+  renderToolbarMenu?.();
+  renderScorePanel?.();
 });
 
 dom.toggleBottomBtn.addEventListener("click", () => {
   if (!canHumanViewBottomCards()) return;
   state.showBottomPanel = !state.showBottomPanel;
+  closeToolbarMenu();
   renderBottomPanel();
+  renderToolbarMenu?.();
+  renderScorePanel?.();
 });
 
 dom.toggleRulesBtn.addEventListener("click", () => {
+  state.showToolbarMenu = !state.showToolbarMenu;
+  renderToolbarMenu?.();
+  renderScorePanel?.();
+});
+
+dom.menuRulesBtn?.addEventListener("click", () => {
   state.showRulesPanel = !state.showRulesPanel;
+  closeToolbarMenu();
   renderLogs();
+  renderToolbarMenu?.();
+  renderScorePanel?.();
 });
 
 dom.toggleCardFaceBtn?.addEventListener("click", () => {
@@ -280,11 +338,14 @@ dom.toggleCardFaceBtn?.addEventListener("click", () => {
   const nextFace = getNextCardFaceOption();
   state.cardFaceKey = nextFace.key;
   saveCardFaceKey(nextFace.key);
+  closeToolbarMenu();
   render();
 });
 
 dom.layoutEditBtn.addEventListener("click", () => {
   setLayoutEditMode(!state.layoutEditMode);
+  renderToolbarMenu?.();
+  renderScorePanel?.();
 });
 
 dom.closeLogBtn.addEventListener("click", () => {
@@ -334,6 +395,11 @@ dom.closeRulesBtn.addEventListener("click", () => {
 });
 
 dom.newGameBtn.addEventListener("click", startNewProgress);
+
+dom.menuNewRoundBtn?.addEventListener("click", () => {
+  closeToolbarMenu();
+  startNewProgress();
+});
 
 dom.restartBtn.addEventListener("click", () => {
   beginNextGame(true);

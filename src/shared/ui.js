@@ -3,6 +3,8 @@ function render() {
   renderFriendPanel();
   renderHud();
   renderScorePanel();
+  renderToolbarMenu();
+  renderStartLobby();
   renderSeats();
   renderTrickSpots();
   renderHand();
@@ -58,6 +60,166 @@ function render() {
   };
   window.__fiveFriendsSnapshot = snapshot;
   window.dispatchEvent(new CustomEvent("fivefriends:render", { detail: snapshot }));
+}
+
+/**
+ * 作用：
+ * 把身份状态映射成桌面端使用的图标徽标数据。
+ *
+ * 为什么这样写：
+ * 玩家面板、手牌头部和出牌区都会共享同一组 `庄 / 友 / 闲` 图标；
+ * 先统一成纯数据，再分别生成 DOM 或 HTML，可以避免同一套映射被重复写多次。
+ *
+ * 输入：
+ * @param {{kind: string, label: string}} role - 当前对玩家可见的身份信息。
+ *
+ * 输出：
+ * @returns {{glyph: string, title: string, kind: string}|null} 当前身份对应的徽标数据；若不应展示则返回 `null`。
+ *
+ * 注意：
+ * - `unknown` 必须返回 `null`，这样界面才能直接留空。
+ * - 返回结果只描述徽标本身，不包含任何布局信息。
+ */
+function getCompactRoleBadgeState(role) {
+  const badgeMap = {
+    banker: { glyph: "庄", title: TEXT.roles.banker },
+    friend: { glyph: "友", title: TEXT.roles.friend },
+    defender: { glyph: "闲", title: TEXT.roles.defender },
+  };
+  const entry = badgeMap[role?.kind];
+  return entry ? { ...entry, kind: role.kind } : null;
+}
+
+/**
+ * 作用：
+ * 把身份状态压缩成桌面端使用的圆形图标徽标。
+ *
+ * 为什么这样写：
+ * 这轮 PC 精修要求左侧玩家面板和中央出牌区都减少文案密度；
+ * 统一用一个 helper 产出 `庄 / 友 / 闲` 这类图标徽标，能保证两处视觉语言一致，
+ * 同时让“阵营待揭晓”在需要时直接留空。
+ *
+ * 输入：
+ * @param {{kind: string, label: string}} role - 当前对玩家可见的身份信息。
+ * @param {string} className - 徽标基础类名，用来区分座位区和出牌区样式。
+ *
+ * 输出：
+ * @returns {string} 可直接插入 DOM 的徽标 HTML；若当前身份不应展示则返回空字符串。
+ *
+ * 注意：
+ * - `unknown` 必须返回空字符串，避免继续显示“阵营待揭晓”。
+ * - 这里只负责徽标，不负责外层布局。
+ */
+function buildCompactRoleBadgeMarkup(role, className) {
+  const entry = getCompactRoleBadgeState(role);
+  if (!entry) return "";
+  return `<span class="${className} ${entry.kind}" title="${entry.title}" aria-label="${entry.title}">${entry.glyph}</span>`;
+}
+
+/**
+ * 作用：
+ * 计算桌面端玩家面板里给玩家1展示的短状态文案。
+ *
+ * 为什么这样写：
+ * 这轮 PC 方案要求玩家1 的左侧面板比其他玩家更大，并且显示不同于普通座位卡的信息；
+ * 把“当前轮到我 / 正在扣底 / 等待开局”这类状态统一收口成 helper，
+ * 就能让玩家1卡片和其他 UI 区域共用同一份阶段判断，而不是在模板里拼很多三元表达式。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {string} 适合放在玩家1面板副标题中的短状态文案。
+ *
+ * 注意：
+ * - 这里只给 PC 玩家1 面板使用，mobile 不依赖这套状态文案。
+ * - 文案必须保持短句，避免重新把长说明堆回玩家面板。
+ */
+function getPcSeatStatusText(player) {
+  if (state.gameOver || state.phase === "ending") {
+    return "本局结束";
+  }
+  if (state.phase === "ready") {
+    return "等待开始";
+  }
+  if (state.phase === "dealing") {
+    return player.id === state.declaration?.playerId ? "当前亮主" : "发牌中";
+  }
+  if (state.phase === "countering") {
+    return player.id === state.currentTurnId ? "等待反主" : "反主确认中";
+  }
+  if (state.phase === "bottomReveal") {
+    return "翻底展示";
+  }
+  if (state.phase === "burying") {
+    return player.id === state.bankerId ? "整理底牌" : "等待开打";
+  }
+  if (state.phase === "callingFriend") {
+    return player.id === state.bankerId ? "叫朋友中" : "等待叫友";
+  }
+  if (state.phase === "pause") {
+    return "本轮结算";
+  }
+  if (state.phase === "playing") {
+    return player.id === state.currentTurnId ? "当前出牌" : `第 ${state.trickNumber} 轮`;
+  }
+  return "等待行动";
+}
+
+/**
+ * 作用：
+ * 生成桌面端左侧玩家面板使用的 HTML 结构。
+ *
+ * 为什么这样写：
+ * 这轮 PC 改版把所有玩家面板都移到左侧，并要求玩家1 的盒子更大、信息也与其他玩家不同；
+ * 单独抽成 PC helper 后，可以保证 mobile 继续沿用旧结构，
+ * 同时把“普通座位卡”和“玩家1专属卡”的差异集中在一处维护。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ * @param {{kind: string, label: string}} role - 当前可见身份信息。
+ * @param {{src: string, label: string}} avatar - 当前玩家头像资源。
+ *
+ * 输出：
+ * @returns {string} 供桌面端左侧玩家面板直接使用的 HTML 片段。
+ *
+ * 注意：
+ * - 未揭晓阵营必须继续留空，不回退成解释性文案。
+ * - 玩家1 面板只显示短状态，不重新展示手牌或个人分数。
+ */
+function buildPcSeatMarkup(player, role, avatar) {
+  const roleBadge = buildCompactRoleBadgeMarkup(role, "seat-role-icon");
+  if (player.id === 1) {
+    return `
+      <div class="seat-top seat-top-self">
+        <div class="avatar"><img src="${avatar.src}" alt="${avatar.label}" /></div>
+        <div class="seat-copy">
+          <div class="seat-self-head">
+            <div class="title">${player.name}</div>
+            <span class="seat-self-tag">自己</span>
+          </div>
+          <div class="seat-self-status">${getPcSeatStatusText(player)}</div>
+          <div class="seat-level-row">
+            <div class="seat-level">${TEXT.seat.levelLabel(player.level)}</div>
+            ${roleBadge}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="seat-top">
+      <div class="avatar"><img src="${avatar.src}" alt="${avatar.label}" /></div>
+      <div class="seat-copy">
+        <div class="title">${player.name}</div>
+        <div class="seat-level-row">
+          <div class="seat-level">${TEXT.seat.levelLabel(player.level)}</div>
+          ${roleBadge}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // 渲染底牌面板。
@@ -269,6 +431,156 @@ function renderFriendPanel() {
   dom.friendCardMount.appendChild(buildCardNode(state.friendTarget, "friend-card"));
 }
 
+/**
+ * 作用：
+ * 为顶部状态条生成更短的“主”状态摘要。
+ *
+ * 为什么这样写：
+ * 顶部现在承担的是快速读状态，不适合继续使用完整说明句；
+ * 单独抽成短摘要后，可以在不影响其他文案入口的前提下，把顶部压成更接近手游的读取密度。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态。
+ *
+ * 输出：
+ * @returns {string} 适合顶部状态条显示的短主牌摘要。
+ *
+ * 注意：
+ * - 这里只服务顶部状态条，不替代规则说明文案。
+ * - 无主时优先显示 `无主`，花色主时优先显示 `花色 + 级牌`。
+ */
+function getCompactTopbarTrumpLabel() {
+  if (!state.declaration) return "未亮主";
+  const levelText = state.declaration.rank ? ` ${state.declaration.rank}` : "";
+  if (state.declaration.suit === "notrump") {
+    return `无主${levelText}`;
+  }
+  const suitLabel = SUIT_LABEL[state.declaration.suit] || "";
+  return `${suitLabel}${levelText}`;
+}
+
+/**
+ * 作用：
+ * 渲染顶部 `主` 状态块里的可视主牌徽章。
+ *
+ * 为什么这样写：
+ * 用户希望 `主` 和 `朋` 一样带有更直观的视觉锚点；
+ * 单独做一个小徽章后，顶部不必依赖更多解释文字，也能快速识别当前主牌。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态并写入 DOM。
+ *
+ * 输出：
+ * @returns {void} 只更新主牌徽章，不返回额外结果。
+ *
+ * 注意：
+ * - 未亮主时显示 `--`。
+ * - 无主时显示 `无`，花色主时优先显示花色符号。
+ */
+function renderTopbarTrumpBadge() {
+  if (!dom.topbarTrumpBadge) return;
+
+  if (!state.declaration) {
+    dom.topbarTrumpBadge.textContent = "--";
+    dom.topbarTrumpBadge.classList.remove("red");
+    return;
+  }
+
+  if (state.declaration.suit === "notrump") {
+    dom.topbarTrumpBadge.textContent = "无";
+    dom.topbarTrumpBadge.classList.remove("red");
+    return;
+  }
+
+  const symbol = SUIT_SYMBOL[state.declaration.suit] || SUIT_LABEL[state.declaration.suit] || "--";
+  dom.topbarTrumpBadge.textContent = symbol;
+  dom.topbarTrumpBadge.classList.toggle("red", state.declaration.suit === "hearts" || state.declaration.suit === "diamonds");
+}
+
+/**
+ * 作用：
+ * 为顶部状态条生成更短的“主”副标题。
+ *
+ * 为什么这样写：
+ * 顶部第二行只需要告诉玩家当前由谁做庄或处于哪个短阶段，
+ * 继续沿用旧 HUD 的完整句式会让顶部重新变重。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态。
+ *
+ * 输出：
+ * @returns {string} 适合顶部状态条显示的短副标题。
+ *
+ * 注意：
+ * - `ready` 阶段不展开说明，只返回等待状态。
+ * - 正式出牌阶段优先显示当前打家。
+ */
+function getCompactTopbarBankerLabel() {
+  if (state.phase === "ready") return "待定";
+  if (state.phase === "dealing") {
+    return state.declaration ? `庄 ${getPlayer(state.declaration.playerId).name}` : "待亮主";
+  }
+  if (state.phase === "bottomReveal") return "翻底定主";
+  if (state.phase === "countering") return `玩家${state.currentTurnId}反主`;
+  if (state.phase === "burying") return playerIdLabel(state.bankerId, "扣底中");
+  if (state.phase === "callingFriend") return playerIdLabel(state.bankerId, "叫朋友");
+  return `庄 ${getPlayer(state.bankerId).name}`;
+}
+
+/**
+ * 作用：
+ * 为顶部状态条生成更短的“局”副标题。
+ *
+ * 为什么这样写：
+ * 顶部 `局` 状态需要告诉玩家当前回合焦点，但不能像旧版那样展开成解释句；
+ * 在这里统一返回短状态，可以让顶部持续保持紧凑。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态。
+ *
+ * 输出：
+ * @returns {string} 适合顶部状态条显示的短局面副标题。
+ *
+ * 注意：
+ * - `ready` 阶段只显示等待。
+ * - 正式出牌阶段优先显示当前行动玩家。
+ */
+function getCompactTopbarRoundLabel() {
+  if (state.gameOver) return "本局结束";
+  if (state.phase === "ready") return "等待开局";
+  if (state.phase === "dealing") return state.awaitingHumanDeclaration ? "等待补亮" : "发牌中";
+  if (state.phase === "bottomReveal") return "翻底公示";
+  if (state.phase === "countering") return `玩家${state.currentTurnId}反主`;
+  if (state.phase === "burying") return state.bankerId === 1 ? "你在扣底" : "打家扣底";
+  if (state.phase === "callingFriend") return state.bankerId === 1 ? "你在叫朋友" : "打家叫朋友";
+  if (state.phase === "ending") return "结算中";
+  if (state.phase === "pause") return "本轮暂停";
+  return `玩家${state.currentTurnId}行动`;
+}
+
+/**
+ * 作用：
+ * 生成“玩家 + 状态”的紧凑标签。
+ *
+ * 为什么这样写：
+ * 顶部副标题需要频繁拼出 `玩家X + 某短状态`；
+ * 统一封装后可以减少模板字符串重复，并保持不同阶段口径一致。
+ *
+ * 输入：
+ * @param {number} playerId - 要显示的玩家编号。
+ * @param {string} suffix - 跟在玩家编号后的短状态。
+ *
+ * 输出：
+ * @returns {string} 例如 `玩家2扣底中` 的短标签。
+ *
+ * 注意：
+ * - `suffix` 需要传入已经压缩过的短状态。
+ * - 不负责校验玩家编号是否存在，调用方需保证传入合法编号。
+ */
+function playerIdLabel(playerId, suffix) {
+  return `玩家${playerId}${suffix}`;
+}
+
 // 渲染顶部信息栏和阶段信息。
 function renderHud() {
   dom.phaseLabel.textContent = state.gameOver
@@ -307,43 +619,18 @@ function renderHud() {
     : state.phase === "ending"
       ? TEXT.hud.endingLeader
     : TEXT.hud.currentLeader(getPlayer(state.currentTurnId).name);
-  dom.trumpLabel.textContent = state.declaration
-    ? (state.declaration.source === "bottom"
-      ? (state.declaration.suit === "notrump"
-        ? TEXT.declarations.noTrumpByBottom
-        : TEXT.declarations.suitByBottom(SUIT_LABEL[state.declaration.suit]))
-      : (state.declaration.suit === "notrump"
-        ? TEXT.declarations.noTrumpByCount(state.declaration.count)
-        : TEXT.declarations.suitByCount(SUIT_LABEL[state.declaration.suit], state.declaration.rank, state.declaration.count)))
-    : TEXT.declarations.notRevealed;
-  dom.bankerLabel.textContent = state.phase === "ready"
-    ? TEXT.hud.bankerWaiting
+  dom.trumpLabel.textContent = getCompactTopbarTrumpLabel();
+  renderTopbarTrumpBadge();
+  dom.bankerLabel.textContent = getCompactTopbarBankerLabel();
+  dom.trickLabel.textContent = state.phase === "playing" || state.phase === "pause"
+    ? `第${state.trickNumber}轮`
     : state.phase === "dealing"
-    ? (state.declaration ? `暂定 ${getPlayer(state.declaration.playerId).name}` : (state.awaitingHumanDeclaration ? TEXT.hud.bankerAwaitHuman : TEXT.hud.bankerWaiting))
-    : state.phase === "bottomReveal"
-      ? TEXT.hud.bottomReveal
-    : state.phase === "countering"
-      ? TEXT.hud.countering
-    : state.phase === "burying"
-      ? TEXT.hud.burying
-    : state.phase === "callingFriend"
-      ? TEXT.hud.callingFriend
-    : TEXT.hud.bankerSeat(state.bankerId);
-  dom.trickLabel.textContent = state.phase === "ready"
-    ? TEXT.hud.trickWaiting
-    : state.phase === "dealing"
-    ? (state.awaitingHumanDeclaration ? TEXT.hud.trickAwaitingHuman : TEXT.hud.trickDealingProgress(state.dealIndex, state.dealCards.length))
-    : state.phase === "bottomReveal"
-      ? TEXT.hud.trickBottomReveal
-    : state.phase === "countering"
-      ? TEXT.hud.trickCountering
-    : state.phase === "burying"
-      ? TEXT.hud.trickBurying
-    : state.phase === "callingFriend"
-      ? TEXT.hud.trickCallingFriend
-    : state.phase === "ending"
-      ? TEXT.hud.trickEnding
-    : TEXT.hud.trickPlaying(state.trickNumber);
+      ? `发牌 ${state.dealIndex}/${state.dealCards.length}`
+      : state.phase === "ready"
+        ? "未开始"
+        : state.phase === "ending"
+          ? "本局结束"
+          : TEXT.hud.trickPlaying(state.trickNumber).replace(/\s/g, "");
 }
 
 // 渲染分数面板。
@@ -358,29 +645,7 @@ function renderScorePanel() {
   dom.turnTimer.textContent = (state.phase === "ready" || (state.phase === "dealing" && !state.awaitingHumanDeclaration) || state.phase === "callingFriend" || state.phase === "ending")
     ? "--"
     : String(Math.max(0, state.countdown));
-  dom.timerHint.textContent = state.gameOver
-    ? TEXT.scorePanel.ended
-    : state.phase === "ready"
-      ? getReadyStartMessage()
-    : state.phase === "dealing"
-      ? (state.awaitingHumanDeclaration
-        ? TEXT.scorePanel.dealingAwaitHuman
-        : TEXT.scorePanel.dealing)
-      : state.phase === "bottomReveal"
-        ? TEXT.scorePanel.bottomReveal(state.bottomRevealMessage)
-      : state.phase === "countering"
-        ? TEXT.scorePanel.countering(state.currentTurnId)
-      : state.phase === "burying"
-        ? (state.bankerId === 1 ? TEXT.scorePanel.buryingSelf : TEXT.scorePanel.buryingOther)
-      : state.phase === "callingFriend"
-        ? (state.bankerId === 1 ? TEXT.scorePanel.callingFriendSelf : TEXT.scorePanel.callingFriendOther)
-      : state.phase === "ending"
-        ? TEXT.scorePanel.ending
-      : !state.friendTarget?.revealed
-        ? TEXT.scorePanel.unresolvedFriend
-        : state.phase === "pause"
-          ? TEXT.scorePanel.pause
-          : TEXT.scorePanel.currentTurn(state.currentTurnId);
+  dom.timerHint.textContent = getCompactTopbarRoundLabel();
   const showBottomButton = typeof shouldShowHumanBottomButton === "function" ? shouldShowHumanBottomButton() : canHumanViewBottomCards();
   dom.toggleBottomBtn.hidden = !showBottomButton;
   dom.toggleBottomBtn.disabled = !showBottomButton;
@@ -388,9 +653,132 @@ function renderScorePanel() {
   if (typeof syncAutoManagedButton === "function") {
     syncAutoManagedButton();
   }
+  if (dom.toggleRulesBtn) {
+    dom.toggleRulesBtn.classList.toggle("alert", typeof shouldShowPcToolbarMenu === "function" && shouldShowPcToolbarMenu());
+  }
   if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
     window.dispatchEvent(new CustomEvent("fivefriends:scorepanel"));
   }
+}
+
+/**
+ * 作用：
+ * 渲染 PC 顶部的更多功能菜单。
+ *
+ * 为什么这样写：
+ * 这轮改版把低频入口从顶部按钮条移进菜单，需要单独同步菜单显隐和各入口文案状态，
+ * 才能在不改玩法逻辑的前提下收窄顶部噪音。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态并写入 DOM。
+ *
+ * 输出：
+ * @returns {void} 只更新菜单显示，不返回额外结果。
+ *
+ * 注意：
+ * - 仅在 `shouldShowPcToolbarMenu()` 为真时显示。
+ * - 菜单入口文案需要反映当前面板的开关状态，避免用户不知道当前是否已展开。
+ */
+function renderToolbarMenu() {
+  if (!dom.toolbarMenuPanel || typeof shouldShowPcToolbarMenu !== "function") return;
+  const visible = shouldShowPcToolbarMenu();
+  dom.toolbarMenuPanel.classList.toggle("hidden", !visible);
+  if (!visible) return;
+
+  if (dom.menuRulesBtn) {
+    dom.menuRulesBtn.textContent = state.showRulesPanel ? "收起规则" : "规则帮助";
+  }
+  if (dom.toggleBottomBtn) {
+    dom.toggleBottomBtn.textContent = state.showBottomPanel ? "收起底牌" : "查看底牌";
+  }
+  if (dom.toggleDebugBtn) {
+    dom.toggleDebugBtn.textContent = state.showDebugPanel ? "收起调试" : "调试信息";
+  }
+  if (dom.toggleCardFaceBtn) {
+    dom.toggleCardFaceBtn.textContent = `牌面：${getCurrentCardFaceOption().label}`;
+  }
+  if (dom.layoutEditBtn) {
+    dom.layoutEditBtn.textContent = state.layoutEditMode ? "完成布局" : "布局编辑";
+    dom.layoutEditBtn.classList.toggle("alert", state.layoutEditMode);
+  }
+}
+
+/**
+ * 作用：
+ * 在 PC 的准备阶段渲染独立开始界面。
+ *
+ * 为什么这样写：
+ * 新版桌面端把 ready 阶段做成更接近手游的入口卡片，
+ * 让“开始游戏 / 继续游戏 / 查看规则”从局内操作条里抽离出来，进入牌局前更聚焦。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态并写入 DOM。
+ *
+ * 输出：
+ * @returns {void} 只更新开始界面显示，不返回额外结果。
+ *
+ * 注意：
+ * - 仅在 `shouldShowPcReadyLobby()` 为真时显示。
+ * - 没有存档进度时，继续游戏按钮必须置灰。
+ */
+function renderStartLobby() {
+  if (!dom.startLobbyPanel || typeof shouldShowPcReadyLobby !== "function") return;
+  const showStartLobby = shouldShowPcReadyLobby();
+  dom.startLobbyPanel.classList.toggle("hidden", !showStartLobby);
+  if (!showStartLobby) return;
+
+  dom.startLobbyStatus.textContent = state.hasSavedProgress
+    ? "已检测到上次等级进度，可以直接继续当前牌局路线。"
+    : "当前没有可继续的进度，开始游戏会从默认等级重新开局。";
+  dom.startLobbyStartBtn.disabled = false;
+  dom.startLobbyContinueBtn.disabled = !state.hasSavedProgress;
+}
+
+/**
+ * 作用：
+ * 生成手游沿用的玩家面板标记结构。
+ *
+ * 为什么这样写：
+ * 这轮 PC 精修把玩家面板压成了“等级 + 阵营图标”的紧凑结构，
+ * 但手游仍然依赖原先的 `role-badge / seat-stats / seat-meta` DOM 结构来承接样式；
+ * 单独保留一份 mobile 旧结构，才能保证共享渲染层继续兼容两端。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ * @param {{kind: string, label: string}} role - 当前可见身份信息。
+ * @param {{src: string, label: string}} avatar - 当前玩家头像资源。
+ *
+ * 输出：
+ * @returns {string} 供手游玩家面板直接使用的 HTML 片段。
+ *
+ * 注意：
+ * - 这里只给 mobile 使用，PC 必须走新的紧凑版结构。
+ * - 继续保留手牌数和个人分数，避免影响手游现有阅读顺序。
+ */
+function buildLegacyMobileSeatMarkup(player, role, avatar) {
+  return `
+    <div class="seat-top">
+      <div class="avatar"><img src="${avatar.src}" alt="${avatar.label}" /></div>
+      <div class="seat-copy">
+        <div class="title">${player.name}</div>
+        <div class="seat-meta">${player.isHuman ? TEXT.seat.selfControlled : TEXT.seat.aiControlled}</div>
+        <div class="seat-level-row">
+          <div class="seat-level">${TEXT.seat.levelLabel(player.level)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="role-badge ${role.kind}">${role.label}</div>
+    <div class="seat-stats">
+      <div class="seat-metric">
+        <span class="stat-label">${TEXT.seat.handCountLabel}</span>
+        <strong class="seat-count">${player.hand.length}</strong>
+      </div>
+      <div class="seat-metric">
+        <span class="stat-label">${TEXT.seat.personalScoreLabel}</span>
+        <strong class="seat-score">${player.capturedPoints}</strong>
+      </div>
+    </div>
+  `;
 }
 
 // 渲染五个玩家座位信息。
@@ -400,30 +788,15 @@ function renderSeats() {
     const role = getVisibleRole(player.id);
     const avatar = PLAYER_AVATARS[player.id];
     seat.classList.toggle("current-turn", player.id === state.currentTurnId && state.phase === "playing" && !state.gameOver);
-    seat.classList.toggle("role-banker", role.kind === "banker");
-    seat.innerHTML = `
-      <div class="seat-top">
-        <div class="avatar"><img src="${avatar.src}" alt="${avatar.label}" /></div>
-        <div class="seat-copy">
-          <div class="title">${player.name}</div>
-          <div class="seat-meta">${player.isHuman ? TEXT.seat.selfControlled : TEXT.seat.aiControlled}</div>
-          <div class="seat-level-row">
-            <div class="seat-level">${TEXT.seat.levelLabel(player.level)}</div>
-          </div>
-        </div>
-      </div>
-      <div class="role-badge ${role.kind}">${role.label}</div>
-      <div class="seat-stats">
-        <div class="seat-metric">
-          <span class="stat-label">${TEXT.seat.handCountLabel}</span>
-          <strong class="seat-count">${player.hand.length}</strong>
-        </div>
-        <div class="seat-metric">
-          <span class="stat-label">${TEXT.seat.personalScoreLabel}</span>
-          <strong class="seat-score">${player.capturedPoints}</strong>
-        </div>
-      </div>
-    `;
+    if (APP_PLATFORM === "mobile") {
+      seat.classList.toggle("role-banker", role.kind === "banker");
+      seat.innerHTML = buildLegacyMobileSeatMarkup(player, role, avatar);
+      continue;
+    }
+    seat.classList.toggle("seat-role-banker", role.kind === "banker");
+    seat.classList.toggle("seat-role-friend", role.kind === "friend");
+    seat.classList.toggle("seat-role-defender", role.kind === "defender");
+    seat.innerHTML = buildPcSeatMarkup(player, role, avatar);
   }
 }
 
@@ -465,6 +838,153 @@ function getVisibleRole(playerId) {
   return { kind: "unknown", label: TEXT.roles.unknown };
 }
 
+/**
+ * 作用：
+ * 生成桌面出牌区头部使用的紧凑状态标签。
+ *
+ * 为什么这样写：
+ * 新 PC 方案要求出牌区头部只保留必要状态，避免把等级、手牌数和个人分数重新堆回去；
+ * 统一从这里出标签，可以避免不同玩家卡片各写一套拼接逻辑。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ * @param {{kind: string, label: string}} role - 当前玩家的可见身份信息。
+ * @param {boolean} isWinning - 当前玩家是否是本墩实时最大。
+ *
+ * 输出：
+ * @returns {string} 可直接插入到出牌区头部的 HTML 字符串。
+ *
+ * 注意：
+ * - 这里只输出紧凑标签，不负责决定卡片整体布局。
+ * - 朋友、打家和“当前最大”都要通过高亮标签体现，避免再依赖侧边玩家面板。
+ */
+function buildTrickSpotMetricChips(player, role, isWinning) {
+  const chips = [];
+
+  if (player.id === 1 && !player.isHuman) {
+    chips.push('<span class="spot-chip">托管</span>');
+  }
+
+  if (isWinning) {
+    chips.push('<span class="spot-chip highlight">大</span>');
+  }
+
+  return chips.join("");
+}
+
+/**
+ * 作用：
+ * 返回桌面端出牌区头部使用的简短玩家标题。
+ *
+ * 为什么这样写：
+ * 这轮 PC 精修希望其他玩家卡片只保留“玩家名”本身，不再在标题里重复“出牌区”三个字；
+ * 单独抽成 helper 后，mobile 仍可继续沿用旧的完整标题，不会被桌面端文案同步影响。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {string} 适合桌面端出牌区头部显示的短标题。
+ *
+ * 注意：
+ * - 这里只给 PC 使用，mobile 继续使用旧标题文案。
+ * - 玩家1 仍保留“我的本轮”语义，方便和其他玩家区分。
+ */
+function getPcTrickSpotTitle(player) {
+  return player.id === 1 ? "我的本轮" : player.name;
+}
+
+/**
+ * 作用：
+ * 生成桌面端出牌区里用背景色区分的阵营短签。
+ *
+ * 为什么这样写：
+ * 用户希望 PC 出牌区像手游一样，直接用带底色的 `庄 / 朋` 短签表达关键身份，
+ * 而不是再通过一整行解释性副标题说明；统一从 helper 出 HTML，
+ * 可以让桌面端只改一处就同步所有出牌区头部。
+ *
+ * 输入：
+ * @param {{kind: string, label: string}} role - 当前玩家可见身份。
+ *
+ * 输出：
+ * @returns {string} 可直接插入桌面端出牌区标题行的身份短签 HTML。
+ *
+ * 注意：
+ * - 这里只显示 `庄` 和 `朋` 两种高优先级短签，其他身份保持留空。
+ * - `unknown` 必须返回空字符串，避免重新出现“阵营待揭晓”。
+ */
+function buildPcTrickSpotRoleTag(role) {
+  if (role?.kind === "banker") {
+    return '<span class="spot-role-chip banker">庄</span>';
+  }
+  if (role?.kind === "friend") {
+    return '<span class="spot-role-chip friend">朋</span>';
+  }
+  return "";
+}
+
+/**
+ * 作用：
+ * 返回桌面端出牌区在无牌可展示时应保留的空态文案。
+ *
+ * 为什么这样写：
+ * 这轮 PC 方案希望中央出牌区比之前更安静，不再长期显示“本轮尚未出牌”这类占位说明；
+ * 单独封装后，mobile 依然可以保留原本的说明，而桌面端只在确实需要阶段提示时返回文本。
+ *
+ * 输入：
+ * @param {string} phase - 当前牌局阶段。
+ *
+ * 输出：
+ * @returns {string} 桌面端无牌时要显示的短文案；不需要提示时返回空字符串。
+ *
+ * 注意：
+ * - 正式出牌阶段默认返回空字符串，让卡面区域保持留白。
+ * - 这里只给 PC 使用，mobile 继续使用完整阶段说明。
+ */
+function getPcTrickSpotEmptyText(phase) {
+  if (phase === "playing" || phase === "pause" || phase === "ending") {
+    return "";
+  }
+  return "";
+}
+
+/**
+ * 作用：
+ * 生成手游沿用的出牌区标题行结构。
+ *
+ * 为什么这样写：
+ * `index2.html` 里仍有一层后处理脚本，会在 `.label` 结构上补阵营、托管和角标；
+ * 这轮 PC 把出牌区头部换成了 `.spot-head`，如果手游继续吃到新结构，就会直接丢样式和后处理能力。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ * @param {{kind: string, label: string}} role - 当前可见身份信息。
+ *
+ * 输出：
+ * @returns {string} 手游出牌区旧版标题行 HTML。
+ *
+ * 注意：
+ * - 只给 mobile 使用，PC 必须走新的头部结构。
+ * - 这里保留旧的角色短签，方便手游页面自己的脚本继续覆盖和增强。
+ */
+function buildLegacyMobileTrickSpotLabel(player, role) {
+  const roleLabel = role.kind === "banker"
+    ? role.label || "打家"
+    : role.kind === "friend"
+      ? role.label || "朋友"
+      : "";
+  const managedLabel = player.id === 1 && !player.isHuman
+    ? '<span class="mobile-spot-role managed">托管中</span>'
+    : "";
+  return `
+    <div class="label">
+      <span>${player.id === 1 ? TEXT.trickSpot.self : TEXT.trickSpot.other(player.name)}</span>
+      ${roleLabel ? `<span class="spot-role${role.kind === "friend" ? " friend" : ""}">${roleLabel}</span>` : ""}
+      ${managedLabel}
+    </div>
+  `;
+}
+
 // 渲染当前一墩中各玩家的出牌位置。
 function renderTrickSpots() {
   // 当前墩的实时赢家，用来在桌面出牌区打“大”角标。
@@ -475,14 +995,8 @@ function renderTrickSpots() {
     const spot = document.getElementById(`trickSpot-${player.id}`);
     const play = state.currentTrick.find((entry) => entry.playerId === player.id);
     const role = getVisibleRole(player.id);
-    const roleLabel = role.kind === "banker"
-      ? role.label || "打家"
-      : role.kind === "friend"
-        ? role.label || "朋友"
-        : "";
-    const managedLabel = player.id === 1 && !player.isHuman
-      ? '<span class="spot-role managed">托管中</span>'
-      : "";
+    const avatar = PLAYER_AVATARS[player.id];
+    const isWinning = winningPlay?.playerId === player.id;
     const declarationCards = (state.phase === "dealing" || state.phase === "countering") && state.declaration && state.declaration.playerId === player.id
       ? getDeclarationCards(state.declaration)
       : [];
@@ -516,7 +1030,7 @@ function renderTrickSpots() {
       && ["playing", "pause", "ending"].includes(state.phase)
       && player.hand.length > 0
       && !!state.exposedTrumpVoid[player.id];
-    const winningBadge = APP_PLATFORM !== "mobile" && winningPlay?.playerId === player.id
+    const winningBadge = APP_PLATFORM !== "mobile" && isWinning
       ? '<span class="spot-winning-badge" aria-label="本轮当前最大">大</span>'
       : "";
     const noTrumpBadge = showNoTrumpBadge
@@ -527,14 +1041,34 @@ function renderTrickSpots() {
     if (!zoomEnabled) {
       spot.classList.remove("show-zoom");
     }
+    if (APP_PLATFORM === "mobile") {
+      spot.innerHTML = `
+        ${buildLegacyMobileTrickSpotLabel(player, role)}
+        <div class="spot-row">
+          ${cardsHtml || `<div class="empty-note">${emptyText}</div>`}
+          ${zoomHtml}
+        </div>
+      `;
+      spot.onclick = null;
+      continue;
+    }
     spot.innerHTML = `
-      <div class="label">
-        <span>${player.id === 1 ? TEXT.trickSpot.self : TEXT.trickSpot.other(player.name)}</span>
-        ${roleLabel ? `<span class="spot-role${role.kind === "friend" ? " friend" : ""}">${roleLabel}</span>` : ""}
-        ${managedLabel}
+      <div class="spot-head">
+        <div class="spot-player">
+          <div class="spot-avatar"><img src="${avatar.src}" alt="${avatar.label}" /></div>
+          <div class="spot-info">
+            <div class="spot-name-row">
+              <span class="spot-name">${getPcTrickSpotTitle(player)}</span>
+              ${buildPcTrickSpotRoleTag(role)}
+            </div>
+          </div>
+        </div>
+        <div class="spot-metrics">${buildTrickSpotMetricChips(player, role, isWinning)}</div>
       </div>
       <div class="spot-row">
-        ${cardsHtml || `<div class="empty-note">${emptyText}</div>`}
+        ${cardsHtml || (getPcTrickSpotEmptyText(state.phase)
+          ? `<div class="spot-body-note">${getPcTrickSpotEmptyText(state.phase)}</div>`
+          : "")}
         ${zoomHtml}
       </div>
       ${winningBadge}
@@ -557,35 +1091,66 @@ function renderTrickSpots() {
 // 渲染手牌。
 function renderHand() {
   const human = getPlayer(1);
-  if (state.phase === "ready") {
-    dom.handSummary.textContent = `${getReadyStartMessage()} 你当前是 Lv:${human.level}。`;
-  } else if (state.phase === "dealing") {
-    const humanOptions = getDeclarationOptions(1);
-    dom.handSummary.textContent = state.awaitingHumanDeclaration
-      ? (humanOptions.length > 0
-        ? TEXT.hand.dealingAwaitHuman(human.hand.length, Math.max(0, state.countdown), humanOptions.map((entry) => formatDeclaration(entry)))
-        : TEXT.hand.dealingAwaitHumanNoOption(human.hand.length))
-      : (humanOptions.length > 0
-        ? TEXT.hand.dealingCanDeclare(human.hand.length, humanOptions.map((entry) => formatDeclaration(entry)))
-        : TEXT.hand.dealingNoDeclare(human.hand.length, getLevelRank(human.level)));
-  } else if (state.phase === "countering") {
-    const counterOption = getCounterDeclarationForPlayer(1);
-    dom.handSummary.textContent = counterOption
-      ? TEXT.hand.counteringCan(human.hand.length, formatDeclaration(counterOption))
-      : TEXT.hand.counteringCannot(human.hand.length);
-  } else if (state.phase === "bottomReveal") {
-    dom.handSummary.textContent = TEXT.hand.bottomReveal(human.hand.length);
-  } else if (state.phase === "burying") {
-    dom.handSummary.textContent = state.bankerId === 1
-      ? TEXT.hand.buryingSelf(human.hand.length)
-      : TEXT.hand.buryingOther(human.hand.length);
-  } else if (state.phase === "callingFriend") {
-    dom.handSummary.textContent = state.bankerId === 1
-      ? TEXT.hand.callingFriendSelf(human.hand.length)
-      : TEXT.hand.callingFriendOther(human.hand.length);
-  } else {
-    dom.handSummary.textContent = TEXT.hand.playing(human.hand.length);
+  if (APP_PLATFORM === "mobile") {
+    if (state.phase === "ready") {
+      dom.handSummary.textContent = `${getReadyStartMessage()} 你当前是 Lv:${human.level}。`;
+    } else if (state.phase === "dealing") {
+      const humanOptions = getDeclarationOptions(1);
+      dom.handSummary.textContent = state.awaitingHumanDeclaration
+        ? (humanOptions.length > 0
+          ? TEXT.hand.dealingAwaitHuman(human.hand.length, Math.max(0, state.countdown), humanOptions.map((entry) => formatDeclaration(entry)))
+          : TEXT.hand.dealingAwaitHumanNoOption(human.hand.length))
+        : (humanOptions.length > 0
+          ? TEXT.hand.dealingCanDeclare(human.hand.length, humanOptions.map((entry) => formatDeclaration(entry)))
+          : TEXT.hand.dealingNoDeclare(human.hand.length, getLevelRank(human.level)));
+    } else if (state.phase === "countering") {
+      const counterOption = getCounterDeclarationForPlayer(1);
+      dom.handSummary.textContent = counterOption
+        ? TEXT.hand.counteringCan(human.hand.length, formatDeclaration(counterOption))
+        : TEXT.hand.counteringCannot(human.hand.length);
+    } else if (state.phase === "bottomReveal") {
+      dom.handSummary.textContent = TEXT.hand.bottomReveal(human.hand.length);
+    } else if (state.phase === "burying") {
+      dom.handSummary.textContent = state.bankerId === 1
+        ? TEXT.hand.buryingSelf(human.hand.length)
+        : TEXT.hand.buryingOther(human.hand.length);
+    } else if (state.phase === "callingFriend") {
+      dom.handSummary.textContent = state.bankerId === 1
+        ? TEXT.hand.callingFriendSelf(human.hand.length)
+        : TEXT.hand.callingFriendOther(human.hand.length);
+    } else {
+      dom.handSummary.textContent = TEXT.hand.playing(human.hand.length);
+    }
   }
+  const avatar = PLAYER_AVATARS[1];
+  const role = getVisibleRole(1);
+  const roleBadge = getCompactRoleBadgeState(role);
+
+  if (APP_PLATFORM === "pc" && dom.handPlayerAvatar) {
+    dom.handPlayerAvatar.src = avatar.src;
+    dom.handPlayerAvatar.alt = avatar.label;
+  }
+  if (APP_PLATFORM === "pc" && dom.handPanelTitle) {
+    dom.handPanelTitle.textContent = "我的手牌";
+  }
+  if (APP_PLATFORM === "pc" && dom.handCountPill) {
+    dom.handCountPill.textContent = `Lv:${human.level} · 手牌 ${human.hand.length}`;
+  }
+  if (APP_PLATFORM === "pc" && dom.handRoleBadge) {
+    if (roleBadge) {
+      dom.handRoleBadge.className = `hand-role-badge ${roleBadge.kind}`;
+      dom.handRoleBadge.textContent = roleBadge.glyph;
+      dom.handRoleBadge.title = roleBadge.title;
+      dom.handRoleBadge.setAttribute("aria-label", roleBadge.title);
+      dom.handRoleBadge.classList.remove("hidden");
+    } else {
+      dom.handRoleBadge.className = "hand-role-badge hidden";
+      dom.handRoleBadge.textContent = "";
+      dom.handRoleBadge.title = "";
+      dom.handRoleBadge.setAttribute("aria-label", "");
+    }
+  }
+
   const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
   const specialLabel = isSetupPhase
     ? (state.declaration ? TEXT.hand.setupSpecialLabelWithTrump : TEXT.hand.setupSpecialLabelWithoutTrump)
@@ -620,15 +1185,20 @@ function renderHand() {
     wrapper.dataset.groupKey = group.key;
     const chip = document.createElement("div");
     chip.className = `group-chip${group.red ? " red" : ""}`;
-    chip.textContent = group.label;
+    chip.innerHTML = `<span>${group.label}</span><span class="group-chip-count">${cards.length}</span>`;
     wrapper.appendChild(chip);
 
     const row = document.createElement("div");
     row.className = "cards-row";
     row.dataset.cardCount = String(cards.length);
-    const extraCards = Math.max(0, cards.length - 13);
-    const overlap = Math.min(16, 8 + extraCards * 0.7);
-    row.style.setProperty("--mobile-card-overlap", overlap.toFixed(1));
+    if (APP_PLATFORM === "mobile") {
+      const extraCards = Math.max(0, cards.length - 13);
+      const overlap = Math.min(16, 8 + extraCards * 0.7);
+      row.style.setProperty("--mobile-card-overlap", overlap.toFixed(1));
+    } else {
+      const overlap = getPcHandOverlap(cards.length, human.hand.length);
+      row.style.setProperty("--pc-card-overlap", `${overlap.toFixed(1)}px`);
+    }
     for (const card of cards) {
       const button = buildCardNode(card, `card-btn${state.selectedCardIds.includes(card.id) ? " selected" : ""}${isTrump(card) ? " trump" : ""}`);
       button.type = "button";
@@ -646,6 +1216,33 @@ function renderHand() {
     wrapper.appendChild(row);
     dom.handGroups.appendChild(wrapper);
   }
+}
+
+/**
+ * 作用：
+ * 根据当前组内张数和整手牌张数，计算桌面端手牌的重叠量。
+ *
+ * 为什么这样写：
+ * PC 新方案要求底部手牌区彻底取消滚动条，并且在拿起底牌后也尽量把 31 张牌压进同一视野；
+ * 重叠量只看单组张数会在“拿底牌后主牌变多”的场景下压不住宽度，
+ * 所以这里同时参考整手牌张数，保证常态下仍清楚、长牌时再主动加大重叠。
+ *
+ * 输入：
+ * @param {number} groupCardCount - 当前花色分组内的牌张数。
+ * @param {number} totalHandCount - 当前整手牌张数。
+ *
+ * 输出：
+ * @returns {number} 应写入 `--pc-card-overlap` 的像素值。
+ *
+ * 注意：
+ * - 返回值越大，牌与牌之间重叠越多。
+ * - 必须限制上下界，避免少牌时过度挤压，也避免多牌时完全看不清牌面。
+ */
+function getPcHandOverlap(groupCardCount, totalHandCount) {
+  const groupPressure = Math.max(0, groupCardCount - 7);
+  const totalPressure = Math.max(0, totalHandCount - 24);
+  const overlap = 20 + groupPressure * 3.4 + totalPressure * 0.8;
+  return Math.max(20, Math.min(46, overlap));
 }
 
 // 创建单张牌对应的 DOM 节点。
@@ -865,6 +1462,9 @@ function renderLogs() {
   dom.logPanel.classList.toggle("hidden", !state.showLogPanel);
   dom.bottomPanel.classList.toggle("hidden", !state.showBottomPanel);
   dom.rulesPanel.classList.toggle("hidden", !state.showRulesPanel);
+  if (dom.toggleLogBtn) {
+    dom.toggleLogBtn.classList.toggle("alert", !!state.showLogPanel);
+  }
   dom.logList.innerHTML = state.logs.map((item) => `<li>${item}</li>`).join("");
 }
 
@@ -1182,4 +1782,7 @@ function renderCenterPanel() {
   dom.startGameBtn.hidden = state.phase !== "ready";
   dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready";
   dom.startGameBtn.textContent = "开始游戏";
+  if (dom.centerPanel && typeof shouldShowPcReadyLobby === "function") {
+    dom.centerPanel.classList.toggle("hidden", shouldShowPcReadyLobby());
+  }
 }

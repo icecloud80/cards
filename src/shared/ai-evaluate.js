@@ -463,6 +463,62 @@ function getSimulationBottomRiskScore(simState, playerId) {
 
 /**
  * 作用：
+ * 评估当前局面下“失先手后对手继续连拿分墩”的风险。
+ *
+ * 为什么这样写：
+ * `controlRisk` 已经表达了“掉控本身很痛”，但里程碑 3 还需要把
+ * “掉控后会不会连续跑分”单独做成可解释分项，避免这类风险被埋在综合负分里。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估连续跑分风险的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回连续跑分风险分值；越负表示越容易被对手连续拿分。
+ *
+ * 注意：
+ * - 这里只使用当前牌权位置、当前墩分数、公开底牌分和己方控牌储备，不读取对手暗手。
+ * - 该项与 `controlRisk` 配套使用，但更强调“掉控后的分数后果”。
+ */
+function getSimulationPointRunRiskScore(simState, playerId) {
+  if (!simState || !PLAYER_ORDER.includes(playerId)) return 0;
+  const controllerId = getSimulationTurnAccessControllerId(simState);
+  if (controllerId == null) return 0;
+
+  const sameSideControl = isSimulationSameSide(simState, playerId, controllerId);
+  const cardsLeft = getSimulationCardsLeft(simState);
+  const lateRound = cardsLeft <= 20;
+  const trickPoints = Array.isArray(simState.currentTrick)
+    ? simState.currentTrick.reduce((sum, play) => sum + getComboPointValue(play.cards || []), 0)
+    : 0;
+  const bottomPoints = (simState.bottomCards || []).reduce((sum, card) => sum + scoreValue(card), 0);
+  const reserveScore = Math.min(getSimulationTurnAccessReserveScore(simState, playerId), 28);
+  const unresolvedFriend = !!simState.friendTarget && !isSimulationFriendTeamResolved(simState);
+  const visibleRunPressure = trickPoints > 0 || (lateRound && bottomPoints > 0) || (simState.defenderPoints || 0) >= 40;
+  let risk = 0;
+
+  if (!visibleRunPressure) return 0;
+
+  if (!sameSideControl) {
+    risk += trickPoints * 3.1;
+    if (lateRound) risk += bottomPoints * 0.7;
+    if (!simState.currentTrick?.length) risk += 10;
+    if (!unresolvedFriend && playerId === simState.bankerId) {
+      risk += Math.min(simState.defenderPoints || 0, 80) * 0.18;
+    }
+    risk += Math.max(0, 18 - reserveScore) * 1.4;
+    if (unresolvedFriend) risk *= 0.4;
+    return -risk;
+  }
+
+  if (trickPoints > 0) {
+    return Math.min(trickPoints * 0.55, 12);
+  }
+  return 0;
+}
+
+/**
+ * 作用：
  * 用统一评分项评估模拟状态，对中级搜索输出可解释 breakdown。
  *
  * 为什么这样写：
@@ -493,6 +549,7 @@ function evaluateState(simState, playerId, objective = getIntermediateObjective(
     tempo: getSimulationTempoScore(simState, playerId),
     turnAccess: getSimulationTurnAccessScore(simState, playerId),
     controlRisk: getSimulationControlRiskScore(simState, playerId),
+    pointRunRisk: getSimulationPointRunRiskScore(simState, playerId),
     safeLead: getSimulationSafeLeadScore(simState, playerId),
     friendRisk: getSimulationFriendRiskScore(simState, playerId),
     bottomRisk: getSimulationBottomRiskScore(simState, playerId),

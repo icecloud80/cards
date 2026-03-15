@@ -29,6 +29,7 @@ The hook only runs the headless full-game regression when staged `.js` changes e
 
 ## Docs
 
+- Five-friends play guide: [five-friends-play-guide.md](/Users/mo.li/Documents/cards/five-friends-play-guide.md)
 - AI roadmap: [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md)
 - AI declaration plan: [ai-plan-declaration.md](/Users/mo.li/Documents/cards/ai-plan-declaration.md)
 - AI search plan: [ai-plan-search.md](/Users/mo.li/Documents/cards/ai-plan-search.md)

@@ -282,6 +282,7 @@ function runIntermediateSearchSuite(context) {
     );
     assert(accessBaseline.breakdown.turnAccess < 0, "evaluateState: before抢回当前墩时，牌权续控分应体现当前处于失控");
     assert(accessBaseline.breakdown.controlRisk < 0, "evaluateState: before抢回当前墩时，失先手代价应为负值");
+    assert(accessBaseline.breakdown.pointRunRisk < 0, "evaluateState: before抢回当前墩时，对手连续跑分风险应为负值");
     const turnAccessRollout = getIntermediateRolloutSummary(
       3,
       [state.players[2].hand.find((card) => card.id === "risk-p3-c-7")],
@@ -292,9 +293,11 @@ function runIntermediateSearchSuite(context) {
     assert(turnAccessRollout.triggerFlags.includes("endgame_safe_lead_check"), "getIntermediateRolloutSummary: extended rollout should record endgame safe lead checks");
     assert(turnAccessRollout.triggerFlags.includes("no_safe_next_lead"), "getIntermediateRolloutSummary: should flag when regained lead has no safe next opening");
     assert(turnAccessRollout.triggerFlags.includes("turn_access_risk"), "getIntermediateRolloutSummary: should mark when next lead likely hands control back to opponents");
+    assert(turnAccessRollout.triggerFlags.includes("point_run_risk"), "getIntermediateRolloutSummary: should flag when the next cycle exposes continuous point-run risk");
     assert(turnAccessRollout.futureTrace.length > 0, "getIntermediateRolloutSummary: turn-access extension should preserve next-lead simulation trace");
     assert(turnAccessRollout.nextEvaluation.breakdown.turnAccess > accessBaseline.breakdown.turnAccess, "evaluateState: 抢回当前墩后，牌权续控分应高于原始失控局面");
     assert(turnAccessRollout.nextEvaluation.breakdown.safeLead < 0, "evaluateState: 抢回当前墩但下一拍没有安全起手时，残局安全起手值应为负值");
+    assert(turnAccessRollout.futureEvaluation.breakdown.pointRunRisk < 0, "evaluateState: 下一拍进入对手连续跑分态势时，pointRunRisk 应为负值");
 
     resetPositiveSafeLeadState();
     const safeLeadEvaluation = evaluateState(
@@ -304,6 +307,93 @@ function runIntermediateSearchSuite(context) {
     );
     assert(safeLeadEvaluation.breakdown.safeLead > 0, "evaluateState: 残局轮到自己首发且存在安全结构时，应给出正的残局安全起手值");
 
+    resetPositiveSafeLeadState();
+    state.bankerId = 3;
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    const riskyStructureLead = [
+      makeCard("structure-risk-h-9-a", "hearts", "9"),
+      makeCard("structure-risk-h-9-b", "hearts", "9"),
+      makeCard("structure-risk-h-9-c", "hearts", "9"),
+    ];
+    const saferLead = [makeCard("structure-safe-c-3", "clubs", "3")];
+    const originalLeadScorer = scoreIntermediateLeadCandidate;
+    const originalRolloutSummary = getIntermediateRolloutSummary;
+    scoreIntermediateLeadCandidate = function mockedLeadScorer(playerId, combo) {
+      return getComboKey(combo) === getComboKey(riskyStructureLead) ? 46 : 34;
+    };
+    getIntermediateRolloutSummary = function mockedRolloutSummary(playerId, combo) {
+      if (getComboKey(combo) === getComboKey(riskyStructureLead)) {
+        return {
+          score: 12,
+          delta: 0,
+          futureDelta: -18,
+          completed: true,
+          nextMode: "lead",
+          winnerId: 3,
+          points: 0,
+          trace: [],
+          depth: 2,
+          reachedOwnTurn: true,
+          futureTrace: [],
+          triggerFlags: ["turn_access_risk", "point_run_risk"],
+          nextEvaluation: {
+            total: 12,
+            breakdown: { turnAccess: 4, controlRisk: -8, safeLead: -4, pointRunRisk: -30 },
+            objective: { primary: "clear_trump", secondary: "keep_control" },
+          },
+          futureEvaluation: {
+            total: -18,
+            breakdown: { turnAccess: -10, controlRisk: -12, safeLead: -12, pointRunRisk: -32 },
+            objective: { primary: "clear_trump", secondary: "keep_control" },
+          },
+        };
+      }
+      return {
+        score: 10,
+        delta: 0,
+        futureDelta: 6,
+        completed: true,
+        nextMode: "lead",
+        winnerId: 3,
+        points: 0,
+        trace: [],
+        depth: 2,
+        reachedOwnTurn: true,
+        futureTrace: [],
+        triggerFlags: [],
+        nextEvaluation: {
+          total: 18,
+          breakdown: { turnAccess: 10, controlRisk: -2, safeLead: 8, pointRunRisk: 0 },
+          objective: { primary: "clear_trump", secondary: "keep_control" },
+        },
+        futureEvaluation: {
+          total: 16,
+          breakdown: { turnAccess: 9, controlRisk: -1, safeLead: 6, pointRunRisk: 0 },
+          objective: { primary: "clear_trump", secondary: "keep_control" },
+        },
+      };
+    };
+    const structureEntries = buildScoredIntermediateLeadEntries(
+      3,
+      [
+        { cards: riskyStructureLead, source: "structure", tags: ["triple", "hearts"] },
+        { cards: saferLead, source: "heuristic", tags: ["single", "clubs"] },
+      ],
+      [],
+      {
+        total: 0,
+        breakdown: {},
+        objective: { primary: "clear_trump", secondary: "keep_control", weights: {} },
+      }
+    );
+    scoreIntermediateLeadCandidate = originalLeadScorer;
+    getIntermediateRolloutSummary = originalRolloutSummary;
+    const riskyStructureEntry = structureEntries.find((entry) => getComboKey(entry.cards) === getComboKey(riskyStructureLead));
+    const safeLeadEntry = structureEntries.find((entry) => getComboKey(entry.cards) === getComboKey(saferLead));
+    assert(riskyStructureEntry.structureControlPenalty > 0, "buildScoredIntermediateLeadEntries: risky structure leads should receive an explicit structureControlPenalty");
+    assert(riskyStructureEntry.score < safeLeadEntry.score, "buildScoredIntermediateLeadEntries: structure leads that imply immediate control loss should rank below safer leads");
+
     globalThis.__intermediateSearchResults = {
       results: [
         "next-own-turn simulation isolation ok",
@@ -311,6 +401,7 @@ function runIntermediateSearchSuite(context) {
         "intermediate debug stats scaffold ok",
         "turn access risk extension ok",
         "evaluateState turn access breakdown ok",
+        "structure lead control penalty ok",
       ],
     };
   `;

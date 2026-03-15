@@ -295,6 +295,7 @@ function runIntermediateFoundationSuite(context) {
     assert(typeof evaluation.breakdown.tempo === "number", "evaluateState: should expose tempo breakdown");
     assert(typeof evaluation.breakdown.friendRisk === "number", "evaluateState: should expose friend-risk breakdown");
     assert(typeof evaluation.breakdown.bottomRisk === "number", "evaluateState: should expose bottom-risk breakdown");
+    assert(typeof evaluation.breakdown.pointRunRisk === "number", "evaluateState: should expose point-run-risk breakdown");
     assert(evaluation.objective.primary.length > 0, "evaluateState: should include objective");
 
     resetCommonState();
@@ -383,6 +384,74 @@ function runIntermediateFoundationSuite(context) {
     const ownControlBottomEval = evaluateState(ownControlBottomState, 3, getIntermediateObjective(3, "lead", ownControlBottomState));
     const enemyControlBottomEval = evaluateState(enemyControlBottomState, 3, getIntermediateObjective(3, "lead", enemyControlBottomState));
     assert(ownControlBottomEval.breakdown.bottomRisk > enemyControlBottomEval.breakdown.bottomRisk, "evaluateState: late-round same-side control should score better bottom-risk than opponent control");
+
+    resetCommonState();
+    state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
+    state.hiddenFriendId = 2;
+    state.bankerId = 1;
+    state.players = [
+      basePlayer(1, [makeCard("runrisk-p1-c-5", "clubs", "5")], true),
+      basePlayer(2, [makeCard("runrisk-p2-s-a", "spades", "A")]),
+      basePlayer(3, [makeCard("runrisk-p3-c-k", "clubs", "K")]),
+      basePlayer(4, [makeCard("runrisk-p4-d-9", "diamonds", "9")]),
+      basePlayer(5, [makeCard("runrisk-p5-h-9", "hearts", "9")]),
+    ];
+    state.bottomCards = [makeCard("runrisk-bottom-h-5", "hearts", "5"), makeCard("runrisk-bottom-s-10", "spades", "10")];
+    state.currentTrick = [
+      { playerId: 4, cards: [makeCard("runrisk-lead-d-k", "diamonds", "K")] },
+      { playerId: 5, cards: [makeCard("runrisk-follow-h-10", "hearts", "10")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    state.currentTurnId = 1;
+    state.leaderId = 4;
+    state.defenderPoints = 70;
+    state.trickNumber = 10;
+    const enemyPointRunState = cloneSimulationState(state);
+    const allyPointRunState = cloneSimulationState(state);
+    allyPointRunState.currentTrick = [
+      { playerId: 2, cards: [makeCard("runrisk-ally-s-a", "spades", "A")] },
+      { playerId: 1, cards: [makeCard("runrisk-ally-c-10", "clubs", "10")] },
+    ];
+    allyPointRunState.leadSpec = classifyPlay(allyPointRunState.currentTrick[0].cards);
+    allyPointRunState.currentTurnId = 3;
+    allyPointRunState.leaderId = 2;
+    const enemyPointRunEval = evaluateState(enemyPointRunState, 1, getIntermediateObjective(1, "follow", enemyPointRunState));
+    const allyPointRunEval = evaluateState(allyPointRunState, 1, getIntermediateObjective(1, "follow", allyPointRunState));
+    assert(enemyPointRunEval.breakdown.pointRunRisk < allyPointRunEval.breakdown.pointRunRisk, "evaluateState: opponent-controlled scoring trick should incur worse pointRunRisk than same-side control");
+
+    resetCommonState();
+    state.trumpSuit = "spades";
+    state.bankerId = 3;
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.trickNumber = 9;
+    state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
+    state.hiddenFriendId = 2;
+    state.players = [
+      basePlayer(1, [makeCard("danger-p1-s-9", "spades", "9")], true),
+      basePlayer(2, [makeCard("danger-p2-h-a", "hearts", "A")]),
+      basePlayer(3, [
+        makeCard("danger-p3-s-k-1", "spades", "K"),
+        makeCard("danger-p3-s-k-2", "spades", "K"),
+        makeCard("danger-p3-s-4", "spades", "4"),
+        makeCard("danger-p3-h-3", "hearts", "3"),
+        makeCard("danger-p3-c-4", "clubs", "4"),
+      ]),
+      basePlayer(4, [makeCard("danger-p4-s-a", "spades", "A")]),
+      basePlayer(5, [makeCard("danger-p5-d-9", "diamonds", "9")]),
+    ];
+    const dangerousLeadHand = state.players[2].hand;
+    const riskyTrumpPair = [
+      dangerousLeadHand.find((card) => card.id === "danger-p3-s-k-1"),
+      dangerousLeadHand.find((card) => card.id === "danger-p3-s-k-2"),
+    ];
+    const safeLowHeart = [dangerousLeadHand.find((card) => card.id === "danger-p3-h-3")];
+    const riskyLeadPenalty = scoreIntermediateDangerousPointLeadPenalty(3, riskyTrumpPair, dangerousLeadHand);
+    const safeLeadPenalty = scoreIntermediateDangerousPointLeadPenalty(3, safeLowHeart, dangerousLeadHand);
+    const riskyLeadScore = scoreIntermediateLeadCandidate(3, riskyTrumpPair, []);
+    const safeLeadScore = scoreIntermediateLeadCandidate(3, safeLowHeart, []);
+    assert(riskyLeadPenalty > safeLeadPenalty, "scoreIntermediateDangerousPointLeadPenalty: high-point trump pair should incur stronger risk penalty than low side lead");
+    assert(riskyLeadScore < safeLeadScore, "scoreIntermediateLeadCandidate: dangerous point-carrying trump probe should score below safer low side lead");
 
     resetCommonState();
     const liveHandSizeBeforeRollout = state.players[2].hand.length;
@@ -493,6 +562,8 @@ function runIntermediateFoundationSuite(context) {
         "tempo evaluation scaffold ok",
         "friend-risk evaluation scaffold ok",
         "bottom-risk evaluation scaffold ok",
+        "point-run-risk evaluation scaffold ok",
+        "dangerous point-lead penalty scaffold ok",
         "single trick rollout isolation ok",
         "intermediate unified entry scaffold ok",
         "debug-disabled decision skip ok",

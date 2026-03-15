@@ -319,10 +319,10 @@ function simulateUntilNextOwnTurn(simState, playerId, chooser = getSimulationHin
       if (!PLAYER_ORDER.includes(currentActorId)) break;
 
       let cards = chooser(currentActorId, cloneSimulationState(state), trace);
-      if (!Array.isArray(cards) || cards.length === 0) {
+      if (!Array.isArray(cards) || cards.length === 0 || cards.some((card) => !card || !card.id)) {
         cards = getSimulationHintForPlayer(currentActorId);
       }
-      if (!Array.isArray(cards) || cards.length === 0) break;
+      if (!Array.isArray(cards) || cards.length === 0 || cards.some((card) => !card || !card.id)) break;
 
       const ok = playCards(currentActorId, cards.map((card) => card.id), {
         skipStartTurn: true,

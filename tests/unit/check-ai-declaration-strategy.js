@@ -60,6 +60,7 @@ function loadGameContext() {
   context.updateActionHint = function updateActionHint() {};
   context.appendLog = function appendLog() {};
   context.queueCenterAnnouncement = function queueCenterAnnouncement() {};
+  context.autoPlayCurrentTurn = function autoPlayCurrentTurn() {};
 
   vm.createContext(context);
   const files = [
@@ -204,6 +205,10 @@ function runDeclarationStrategySuite(context) {
       state.dealIndex = 0;
       state.counterPasses = 0;
       state.awaitingHumanDeclaration = false;
+      state.showDebugPanel = false;
+      state.lastAiDecision = null;
+      state.aiDecisionHistory = [];
+      state.aiDecisionHistorySeq = 0;
       state.players = [
         basePlayer(1, [], true),
         basePlayer(2, []),
@@ -493,6 +498,23 @@ function runDeclarationStrategySuite(context) {
     assert(getCounterDeclarationForPlayer(2)?.suit === "notrump", "intermediate: legal counter option should still be no-trump");
     assert(getAutoCounterDeclarationForPlayer(2) === null, "intermediate: low-upgrade counter should be skipped");
     results.push("intermediate weak counter skipped");
+
+    setupIntermediatePreferBetterSuitScenario();
+    state.showDebugPanel = true;
+    maybeAutoDeclare(2);
+    assert(state.aiDecisionHistory.length === 1, "intermediate: declare debug should record one setup snapshot");
+    assert(state.aiDecisionHistory[0].mode === "declare", "intermediate: declare debug snapshot should use declare mode");
+    assert(state.aiDecisionHistory[0].candidateEntries.length >= 2, "intermediate: declare debug snapshot should preserve candidate list");
+    results.push("intermediate declare debug snapshot ok");
+
+    setupIntermediateWeakCounterScenario();
+    state.showDebugPanel = true;
+    state.currentTurnId = 2;
+    startCounterTurn();
+    assert(state.aiDecisionHistory.length === 1, "intermediate: counter debug should record one setup snapshot");
+    assert(state.aiDecisionHistory[0].mode === "counter", "intermediate: counter debug snapshot should use counter mode");
+    assert(state.aiDecisionHistory[0].selectedCards.length === 0, "intermediate: skipped counter should record empty selected cards");
+    results.push("intermediate counter debug snapshot ok");
 
     globalThis.__declarationStrategyResults = { results };
   `;

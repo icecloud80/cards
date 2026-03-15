@@ -382,6 +382,87 @@ function selectBestIntermediateLeadCandidate(playerId, candidateEntries, beginne
   return buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginnerChoice)[0] || null;
 }
 
+/**
+ * 作用：
+ * 判断某个首发候选在残局续控检查里是否可视为“相对安全的下一拍起手”。
+ *
+ * 为什么这样写：
+ * 里程碑 1 剩余项需要回答“抢回先手后下一拍能不能稳住”。
+ * 这里不做完整搜索，只用轻量规则把明显危险的单吊和高风险甩牌排除掉，供 rollout 扩展判断使用。
+ *
+ * 输入：
+ * @param {object|null} entry - 候选条目，允许携带 heuristicScore 和 throwAssessment。
+ *
+ * 输出：
+ * @returns {boolean} 若该候选可视为相对安全的残局起手，则返回 true。
+ *
+ * 注意：
+ * - 这只是 rollout 扩展触发里的轻量判定，不等于最终 AI 正式评分。
+ * - 高风险甩牌和明显偏弱的单张默认不算“安全起手”。
+ */
+function isSafeEndgameLeadCandidate(entry) {
+  if (!entry || !Array.isArray(entry.cards) || entry.cards.length === 0) return false;
+  const pattern = classifyPlay(entry.cards);
+  const heuristicScore = typeof entry.heuristicScore === "number" ? entry.heuristicScore : Number.NEGATIVE_INFINITY;
+  if (entry.throwAssessment?.level === "risky") return false;
+  if (pattern.type === "throw") return entry.throwAssessment?.level === "safe";
+  if (pattern.type !== "single") return heuristicScore >= -8;
+  if (effectiveSuit(entry.cards[0]) === "trump") return heuristicScore >= 6;
+  return heuristicScore >= 18 && getComboPointValue(entry.cards) === 0;
+}
+
+/**
+ * 作用：
+ * 在指定状态下为“下一拍安全起手检查”选出一手轻量启发式首发。
+ *
+ * 为什么这样写：
+ * rollout 扩展阶段不能再递归调用完整中级搜索，否则容易出现深层递归和成本失控。
+ * 这里复用现有候选与启发式评分，但不再叠加 rollout，只做一层快速判断。
+ *
+ * 输入：
+ * @param {object|null} sourceState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估下一拍起手的玩家 ID。
+ *
+ * 输出：
+ * @returns {{bestEntry: object|null, safeEntry: object|null, safeLeadCount: number, scoredEntries: Array<object>}} 返回最佳启发式首发与安全起手摘要。
+ *
+ * 注意：
+ * - 这里要求 `sourceState` 已经处于“当前玩家首发”的时点。
+ * - 评分使用的是 `scoreIntermediateLeadCandidate` 的启发式部分，不包含额外 rollout。
+ */
+function getEndgameSafeLeadSummaryForState(sourceState, playerId) {
+  const candidateResult = generateCandidateResultForState(sourceState, playerId, "lead");
+  if (!Array.isArray(candidateResult.entries) || candidateResult.entries.length === 0) {
+    return {
+      bestEntry: null,
+      safeEntry: null,
+      safeLeadCount: 0,
+      scoredEntries: [],
+    };
+  }
+
+  return runCandidateLegacyHelper(sourceState, () => {
+    const beginnerChoice = getBeginnerLegalHintForPlayer(playerId);
+    const scoredEntries = candidateResult.entries
+      .map((entry) => ({
+        ...entry,
+        heuristicScore: scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice, entry),
+      }))
+      .sort((a, b) => {
+        const scoreDiff = (b.heuristicScore || 0) - (a.heuristicScore || 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        return classifyPlay(a.cards).power - classifyPlay(b.cards).power;
+      });
+    const safeEntries = scoredEntries.filter((entry) => isSafeEndgameLeadCandidate(entry));
+    return {
+      bestEntry: scoredEntries[0] || null,
+      safeEntry: safeEntries[0] || null,
+      safeLeadCount: safeEntries.length,
+      scoredEntries,
+    };
+  });
+}
+
 // 为中级 AI 的跟牌候选方案计算分数。
 function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, allyWinning, beginnerChoice) {
   const player = getPlayer(playerId);
@@ -529,12 +610,14 @@ function getIntermediateRolloutExtensionSignals(playerId, simState, mode = "lead
 
   const unresolvedFriend = !!simState.friendTarget && !isSimulationFriendTeamResolved(simState);
   const lateRound = simState.players.reduce((sum, seat) => sum + (seat.hand?.length || 0), 0) <= 20;
+  const immediateOwnLead = !simState.currentTrick?.length && simState.currentTurnId === playerId;
   const bottomSensitive = lateRound && isSimulationDefenderTeam(simState, playerId);
   const trumpCount = player.hand.filter((card) => effectiveSuit(card) === "trump").length;
   const structureCount = getStructureCombosFromHand(player.hand).length;
   const flags = [];
   if (unresolvedFriend) flags.push("unresolved_friend");
   if (bottomSensitive) flags.push("late_bottom_pressure");
+  if (lateRound && immediateOwnLead) flags.push("endgame_safe_lead_check");
   if (trumpCount >= 5) flags.push("heavy_trump_control");
   if (structureCount >= 2) flags.push("multi_structure_hand");
   return {
@@ -571,6 +654,9 @@ function summarizeCandidateDebugStats(candidateEntries, filteredCandidateEntries
   const maxRolloutDepth = entries.reduce((max, entry) => Math.max(max, entry.rolloutDepth || 0), 0);
   const extendedRolloutCount = entries.filter((entry) => entry.rolloutDepth >= 2).length;
   const completedRolloutCount = entries.filter((entry) => entry.rolloutCompleted).length;
+  const turnAccessRiskCount = entries.filter((entry) =>
+    Array.isArray(entry.rolloutTriggerFlags) && entry.rolloutTriggerFlags.includes("turn_access_risk")
+  ).length;
   const filteredReasonCounts = filteredEntries.reduce((acc, entry) => {
     const key = entry?.filterReason || "filtered";
     acc[key] = (acc[key] || 0) + 1;
@@ -582,6 +668,7 @@ function summarizeCandidateDebugStats(candidateEntries, filteredCandidateEntries
     filteredReasonCounts,
     completedRolloutCount,
     extendedRolloutCount,
+    turnAccessRiskCount,
     maxRolloutDepth,
   };
 }
@@ -732,16 +819,78 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
   );
 
   if (extensionSignals.shouldExtend) {
-    const futureRollout = simulateUntilNextOwnTurn(rollout.resultState, playerId);
+    const canCheckImmediateNextLead = rollout.resultState.currentTurnId === playerId
+      && !rollout.resultState.currentTrick?.length;
+    const futureRollout = canCheckImmediateNextLead
+      ? (() => {
+        const leadSummary = getEndgameSafeLeadSummaryForState(rollout.resultState, playerId);
+        const selectedLeadEntry = leadSummary.safeEntry || leadSummary.bestEntry || null;
+        if (!selectedLeadEntry) {
+          return {
+            reachedOwnTurn: true,
+            resultState: cloneSimulationState(rollout.resultState),
+            trace: [],
+            futureTrace: [],
+            steps: 0,
+            nextTurnId: rollout.resultState.currentTurnId,
+            trickNumber: rollout.resultState.trickNumber,
+            nextLeadSummary: leadSummary,
+            nextLeadWinnerId: null,
+            nextLeadSameSideWin: false,
+          };
+        }
+        const nextLeadRollout = simulateCandidateToEndOfCurrentTrick(
+          cloneSimulationState(rollout.resultState),
+          playerId,
+          selectedLeadEntry.cards
+        );
+        const postLeadTurnRollout = simulateUntilNextOwnTurn(nextLeadRollout.resultState, playerId);
+        return {
+          reachedOwnTurn: !!postLeadTurnRollout.reachedOwnTurn,
+          resultState: postLeadTurnRollout.resultState,
+          trace: postLeadTurnRollout.trace || [],
+          futureTrace: nextLeadRollout.trace || [],
+          steps: (postLeadTurnRollout.steps || 0) + 1,
+          nextTurnId: postLeadTurnRollout.nextTurnId,
+          trickNumber: postLeadTurnRollout.trickNumber,
+          nextLeadSummary: leadSummary,
+          nextLeadWinnerId: nextLeadRollout.winnerId || null,
+          nextLeadSameSideWin: nextLeadRollout.winnerId
+            ? isSimulationSameSide(nextLeadRollout.resultState, playerId, nextLeadRollout.winnerId)
+            : false,
+        };
+      })()
+      : simulateUntilNextOwnTurn(rollout.resultState, playerId);
     futureTrace = futureRollout.trace || [];
     reachedOwnTurn = !!futureRollout.reachedOwnTurn;
-    if (futureRollout.reachedOwnTurn) {
+    const completedNextLeadAccessCheck = canCheckImmediateNextLead && !!futureRollout.nextLeadSummary;
+    if (futureRollout.reachedOwnTurn || completedNextLeadAccessCheck) {
       depth = 2;
       const futureMode = getIntermediateRolloutMode(futureRollout.resultState, playerId, nextMode);
       const futureObjective = getIntermediateObjective(playerId, futureMode, futureRollout.resultState);
       const futureEvaluation = evaluateState(futureRollout.resultState, playerId, futureObjective);
       futureDelta = futureEvaluation.total - (baselineEvaluation?.total || 0);
       score += futureDelta * 0.08;
+      const triggerFlags = tentativeDefenderOvertake
+        ? [...extensionSignals.flags, "tentative_defender_overtake_penalty"]
+        : [...extensionSignals.flags];
+      if (canCheckImmediateNextLead) {
+        futureTrace = [
+          ...(futureRollout.futureTrace || []),
+          ...(futureRollout.trace || []),
+        ];
+        if ((futureRollout.nextLeadSummary?.safeLeadCount || 0) === 0) {
+          triggerFlags.push("no_safe_next_lead");
+          score -= 18;
+        }
+        if (futureRollout.nextLeadWinnerId && !futureRollout.nextLeadSameSideWin) {
+          triggerFlags.push("turn_access_risk");
+          score -= 26;
+        } else if (futureRollout.nextLeadWinnerId === playerId) {
+          triggerFlags.push("turn_access_hold");
+          score += 10;
+        }
+      }
       return {
         score,
         delta,
@@ -754,9 +903,7 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
         depth,
         reachedOwnTurn,
         futureTrace,
-        triggerFlags: tentativeDefenderOvertake
-          ? [...extensionSignals.flags, "tentative_defender_overtake_penalty"]
-          : extensionSignals.flags,
+        triggerFlags,
         nextEvaluation: summarizeEvaluationForDebug(nextEvaluation),
         futureEvaluation: summarizeEvaluationForDebug(futureEvaluation),
       };

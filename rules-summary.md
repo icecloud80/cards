@@ -382,7 +382,7 @@
 ### 难度分层
 
 - 当前产品已实现：`初级 / 中级 / 高级`
-- 长期规划另见 [ai-strategy-roadmap.md](/Users/mo.li/Documents/cards/ai-strategy-roadmap.md)
+- 长期规划另见 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md)
 
 - 初级：不记具体出牌，只记得已经公开暴露出来的断门信息。
 - 中级：会记断门；另外会记住和自己当前结构牌有关的高牌是否已经打出。

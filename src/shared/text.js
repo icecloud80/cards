@@ -228,7 +228,12 @@ const TEXT = {
     decisionHistoryIndex: (current, total) => `第 ${current} / ${total} 条`,
     decisionPrev: "上一条",
     decisionNext: "下一条",
-    latestDecision: (name, mode, primary, secondary, trickNumber) => `${name} ${trickNumber ? `第 ${trickNumber} 轮 · ` : ""}${mode === "follow" ? "跟牌" : "首发"} · 主目标 ${primary} · 次目标 ${secondary}`,
+    latestDecision: (name, mode, primary, secondary, trickNumber) => `${name} ${trickNumber ? `第 ${trickNumber} 轮 · ` : ""}${({
+      follow: "跟牌",
+      lead: "首发",
+      declare: "亮主",
+      counter: "反主",
+    }[mode] || "首发")} · 主目标 ${primary} · 次目标 ${secondary}`,
     selectedCards: (cards) => `最终选择：${cards}`,
     decisionStats: (timeMs, candidateCount, maxRolloutDepth, extendedRolloutCount) => `耗时 ${timeMs}ms · 候选 ${candidateCount} 个 · 最深 ${maxRolloutDepth} 层 · 双层前瞻 ${extendedRolloutCount} 个`,
     candidateTitle: (index, score) => `候选 ${index} · 总分 ${score}`,

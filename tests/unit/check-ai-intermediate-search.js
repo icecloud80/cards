@@ -148,6 +148,60 @@ function runIntermediateSearchSuite(context) {
       ];
     }
 
+    function resetTurnAccessRiskState() {
+      state.gameOver = false;
+      state.phase = "playing";
+      state.aiDifficulty = "intermediate";
+      state.showDebugPanel = false;
+      state.playerLevels = { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
+      state.trumpSuit = "clubs";
+      state.levelRank = "2";
+      state.declaration = null;
+      state.currentTurnId = 3;
+      state.leaderId = 1;
+      state.bankerId = 1;
+      state.hiddenFriendId = null;
+      state.friendTarget = null;
+      state.trickNumber = 10;
+      state.defenderPoints = 70;
+      state.playHistory = [];
+      state.lastAiDecision = null;
+      state.aiDecisionHistory = [];
+      state.aiDecisionHistorySeq = 0;
+      state.bottomCards = [makeCard("risk-bottom-h-5", "hearts", "5"), makeCard("risk-bottom-s-10", "spades", "10")];
+      state.exposedTrumpVoid = { 1: false, 2: false, 3: false, 4: false, 5: false };
+      state.exposedSuitVoid = {
+        1: { clubs: false, diamonds: false, spades: false, hearts: false },
+        2: { clubs: false, diamonds: false, spades: false, hearts: false },
+        3: { clubs: false, diamonds: false, spades: false, hearts: false },
+        4: { clubs: false, diamonds: false, spades: false, hearts: false },
+        5: { clubs: false, diamonds: false, spades: false, hearts: false },
+      };
+      state.players = [
+        basePlayer(1, [makeCard("risk-p1-d-a", "diamonds", "A")], true),
+        basePlayer(2, [makeCard("risk-p2-s-7", "spades", "7")]),
+        basePlayer(3, [
+          makeCard("risk-p3-c-7", "clubs", "7"),
+          makeCard("risk-p3-d-5", "diamonds", "5"),
+          makeCard("risk-p3-s-6", "spades", "6"),
+          makeCard("risk-p3-d-4", "diamonds", "4"),
+        ]),
+        basePlayer(4, [
+          makeCard("risk-p4-s-8", "spades", "8"),
+          makeCard("risk-p4-s-9", "spades", "9"),
+        ]),
+        basePlayer(5, [
+          makeCard("risk-p5-h-6", "hearts", "6"),
+          makeCard("risk-p5-h-7", "hearts", "7"),
+        ]),
+      ];
+      state.currentTrick = [
+        { playerId: 1, cards: [makeCard("risk-lead-h-9", "hearts", "9")] },
+        { playerId: 2, cards: [makeCard("risk-follow-h-8", "hearts", "8")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    }
+
     resetExtendedSearchState();
     const trickRollout = simulateCandidateToEndOfCurrentTrick(cloneSimulationState(state), 3, [state.players[2].hand[2]]);
     assert(trickRollout.completed, "simulateCandidateToEndOfCurrentTrick: should finish the current trick before extended search");
@@ -175,11 +229,30 @@ function runIntermediateSearchSuite(context) {
     assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutFutureEvaluation && typeof entry.rolloutFutureEvaluation.total === "number"), "chooseIntermediatePlay: depth-2 rollout should expose future evaluation summary");
     assert(state.lastAiDecision.debugStats.extendedRolloutCount > 0, "chooseIntermediatePlay: debug stats should count extended rollouts");
 
+    resetTurnAccessRiskState();
+    const accessBaseline = evaluateState(
+      cloneSimulationState(state),
+      3,
+      getIntermediateObjective(3, "follow", cloneSimulationState(state))
+    );
+    const turnAccessRollout = getIntermediateRolloutSummary(
+      3,
+      [state.players[2].hand.find((card) => card.id === "risk-p3-c-7")],
+      accessBaseline,
+      "follow"
+    );
+    assert(turnAccessRollout.depth === 2, "getIntermediateRolloutSummary: late-round regain-control scenarios should extend into next-lead access check");
+    assert(turnAccessRollout.triggerFlags.includes("endgame_safe_lead_check"), "getIntermediateRolloutSummary: extended rollout should record endgame safe lead checks");
+    assert(turnAccessRollout.triggerFlags.includes("no_safe_next_lead"), "getIntermediateRolloutSummary: should flag when regained lead has no safe next opening");
+    assert(turnAccessRollout.triggerFlags.includes("turn_access_risk"), "getIntermediateRolloutSummary: should mark when next lead likely hands control back to opponents");
+    assert(turnAccessRollout.futureTrace.length > 0, "getIntermediateRolloutSummary: turn-access extension should preserve next-lead simulation trace");
+
     globalThis.__intermediateSearchResults = {
       results: [
         "next-own-turn simulation isolation ok",
         "intermediate rollout depth escalation ok",
         "intermediate debug stats scaffold ok",
+        "turn access risk extension ok",
       ],
     };
   `;

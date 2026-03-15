@@ -1102,6 +1102,100 @@ function getSideSuitStructureForDeclaration(playerId, declaration, levelRank = g
 
 /**
  * 作用：
+ * 统计无主方案下的花色均衡性和高张覆盖情况。
+ *
+ * 为什么这样写：
+ * 中级第一阶段要把“无主适配”从单纯常主数量，升级成“常主 + 花色覆盖 + 均衡度”的轻量判断。
+ * 这样才能区分“只有王和级牌但副牌很碎”的无主，和“常主够硬且副牌分布均衡”的无主。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估无主适配的玩家 ID。
+ * @param {string} levelRank - 该方案下生效的级牌点数。
+ *
+ * 输出：
+ * @returns {{coveredControlSuitCount:number, imbalancePenalty:number}} 无主均衡性统计结果。
+ *
+ * 注意：
+ * - 这里只统计非常主的普通花色牌分布。
+ * - `coveredControlSuitCount` 只看各花色里是否至少有一张 A 或 K。
+ */
+function getNoTrumpBalanceMetricsForDeclaration(playerId, levelRank = getPlayerLevelRank(playerId)) {
+  const player = getPlayer(playerId);
+  if (!player) {
+    return {
+      coveredControlSuitCount: 0,
+      imbalancePenalty: 0,
+    };
+  }
+
+  const suitCounts = SUITS.reduce((acc, suit) => {
+    acc[suit] = 0;
+    return acc;
+  }, {});
+  const controlSuits = new Set();
+
+  for (const card of player.hand) {
+    if (card.suit === "joker" || card.rank === levelRank) continue;
+    suitCounts[card.suit] += 1;
+    if (card.rank === "A" || card.rank === "K") {
+      controlSuits.add(card.suit);
+    }
+  }
+
+  const counts = Object.values(suitCounts);
+  const maxCount = Math.max(...counts, 0);
+  const minCount = Math.min(...counts, 0);
+  return {
+    coveredControlSuitCount: controlSuits.size,
+    imbalancePenalty: Math.max(0, maxCount - minCount),
+  };
+}
+
+/**
+ * 作用：
+ * 生成中级亮主评估使用的结构拆解。
+ *
+ * 为什么这样写：
+ * 中级亮主的评分和 debug 解释项都依赖同一组基础特征，
+ * 先把这些特征收敛成统一 breakdown，可以避免“评分逻辑”和“解释逻辑”各算一套导致脱节。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估亮主方案的玩家 ID。
+ * @param {object} declaration - 候选亮主方案。
+ * @param {string} levelRank - 该方案下生效的级牌点数。
+ *
+ * 输出：
+ * @returns {object} 中级亮主评估所需的特征拆解。
+ *
+ * 注意：
+ * - breakdown 里的分值既服务于评分，也会直接展示在 debug 面板里。
+ * - 无主与有主共用一套输出字段，未使用项会返回 0。
+ */
+function buildIntermediateDeclarationBreakdown(playerId, declaration, levelRank = getPlayerLevelRank(playerId)) {
+  const trumpCount = countTrumpCardsForDeclaration(playerId, declaration, levelRank);
+  const commonTrumpCount = countCommonTrumpCardsForPlayer(playerId, levelRank);
+  const trumpControlScore = getTrumpControlScoreForDeclaration(playerId, declaration, levelRank);
+  const sideControlCount = countSideControlCardsForDeclaration(playerId, declaration, levelRank);
+  const structure = getSideSuitStructureForDeclaration(playerId, declaration, levelRank);
+  const noTrumpBalance = getNoTrumpBalanceMetricsForDeclaration(playerId, levelRank);
+  const priorityScore = getDeclarationPriority(declaration) * 4;
+
+  return {
+    priorityScore,
+    trumpCount,
+    commonTrumpCount,
+    trumpControlScore,
+    sideControlCount,
+    shortSuitCount: structure.shortSuitCount,
+    voidSuitCount: structure.voidSuitCount,
+    noTrumpFragileCount: structure.noTrumpFragileCount,
+    coveredControlSuitCount: noTrumpBalance.coveredControlSuitCount,
+    imbalancePenalty: noTrumpBalance.imbalancePenalty,
+  };
+}
+
+/**
+ * 作用：
  * 评估中级 AI 在某个亮主方案下的整体适配分。
  *
  * 为什么这样写：
@@ -1122,27 +1216,25 @@ function getSideSuitStructureForDeclaration(playerId, declaration, levelRank = g
  * - 无主与有主走不同加权，避免简单地把无主当作“更高档所以更好”。
  */
 function scoreIntermediateDeclarationOption(playerId, declaration, levelRank = getPlayerLevelRank(playerId)) {
-  const trumpCount = countTrumpCardsForDeclaration(playerId, declaration, levelRank);
-  const commonTrumpCount = countCommonTrumpCardsForPlayer(playerId, levelRank);
-  const trumpControlScore = getTrumpControlScoreForDeclaration(playerId, declaration, levelRank);
-  const sideControlCount = countSideControlCardsForDeclaration(playerId, declaration, levelRank);
-  const structure = getSideSuitStructureForDeclaration(playerId, declaration, levelRank);
-  const priorityScore = getDeclarationPriority(declaration) * 4;
+  const breakdown = buildIntermediateDeclarationBreakdown(playerId, declaration, levelRank);
 
   if (declaration.suit === "notrump") {
-    return priorityScore
-      + commonTrumpCount * 12
-      + trumpControlScore * 4
-      + sideControlCount * 5
-      - structure.noTrumpFragileCount * 8;
+    return breakdown.priorityScore
+      + breakdown.commonTrumpCount * 12
+      + breakdown.trumpControlScore * 4
+      + breakdown.sideControlCount * 4
+      + breakdown.coveredControlSuitCount * 6
+      - breakdown.noTrumpFragileCount * 8
+      - breakdown.imbalancePenalty * 4
+      + (breakdown.commonTrumpCount >= 4 ? 12 : -18);
   }
 
-  return priorityScore
-    + trumpCount * 9
-    + trumpControlScore * 4
-    + sideControlCount * 3
-    + structure.shortSuitCount * 6
-    + structure.voidSuitCount * 4
+  return breakdown.priorityScore
+    + breakdown.trumpCount * 9
+    + breakdown.trumpControlScore * 4
+    + breakdown.sideControlCount * 3
+    + breakdown.shortSuitCount * 6
+    + breakdown.voidSuitCount * 4
     + (declaration.count === 3 ? 12 : 0);
 }
 
@@ -1186,6 +1278,59 @@ function shouldDelayDeclarationForIntermediate(playerId, declaration) {
 
 /**
  * 作用：
+ * 为中级及高级自动亮主流程生成候选方案及其解释项。
+ *
+ * 为什么这样写：
+ * 亮主 debug 需要看到“为什么选这门主”，而不只是最终结果。
+ * 这里把候选声明的评分、延迟标记和结构拆解统一整理出来，
+ * 既能给自动流程排序，也能直接喂给调试面板展示。
+ *
+ * 输入：
+ * @param {number} playerId - 需要自动亮主的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 已按分值排序的亮主候选项列表。
+ *
+ * 注意：
+ * - `delaySuggested` 只代表中级当前更倾向继续等牌，不等于这手不合法。
+ * - 当前高级暂时复用同一套候选构建逻辑。
+ */
+function buildIntermediateDeclarationCandidateEntries(playerId) {
+  const options = getDeclarationOptions(playerId);
+  if (options.length === 0) return [];
+
+  return options
+    .map((entry) => {
+      const breakdown = buildIntermediateDeclarationBreakdown(playerId, entry);
+      const score = scoreIntermediateDeclarationOption(playerId, entry);
+      const delaySuggested = shouldDelayDeclarationForIntermediate(playerId, entry);
+      const tags = [
+        entry.suit === "notrump" ? `常主 ${breakdown.commonTrumpCount}` : `总主 ${breakdown.trumpCount}`,
+        delaySuggested ? "建议继续等牌" : "可立即出手",
+      ];
+      return {
+        entry,
+        cards: cloneSetupDebugValue(entry.cards || []),
+        source: entry.suit === "notrump" ? "notrump-fit" : "trump-fit",
+        tags,
+        score,
+        heuristicScore: score,
+        rolloutScore: null,
+        rolloutFutureDelta: null,
+        rolloutDepth: 0,
+        rolloutTriggerFlags: delaySuggested ? ["低价值两张，继续等牌"] : ["当前可立即亮主"],
+        delaySuggested,
+        breakdown,
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return getDeclarationPriority(b.entry) - getDeclarationPriority(a.entry);
+    });
+}
+
+/**
+ * 作用：
  * 为中级及高级自动流程选出最适合的亮主方案。
  *
  * 为什么这样写：
@@ -1203,18 +1348,71 @@ function shouldDelayDeclarationForIntermediate(playerId, declaration) {
  * - 这里只有自动流程使用，人类按钮仍可依据合法方案自行决定。
  */
 function getBestAutoDeclarationForIntermediate(playerId) {
-  const options = getDeclarationOptions(playerId);
-  if (options.length === 0) return null;
+  const candidateEntries = buildIntermediateDeclarationCandidateEntries(playerId);
+  const best = candidateEntries[0] || null;
+  if (!best || best.delaySuggested) return null;
+  return best.entry;
+}
 
-  const best = [...options].sort((a, b) => {
-    const scoreDiff = scoreIntermediateDeclarationOption(b.playerId, b) - scoreIntermediateDeclarationOption(a.playerId, a);
-    if (scoreDiff !== 0) return scoreDiff;
-    return getDeclarationPriority(b) - getDeclarationPriority(a);
-  })[0];
+/**
+ * 作用：
+ * 为中级及高级自动反主流程生成候选方案及其解释项。
+ *
+ * 为什么这样写：
+ * 反主 debug 的核心不是“它能不能反”，而是“它为什么觉得这次反主值不值”。
+ * 这里把每个候选反主方案相对当前亮主的提升值一起算出来，方便同时用于自动阈值和调试面板展示。
+ *
+ * 输入：
+ * @param {number} playerId - 需要自动反主的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 已按分值排序的反主候选项列表。
+ *
+ * 注意：
+ * - 当前亮主的适配按当前生效级牌计算，不是按玩家自己的等级计算。
+ * - `improvement` 偏低时，即使候选合法，也可能在自动流程里被直接跳过。
+ */
+function buildIntermediateCounterCandidateEntries(playerId) {
+  const current = state.declaration;
+  if (!current) return [];
+  const options = getDeclarationOptions(playerId).filter((entry) => canOverrideDeclaration(entry, current));
+  if (options.length === 0) return [];
 
-  if (!best) return null;
-  if (shouldDelayDeclarationForIntermediate(playerId, best)) return null;
-  return best;
+  const currentBreakdown = buildIntermediateDeclarationBreakdown(playerId, current, current.rank);
+  const currentScore = scoreIntermediateDeclarationOption(playerId, current, current.rank);
+  return options
+    .map((entry) => {
+      const breakdown = buildIntermediateDeclarationBreakdown(playerId, entry);
+      const declarationScore = scoreIntermediateDeclarationOption(playerId, entry);
+      const improvement = declarationScore - currentScore;
+      const score = scoreIntermediateCounterOption(playerId, entry, current);
+      const tags = [
+        `提升 ${Math.round(improvement * 100) / 100}`,
+        improvement >= 18 ? "值得反主" : "提升偏小",
+      ];
+      return {
+        entry,
+        cards: cloneSetupDebugValue(entry.cards || []),
+        source: entry.suit === "notrump" ? "counter-notrump-fit" : "counter-trump-fit",
+        tags,
+        score,
+        heuristicScore: score,
+        rolloutScore: null,
+        rolloutFutureDelta: null,
+        rolloutDepth: 0,
+        rolloutTriggerFlags: improvement >= 18 ? ["提升明确，可反主"] : ["提升偏小，建议不反"],
+        improvement,
+        breakdown: {
+          ...breakdown,
+          currentScore,
+          currentPriority: currentBreakdown.priorityScore,
+        },
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return getDeclarationPriority(b.entry) - getDeclarationPriority(a.entry);
+    });
 }
 
 /**
@@ -1266,26 +1464,148 @@ function scoreIntermediateCounterOption(playerId, declaration, current) {
  * - 分值阈值偏保守，目的是先过滤“能反但明显不值”的场景。
  */
 function getBestAutoCounterDeclarationForIntermediate(playerId) {
-  const current = state.declaration;
-  if (!current) return null;
-  const options = getDeclarationOptions(playerId).filter((entry) => canOverrideDeclaration(entry, current));
-  if (options.length === 0) return null;
-
-  const scoredOptions = options
-    .map((entry) => ({
-      entry,
-      improvement: scoreIntermediateDeclarationOption(playerId, entry, getPlayerLevelRank(playerId))
-        - scoreIntermediateDeclarationOption(playerId, current, current.rank),
-      score: scoreIntermediateCounterOption(playerId, entry, current),
-    }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return getDeclarationPriority(b.entry) - getDeclarationPriority(a.entry);
-    });
-
-  const best = scoredOptions[0];
+  const candidateEntries = buildIntermediateCounterCandidateEntries(playerId);
+  const best = candidateEntries[0];
   if (!best || best.improvement < 18 || best.score < 120) return null;
   return best.entry;
+}
+
+/**
+ * 作用：
+ * 为声明阶段的 debug 记录做轻量数据克隆。
+ *
+ * 为什么这样写：
+ * 声明阶段的调试记录只需要保留纯数据快照，不需要依赖出牌搜索里的专用 clone helper。
+ * 单独保留一个本地轻量版本，可以让 `game.js` 在测试环境里独立运行。
+ *
+ * 输入：
+ * @param {any} value - 需要浅层递归复制的调试数据。
+ *
+ * 输出：
+ * @returns {any} 不再共享引用的轻量副本。
+ *
+ * 注意：
+ * - 这里只处理声明调试会用到的普通对象、数组和基础类型。
+ * - 函数与特殊对象不会被保留，当前场景也不需要它们。
+ */
+function cloneSetupDebugValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneSetupDebugValue(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entryValue]) => [key, cloneSetupDebugValue(entryValue)])
+  );
+}
+
+/**
+ * 作用：
+ * 判断两组声明展示牌是否表示同一个候选方案。
+ *
+ * 为什么这样写：
+ * 声明阶段的候选比较只需要看展示牌的 ID 组合，不需要依赖出牌搜索里的组合 key helper。
+ * 单独做一层本地比较，可以让 setup 决策逻辑在测试环境里独立运行。
+ *
+ * 输入：
+ * @param {object[]} cardsA - 第一组候选展示牌。
+ * @param {object[]} cardsB - 第二组候选展示牌。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示两组牌可视为同一个候选方案。
+ *
+ * 注意：
+ * - 会先按牌 ID 排序再比较，避免顺序差异影响结果。
+ * - 空数组只会和另一组空数组判定相同。
+ */
+function areSetupCandidateCardsEqual(cardsA, cardsB) {
+  const idsA = Array.isArray(cardsA) ? cardsA.map((card) => card.id).sort() : [];
+  const idsB = Array.isArray(cardsB) ? cardsB.map((card) => card.id).sort() : [];
+  if (idsA.length !== idsB.length) return false;
+  return idsA.every((id, index) => id === idsB[index]);
+}
+
+/**
+ * 作用：
+ * 把亮主 / 反主候选项记录进现有 AI debug 历史。
+ *
+ * 为什么这样写：
+ * 这次中级阶段希望直接复用现有 debug 面板，而不是再造一个单独的声明调试区。
+ * 因此只要把声明阶段的候选项整理成与出牌决策相近的结构，就能无缝显示“选了什么、为什么没选别的”。
+ *
+ * 输入：
+ * @param {number} playerId - 记录决策的 AI 玩家 ID。
+ * @param {string} mode - `"declare"` 或 `"counter"`。
+ * @param {Array<object>} candidateEntries - 已排序的候选方案列表。
+ * @param {?object} selectedEntry - 最终采用的候选项；若为空表示本轮选择观望或不反。
+ *
+ * 输出：
+ * @returns {void} 直接把调试快照写入共享状态。
+ *
+ * 注意：
+ * - 仅在 debug 面板开启时记录，避免声明阶段不断追加无用历史。
+ * - `selectedCards` 为空时，调试面板会显示“无”，用来表达延迟亮主或选择不反。
+ */
+function recordSetupDecisionSnapshot(playerId, mode, candidateEntries, selectedEntry) {
+  if (!isAiDecisionDebugEnabled() || !playerId || !Array.isArray(candidateEntries) || candidateEntries.length === 0) return;
+  const modeLabel = mode === "counter" ? "counter" : "declare";
+  const selected = selectedEntry || null;
+  const snapshot = {
+    historyId: (state.aiDecisionHistorySeq || 0) + 1,
+    recordedAtTrickNumber: state.trickNumber || null,
+    recordedAtTurnId: state.currentTurnId || null,
+    playerId,
+    mode: modeLabel,
+    objective: {
+      primary: mode === "counter" ? "secure_banker" : "choose_trump",
+      secondary: selected?.entry?.suit === "notrump" ? "no_trump_fit" : "long_trump",
+    },
+    evaluation: {
+      total: selected?.score ?? null,
+      objective: {
+        primary: mode === "counter" ? "secure_banker" : "choose_trump",
+        secondary: selected?.entry?.suit === "notrump" ? "no_trump_fit" : "long_trump",
+      },
+      breakdown: cloneSetupDebugValue(selected?.breakdown || null),
+    },
+    candidateEntries: candidateEntries.slice(0, 5).map((entry) => ({
+      cards: cloneSetupDebugValue(entry.cards || []),
+      source: entry.source || null,
+      tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
+      score: typeof entry.score === "number" ? entry.score : null,
+      heuristicScore: typeof entry.heuristicScore === "number" ? entry.heuristicScore : null,
+      rolloutScore: null,
+      rolloutFutureDelta: null,
+      rolloutDepth: 0,
+      rolloutReachedOwnTurn: false,
+      rolloutTriggerFlags: Array.isArray(entry.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [],
+      rolloutEvaluation: {
+        total: entry.score,
+        objective: {
+          primary: mode === "counter" ? "secure_banker" : "choose_trump",
+          secondary: entry.entry?.suit === "notrump" ? "no_trump_fit" : "long_trump",
+        },
+        breakdown: cloneSetupDebugValue(entry.breakdown),
+      },
+      rolloutFutureEvaluation: null,
+    })),
+    filteredCandidateEntries: [],
+    selectedSource: selected?.source || null,
+    selectedTags: Array.isArray(selected?.tags) ? [...selected.tags] : [mode === "counter" ? "选择不反" : "继续等牌"],
+    selectedScore: typeof selected?.score === "number" ? selected.score : null,
+    selectedCards: cloneSetupDebugValue(selected?.cards || []),
+    selectedBreakdown: cloneSetupDebugValue(selected?.breakdown || null),
+    debugStats: {
+      candidateCount: candidateEntries.length,
+      maxRolloutDepth: 0,
+      extendedRolloutCount: 0,
+    },
+    decisionTimeMs: 0,
+  };
+  state.aiDecisionHistorySeq = snapshot.historyId;
+  state.lastAiDecision = snapshot;
+  state.aiDecisionHistory = [...(state.aiDecisionHistory || []), snapshot].slice(-120);
 }
 
 /**
@@ -1415,7 +1735,16 @@ function declareTrump(playerId, declaration, source = "manual") {
 function maybeAutoDeclare(playerId) {
   const player = getPlayer(playerId);
   if (!player || player.isHuman) return;
-  const best = getAutoDeclarationForPlayer(playerId);
+  const candidateEntries = state.aiDifficulty === "beginner"
+    ? []
+    : buildIntermediateDeclarationCandidateEntries(playerId);
+  const best = state.aiDifficulty === "beginner"
+    ? getAutoDeclarationForPlayer(playerId)
+    : candidateEntries.find((entry) => !entry.delaySuggested)?.entry || null;
+  if (state.aiDifficulty !== "beginner") {
+    const selectedEntry = candidateEntries.find((entry) => best && areSetupCandidateCardsEqual(entry.cards, best.cards || [])) || null;
+    recordSetupDecisionSnapshot(playerId, "declare", candidateEntries, selectedEntry);
+  }
   if (!best || !canOverrideDeclaration(best)) return;
 
   const willing = best.count >= 3 || Math.random() < 0.65;
@@ -1452,9 +1781,18 @@ function startCounterTurn() {
   if (state.gameOver || state.phase !== "countering") return;
 
   const player = getPlayer(state.currentTurnId);
+  const candidateEntries = !player?.isHuman && state.aiDifficulty !== "beginner"
+    ? buildIntermediateCounterCandidateEntries(state.currentTurnId)
+    : [];
   const option = player?.isHuman
     ? getCounterDeclarationForPlayer(state.currentTurnId)
-    : getAutoCounterDeclarationForPlayer(state.currentTurnId);
+    : (state.aiDifficulty === "beginner"
+      ? getAutoCounterDeclarationForPlayer(state.currentTurnId)
+      : getBestAutoCounterDeclarationForIntermediate(state.currentTurnId));
+  if (!player?.isHuman && state.aiDifficulty !== "beginner") {
+    const selectedEntry = candidateEntries.find((entry) => option && areSetupCandidateCardsEqual(entry.cards, option.cards || [])) || null;
+    recordSetupDecisionSnapshot(state.currentTurnId, "counter", candidateEntries, selectedEntry);
+  }
   if (!option) {
     state.countdown = 0;
     state.aiTimer = window.setTimeout(() => {

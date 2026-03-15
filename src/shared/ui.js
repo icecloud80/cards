@@ -1,3 +1,4 @@
+// 渲染当前界面并同步对外快照。
 function render() {
   renderFriendPanel();
   renderHud();
@@ -59,6 +60,7 @@ function render() {
   window.dispatchEvent(new CustomEvent("fivefriends:render", { detail: snapshot }));
 }
 
+// 渲染底牌面板。
 function renderBottomPanel() {
   dom.bottomPanel.classList.toggle("hidden", !state.showBottomPanel || state.phase === "bottomReveal");
   if (state.gameOver) {
@@ -79,6 +81,7 @@ function renderBottomPanel() {
     : `<div class="empty-note">${TEXT.bottom.unavailable}</div>`;
 }
 
+// 渲染亮底牌阶段的中央提示区。
 function renderBottomRevealCenter() {
   const showBottomReveal = state.phase === "bottomReveal";
   dom.bottomRevealCenter.classList.toggle("hidden", !showBottomReveal);
@@ -91,12 +94,14 @@ function renderBottomRevealCenter() {
     .join("");
 }
 
+// 渲染结算结果底牌。
 function renderResultBottomCards() {
   dom.resultBottomCards.innerHTML = state.bottomCards
     .map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML)
     .join("");
 }
 
+// 渲染朋友面板。
 function renderFriendPanel() {
   if (!state.friendTarget) {
     dom.friendHint.textContent = state.phase === "callingFriend"
@@ -125,6 +130,7 @@ function renderFriendPanel() {
   dom.friendCardMount.appendChild(buildCardNode(state.friendTarget, "friend-card"));
 }
 
+// 渲染顶部信息栏和阶段信息。
 function renderHud() {
   dom.phaseLabel.textContent = state.gameOver
     ? TEXT.phase.gameOver
@@ -201,6 +207,7 @@ function renderHud() {
     : TEXT.hud.trickPlaying(state.trickNumber);
 }
 
+// 渲染分数面板。
 function renderScorePanel() {
   const visibleDefenderPoints = getVisibleDefenderPoints();
   dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
@@ -244,6 +251,7 @@ function renderScorePanel() {
   }
 }
 
+// 渲染五个玩家座位信息。
 function renderSeats() {
   for (const player of state.players) {
     const seat = document.getElementById(`playerSeat-${player.id}`);
@@ -281,6 +289,7 @@ function renderSeats() {
   }
 }
 
+// 返回当前对玩家可见的身份文案。
 function getVisibleRole(playerId) {
   if (state.phase === "ready") {
     return { kind: "unknown", label: TEXT.roles.ready };
@@ -318,6 +327,7 @@ function getVisibleRole(playerId) {
   return { kind: "unknown", label: TEXT.roles.unknown };
 }
 
+// 渲染当前一墩中各玩家的出牌位置。
 function renderTrickSpots() {
   for (const player of state.players) {
     const spot = document.getElementById(`trickSpot-${player.id}`);
@@ -376,6 +386,7 @@ function renderTrickSpots() {
   }
 }
 
+// 渲染手牌。
 function renderHand() {
   const human = getPlayer(1);
   if (state.phase === "ready") {
@@ -464,6 +475,7 @@ function renderHand() {
   }
 }
 
+// 创建单张牌对应的 DOM 节点。
 function buildCardNode(card, className) {
   const node = document.createElement("button");
   node.className = className;
@@ -475,6 +487,7 @@ function buildCardNode(card, className) {
   return node;
 }
 
+// 切换一张牌的选中状态。
 function toggleSelection(cardId) {
   if (!isHumanTurnActive() && !(state.phase === "burying" && state.bankerId === 1)) return;
   if (state.selectedCardIds.includes(cardId)) {
@@ -487,6 +500,7 @@ function toggleSelection(cardId) {
   updateActionHint();
 }
 
+// 更新当前操作提示文案。
 function updateActionHint() {
   if (state.phase === "ready") {
     dom.actionHint.textContent = "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
@@ -565,6 +579,7 @@ function updateActionHint() {
     : validation.reason;
 }
 
+// 渲染上一墩回顾内容。
 function renderLastTrick() {
   dom.lastTrickPanel.classList.toggle("hidden", !state.showLastTrick);
   if (!state.lastTrick) {
@@ -585,6 +600,7 @@ function renderLastTrick() {
     .join("");
 }
 
+// 获取花色对应的叫朋友点数选项。
 function getFriendPickerRanksForSuit(suit) {
   if (suit === "joker") {
     return [
@@ -597,6 +613,7 @@ function getFriendPickerRanksForSuit(suit) {
     .map((rank) => ({ value: rank, label: rank }));
 }
 
+// 渲染朋友选择器。
 function renderFriendPicker() {
   const visible = state.phase === "callingFriend" && state.bankerId === 1 && !state.gameOver;
   dom.friendPickerPanel.classList.toggle("hidden", !visible);
@@ -650,6 +667,7 @@ function renderFriendPicker() {
   }
 }
 
+// 渲染信息日志列表。
 function renderLogs() {
   dom.logPanel.classList.toggle("hidden", !state.showLogPanel);
   dom.bottomPanel.classList.toggle("hidden", !state.showBottomPanel);
@@ -657,6 +675,7 @@ function renderLogs() {
   dom.logList.innerHTML = state.logs.map((item) => `<li>${item}</li>`).join("");
 }
 
+// 渲染调试面板。
 function renderDebugPanel() {
   if (!dom.debugPanel || !dom.toggleDebugBtn || !dom.debugPlayerTabs || !dom.debugHandMeta || !dom.debugHandCards) return;
 
@@ -725,6 +744,7 @@ function renderDebugPanel() {
     .join("") || `<div class="empty-note">${TEXT.debug.empty}</div>`;
 }
 
+// 渲染中央操作面板内容。
 function renderCenterPanel() {
   const humanDeclaration = getBestDeclarationForPlayer(1);
   const humanCounter = getCounterDeclarationForPlayer(1);

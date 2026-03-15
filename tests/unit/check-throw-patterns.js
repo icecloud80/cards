@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
+// 加载规则模块所需的测试上下文。
 function loadRulesContext() {
   const context = {
     console,
@@ -42,12 +43,14 @@ function loadRulesContext() {
   return context;
 }
 
+// 运行甩牌规则回归测试套件。
 function runRegressionSuite(context) {
   const testSource = `
     state.trumpSuit = "spades";
     state.levelRank = "2";
     state.declaration = null;
 
+    // 批量创建测试用牌对象。
     function makeCards(spec, suit = "hearts") {
       let seq = 0;
       return spec.flatMap(([rank, count]) =>
@@ -59,6 +62,7 @@ function runRegressionSuite(context) {
       );
     }
 
+    // 生成便于断言的牌型签名。
     function getSignature(pattern) {
       return [...pattern.components]
         .map((component) => \`\${component.type}:\${component.count}:\${component.chainLength || 0}\`)

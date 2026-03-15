@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
+// 加载运行牌局逻辑所需的测试上下文。
 function loadGameContext() {
   const context = {
     console,
@@ -49,6 +50,9 @@ function loadGameContext() {
     path.join(__dirname, "../../src/shared/rules.js"),
     path.join(__dirname, "../../src/shared/text.js"),
     path.join(__dirname, "../../src/shared/game.js"),
+    path.join(__dirname, "../../src/shared/ai-shared.js"),
+    path.join(__dirname, "../../src/shared/ai-beginner.js"),
+    path.join(__dirname, "../../src/shared/ai-intermediate.js"),
     path.join(__dirname, "../../src/shared/ai.js"),
   ];
   for (const file of files) {
@@ -57,16 +61,20 @@ function loadGameContext() {
   return context;
 }
 
+// 运行找朋友 AI 策略测试套件。
 function runFriendStrategySuite(context) {
   const testSource = `
+    // 断言测试条件是否成立。
     function assert(condition, message) {
       if (!condition) throw new Error(message);
     }
 
+    // 创建测试用牌对象。
     function makeCard(id, suit, rank) {
       return { id, suit, rank };
     }
 
+    // 创建测试用玩家对象。
     function basePlayer(id, hand, isHuman = false) {
       return {
         id,
@@ -80,6 +88,7 @@ function runFriendStrategySuite(context) {
       };
     }
 
+    // 重置测试共用的牌局状态。
     function resetCommonState() {
       state.gameOver = false;
       state.phase = "playing";
@@ -106,6 +115,7 @@ function runFriendStrategySuite(context) {
       };
     }
 
+    // 搭建叫死朋友的测试场景。
     function setupCalledDeadFriendScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -126,6 +136,7 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
+    // 搭建第三张朋友牌叫死的测试场景。
     function setupThirdAceCalledDeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -145,6 +156,7 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
+    // 搭建首轮延后亮朋友的测试场景。
     function setupDelayRevealOpeningLeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -170,6 +182,7 @@ function runFriendStrategySuite(context) {
       state.currentTurnId = 3;
     }
 
+    // 搭建回牌给庄家的测试场景。
     function setupReturnToBankerScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -194,6 +207,7 @@ function runFriendStrategySuite(context) {
       state.exposedSuitVoid[1].hearts = true;
     }
 
+    // 搭建庄家暗断门时回牌的测试场景。
     function setupReturnToBankerHiddenVoidScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -217,6 +231,7 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
+    // 搭建自动成友的测试场景。
     function setupAutoFriendScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -233,6 +248,209 @@ function runFriendStrategySuite(context) {
         basePlayer(4, [makeCard("p4-s-k", "spades", "K"), makeCard("p4-s-7", "spades", "7")]),
         basePlayer(5, [makeCard("p5-d-q", "diamonds", "Q"), makeCard("p5-d-6", "diamonds", "6")]),
       ];
+    }
+
+    function setupAvoidKingWhileAceAliveScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.phase = "callingFriend";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [makeCard("p1-h-a", "hearts", "A")], true),
+        basePlayer(2, [makeCard("p2-h-k", "hearts", "K")]),
+        basePlayer(3, [makeCard("p3-c-9", "clubs", "9")]),
+        basePlayer(4, [makeCard("p4-s-a", "spades", "A")]),
+        basePlayer(5, [
+          makeCard("b-h-k-1", "hearts", "K"),
+          makeCard("b-d-a", "diamonds", "A"),
+          makeCard("b-d-9", "diamonds", "9"),
+          makeCard("b-s-k", "spades", "K"),
+        ]),
+      ];
+    }
+
+    // 搭建闲家回牌给队友的测试场景。
+    function setupDefenderReturnToAllyScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-s-9", "spades", "9")], true),
+        basePlayer(2, [makeCard("p2-d-a", "diamonds", "A")]),
+        basePlayer(3, [makeCard("p3-h-9", "hearts", "9"), makeCard("p3-c-6", "clubs", "6")]),
+        basePlayer(4, [
+          makeCard("p4-c-a", "clubs", "A"),
+          makeCard("p4-h-j", "hearts", "J"),
+          makeCard("p4-h-3", "hearts", "3"),
+        ]),
+        basePlayer(5, [makeCard("p5-c-5", "clubs", "5")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.currentTurnId = 4;
+      state.leaderId = 4;
+    }
+
+    // 搭建闲家跟牌配合的测试场景。
+    function setupDefenderFollowSupportScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-c-7", "clubs", "7")], true),
+        basePlayer(2, [makeCard("p2-h-8", "hearts", "8")]),
+        basePlayer(3, [makeCard("p3-h-9", "hearts", "9")]),
+        basePlayer(4, [
+          makeCard("p4-h-a", "hearts", "A"),
+          makeCard("p4-h-3", "hearts", "3"),
+        ]),
+        basePlayer(5, [makeCard("p5-c-5", "clubs", "5")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.currentTrick = [
+        { playerId: 1, cards: [makeCard("lead-h-7", "hearts", "7")] },
+        { playerId: 2, cards: [makeCard("p2-h-8-play", "hearts", "8")] },
+        { playerId: 3, cards: [makeCard("p3-h-9-play", "hearts", "9")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 1;
+      state.currentTurnId = 4;
+    }
+
+    // 搭建闲家跟牌压墩的测试场景。
+    function setupDefenderFollowBeatScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-c-7", "clubs", "7")], true),
+        basePlayer(2, [makeCard("p2-h-8", "hearts", "8")]),
+        basePlayer(3, [makeCard("p3-h-7", "hearts", "7")]),
+        basePlayer(4, [
+          makeCard("p4-h-a", "hearts", "A"),
+          makeCard("p4-h-3", "hearts", "3"),
+        ]),
+        basePlayer(5, [makeCard("p5-c-5", "clubs", "5")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.currentTrick = [
+        { playerId: 1, cards: [makeCard("lead-h-9", "hearts", "9")] },
+        { playerId: 2, cards: [makeCard("p2-h-8-play", "hearts", "8")] },
+        { playerId: 3, cards: [makeCard("p3-h-7-play", "hearts", "7")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 1;
+      state.currentTurnId = 4;
+    }
+
+    // 搭建清主控场的测试场景。
+    function setupTrumpClearControlScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-s-9", "spades", "9")], true),
+        basePlayer(2, [makeCard("p2-s-j-1", "spades", "J"), makeCard("p2-s-j-2", "spades", "J")]),
+        basePlayer(3, [
+          makeCard("p3-c-7-1", "clubs", "7"),
+          makeCard("p3-c-7-2", "clubs", "7"),
+          makeCard("p3-c-8-1", "clubs", "8"),
+          makeCard("p3-c-8-2", "clubs", "8"),
+          makeCard("p3-s-k-1", "spades", "K"),
+          makeCard("p3-s-k-2", "spades", "K"),
+          makeCard("p3-s-a-1", "spades", "A"),
+          makeCard("p3-s-a-2", "spades", "A"),
+        ]),
+        basePlayer(4, [makeCard("p4-h-9", "hearts", "9")]),
+        basePlayer(5, [makeCard("p5-d-9", "diamonds", "9")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.hiddenFriendId = 3;
+      state.currentTurnId = 3;
+      state.leaderId = 3;
+    }
+
+    // 搭建为保护对子而清主的测试场景。
+    function setupTrumpClearForPairSafetyScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-s-9", "spades", "9")], true),
+        basePlayer(2, [makeCard("p2-s-q-1", "spades", "Q"), makeCard("p2-s-q-2", "spades", "Q")]),
+        basePlayer(3, [
+          makeCard("p3-c-9-1", "clubs", "9"),
+          makeCard("p3-c-9-2", "clubs", "9"),
+          makeCard("p3-s-a-1", "spades", "A"),
+          makeCard("p3-s-a-2", "spades", "A"),
+          makeCard("p3-s-k-1", "spades", "K"),
+          makeCard("p3-s-k-2", "spades", "K"),
+          makeCard("p3-h-5", "hearts", "5"),
+        ]),
+        basePlayer(4, [makeCard("p4-d-9", "diamonds", "9")]),
+        basePlayer(5, [makeCard("p5-h-9", "hearts", "9")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.hiddenFriendId = 3;
+      state.currentTurnId = 3;
+      state.leaderId = 3;
+    }
+
+    // 搭建避免给庄家将吃机会的测试场景。
+    function setupAvoidBankerRuffLeadScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-s-9", "spades", "9")], true),
+        basePlayer(2, [makeCard("p2-s-a", "spades", "A")]),
+        basePlayer(3, [
+          makeCard("p3-h-k", "hearts", "K"),
+          makeCard("p3-h-9", "hearts", "9"),
+          makeCard("p3-c-7", "clubs", "7"),
+        ]),
+        basePlayer(4, [makeCard("p4-d-8", "diamonds", "8")]),
+        basePlayer(5, [makeCard("p5-c-5", "clubs", "5")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 2;
+      state.hiddenFriendId = 2;
+      state.currentTurnId = 3;
+      state.leaderId = 3;
+      state.exposedSuitVoid[1].hearts = true;
+    }
+
+    // 搭建允许队友补位化解将吃的测试场景。
+    function setupAllowCoverRuffLeadScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-s-9", "spades", "9")], true),
+        basePlayer(2, [makeCard("p2-s-a", "spades", "A")]),
+        basePlayer(3, [
+          makeCard("p3-h-k", "hearts", "K"),
+          makeCard("p3-h-9", "hearts", "9"),
+          makeCard("p3-c-7", "clubs", "7"),
+        ]),
+        basePlayer(4, [makeCard("p4-h-8", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-d-8", "diamonds", "8")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 5;
+      state.hiddenFriendId = 5;
+      state.currentTurnId = 3;
+      state.leaderId = 3;
+      state.exposedSuitVoid[1].hearts = true;
+      state.exposedSuitVoid[2].hearts = true;
     }
 
     const results = [];
@@ -273,6 +491,15 @@ function runFriendStrategySuite(context) {
       results.push(difficulty + " auto-friend rank ok -> " + chosen.rank);
     }
 
+    setupAvoidKingWhileAceAliveScenario("beginner");
+    const beginnerAvoidKingWhileAceAlive = chooseFriendTarget().target;
+    results.push("beginner avoid-K-with-live-A baseline -> " + beginnerAvoidKingWhileAceAlive.suit + "-" + beginnerAvoidKingWhileAceAlive.rank);
+
+    setupAvoidKingWhileAceAliveScenario("intermediate");
+    const intermediateAvoidKingWhileAceAlive = chooseFriendTarget().target;
+    assert(!(intermediateAvoidKingWhileAceAlive.suit === "hearts" && intermediateAvoidKingWhileAceAlive.rank === "K"), "intermediate: should not call hearts K while hearts A is still outside banker");
+    results.push("intermediate avoid-K-with-live-A ok -> " + intermediateAvoidKingWhileAceAlive.suit + "-" + intermediateAvoidKingWhileAceAlive.rank);
+
     setupReturnToBankerScenario("beginner");
     const beginnerReturnLead = getLegalHintForPlayer(3);
     assert(beginnerReturnLead.length === 1, "beginner: return scenario should choose a single lead");
@@ -296,6 +523,76 @@ function runFriendStrategySuite(context) {
     assert(intermediateHiddenVoidLead.length === 1, "intermediate: hidden-void return scenario should choose a single lead");
     assert(intermediateHiddenVoidLead[0].suit === "hearts" && intermediateHiddenVoidLead[0].rank === "3", "intermediate: should infer banker void after burying and return with low heart");
     results.push("intermediate hidden-void return ok");
+
+    setupDefenderReturnToAllyScenario("beginner");
+    const beginnerDefenderReturnLead = getLegalHintForPlayer(4);
+    assert(beginnerDefenderReturnLead.length === 1, "beginner: defender return scenario should choose a single lead");
+    assert(!(beginnerDefenderReturnLead[0].suit === "hearts" && beginnerDefenderReturnLead[0].rank === "3"), "beginner: should not already prefer defender handoff to ally");
+    results.push("beginner defender-return baseline -> " + beginnerDefenderReturnLead[0].suit + "-" + beginnerDefenderReturnLead[0].rank);
+
+    setupDefenderReturnToAllyScenario("intermediate");
+    const intermediateDefenderReturnLead = getLegalHintForPlayer(4);
+    assert(intermediateDefenderReturnLead.length === 1, "intermediate: defender return scenario should choose a single lead");
+    assert(intermediateDefenderReturnLead[0].suit === "hearts" && intermediateDefenderReturnLead[0].rank === "3", "intermediate: should prefer low heart to hand control to tentative defender ally");
+    results.push("intermediate defender-return lead ok");
+
+    setupDefenderFollowSupportScenario("intermediate");
+    const intermediateDefenderFollowSupport = getLegalHintForPlayer(4);
+    assert(intermediateDefenderFollowSupport.length === 1, "intermediate: defender follow-support scenario should choose a single card");
+    assert(intermediateDefenderFollowSupport[0].suit === "hearts" && intermediateDefenderFollowSupport[0].rank === "3", "intermediate: should not overtake tentative defender ally while following");
+    results.push("intermediate defender-follow support ok");
+
+    setupDefenderFollowBeatScenario("beginner");
+    const beginnerDefenderFollowBeat = getLegalHintForPlayer(4);
+    assert(beginnerDefenderFollowBeat.length === 1, "beginner: defender follow-beat scenario should choose a single card");
+    results.push("beginner defender-follow beat baseline -> " + beginnerDefenderFollowBeat[0].suit + "-" + beginnerDefenderFollowBeat[0].rank);
+
+    setupDefenderFollowBeatScenario("intermediate");
+    const intermediateDefenderFollowBeat = getLegalHintForPlayer(4);
+    assert(intermediateDefenderFollowBeat.length === 1, "intermediate: defender follow-beat scenario should choose a single card");
+    assert(intermediateDefenderFollowBeat[0].suit === "hearts" && intermediateDefenderFollowBeat[0].rank === "A", "intermediate: should beat banker lead to reclaim control for defender side");
+    results.push("intermediate defender-follow beat ok");
+
+    setupTrumpClearControlScenario("beginner");
+    const beginnerTrumpClearControl = getLegalHintForPlayer(3);
+    assert(beginnerTrumpClearControl.length === 4, "beginner: trump-clear control scenario should choose a 4-card lead");
+    results.push("beginner trump-clear control baseline -> " + beginnerTrumpClearControl.map((card) => card.suit + "-" + card.rank).join(","));
+
+    setupTrumpClearControlScenario("intermediate");
+    const intermediateTrumpClearControl = getLegalHintForPlayer(3);
+    assert(intermediateTrumpClearControl.length >= 2, "intermediate: trump-clear control scenario should choose a structured trump lead");
+    assert(intermediateTrumpClearControl.every((card) => card.suit === "spades"), "intermediate: should clear trump first when control is strong");
+    results.push("intermediate trump-clear control ok");
+
+    setupTrumpClearForPairSafetyScenario("beginner");
+    const beginnerTrumpClearSafety = getLegalHintForPlayer(3);
+    assert(beginnerTrumpClearSafety.length >= 1, "beginner: trump-clear safety scenario should choose a legal lead");
+    results.push("beginner trump-clear safety baseline -> " + beginnerTrumpClearSafety.map((card) => card.suit + "-" + card.rank).join(","));
+
+    setupTrumpClearForPairSafetyScenario("intermediate");
+    const intermediateTrumpClearSafety = getLegalHintForPlayer(3);
+    assert(intermediateTrumpClearSafety.length >= 2, "intermediate: trump-clear safety scenario should choose a structured trump lead");
+    assert(intermediateTrumpClearSafety.every((card) => card.suit === "spades"), "intermediate: should clear trump before exposing side-suit pair");
+    results.push("intermediate trump-clear safety ok");
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupAvoidBankerRuffLeadScenario(difficulty);
+      const hint = getLegalHintForPlayer(3);
+      assert(hint.length >= 1, difficulty + ": anti-ruff scenario should choose a legal lead");
+      assert(!(hint.every((card) => card.suit === "hearts")), difficulty + ": should avoid re-leading banker void suit without cover");
+      results.push(difficulty + " avoid-banker-ruff lead ok");
+    }
+
+    setupAllowCoverRuffLeadScenario("beginner");
+    const beginnerAllowCoverRuffLead = getLegalHintForPlayer(3);
+    assert(beginnerAllowCoverRuffLead.length >= 1, "beginner: cover-ruff scenario should choose a legal lead");
+    results.push("beginner allow-cover-ruff baseline -> " + beginnerAllowCoverRuffLead.map((card) => card.suit + "-" + card.rank).join(","));
+
+    setupAllowCoverRuffLeadScenario("intermediate");
+    const intermediateAllowCoverRuffLead = getLegalHintForPlayer(3);
+    assert(intermediateAllowCoverRuffLead.length >= 1, "intermediate: cover-ruff scenario should choose a legal lead");
+    assert(intermediateAllowCoverRuffLead.every((card) => card.suit === "hearts"), "intermediate: should allow re-leading banker void suit when ally after banker can cover");
+    results.push("intermediate allow-cover-ruff lead ok");
 
     globalThis.__friendStrategyResults = { results };
   `;

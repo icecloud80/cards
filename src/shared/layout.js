@@ -1,7 +1,9 @@
+// 获取可编辑布局元素。
 function getLayoutElements() {
   return [...dom.table.querySelectorAll("[data-layout-id]")];
 }
 
+// 记录元素当前的布局尺寸和位置。
 function captureLayoutRect(element) {
   if (element.offsetParent === null) return null;
   const tableRect = dom.table.getBoundingClientRect();
@@ -14,6 +16,7 @@ function captureLayoutRect(element) {
   };
 }
 
+// 应用布局位置尺寸。
 function applyLayoutRect(element, rect) {
   if (!rect) return;
   element.style.left = `${rect.left}px`;
@@ -25,12 +28,14 @@ function applyLayoutRect(element, rect) {
   element.style.transform = "none";
 }
 
+// 规范化布局元素。
 function normalizeLayoutElement(element) {
   const rect = captureLayoutRect(element);
   if (!rect) return;
   applyLayoutRect(element, rect);
 }
 
+// 保存布局状态。
 function saveLayoutState() {
   const layouts = {};
   for (const element of getLayoutElements()) {
@@ -42,6 +47,7 @@ function saveLayoutState() {
   window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layouts));
 }
 
+// 应用已保存的布局状态。
 function applySavedLayoutState() {
   const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
   if (!raw) return;
@@ -58,6 +64,7 @@ function applySavedLayoutState() {
   }
 }
 
+// 清除自定义布局样式并恢复默认显示。
 function clearLayoutStyles(element) {
   element.style.left = "";
   element.style.top = "";
@@ -68,6 +75,7 @@ function clearLayoutStyles(element) {
   element.style.transform = "";
 }
 
+// 设置布局编辑模式。
 function setLayoutEditMode(enabled) {
   state.layoutEditMode = enabled;
   dom.table.classList.toggle("layout-edit-mode", enabled);
@@ -82,6 +90,7 @@ function setLayoutEditMode(enabled) {
   saveLayoutState();
 }
 
+// 重置布局状态。
 function resetLayoutState() {
   window.localStorage.removeItem(LAYOUT_STORAGE_KEY);
   setLayoutEditMode(false);
@@ -90,6 +99,7 @@ function resetLayoutState() {
   }
 }
 
+// 让面板支持拖拽悬浮显示。
 function makeFloatingPanel(panel, handle) {
   if (!panel || !handle) return;
   let dragging = false;
@@ -134,6 +144,7 @@ function makeFloatingPanel(panel, handle) {
   handle.addEventListener("pointercancel", stopDragging);
 }
 
+// 启用布局编辑模式并允许拖拽调整。
 function makeLayoutEditable(element) {
   if (!element) return;
   let dragging = false;

@@ -1339,6 +1339,37 @@
         line-height: 1.6;
       }
 
+      .result-subinfo {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .result-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 28px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(120, 74, 24, 0.1);
+        color: #7d5320;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .result-card.win .result-chip {
+        background: rgba(181, 48, 45, 0.1);
+        color: #a72a27;
+      }
+
+      .result-card.loss .result-chip {
+        background: rgba(21, 25, 29, 0.08);
+        color: #30373d;
+      }
+
       .result-bottom {
         margin-top: 18px;
         padding: 12px 14px;
@@ -2845,6 +2876,9 @@
         width: calc(100% - 16px);
         margin: 8px;
         padding: 14px;
+        max-height: min(84vh, 760px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         border-radius: 16px;
         background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(240, 229, 203, 0.96));
         box-shadow: var(--shadow-lg);
@@ -2874,6 +2908,10 @@
       body.mobile-index2 .mobile-info-list {
         display: grid;
         gap: 8px;
+        max-height: min(46vh, 420px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-right: 4px;
       }
 
       body.mobile-index2 .mobile-info-section {
@@ -2949,6 +2987,39 @@
         display: block;
         margin-top: 2px;
         font-size: 12px;
+      }
+
+      body.mobile-index2 .mobile-ai-hands {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      body.mobile-index2 .mobile-ai-hand-group {
+        padding-top: 8px;
+        border-top: 1px solid rgba(16, 44, 54, 0.08);
+      }
+
+      body.mobile-index2 .mobile-ai-hand-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #7e5721;
+      }
+
+      body.mobile-index2 .mobile-ai-hand-cards {
+        display: flex;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 6px 0;
+        margin-top: 8px;
+      }
+
+      body.mobile-index2 .mobile-ai-hand-cards .played-card {
+        margin-left: -14px;
+      }
+
+      body.mobile-index2 .mobile-ai-hand-cards .played-card:first-child {
+        margin-left: 0;
       }
 
       body.mobile-index2 .mobile-log-list {
@@ -3464,6 +3535,7 @@
         <div id="resultOverlay" class="result-overlay">
           <div id="resultCard" class="result-card">
             <h2 id="resultTitle"></h2>
+            <div id="resultSubinfo" class="result-subinfo"></div>
             <p id="resultBody"></p>
             <div class="result-bottom">
               <div class="label">底牌亮出</div>
@@ -3484,6 +3556,9 @@
     <script src="./src/shared/layout.js"></script>
     <script src="./src/shared/text.js"></script>
     <script src="./src/shared/rules.js"></script>
+    <script src="./src/shared/ai-shared.js"></script>
+    <script src="./src/shared/ai-beginner.js"></script>
+    <script src="./src/shared/ai-intermediate.js"></script>
     <script src="./src/shared/ai.js"></script>
     <script src="./src/shared/game.js"></script>
     <script src="./src/shared/ui.js"></script>
@@ -3584,15 +3659,32 @@
           closeLastTrickBtn: document.getElementById("closeLastTrickBtn"),
         };
 
+        let latestSnapshot = null;
+        let mobileCheatBuffer = "";
+        let mobileCheatUnlocked = false;
+
         function closeSheets() {
+          const hadInfoOpen = mobileDom.infoSheet.classList.contains("show");
           mobileDom.infoSheet.classList.remove("show");
           mobileDom.settingsSheet.classList.remove("show");
           mobileDom.lastTrickSheet.classList.remove("show");
+          if (hadInfoOpen) {
+            resetMobileCheat();
+          }
         }
 
         function clickOriginal(button) {
           if (button && !button.disabled) {
             button.click();
+          }
+        }
+
+        function resetMobileCheat() {
+          mobileCheatBuffer = "";
+          if (!mobileCheatUnlocked) return;
+          mobileCheatUnlocked = false;
+          if (latestSnapshot) {
+            renderInfoSheet(latestSnapshot);
           }
         }
 
@@ -3749,6 +3841,20 @@
           }
         }
 
+        function buildMobileCheatHand(playerId) {
+          if (!mobileCheatUnlocked || playerId === 1 || typeof getPlayer !== "function") return "";
+          const player = getPlayer(playerId);
+          if (!player) return "";
+          return `
+            <div class="mobile-ai-hands">
+              <div class="mobile-ai-hand-title">AI 手牌 · ${player.hand.length} 张</div>
+              <div class="mobile-ai-hand-cards">
+                ${player.hand.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")}
+              </div>
+            </div>
+          `;
+        }
+
         function renderInfoSheet(snapshot) {
           mobileDom.infoList.innerHTML = snapshot.players.map((player) => `
             <div class="mobile-info-card role-${player.role?.kind || "unknown"}${player.id === 1 ? " current-player" : ""}">
@@ -3761,6 +3867,7 @@
                 <div><span>手牌</span><strong>${player.handCount}</strong></div>
                 <div><span>得分</span><strong>${player.capturedPoints}</strong></div>
               </div>
+              ${buildMobileCheatHand(player.id)}
             </div>
           `).join("");
 
@@ -3981,6 +4088,7 @@
 
         function handleRender(event) {
           const snapshot = event.detail;
+          latestSnapshot = snapshot;
           const isSetup = snapshot.phase === "ready";
           document.body.dataset.mobileScreen = isSetup ? "setup" : "play";
           mobileDom.startBtn.disabled = !!originalDom.startGameBtn?.disabled;
@@ -4020,6 +4128,22 @@
           if (!originalDom.aiDifficultySelect) return;
           originalDom.aiDifficultySelect.value = mobileDom.difficultySelect.value;
           originalDom.aiDifficultySelect.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        document.addEventListener("keydown", (event) => {
+          if (!mobileDom.infoSheet.classList.contains("show")) return;
+          if (event.metaKey || event.ctrlKey || event.altKey) return;
+          if (event.key === "Backspace") {
+            mobileCheatBuffer = mobileCheatBuffer.slice(0, -1);
+            return;
+          }
+          if (event.key.length !== 1) return;
+          mobileCheatBuffer = `${mobileCheatBuffer}${event.key.toLowerCase()}`.slice(-5);
+          if (mobileCheatBuffer === "cheat") {
+            mobileCheatUnlocked = true;
+            if (latestSnapshot) {
+              renderInfoSheet(latestSnapshot);
+            }
+          }
         });
         mobileDom.friendState?.addEventListener("click", () => {
           if (typeof reopenFriendSelection !== "function") return;
@@ -4074,7 +4198,10 @@
           mobileDom.infoSheet.classList.remove("show");
           mobileDom.settingsSheet.classList.add("show");
         });
-        mobileDom.closeInfoBtn.addEventListener("click", () => mobileDom.infoSheet.classList.remove("show"));
+        mobileDom.closeInfoBtn.addEventListener("click", () => {
+          mobileDom.infoSheet.classList.remove("show");
+          resetMobileCheat();
+        });
         mobileDom.closeMenuBtn.addEventListener("click", () => mobileDom.settingsSheet.classList.remove("show"));
         mobileDom.closeLastTrickBtn.addEventListener("click", () => {
           mobileDom.lastTrickSheet.classList.remove("show");
@@ -4082,6 +4209,7 @@
         mobileDom.infoSheet.addEventListener("click", (event) => {
           if (event.target === mobileDom.infoSheet) {
             mobileDom.infoSheet.classList.remove("show");
+            resetMobileCheat();
           }
         });
         mobileDom.settingsSheet.addEventListener("click", (event) => {

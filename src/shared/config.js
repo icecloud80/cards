@@ -80,10 +80,12 @@ const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
+// 获取牌面配置。
 function getCardFaceOption(key = DEFAULT_CARD_FACE_KEY) {
   return CARD_FACE_OPTIONS.find((option) => option.key === key) || CARD_FACE_OPTIONS[0];
 }
 
+// 读取已保存的牌面样式键值。
 function loadSavedCardFaceKey() {
   try {
     const saved = window.localStorage.getItem(CARD_FACE_STORAGE_KEY);
@@ -93,6 +95,7 @@ function loadSavedCardFaceKey() {
   }
 }
 
+// 保存当前牌面样式键值。
 function saveCardFaceKey(key) {
   try {
     window.localStorage.setItem(CARD_FACE_STORAGE_KEY, getCardFaceOption(key).key);
@@ -101,14 +104,17 @@ function saveCardFaceKey(key) {
   }
 }
 
+// 获取当前牌面配置。
 function getCurrentCardFaceOption() {
   return getCardFaceOption(state.cardFaceKey);
 }
 
+// 获取当前牌面资源目录。
 function getCurrentCardAssetDir() {
   return getCurrentCardFaceOption().dir || FALLBACK_CARD_ASSET_DIR;
 }
 
+// 获取下一套牌面配置。
 function getNextCardFaceOption() {
   const currentIndex = CARD_FACE_OPTIONS.findIndex((option) => option.key === state.cardFaceKey);
   const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % CARD_FACE_OPTIONS.length : 0;
@@ -191,6 +197,7 @@ const dom = {
   resultOverlay: document.getElementById("resultOverlay"),
   resultCard: document.getElementById("resultCard"),
   resultTitle: document.getElementById("resultTitle"),
+  resultSubinfo: document.getElementById("resultSubinfo"),
   resultBody: document.getElementById("resultBody"),
   resultBottomCards: document.getElementById("resultBottomCards"),
   resultCountdown: document.getElementById("resultCountdown"),
@@ -263,6 +270,7 @@ const state = {
   selectedDebugPlayerId: 2,
 };
 
+// 规范化玩家等级进度。
 function normalizePlayerLevels(levels) {
   return PLAYER_ORDER.reduce((acc, playerId) => {
     const value = levels?.[playerId] ?? levels?.[String(playerId)];
@@ -271,6 +279,7 @@ function normalizePlayerLevels(levels) {
   }, {});
 }
 
+// 从浏览器 Cookie 里读取指定值。
 function readCookieValue(name) {
   const encodedName = `${name}=`;
   return document.cookie
@@ -279,6 +288,7 @@ function readCookieValue(name) {
     ?.slice(encodedName.length) || "";
 }
 
+// 从 Cookie 里加载玩家等级进度。
 function loadProgressFromCookie() {
   const raw = readCookieValue(PROGRESS_COOKIE_KEY);
   if (!raw) return null;
@@ -291,6 +301,7 @@ function loadProgressFromCookie() {
   }
 }
 
+// 将玩家等级进度写入 Cookie。
 function saveProgressToCookie(levels = state.playerLevels) {
   const playerLevels = normalizePlayerLevels(levels);
   const payload = encodeURIComponent(JSON.stringify({
@@ -301,6 +312,7 @@ function saveProgressToCookie(levels = state.playerLevels) {
   state.hasSavedProgress = true;
 }
 
+// 刷新当前是否存在可继续进度的状态。
 function refreshSavedProgressAvailability() {
   state.hasSavedProgress = !!loadProgressFromCookie();
 }

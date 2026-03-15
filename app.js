@@ -194,6 +194,7 @@ const state = {
   startSelection: null,
 };
 
+// 创建并洗混本局要使用的牌堆。
 function createDeck() {
   const deck = [];
   let seq = 0;
@@ -227,6 +228,7 @@ function createDeck() {
   return shuffle(deck);
 }
 
+// 返回普通牌对应的图片路径。
 function getCardImage(suit, rank) {
   const rankName = {
     A: "ace",
@@ -237,6 +239,7 @@ function getCardImage(suit, rank) {
   return `./cards/${rankName}_of_${suit}.svg`;
 }
 
+// 生成牌的说明文本。
 function describeCard(card) {
   if (!card) return "";
   if (card.rank === "RJ") return "大王";
@@ -244,6 +247,7 @@ function describeCard(card) {
   return `${SUIT_LABEL[card.suit]} ${card.rank}`;
 }
 
+// 随机打乱数组顺序。
 function shuffle(items) {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -253,14 +257,17 @@ function shuffle(items) {
   return copy;
 }
 
+// 获取玩家等级。
 function getPlayerLevel(playerId) {
   return state.playerLevels[playerId] || "2";
 }
 
+// 返回当前这一局使用的等级点数。
 function getCurrentLevelRank() {
   return state.declaration?.rank || state.levelRank || null;
 }
 
+// 按升级步数推进等级。
 function shiftLevel(rank, delta) {
   let current = RANKS.includes(rank) ? rank : "2";
   for (let i = 0; i < delta; i += 1) {
@@ -276,11 +283,13 @@ function shiftLevel(rank, delta) {
   return current;
 }
 
+// 返回降级规则使用的兜底映射。
 function getPenaltyFallbackMap(mode = "trump") {
   if (mode === "vice") return VICE_PENALTY_LEVEL_FALLBACK;
   return TRUMP_PENALTY_LEVEL_FALLBACK;
 }
 
+// 按惩罚规则降低等级。
 function dropLevel(rank, steps = 1, mode = "trump") {
   let current = rank;
   const fallbackMap = getPenaltyFallbackMap(mode);
@@ -298,16 +307,19 @@ function dropLevel(rank, steps = 1, mode = "trump") {
   return current;
 }
 
+// 同步玩家等级进度。
 function syncPlayerLevels() {
   for (const player of state.players) {
     player.level = getPlayerLevel(player.id);
   }
 }
 
+// 获取可编辑布局元素。
 function getLayoutElements() {
   return [...dom.table.querySelectorAll("[data-layout-id]")];
 }
 
+// 记录元素当前的布局尺寸和位置。
 function captureLayoutRect(element) {
   if (element.offsetParent === null) return null;
   const tableRect = dom.table.getBoundingClientRect();
@@ -320,6 +332,7 @@ function captureLayoutRect(element) {
   };
 }
 
+// 应用布局位置尺寸。
 function applyLayoutRect(element, rect) {
   if (!rect) return;
   element.style.left = `${rect.left}px`;
@@ -331,12 +344,14 @@ function applyLayoutRect(element, rect) {
   element.style.transform = "none";
 }
 
+// 规范化布局元素。
 function normalizeLayoutElement(element) {
   const rect = captureLayoutRect(element);
   if (!rect) return;
   applyLayoutRect(element, rect);
 }
 
+// 保存布局状态。
 function saveLayoutState() {
   const layouts = {};
   for (const element of getLayoutElements()) {
@@ -348,6 +363,7 @@ function saveLayoutState() {
   window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layouts));
 }
 
+// 规范化玩家等级进度。
 function normalizePlayerLevels(levels) {
   return PLAYER_ORDER.reduce((acc, playerId) => {
     const value = levels?.[playerId] ?? levels?.[String(playerId)];
@@ -356,6 +372,7 @@ function normalizePlayerLevels(levels) {
   }, {});
 }
 
+// 从浏览器 Cookie 里读取指定值。
 function readCookieValue(name) {
   const encodedName = `${name}=`;
   return document.cookie
@@ -364,6 +381,7 @@ function readCookieValue(name) {
     ?.slice(encodedName.length) || "";
 }
 
+// 从 Cookie 里加载玩家等级进度。
 function loadProgressFromCookie() {
   const raw = readCookieValue(PROGRESS_COOKIE_KEY);
   if (!raw) return null;
@@ -376,6 +394,7 @@ function loadProgressFromCookie() {
   }
 }
 
+// 将玩家等级进度写入 Cookie。
 function saveProgressToCookie(levels = state.playerLevels) {
   const playerLevels = normalizePlayerLevels(levels);
   const payload = encodeURIComponent(JSON.stringify({
@@ -386,14 +405,17 @@ function saveProgressToCookie(levels = state.playerLevels) {
   state.hasSavedProgress = true;
 }
 
+// 刷新当前是否存在可继续进度的状态。
 function refreshSavedProgressAvailability() {
   state.hasSavedProgress = !!loadProgressFromCookie();
 }
 
+// 生成准备阶段显示的开始提示文案。
 function getReadyStartMessage() {
   return "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
 }
 
+// 按新进度重置等级并准备开始新局。
 function startNewProgress(autoStart = false) {
   state.playerLevels = { ...INITIAL_LEVELS };
   state.startSelection = "new";
@@ -404,6 +426,7 @@ function startNewProgress(autoStart = false) {
   }
 }
 
+// 读取已保存的等级进度并继续游戏。
 function continueSavedProgress(autoStart = false) {
   const savedLevels = loadProgressFromCookie();
   if (!savedLevels) {
@@ -421,6 +444,7 @@ function continueSavedProgress(autoStart = false) {
   }
 }
 
+// 应用已保存的布局状态。
 function applySavedLayoutState() {
   const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
   if (!raw) return;
@@ -437,6 +461,7 @@ function applySavedLayoutState() {
   }
 }
 
+// 清除自定义布局样式并恢复默认显示。
 function clearLayoutStyles(element) {
   element.style.left = "";
   element.style.top = "";
@@ -447,6 +472,7 @@ function clearLayoutStyles(element) {
   element.style.transform = "";
 }
 
+// 设置布局编辑模式。
 function setLayoutEditMode(enabled) {
   state.layoutEditMode = enabled;
   dom.table.classList.toggle("layout-edit-mode", enabled);
@@ -461,6 +487,7 @@ function setLayoutEditMode(enabled) {
   saveLayoutState();
 }
 
+// 重置布局状态。
 function resetLayoutState() {
   window.localStorage.removeItem(LAYOUT_STORAGE_KEY);
   setLayoutEditMode(false);
@@ -469,6 +496,7 @@ function resetLayoutState() {
   }
 }
 
+// 初始化一局新的牌局状态。
 function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);
@@ -534,6 +562,7 @@ function setupGame() {
   render();
 }
 
+// 选择朋友目标牌。
 function chooseFriendTarget() {
   const banker = getPlayer(state.bankerId);
   if (!banker) {
@@ -617,6 +646,7 @@ function chooseFriendTarget() {
   };
 }
 
+// 为朋友目标牌候选项计算综合分数。
 function scoreFriendTargetCandidate(target, banker, owners) {
   const bankerSuitCards = banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
   const bankerTargetCopies = bankerSuitCards.filter((card) => card.rank === target.rank).length;
@@ -651,6 +681,7 @@ function scoreFriendTargetCandidate(target, banker, owners) {
   return rankBonus + occurrenceBonus + suitBonus + uniqueOwnerBonus + bankerOwnCopyBonus + returnBonus - trumpPenalty - jokerPenalty - supportPenalty;
 }
 
+// 构建朋友目标牌。
 function buildFriendTarget(target) {
   return {
     ...target,
@@ -661,10 +692,12 @@ function buildFriendTarget(target) {
   };
 }
 
+// 获取出现序号文案。
 function getOccurrenceLabel(occurrence = 1) {
   return ({ 1: "第一张", 2: "第二张", 3: "第三张" }[occurrence] || `第${occurrence}张`);
 }
 
+// 返回查找朋友目标牌归属的搜索顺序。
 function getFriendSearchOrder(fromId = state.bankerId) {
   const order = [];
   let currentId = getNextPlayerId(fromId);
@@ -675,6 +708,7 @@ function getFriendSearchOrder(fromId = state.bankerId) {
   return order;
 }
 
+// 推断朋友目标牌当前归属的玩家。
 function resolveFriendOwnerId(target, bankerId = state.bankerId) {
   for (const playerId of getFriendSearchOrder(bankerId)) {
     const player = getPlayer(playerId);
@@ -686,6 +720,7 @@ function resolveFriendOwnerId(target, bankerId = state.bankerId) {
   return null;
 }
 
+// 设置朋友目标牌。
 function setFriendTarget(target) {
   state.friendTarget = {
     ...buildFriendTarget(target),
@@ -698,6 +733,7 @@ function setFriendTarget(target) {
   state.hiddenFriendId = null;
 }
 
+// 返回默认的朋友目标牌选择。
 function getDefaultFriendSelection() {
   const suggested = chooseFriendTarget().target;
   return {
@@ -707,6 +743,7 @@ function getDefaultFriendSelection() {
   };
 }
 
+// 开始叫朋友阶段并初始化默认选择。
 function startCallingFriendPhase() {
   clearTimers();
   const banker = getPlayer(state.bankerId);
@@ -727,6 +764,7 @@ function startCallingFriendPhase() {
   }, 900);
 }
 
+// 确认并应用当前选择的朋友目标牌。
 function confirmFriendTargetSelection(selection = {
   occurrence: state.selectedFriendOccurrence,
   suit: state.selectedFriendSuit,
@@ -739,6 +777,7 @@ function confirmFriendTargetSelection(selection = {
   enterPlayingPhase();
 }
 
+// 切换到正式出牌阶段。
 function enterPlayingPhase() {
   state.currentTurnId = state.bankerId;
   state.leaderId = state.bankerId;
@@ -748,6 +787,7 @@ function enterPlayingPhase() {
   startTurn();
 }
 
+// 开始发牌。
 function startDealing() {
   clearTimers();
   if (state.gameOver || state.phase !== "ready") return;
@@ -758,6 +798,7 @@ function startDealing() {
   queueDealStep(140);
 }
 
+// 安排下一步发牌流程。
 function queueDealStep(delay = 90) {
   if (state.dealTimer) {
     window.clearTimeout(state.dealTimer);
@@ -768,6 +809,7 @@ function queueDealStep(delay = 90) {
   }, delay);
 }
 
+// 处理一次单张发牌。
 function dealOneCard() {
   if (state.gameOver || state.phase !== "dealing") return;
 
@@ -793,12 +835,14 @@ function dealOneCard() {
   queueDealStep();
 }
 
+// 获取翻底展示权重。
 function getBottomRevealWeight(card) {
   if (card.rank === "RJ") return 100;
   if (card.rank === "BJ") return 99;
   return RANK_WEIGHT[card.rank] || 0;
 }
 
+// 结算玩家是否因底牌触发叫主。
 function resolveBottomDeclarationForPlayer(playerId) {
   const playerLevel = getPlayerLevel(playerId);
   let highestCard = null;
@@ -844,6 +888,7 @@ function resolveBottomDeclarationForPlayer(playerId) {
   };
 }
 
+// 完成发牌阶段。
 function finishDealingPhase() {
   if (state.phase !== "dealing") return;
 
@@ -884,6 +929,7 @@ function finishDealingPhase() {
   startCounterTurn();
 }
 
+// 切换到等待玩家手动叫主的状态。
 function startAwaitingHumanDeclaration() {
   clearTimers();
   state.awaitingHumanDeclaration = true;
@@ -901,6 +947,7 @@ function startAwaitingHumanDeclaration() {
   }, 1000);
 }
 
+// 开始翻底展示阶段。
 function startBottomRevealPhase() {
   clearTimers();
   state.phase = "bottomReveal";
@@ -918,12 +965,14 @@ function startBottomRevealPhase() {
   }, 1000);
 }
 
+// 完成翻底展示阶段。
 function finishBottomRevealPhase() {
   if (state.phase !== "bottomReveal") return;
   clearTimers();
   startBuryingPhase();
 }
 
+// 生成目标牌的说明文本。
 function describeTarget(target) {
   const prefix = getOccurrenceLabel(target.occurrence ?? 1);
   if (target.suit === "joker") {
@@ -932,6 +981,7 @@ function describeTarget(target) {
   return `${prefix}${SUIT_LABEL[target.suit]} ${target.rank}`;
 }
 
+// 获取亮主选项。
 function getDeclarationOptions(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
@@ -954,10 +1004,12 @@ function getDeclarationOptions(playerId) {
     });
 }
 
+// 为玩家选出当前最优叫主方案。
 function getBestDeclarationForPlayer(playerId) {
   return getDeclarationOptions(playerId)[0] || null;
 }
 
+// 判断新叫主是否可以压过当前叫主。
 function canOverrideDeclaration(candidate, current = state.declaration) {
   if (!candidate) return false;
   if (!current) return true;
@@ -968,6 +1020,7 @@ function canOverrideDeclaration(candidate, current = state.declaration) {
   return candidate.count > current.count;
 }
 
+// 获取无主反主文案。
 function getNoTrumpCounterLabel(entry) {
   if (!entry || entry.suit !== "notrump") return "";
   const rank = entry.cards?.[0]?.rank;
@@ -976,6 +1029,7 @@ function getNoTrumpCounterLabel(entry) {
   return "反无主";
 }
 
+// 格式化亮主声明。
 function formatDeclaration(entry) {
   if (entry?.source === "bottom") {
     return entry.suit === "notrump"
@@ -988,6 +1042,7 @@ function formatDeclaration(entry) {
   return `${SUIT_LABEL[entry.suit]} ${entry.rank} x${entry.count}`;
 }
 
+// 获取亮主展示牌组。
 function getDeclarationCards(entry = state.declaration) {
   if (!entry) return [];
   const player = getPlayer(entry.playerId);
@@ -1007,10 +1062,12 @@ function getDeclarationCards(entry = state.declaration) {
     .slice(0, entry.count);
 }
 
+// 返回操作提示里使用的花色名称。
 function getActionSuitLabel(entry) {
   return entry ? SUIT_LABEL[entry.suit] : "";
 }
 
+// 执行一次叫主。
 function declareTrump(playerId, declaration, source = "manual") {
   if (!declaration || !canOverrideDeclaration(declaration)) return false;
 
@@ -1041,6 +1098,7 @@ function declareTrump(playerId, declaration, source = "manual") {
   return true;
 }
 
+// 在需要时触发自动叫主。
 function maybeAutoDeclare(playerId) {
   const player = getPlayer(playerId);
   if (!player || player.isHuman) return;
@@ -1052,6 +1110,7 @@ function maybeAutoDeclare(playerId) {
   declareTrump(playerId, best, "auto");
 }
 
+// 获取无主反主选项。
 function getNoTrumpCounterOption(playerId) {
   const current = state.declaration;
   if (!current || current.suit === "notrump" || current.count < 2) return null;
@@ -1079,6 +1138,7 @@ function getNoTrumpCounterOption(playerId) {
   return null;
 }
 
+// 为玩家计算可用的反主方案。
 function getCounterDeclarationForPlayer(playerId) {
   const current = state.declaration;
   if (!current) return null;
@@ -1095,6 +1155,7 @@ function getCounterDeclarationForPlayer(playerId) {
   })[0] || null;
 }
 
+// 找到下一位需要表态反主的玩家。
 function getNextCounterPlayerId(fromId) {
   let nextId = getNextPlayerId(fromId);
   while (nextId === state.declaration?.playerId) {
@@ -1103,6 +1164,7 @@ function getNextCounterPlayerId(fromId) {
   return nextId;
 }
 
+// 开始反主回合。
 function startCounterTurn() {
   clearTimers();
   if (state.gameOver || state.phase !== "countering") return;
@@ -1141,6 +1203,7 @@ function startCounterTurn() {
   }, 1000 + Math.random() * 900);
 }
 
+// 执行一次反主。
 function counterDeclare(playerId, declaration) {
   if (state.phase !== "countering" || playerId !== state.currentTurnId) return;
   if (!declaration || !canOverrideDeclaration(declaration)) return;
@@ -1153,6 +1216,7 @@ function counterDeclare(playerId, declaration) {
   startCounterTurn();
 }
 
+// 处理当前玩家放弃反主。
 function passCounterForCurrentPlayer(isTimeout = false) {
   if (state.phase !== "countering") return;
   const player = getPlayer(state.currentTurnId);
@@ -1169,6 +1233,7 @@ function passCounterForCurrentPlayer(isTimeout = false) {
   startCounterTurn();
 }
 
+// 为玩家生成埋底建议。
 function getBuryHintForPlayer(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
@@ -1181,6 +1246,7 @@ function getBuryHintForPlayer(playerId) {
     .slice(0, 7);
 }
 
+// 完成埋底并进入下一阶段。
 function completeBurying(playerId, cardIds) {
   if (state.phase !== "burying" || playerId !== state.bankerId) return;
   const player = getPlayer(playerId);
@@ -1203,6 +1269,7 @@ function completeBurying(playerId, cardIds) {
   beginPlayingPhase();
 }
 
+// 开始埋底阶段。
 function startBuryingPhase() {
   clearTimers();
   const banker = getPlayer(state.bankerId);
@@ -1234,6 +1301,7 @@ function startBuryingPhase() {
   }, 1200);
 }
 
+// 开始正式出牌阶段的首轮流程。
 function beginPlayingPhase() {
   for (const player of state.players) {
     player.hand = sortHand(player.hand);
@@ -1247,17 +1315,20 @@ function beginPlayingPhase() {
   startCallingFriendPhase();
 }
 
+// 按展示规则对手牌排序。
 function sortHand(hand) {
   return [...hand].sort((a, b) => {
     return compareHandCardsForDisplay(a, b);
   });
 }
 
+// 返回手牌分组时的花色顺序。
 function groupOrder(card) {
   if (isTrump(card)) return 4;
   return { clubs: 0, diamonds: 1, spades: 2, hearts: 3 }[card.suit] ?? 4;
 }
 
+// 获取显示花色顺序。
 function getDisplaySuitOrder(card) {
   const activeTrumpSuit = getActiveTrumpSuit();
   if (card.suit === "joker") return 5;
@@ -1267,6 +1338,7 @@ function getDisplaySuitOrder(card) {
   return { clubs: 0, diamonds: 1, spades: 2, hearts: 3 }[card.suit] ?? 4;
 }
 
+// 比较手牌显示顺序。
 function compareHandCardsForDisplay(a, b) {
   const groupDiff = groupOrder(a) - groupOrder(b);
   if (groupDiff !== 0) return groupDiff;
@@ -1280,6 +1352,7 @@ function compareHandCardsForDisplay(a, b) {
   return (a.deckIndex ?? 0) - (b.deckIndex ?? 0);
 }
 
+// 获取当前生效的主牌花色。
 function getActiveTrumpSuit() {
   if (state.phase === "ready") {
     return null;
@@ -1292,16 +1365,19 @@ function getActiveTrumpSuit() {
   return state.trumpSuit;
 }
 
+// 判断是否主牌。
 function isTrump(card) {
   const currentLevelRank = getCurrentLevelRank();
   const activeTrumpSuit = getActiveTrumpSuit();
   return card.suit === "joker" || (currentLevelRank && card.rank === currentLevelRank) || (activeTrumpSuit ? card.suit === activeTrumpSuit : false);
 }
 
+// 返回牌在当前规则下的实际花色。
 function effectiveSuit(card) {
   return isTrump(card) ? "trump" : card.suit;
 }
 
+// 返回主牌体系下的点数序位。
 function getTrumpRankIndex(card) {
   const currentLevelRank = getCurrentLevelRank();
   const plainRanks = RANKS.filter((rank) => rank !== currentLevelRank);
@@ -1317,33 +1393,40 @@ function getTrumpRankIndex(card) {
   return plainRanks.indexOf(card.rank);
 }
 
+// 计算单张牌在牌型比较中的强度。
 function getPatternUnitPower(card, suit = effectiveSuit(card)) {
   return suit === "trump" ? getTrumpRankIndex(card) : getNonTrumpRankIndex(card.rank);
 }
 
+// 计算单张牌的基础强度。
 function cardStrength(card) {
   const suit = effectiveSuit(card);
   return (suit === "trump" ? 500 : 100) + getPatternUnitPower(card, suit);
 }
 
+// 返回牌面的分值。
 function scoreValue(card) {
   if (card.rank === "5") return 5;
   if (card.rank === "10" || card.rank === "K") return 10;
   return 0;
 }
 
+// 按 ID 获取玩家对象。
 function getPlayer(id) {
   return state.players.find((player) => player.id === id);
 }
 
+// 返回下一位玩家 ID。
 function getNextPlayerId(id) {
   return (id % 5) + 1;
 }
 
+// 返回上一位玩家 ID。
 function getPreviousPlayerId(id) {
   return id === PLAYER_ORDER[0] ? PLAYER_ORDER[PLAYER_ORDER.length - 1] : id - 1;
 }
 
+// 返回当前对玩家可见的闲家分数。
 function getVisibleDefenderPoints() {
   if (!isFriendTeamResolved()) {
     return null;
@@ -1351,10 +1434,12 @@ function getVisibleDefenderPoints() {
   return state.defenderPoints;
 }
 
+// 判断朋友阵营是否已完全确定。
 function isFriendTeamResolved() {
   return !!state.friendTarget && (state.friendTarget.revealed || state.friendTarget.failed);
 }
 
+// 重新统计闲家当前分数。
 function recalcDefenderPoints() {
   return state.players.reduce((sum, player) => {
     if (!isDefenderTeam(player.id)) return sum;
@@ -1362,12 +1447,14 @@ function recalcDefenderPoints() {
   }, 0);
 }
 
+// 判断玩家本人当前是否可以查看底牌。
 function canHumanViewBottomCards() {
   if (state.gameOver) return true;
   if (state.phase === "bottomReveal") return true;
   return state.bankerId === 1 && (state.phase === "burying" || state.phase === "callingFriend" || state.phase === "playing" || state.phase === "pause");
 }
 
+// 开始回合。
 function startTurn() {
   clearTimers();
   if (state.gameOver) return;
@@ -1392,6 +1479,7 @@ function startTurn() {
   }
 }
 
+// 清理所有进行中的计时器。
 function clearTimers() {
   if (state.countdownTimer) {
     window.clearInterval(state.countdownTimer);
@@ -1415,6 +1503,7 @@ function clearTimers() {
   }
 }
 
+// 更新结算倒计时文案。
 function updateResultCountdownLabel() {
   if (!dom.resultCountdown || !dom.restartBtn) return;
   dom.resultCountdown.textContent = `30 秒后自动开局：${state.resultCountdownValue}`;
@@ -1423,12 +1512,14 @@ function updateResultCountdownLabel() {
     : "再来一局";
 }
 
+// 返回开始界面并重置阶段状态。
 function goToMainMenu() {
   dom.resultOverlay.classList.remove("show");
   state.startSelection = null;
   setupGame();
 }
 
+// 开始下一位牌局。
 function beginNextGame(autoStart = false) {
   dom.resultOverlay.classList.remove("show");
   setupGame();
@@ -1437,6 +1528,7 @@ function beginNextGame(autoStart = false) {
   }
 }
 
+// 启动结算倒计时。
 function startResultCountdown() {
   state.resultCountdownValue = 30;
   updateResultCountdownLabel();
@@ -1457,6 +1549,7 @@ function startResultCountdown() {
   }, 1000);
 }
 
+// 清理中央公告。
 function clearCenterAnnouncement(resetQueue = false) {
   if (state.centerAnnouncementTimer) {
     window.clearTimeout(state.centerAnnouncementTimer);
@@ -1468,6 +1561,7 @@ function clearCenterAnnouncement(resetQueue = false) {
   }
 }
 
+// 将中央公告加入后续处理队列。
 function queueCenterAnnouncement(message, tone = "default") {
   if (!message) return;
   state.centerAnnouncementQueue.push({ message, tone });
@@ -1475,6 +1569,7 @@ function queueCenterAnnouncement(message, tone = "default") {
   showNextCenterAnnouncement();
 }
 
+// 显示下一条中央播报消息。
 function showNextCenterAnnouncement() {
   if (state.centerAnnouncementQueue.length === 0) {
     clearCenterAnnouncement();
@@ -1494,6 +1589,7 @@ function showNextCenterAnnouncement() {
   }, 3000);
 }
 
+// 获取特殊牌型播报。
 function getSpecialPatternAnnouncement(pattern, playerId) {
   if (!pattern?.ok) return "";
   const labelMap = {
@@ -1510,6 +1606,7 @@ function getSpecialPatternAnnouncement(pattern, playerId) {
   return `${getPlayer(playerId).name} 打出${label}`;
 }
 
+// 获取出牌播报文案。
 function getPlayAnnouncement(playerId, pattern, options = {}) {
   const player = getPlayer(playerId);
   if (!player || !pattern?.ok) return "";
@@ -1534,6 +1631,7 @@ function getPlayAnnouncement(playerId, pattern, options = {}) {
   return `${player.name} ${parts.join(" · ")}`;
 }
 
+// 获取找朋友进度播报。
 function getFriendProgressAnnouncement(playerId, cards) {
   if (state.currentTrick.length !== 1) return null;
   if (!state.friendTarget || isFriendTeamResolved()) return null;
@@ -1550,11 +1648,13 @@ function getFriendProgressAnnouncement(playerId, cards) {
   };
 }
 
+// 获取单轮结果播报。
 function getTrickOutcomeAnnouncement(winnerId) {
   if (winnerId === 1) return "上轮你大，请出牌";
   return `上轮${getPlayer(winnerId).name}大`;
 }
 
+// 判断某位玩家当前是否是玩家本人可见的盟友。
 function isVisibleAllyOfHuman(playerId) {
   if (playerId === 1) return true;
   if (!state.friendTarget?.revealed) return false;
@@ -1565,6 +1665,7 @@ function isVisibleAllyOfHuman(playerId) {
   return isDefenderTeam(playerId);
 }
 
+// 判断两名玩家是否属于同一阵营。
 function areSameSide(playerA, playerB) {
   if (playerA === playerB) return true;
   if (!isFriendTeamResolved()) {
@@ -1573,6 +1674,7 @@ function areSameSide(playerA, playerB) {
   return isDefenderTeam(playerA) === isDefenderTeam(playerB);
 }
 
+// 估算 AI 当前手牌的整体强度。
 function getAiHandStrength(playerId) {
   const player = getPlayer(playerId);
   if (!player) return 0;
@@ -1583,6 +1685,7 @@ function getAiHandStrength(playerId) {
   }, 0);
 }
 
+// 评估 AI 手里亮朋友相关牌型的压力。
 function getAiRevealPatternPressure(player) {
   if (!player) return 0;
   const bulldozers = findSerialTuples(player.hand, 3);
@@ -1596,10 +1699,12 @@ function getAiRevealPatternPressure(player) {
   return 0;
 }
 
+// 返回庄家前一位的守门位玩家 ID。
 function getGoalkeeperId() {
   return getPreviousPlayerId(state.nextFirstDealPlayerId || PLAYER_ORDER[0]);
 }
 
+// 计算 AI 是否主动亮朋友的意愿分数。
 function getAiRevealIntentScore(playerId) {
   const player = getPlayer(playerId);
   if (!player) return 0;
@@ -1613,6 +1718,7 @@ function getAiRevealIntentScore(playerId) {
   return score;
 }
 
+// 判断 AI 当前是否应该亮朋友。
 function shouldAiRevealFriend(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
   const player = getPlayer(playerId);
@@ -1625,6 +1731,7 @@ function shouldAiRevealFriend(playerId) {
   return getAiRevealIntentScore(playerId) >= 2;
 }
 
+// 从候选牌组中挑选最适合亮朋友的出牌。
 function chooseAiRevealCombo(candidates) {
   const revealChoices = candidates.filter((combo) =>
     combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
@@ -1637,6 +1744,7 @@ function chooseAiRevealCombo(candidates) {
   })[0];
 }
 
+// 返回某位玩家之后还未出牌的玩家列表。
 function getPendingPlayersAfter(playerId) {
   if (!state.leadSpec || state.currentTrick.length === 0) return [];
   const pending = [];
@@ -1648,16 +1756,19 @@ function getPendingPlayersAfter(playerId) {
   return pending;
 }
 
+// 判断某位玩家是否有牌可以压过当前领先牌。
 function canPlayerBeatCurrentWinning(playerId) {
   const legalSelections = getLegalSelectionsForPlayer(playerId, 48);
   return legalSelections.some((combo) => doesSelectionBeatCurrent(playerId, combo));
 }
 
+// 判断庄家在不亮朋友时是否大概率守住这一墩。
 function isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay) {
   if (!currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return false;
   return !getPendingPlayersAfter(playerId).some((pendingPlayerId) => canPlayerBeatCurrentWinning(pendingPlayerId));
 }
 
+// 按朋友目标构造一张用于比较的虚拟牌。
 function getTargetVirtualCard(target = state.friendTarget) {
   if (!target) return null;
   return {
@@ -1667,6 +1778,7 @@ function getTargetVirtualCard(target = state.friendTarget) {
   };
 }
 
+// 判断这张牌是否恰好比目标朋友牌低一档。
 function isOneStepBelowFriendTarget(card, target = state.friendTarget) {
   if (!card || !target || target.suit === "joker" || card.suit !== target.suit) return false;
   const targetCard = getTargetVirtualCard(target);
@@ -1674,6 +1786,7 @@ function isOneStepBelowFriendTarget(card, target = state.friendTarget) {
   return getPatternUnitPower(targetCard, effectiveSuit(targetCard)) - getPatternUnitPower(card, effectiveSuit(card)) === 1;
 }
 
+// 为亮朋友前的配合出牌选择方案。
 function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (!state.friendTarget || !currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return [];
   if (state.trickNumber !== 1 || state.currentTrick[0]?.playerId !== state.bankerId) return [];
@@ -1697,6 +1810,7 @@ function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   })[0];
 }
 
+// 枚举玩家当前所有合法跟牌选择。
 function getLegalSelectionsForPlayer(playerId, limit = 72) {
   const player = getPlayer(playerId);
   if (!player || state.currentTrick.length === 0) return [];
@@ -1727,6 +1841,7 @@ function getLegalSelectionsForPlayer(playerId, limit = 72) {
   return results;
 }
 
+// 选择 AI 当前的首发出牌。
 function chooseAiLeadPlay(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
@@ -1753,6 +1868,7 @@ function chooseAiLeadPlay(playerId) {
   return [];
 }
 
+// 选择 AI 当前的跟牌出牌。
 function chooseAiFollowPlay(playerId, candidates) {
   if (candidates.length === 0) return [];
   const currentWinningPlay = getCurrentWinningPlay();
@@ -1800,6 +1916,7 @@ function chooseAiFollowPlay(playerId, candidates) {
   })[0];
 }
 
+// 为玩家给出当前合法出牌提示。
 function getLegalHintForPlayer(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
@@ -1870,14 +1987,17 @@ function getLegalHintForPlayer(playerId) {
   return hand.slice(0, state.leadSpec.count);
 }
 
+// 选出一组牌里最小的那张。
 function lowestCard(cards) {
   return [...cards].sort((a, b) => cardStrength(a) - cardStrength(b))[0];
 }
 
+// 查找对子。
 function findPairs(cards) {
   return findTuples(cards, 2);
 }
 
+// 判断是否存在必须跟出的对子。
 function hasForcedPair(cards) {
   const map = new Map();
   for (const card of cards) {
@@ -1887,6 +2007,7 @@ function hasForcedPair(cards) {
   return [...map.values()].some((count) => count === 2 || count >= 4);
 }
 
+// 获取牌分组数量。
 function getCardGroupCounts(cards) {
   const map = new Map();
   for (const card of cards) {
@@ -1896,6 +2017,7 @@ function getCardGroupCounts(cards) {
   return [...map.values()];
 }
 
+// 拆出必须跟出的对子单元。
 function getForcedPairUnits(cards) {
   return getCardGroupCounts(cards).reduce((sum, count) => {
     if (count < 2 || count === 3) return sum;
@@ -1903,10 +2025,12 @@ function getForcedPairUnits(cards) {
   }, 0);
 }
 
+// 拆出三张组。
 function getTripleUnits(cards) {
   return getCardGroupCounts(cards).reduce((sum, count) => sum + Math.floor(count / 3), 0);
 }
 
+// 在保留三张组后拆出必须跟出的对子。
 function getForcedPairUnitsWithReservedTriples(cards, reservedTriples = 0) {
   const counts = getCardGroupCounts(cards);
   let triplesLeft = reservedTriples;
@@ -1931,15 +2055,18 @@ function getForcedPairUnitsWithReservedTriples(cards, reservedTriples = 0) {
   return counts.reduce((sum, count) => sum + getPairUnitsFromCount(count), 0);
 }
 
+// 按计数结果生成对子单元。
 function getPairUnitsFromCount(count) {
   if (count < 2 || count === 3) return 0;
   return Math.floor(count / 2);
 }
 
+// 查找刻子。
 function findTriples(cards) {
   return findTuples(cards, 3);
 }
 
+// 查找同张组合。
 function findTuples(cards, tupleSize) {
   const map = new Map();
   for (const card of cards) {
@@ -1953,17 +2080,20 @@ function findTuples(cards, tupleSize) {
     .sort((a, b) => getPatternUnitPower(a[0]) - getPatternUnitPower(b[0]));
 }
 
+// 返回副牌体系下的点数序位。
 function getNonTrumpRankIndex(rank) {
   const currentLevelRank = getCurrentLevelRank();
   const ranks = RANKS.filter((item) => item !== currentLevelRank);
   return ranks.indexOf(rank);
 }
 
+// 判断是否精确刻子。
 function isExactTriple(cards) {
   return cards.length === 3
     && cards.every((card) => card.rank === cards[0].rank && card.suit === cards[0].suit);
 }
 
+// 查找连续同张组合。
 function findSerialTuples(cards, tupleSize, exactChainLength = null) {
   const map = new Map();
   for (const card of cards) {
@@ -2011,12 +2141,14 @@ function findSerialTuples(cards, tupleSize, exactChainLength = null) {
   return results.sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
 }
 
+// 判断一组牌是否属于同一实际花色。
 function isSameSuitSet(cards) {
   if (cards.length === 0) return false;
   const suit = effectiveSuit(cards[0]);
   return cards.every((card) => effectiveSuit(card) === suit);
 }
 
+// 将甩牌拆成可比较的组件。
 function decomposeThrowComponents(cards) {
   if (!isSameSuitSet(cards)) return null;
   const remaining = [...cards].sort((a, b) => cardStrength(b) - cardStrength(a));
@@ -2060,6 +2192,7 @@ function decomposeThrowComponents(cards) {
   return components.every((component) => component.ok) ? components : null;
 }
 
+// 判断是否连续同张组合出牌。
 function isSerialTuplePlay(cards, tupleSize) {
   if (cards.length < tupleSize * 2 || cards.length % tupleSize !== 0) return false;
   const suit = effectiveSuit(cards[0]);
@@ -2091,6 +2224,7 @@ function isSerialTuplePlay(cards, tupleSize) {
   return true;
 }
 
+// 识别出牌。
 function classifyPlay(cards) {
   const sorted = sortPlayedCards(cards);
   const suit = sorted.length > 0 ? effectiveSuit(sorted[0]) : null;
@@ -2142,6 +2276,7 @@ function classifyPlay(cards) {
   return { ok: false, type: "invalid", count: sorted.length, suit };
 }
 
+// 判断牌型是否符合首发牌型要求。
 function matchesLeadPattern(pattern, leadSpec) {
   if (!pattern?.ok || !leadSpec) return false;
   if (pattern.count !== leadSpec.count) return false;
@@ -2152,6 +2287,7 @@ function matchesLeadPattern(pattern, leadSpec) {
   return true;
 }
 
+// 判断手牌里是否存在匹配的牌型。
 function hasMatchingPattern(cards, leadSpec) {
   if (!leadSpec) return false;
   if (leadSpec.type === "single") return cards.length >= 1;
@@ -2164,6 +2300,7 @@ function hasMatchingPattern(cards, leadSpec) {
   return false;
 }
 
+// 枚举符合条件的牌型组合。
 function getPatternCombos(cards, leadSpec) {
   if (!leadSpec) return [];
   if (leadSpec.type === "single") return cards.map((card) => [card]).sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
@@ -2180,11 +2317,13 @@ function getPatternCombos(cards, leadSpec) {
   return [];
 }
 
+// 枚举组合。
 function enumerateCombinations(cards, count) {
   const results = [];
   const current = [];
   const limit = count <= 4 ? 240 : count <= 6 ? 360 : 520;
 
+  // 递归遍历组合搜索的下一层分支。
   function walk(start) {
     if (current.length === count) {
       results.push([...current]);
@@ -2202,6 +2341,7 @@ function enumerateCombinations(cards, count) {
   return results;
 }
 
+// 查找搜索得到的合法选牌。
 function findLegalSelectionBySearch(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
@@ -2232,6 +2372,7 @@ function findLegalSelectionBySearch(playerId) {
   return [];
 }
 
+// 比较同类型出牌的强弱。
 function compareSameTypePlay(candidatePattern, currentPattern, leadSuit) {
   const candidateTrump = candidatePattern.suit === "trump";
   const currentTrump = currentPattern.suit === "trump";
@@ -2244,6 +2385,7 @@ function compareSameTypePlay(candidatePattern, currentPattern, leadSuit) {
   return candidatePattern.power - currentPattern.power;
 }
 
+// 比较牌型组件的规模。
 function compareComponentSize(a, b) {
   if ((a.power ?? 0) !== (b.power ?? 0)) return (a.power ?? 0) - (b.power ?? 0);
   if ((a.count ?? 0) !== (b.count ?? 0)) return (a.count ?? 0) - (b.count ?? 0);
@@ -2251,6 +2393,7 @@ function compareComponentSize(a, b) {
   return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
 }
 
+// 判断手牌里是否还有更强的同类牌型。
 function handHasStrongerPattern(hand, targetPattern) {
   const suited = hand.filter((card) => effectiveSuit(card) === targetPattern.suit);
   const combos = getPatternCombos(suited, targetPattern);
@@ -2260,6 +2403,7 @@ function handHasStrongerPattern(hand, targetPattern) {
   });
 }
 
+// 获取甩牌失败情况。
 function getThrowFailure(playerId, pattern) {
   if (!pattern?.ok || pattern.type !== "throw" || state.currentTrick.length !== 0) return null;
   const vulnerableComponents = pattern.components.filter((component) =>
@@ -2275,6 +2419,7 @@ function getThrowFailure(playerId, pattern) {
   };
 }
 
+// 应用甩牌失败惩罚。
 function applyThrowFailurePenalty(playerId) {
   const penalty = 10;
   const player = getPlayer(playerId);
@@ -2291,12 +2436,14 @@ function applyThrowFailurePenalty(playerId) {
   return penalty;
 }
 
+// 获取甩牌惩罚摘要。
 function getThrowPenaltySummary(playerId, penalty) {
   return isDefenderTeam(playerId)
     ? `非打家少 ${penalty} 分`
     : `非打家加 ${penalty} 分`;
 }
 
+// 校验选牌。
 function validateSelection(playerId, cards) {
   const player = getPlayer(playerId);
   if (!player || cards.length === 0) {
@@ -2393,10 +2540,12 @@ function validateSelection(playerId, cards) {
   return { ok: true };
 }
 
+// 判断是否精确对子。
 function isExactPair(cards) {
   return cards.length === 2 && cards[0].rank === cards[1].rank && cards[0].suit === cards[1].suit;
 }
 
+// 自动处理出牌当前回合。
 function autoPlayCurrentTurn() {
   const player = getPlayer(state.currentTurnId);
   if (!player || state.gameOver) return;
@@ -2409,6 +2558,7 @@ function autoPlayCurrentTurn() {
   playCards(player.id, fallback.map((card) => card.id));
 }
 
+// 处理一次出牌。
 function playCards(playerId, cardIds, options = {}) {
   const player = getPlayer(playerId);
   if (!player || state.gameOver) return false;
@@ -2506,10 +2656,12 @@ function playCards(playerId, cardIds, options = {}) {
   return true;
 }
 
+// 按展示规则整理已出的牌。
 function sortPlayedCards(cards) {
   return [...cards].sort((a, b) => cardStrength(a) - cardStrength(b));
 }
 
+// 按当前条件决定是否揭示朋友。
 function maybeRevealFriend(playerId, cards) {
   if (!state.friendTarget) return null;
   if (state.friendTarget.revealed || state.friendTarget.failed) return null;
@@ -2554,6 +2706,7 @@ function maybeRevealFriend(playerId, cards) {
   return null;
 }
 
+// 确定一轮。
 function resolveTrick(options = {}) {
   const winnerId = pickTrickWinner();
   const winner = getPlayer(winnerId);
@@ -2648,6 +2801,7 @@ function resolveTrick(options = {}) {
   }
 }
 
+// 结算本墩的获胜玩家。
 function pickTrickWinner() {
   if (!state.leadSpec) return state.leaderId;
   if (state.leadSpec.type === "single") {
@@ -2673,12 +2827,14 @@ function pickTrickWinner() {
   return best.playerId;
 }
 
+// 获取当前最大出牌。
 function getCurrentWinningPlay() {
   if (state.currentTrick.length === 0) return null;
   const winnerId = pickTrickWinner();
   return state.currentTrick.find((play) => play.playerId === winnerId) || null;
 }
 
+// 为玩家生成压牌提示。
 function getBeatHintForPlayer(playerId) {
   if (!state.leadSpec || state.currentTrick.length === 0) return [];
   const player = getPlayer(playerId);
@@ -2704,6 +2860,7 @@ function getBeatHintForPlayer(playerId) {
   return beatingCombo || [];
 }
 
+// 判断当前所选牌是否能压过牌桌最大牌。
 function doesSelectionBeatCurrent(playerId, cards) {
   if (!state.leadSpec || state.currentTrick.length === 0 || cards.length === 0) return false;
   const player = getPlayer(playerId);
@@ -2721,6 +2878,7 @@ function doesSelectionBeatCurrent(playerId, cards) {
   return compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) > 0;
 }
 
+// 比较单张。
 function compareSingle(candidate, current, leadSuit) {
   const candidateSuit = effectiveSuit(candidate);
   const currentSuit = effectiveSuit(current);
@@ -2735,6 +2893,7 @@ function compareSingle(candidate, current, leadSuit) {
   return getPatternUnitPower(candidate, candidateSuit) - getPatternUnitPower(current, currentSuit);
 }
 
+// 判断是否闲家队伍。
 function isDefenderTeam(playerId) {
   if (playerId === state.bankerId) return false;
   if (state.friendTarget?.failed) return true;
@@ -2742,6 +2901,7 @@ function isDefenderTeam(playerId) {
   return playerId !== state.hiddenFriendId;
 }
 
+// 判断玩家本人一方是否赢下本局。
 function didHumanSideWin(outcome) {
   const humanOnBankerTeam = state.bankerId === 1
     || (state.friendTarget?.revealed && state.friendTarget.revealedBy === 1);
@@ -2751,6 +2911,7 @@ function didHumanSideWin(outcome) {
   return state.defenderPoints >= 120;
 }
 
+// 完成牌局。
 function finishGame() {
   state.gameOver = true;
   clearTimers();
@@ -2774,6 +2935,7 @@ function finishGame() {
   render();
 }
 
+// 获取胜负结果。
 function getOutcome(points) {
   if (points === 0) {
     return {
@@ -2816,17 +2978,20 @@ function getOutcome(points) {
   };
 }
 
+// 返回庄家阵营的玩家 ID 列表。
 function getBankerTeamIds() {
   if (state.friendTarget?.failed) return [state.bankerId];
   return [...new Set([state.bankerId, state.hiddenFriendId].filter(Boolean))];
 }
 
+// 返回闲家阵营的玩家 ID 列表。
 function getDefenderIds() {
   return state.players
     .map((player) => player.id)
     .filter((playerId) => isDefenderTeam(playerId));
 }
 
+// 应用等级结算。
 function applyLevelSettlement(outcome, bankerPenalty = null) {
   if (outcome.bankerLevels > 0) {
     for (const playerId of getBankerTeamIds()) {
@@ -2850,6 +3015,7 @@ function applyLevelSettlement(outcome, bankerPenalty = null) {
   saveProgressToCookie();
 }
 
+// 获取等级结算摘要。
 function getLevelSettlementSummary(outcome) {
   const parts = [];
   if (outcome.bankerLevels > 0) {
@@ -2872,6 +3038,7 @@ function getLevelSettlementSummary(outcome) {
   return ` ${parts.join(" ")}`;
 }
 
+// 获取扣底惩罚。
 function getBottomPenalty() {
   if (!state.lastTrick || !isDefenderTeam(state.lastTrick.winnerId)) return null;
 
@@ -2894,6 +3061,7 @@ function getBottomPenalty() {
   return null;
 }
 
+// 获取扣底结果摘要。
 function getBottomResultSummary() {
   if (!state.lastTrick) return null;
   const bottomPlayer = getPlayer(state.lastTrick.winnerId);
@@ -2909,6 +3077,7 @@ function getBottomResultSummary() {
   };
 }
 
+// 获取扣底结果文本。
 function getBottomResultText(bottomResult) {
   if (!bottomResult) return "";
   if (!bottomResult.defenderBottom) {
@@ -2920,11 +3089,13 @@ function getBottomResultText(bottomResult) {
   return ` ${bottomResult.playerName}完成扣底，但未形成主牌降级；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
 }
 
+// 追加播报。
 function appendLog(message) {
   state.logs.unshift(message);
   state.logs = state.logs.slice(0, 5);
 }
 
+// 渲染当前界面并同步对外快照。
 function render() {
   renderFriendPanel();
   renderHud();
@@ -2984,6 +3155,7 @@ function render() {
   window.dispatchEvent(new CustomEvent("fivefriends:render", { detail: snapshot }));
 }
 
+// 渲染底牌面板。
 function renderBottomPanel() {
   dom.bottomPanel.classList.toggle("hidden", !state.showBottomPanel || state.phase === "bottomReveal");
   if (state.gameOver) {
@@ -3004,6 +3176,7 @@ function renderBottomPanel() {
     : '<div class="empty-note">当前不可查看底牌</div>';
 }
 
+// 渲染亮底牌阶段的中央提示区。
 function renderBottomRevealCenter() {
   const showBottomReveal = state.phase === "bottomReveal";
   dom.bottomRevealCenter.classList.toggle("hidden", !showBottomReveal);
@@ -3016,12 +3189,14 @@ function renderBottomRevealCenter() {
     .join("");
 }
 
+// 渲染结算结果底牌。
 function renderResultBottomCards() {
   dom.resultBottomCards.innerHTML = state.bottomCards
     .map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML)
     .join("");
 }
 
+// 渲染朋友面板。
 function renderFriendPanel() {
   if (!state.friendTarget) {
     dom.friendHint.textContent = state.phase === "callingFriend"
@@ -3050,6 +3225,7 @@ function renderFriendPanel() {
   dom.friendCardMount.appendChild(buildCardNode(state.friendTarget, "friend-card"));
 }
 
+// 渲染顶部信息栏和阶段信息。
 function renderHud() {
   dom.phaseLabel.textContent = state.gameOver
     ? "牌局结束"
@@ -3126,6 +3302,7 @@ function renderHud() {
     : `第 ${state.trickNumber} 轮`;
 }
 
+// 渲染分数面板。
 function renderScorePanel() {
   const visibleDefenderPoints = getVisibleDefenderPoints();
   dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
@@ -3159,6 +3336,7 @@ function renderScorePanel() {
   dom.toggleBottomBtn.disabled = !canHumanViewBottomCards();
 }
 
+// 渲染五个玩家座位信息。
 function renderSeats() {
   for (const player of state.players) {
     const seat = document.getElementById(`playerSeat-${player.id}`);
@@ -3196,6 +3374,7 @@ function renderSeats() {
   }
 }
 
+// 返回当前对玩家可见的身份文案。
 function getVisibleRole(playerId) {
   if (state.phase === "ready") {
     return { kind: "unknown", label: "等待开局" };
@@ -3233,6 +3412,7 @@ function getVisibleRole(playerId) {
   return { kind: "unknown", label: "阵营待揭晓" };
 }
 
+// 渲染当前一墩中各玩家的出牌位置。
 function renderTrickSpots() {
   for (const player of state.players) {
     const spot = document.getElementById(`trickSpot-${player.id}`);
@@ -3291,6 +3471,7 @@ function renderTrickSpots() {
   }
 }
 
+// 渲染手牌。
 function renderHand() {
   const human = getPlayer(1);
   if (state.phase === "ready") {
@@ -3379,6 +3560,7 @@ function renderHand() {
   }
 }
 
+// 创建单张牌对应的 DOM 节点。
 function buildCardNode(card, className) {
   const node = document.createElement("button");
   node.className = className;
@@ -3390,12 +3572,14 @@ function buildCardNode(card, className) {
   return node;
 }
 
+// 生成牌文案的简短表示。
 function shortCardLabel(card) {
   if (card.rank === "RJ") return "大王";
   if (card.rank === "BJ") return "小王";
   return `${SUIT_SYMBOL[card.suit] || ""}${card.rank}`;
 }
 
+// 切换一张牌的选中状态。
 function toggleSelection(cardId) {
   if (!isHumanTurnActive() && !(state.phase === "burying" && state.bankerId === 1)) return;
   if (state.selectedCardIds.includes(cardId)) {
@@ -3408,6 +3592,7 @@ function toggleSelection(cardId) {
   updateActionHint();
 }
 
+// 更新当前操作提示文案。
 function updateActionHint() {
   if (state.phase === "ready") {
     dom.actionHint.textContent = "开始游戏将从2重新开始。继续游戏可继续之前的级别。";
@@ -3486,6 +3671,7 @@ function updateActionHint() {
     : validation.reason;
 }
 
+// 渲染上一墩回顾内容。
 function renderLastTrick() {
   dom.lastTrickPanel.classList.toggle("hidden", !state.showLastTrick);
   if (!state.lastTrick) {
@@ -3506,6 +3692,7 @@ function renderLastTrick() {
     .join("");
 }
 
+// 获取花色对应的叫朋友点数选项。
 function getFriendPickerRanksForSuit(suit) {
   if (suit === "joker") {
     return [
@@ -3518,6 +3705,7 @@ function getFriendPickerRanksForSuit(suit) {
     .map((rank) => ({ value: rank, label: rank }));
 }
 
+// 渲染朋友选择器。
 function renderFriendPicker() {
   const visible = state.phase === "callingFriend" && state.bankerId === 1 && !state.gameOver;
   dom.friendPickerPanel.classList.toggle("hidden", !visible);
@@ -3573,6 +3761,7 @@ function renderFriendPicker() {
   `;
 }
 
+// 渲染信息日志列表。
 function renderLogs() {
   dom.logPanel.classList.toggle("hidden", !state.showLogPanel);
   dom.bottomPanel.classList.toggle("hidden", !state.showBottomPanel);
@@ -3580,6 +3769,7 @@ function renderLogs() {
   dom.logList.innerHTML = state.logs.map((item) => `<li>${item}</li>`).join("");
 }
 
+// 渲染中央操作面板内容。
 function renderCenterPanel() {
   const humanDeclaration = getBestDeclarationForPlayer(1);
   const humanCounter = getCounterDeclarationForPlayer(1);
@@ -3676,6 +3866,7 @@ function renderCenterPanel() {
   dom.startGameBtn.textContent = "开始游戏";
 }
 
+// 判断当前是否轮到玩家本人行动。
 function isHumanTurnActive() {
   return !state.gameOver && state.phase === "playing" && state.currentTurnId === 1;
 }
@@ -3882,6 +4073,7 @@ dom.versionBadge.textContent = APP_VERSION_LABEL;
 
 setupGame();
 
+// 让面板支持拖拽悬浮显示。
 function makeFloatingPanel(panel, handle) {
   if (!panel || !handle) return;
   let dragging = false;
@@ -3926,6 +4118,7 @@ function makeFloatingPanel(panel, handle) {
   handle.addEventListener("pointercancel", stopDragging);
 }
 
+// 启用布局编辑模式并允许拖拽调整。
 function makeLayoutEditable(element) {
   if (!element) return;
   let dragging = false;

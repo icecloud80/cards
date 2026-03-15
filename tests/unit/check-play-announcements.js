@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
+// 加载当前测试文件需要的运行上下文。
 function loadContext() {
   const context = {
     console,
@@ -43,6 +44,7 @@ function loadContext() {
   return context;
 }
 
+// 运行当前测试套件。
 function runSuite(context) {
   const testSource = `
     state.players = [{ id: 1, name: "玩家1" }];
@@ -50,10 +52,12 @@ function runSuite(context) {
     state.levelRank = "2";
     state.declaration = null;
 
+    // 按 ID 获取玩家对象。
     function getPlayer(id) {
       return state.players.find((player) => player.id === id) || null;
     }
 
+    // 创建测试用的连对牌组。
     function makePairRun(ranks, suit = "hearts") {
       let seq = 0;
       return ranks.flatMap((rank) => ([

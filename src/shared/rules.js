@@ -1,3 +1,4 @@
+// 创建并洗混本局要使用的牌堆。
 function createDeck() {
   const deck = [];
   let seq = 0;
@@ -31,10 +32,12 @@ function createDeck() {
   return shuffle(deck);
 }
 
+// 返回大小王对应的图片路径。
 function getJokerImage(rank) {
   return `${getCurrentCardAssetDir()}/${rank === "RJ" ? "red_joker" : "black_joker"}.svg`;
 }
 
+// 返回普通牌对应的图片路径。
 function getCardImage(suit, rank) {
   const rankName = {
     A: "ace",
@@ -45,6 +48,7 @@ function getCardImage(suit, rank) {
   return `${getCurrentCardAssetDir()}/${rankName}_of_${suit}.svg`;
 }
 
+// 根据牌对象解析对应的图片路径。
 function resolveCardImage(card) {
   if (!card) return "";
   if (card.suit === "joker") return getJokerImage(card.rank);
@@ -52,6 +56,7 @@ function resolveCardImage(card) {
   return card.img || "";
 }
 
+// 随机打乱数组顺序。
 function shuffle(items) {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -61,28 +66,34 @@ function shuffle(items) {
   return copy;
 }
 
+// 获取玩家等级。
 function getPlayerLevel(playerId) {
   return state.playerLevels[playerId] || "2";
 }
 
+// 获取等级点数。
 function getLevelRank(level) {
   if (level == null || level === "") return null;
   const normalized = String(level);
   return normalized.startsWith("-") ? normalized.slice(1) : normalized;
 }
 
+// 判断等级是否为负级。
 function isNegativeLevel(level) {
   return typeof level === "string" && level.startsWith("-");
 }
 
+// 返回指定玩家当前的等级点数。
 function getPlayerLevelRank(playerId) {
   return getLevelRank(getPlayerLevel(playerId));
 }
 
+// 返回当前这一局使用的等级点数。
 function getCurrentLevelRank() {
   return getLevelRank(state.declaration?.rank || state.levelRank || null);
 }
 
+// 按升级步数推进等级。
 function shiftLevel(rank, delta) {
   let current = [...NEGATIVE_LEVELS, ...RANKS].includes(rank) ? rank : "2";
   for (let i = 0; i < delta; i += 1) {
@@ -106,11 +117,13 @@ function shiftLevel(rank, delta) {
   return current;
 }
 
+// 返回降级规则使用的兜底映射。
 function getPenaltyFallbackMap(mode = "trump") {
   if (mode === "vice") return VICE_PENALTY_LEVEL_FALLBACK;
   return TRUMP_PENALTY_LEVEL_FALLBACK;
 }
 
+// 按惩罚规则降低等级。
 function dropLevel(rank, steps = 1, mode = "trump") {
   let current = [...NEGATIVE_LEVELS, ...RANKS].includes(rank) ? rank : "2";
   const fallbackMap = getPenaltyFallbackMap(mode);
@@ -136,23 +149,27 @@ function dropLevel(rank, steps = 1, mode = "trump") {
   return current;
 }
 
+// 同步玩家等级进度。
 function syncPlayerLevels() {
   for (const player of state.players) {
     player.level = getPlayerLevel(player.id);
   }
 }
 
+// 按展示规则对手牌排序。
 function sortHand(hand) {
   return [...hand].sort((a, b) => {
     return compareHandCardsForDisplay(a, b);
   });
 }
 
+// 返回手牌分组时的花色顺序。
 function groupOrder(card) {
   if (isTrump(card)) return 4;
   return { clubs: 0, diamonds: 1, spades: 2, hearts: 3 }[card.suit] ?? 4;
 }
 
+// 获取显示花色顺序。
 function getDisplaySuitOrder(card) {
   const activeTrumpSuit = getActiveTrumpSuit();
   if (card.suit === "joker") return 5;
@@ -162,6 +179,7 @@ function getDisplaySuitOrder(card) {
   return { clubs: 0, diamonds: 1, spades: 2, hearts: 3 }[card.suit] ?? 4;
 }
 
+// 比较手牌显示顺序。
 function compareHandCardsForDisplay(a, b) {
   const groupDiff = groupOrder(a) - groupOrder(b);
   if (groupDiff !== 0) return groupDiff;
@@ -175,6 +193,7 @@ function compareHandCardsForDisplay(a, b) {
   return (a.deckIndex ?? 0) - (b.deckIndex ?? 0);
 }
 
+// 获取当前生效的主牌花色。
 function getActiveTrumpSuit() {
   if (state.phase === "ready") {
     return null;
@@ -187,16 +206,19 @@ function getActiveTrumpSuit() {
   return state.trumpSuit;
 }
 
+// 判断是否主牌。
 function isTrump(card) {
   const currentLevelRank = getCurrentLevelRank();
   const activeTrumpSuit = getActiveTrumpSuit();
   return card.suit === "joker" || (currentLevelRank && card.rank === currentLevelRank) || (activeTrumpSuit ? card.suit === activeTrumpSuit : false);
 }
 
+// 返回牌在当前规则下的实际花色。
 function effectiveSuit(card) {
   return isTrump(card) ? "trump" : card.suit;
 }
 
+// 返回主牌体系下的点数序位。
 function getTrumpRankIndex(card) {
   const currentLevelRank = getCurrentLevelRank();
   const plainRanks = RANKS.filter((rank) => rank !== currentLevelRank);
@@ -212,29 +234,35 @@ function getTrumpRankIndex(card) {
   return plainRanks.indexOf(card.rank);
 }
 
+// 计算单张牌在牌型比较中的强度。
 function getPatternUnitPower(card, suit = effectiveSuit(card)) {
   return suit === "trump" ? getTrumpRankIndex(card) : getNonTrumpRankIndex(card.rank);
 }
 
+// 计算单张牌的基础强度。
 function cardStrength(card) {
   const suit = effectiveSuit(card);
   return (suit === "trump" ? 500 : 100) + getPatternUnitPower(card, suit);
 }
 
+// 返回牌面的分值。
 function scoreValue(card) {
   if (card.rank === "5") return 5;
   if (card.rank === "10" || card.rank === "K") return 10;
   return 0;
 }
 
+// 选出一组牌里最小的那张。
 function lowestCard(cards) {
   return [...cards].sort((a, b) => cardStrength(a) - cardStrength(b))[0];
 }
 
+// 查找对子。
 function findPairs(cards) {
   return findTuples(cards, 2);
 }
 
+// 判断是否存在必须跟出的对子。
 function hasForcedPair(cards) {
   const map = new Map();
   for (const card of cards) {
@@ -244,6 +272,7 @@ function hasForcedPair(cards) {
   return [...map.values()].some((count) => count === 2 || count >= 4);
 }
 
+// 获取牌分组数量。
 function getCardGroupCounts(cards) {
   const map = new Map();
   for (const card of cards) {
@@ -253,6 +282,7 @@ function getCardGroupCounts(cards) {
   return [...map.values()];
 }
 
+// 拆出必须跟出的对子单元。
 function getForcedPairUnits(cards) {
   return getCardGroupCounts(cards).reduce((sum, count) => {
     if (count < 2 || count === 3) return sum;
@@ -260,10 +290,12 @@ function getForcedPairUnits(cards) {
   }, 0);
 }
 
+// 拆出三张组。
 function getTripleUnits(cards) {
   return getCardGroupCounts(cards).reduce((sum, count) => sum + Math.floor(count / 3), 0);
 }
 
+// 在保留三张组后拆出必须跟出的对子。
 function getForcedPairUnitsWithReservedTriples(cards, reservedTriples = 0) {
   const counts = getCardGroupCounts(cards);
   let triplesLeft = reservedTriples;
@@ -288,15 +320,18 @@ function getForcedPairUnitsWithReservedTriples(cards, reservedTriples = 0) {
   return counts.reduce((sum, count) => sum + getPairUnitsFromCount(count), 0);
 }
 
+// 按计数结果生成对子单元。
 function getPairUnitsFromCount(count) {
   if (count < 2 || count === 3) return 0;
   return Math.floor(count / 2);
 }
 
+// 查找刻子。
 function findTriples(cards) {
   return findTuples(cards, 3);
 }
 
+// 查找同张组合。
 function findTuples(cards, tupleSize) {
   const map = new Map();
   for (const card of cards) {
@@ -310,17 +345,20 @@ function findTuples(cards, tupleSize) {
     .sort((a, b) => getPatternUnitPower(a[0]) - getPatternUnitPower(b[0]));
 }
 
+// 返回副牌体系下的点数序位。
 function getNonTrumpRankIndex(rank) {
   const currentLevelRank = getCurrentLevelRank();
   const ranks = RANKS.filter((item) => item !== currentLevelRank);
   return ranks.indexOf(rank);
 }
 
+// 判断是否精确刻子。
 function isExactTriple(cards) {
   return cards.length === 3
     && cards.every((card) => card.rank === cards[0].rank && card.suit === cards[0].suit);
 }
 
+// 查找连续同张组合。
 function findSerialTuples(cards, tupleSize, exactChainLength = null) {
   const map = new Map();
   for (const card of cards) {
@@ -368,12 +406,14 @@ function findSerialTuples(cards, tupleSize, exactChainLength = null) {
   return results.sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
 }
 
+// 判断一组牌是否属于同一实际花色。
 function isSameSuitSet(cards) {
   if (cards.length === 0) return false;
   const suit = effectiveSuit(cards[0]);
   return cards.every((card) => effectiveSuit(card) === suit);
 }
 
+// 从牌组里移除已选中的牌。
 function removePickedCards(cards, pickedCards) {
   const remaining = [...cards];
   for (const picked of pickedCards) {
@@ -383,6 +423,7 @@ function removePickedCards(cards, pickedCards) {
   return remaining;
 }
 
+// 生成甩牌拆解搜索键。
 function getThrowSearchKey(cards) {
   const counts = new Map();
   for (const card of cards) {
@@ -395,6 +436,7 @@ function getThrowSearchKey(cards) {
     .join("|");
 }
 
+// 返回甩牌组件类型的比较权重。
 function getThrowComponentTypeWeight(component) {
   const typeOrder = {
     single: 0,
@@ -407,6 +449,7 @@ function getThrowComponentTypeWeight(component) {
   return typeOrder[component?.type] ?? -1;
 }
 
+// 比较两个甩牌组件的强弱。
 function compareThrowComponentStrength(a, b) {
   const typeDiff = getThrowComponentTypeWeight(a) - getThrowComponentTypeWeight(b);
   if (typeDiff !== 0) return typeDiff;
@@ -415,6 +458,7 @@ function compareThrowComponentStrength(a, b) {
   return (a.power ?? 0) - (b.power ?? 0);
 }
 
+// 构建甩牌组成部分。
 function buildThrowComponent(componentCards) {
   const pattern = classifyPlay(componentCards);
   if (!pattern.ok || pattern.type === "throw" || pattern.type === "invalid") return null;
@@ -424,6 +468,7 @@ function buildThrowComponent(componentCards) {
   };
 }
 
+// 获取甩牌候选项组成部分。
 function getThrowCandidateComponents(cards) {
   const candidates = [];
   const seen = new Set();
@@ -455,6 +500,7 @@ function getThrowCandidateComponents(cards) {
   return candidates.sort((a, b) => compareThrowComponentStrength(b, a));
 }
 
+// 比较两种甩牌拆解方案的优先级。
 function compareThrowDecomposition(a, b) {
   if (!a && !b) return 0;
   if (a && !b) return 1;
@@ -475,6 +521,7 @@ function compareThrowDecomposition(a, b) {
   return 0;
 }
 
+// 搜索最优的甩牌拆解方案。
 function searchBestThrowDecomposition(cards, memo = new Map()) {
   if (cards.length === 0) return [];
   const key = getThrowSearchKey(cards);
@@ -496,6 +543,7 @@ function searchBestThrowDecomposition(cards, memo = new Map()) {
   return best;
 }
 
+// 将甩牌拆成可比较的组件。
 function decomposeThrowComponents(cards) {
   if (!isSameSuitSet(cards)) return null;
   const components = searchBestThrowDecomposition(
@@ -505,6 +553,7 @@ function decomposeThrowComponents(cards) {
   return components.every((component) => component.ok) ? components : null;
 }
 
+// 判断是否连续同张组合出牌。
 function isSerialTuplePlay(cards, tupleSize) {
   if (cards.length < tupleSize * 2 || cards.length % tupleSize !== 0) return false;
   const suit = effectiveSuit(cards[0]);
@@ -536,6 +585,7 @@ function isSerialTuplePlay(cards, tupleSize) {
   return true;
 }
 
+// 识别出牌。
 function classifyPlay(cards) {
   const sorted = sortPlayedCards(cards);
   const suit = sorted.length > 0 ? effectiveSuit(sorted[0]) : null;
@@ -587,11 +637,13 @@ function classifyPlay(cards) {
   return { ok: false, type: "invalid", count: sorted.length, suit };
 }
 
+// 返回甩牌组件的形状描述。
 function getThrowComponentShape(component) {
   if (!component) return "";
   return `${component.type}:${component.chainLength || 0}:${component.count || 0}`;
 }
 
+// 生成甩牌形状签名。
 function getThrowShapeSignature(pattern) {
   if (!pattern || pattern.type !== "throw" || !Array.isArray(pattern.components)) return "";
   return [...pattern.components]
@@ -600,10 +652,12 @@ function getThrowShapeSignature(pattern) {
     .join("|");
 }
 
+// 判断牌型是否匹配指定甩牌形状。
 function matchesThrowShape(pattern, leadSpec) {
   return getThrowShapeSignature(pattern) !== "" && getThrowShapeSignature(pattern) === getThrowShapeSignature(leadSpec);
 }
 
+// 判断牌型是否符合首发牌型要求。
 function matchesLeadPattern(pattern, leadSpec) {
   if (!pattern?.ok || !leadSpec) return false;
   if (pattern.count !== leadSpec.count) return false;
@@ -617,6 +671,7 @@ function matchesLeadPattern(pattern, leadSpec) {
   return true;
 }
 
+// 判断手牌里是否存在匹配的牌型。
 function hasMatchingPattern(cards, leadSpec) {
   if (!leadSpec) return false;
   if (leadSpec.type === "single") return cards.length >= 1;
@@ -629,6 +684,7 @@ function hasMatchingPattern(cards, leadSpec) {
   return false;
 }
 
+// 枚举符合条件的牌型组合。
 function getPatternCombos(cards, leadSpec) {
   if (!leadSpec) return [];
   if (leadSpec.type === "single") return cards.map((card) => [card]).sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
@@ -649,11 +705,13 @@ function getPatternCombos(cards, leadSpec) {
   return [];
 }
 
+// 枚举组合。
 function enumerateCombinations(cards, count) {
   const results = [];
   const current = [];
   const limit = count <= 4 ? 240 : count <= 6 ? 360 : 520;
 
+  // 递归遍历组合搜索的下一层分支。
   function walk(start) {
     if (current.length === count) {
       results.push([...current]);
@@ -671,6 +729,7 @@ function enumerateCombinations(cards, count) {
   return results;
 }
 
+// 比较同类型出牌的强弱。
 function compareSameTypePlay(candidatePattern, currentPattern, leadSuit) {
   if (candidatePattern.type === "throw" && currentPattern.type === "throw") {
     const candidateComponents = [...candidatePattern.components].sort((a, b) => (b.power ?? 0) - (a.power ?? 0));
@@ -692,6 +751,7 @@ function compareSameTypePlay(candidatePattern, currentPattern, leadSuit) {
   return candidatePattern.power - currentPattern.power;
 }
 
+// 比较牌型组件的规模。
 function compareComponentSize(a, b) {
   if ((a.power ?? 0) !== (b.power ?? 0)) return (a.power ?? 0) - (b.power ?? 0);
   if ((a.count ?? 0) !== (b.count ?? 0)) return (a.count ?? 0) - (b.count ?? 0);
@@ -699,6 +759,7 @@ function compareComponentSize(a, b) {
   return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
 }
 
+// 判断手牌里是否还有更强的同类牌型。
 function handHasStrongerPattern(hand, targetPattern) {
   const suited = hand.filter((card) => effectiveSuit(card) === targetPattern.suit);
   const combos = getPatternCombos(suited, targetPattern);
@@ -708,6 +769,7 @@ function handHasStrongerPattern(hand, targetPattern) {
   });
 }
 
+// 获取甩牌失败情况。
 function getThrowFailure(playerId, pattern) {
   if (!pattern?.ok || pattern.type !== "throw" || state.currentTrick.length !== 0) return null;
   const vulnerableComponents = pattern.components.filter((component) =>
@@ -723,6 +785,7 @@ function getThrowFailure(playerId, pattern) {
   };
 }
 
+// 应用甩牌失败惩罚。
 function applyThrowFailurePenalty(playerId) {
   const penalty = 10;
   const player = getPlayer(playerId);
@@ -739,12 +802,14 @@ function applyThrowFailurePenalty(playerId) {
   return penalty;
 }
 
+// 获取甩牌惩罚摘要。
 function getThrowPenaltySummary(playerId, penalty) {
   return isDefenderTeam(playerId)
     ? TEXT.rules.throwPenaltySummaryDefender(penalty)
     : TEXT.rules.throwPenaltySummaryBanker(penalty);
 }
 
+// 校验选牌。
 function validateSelection(playerId, cards) {
   const player = getPlayer(playerId);
   if (!player || cards.length === 0) {
@@ -841,10 +906,12 @@ function validateSelection(playerId, cards) {
   return { ok: true };
 }
 
+// 判断是否精确对子。
 function isExactPair(cards) {
   return cards.length === 2 && cards[0].rank === cards[1].rank && cards[0].suit === cards[1].suit;
 }
 
+// 比较单张。
 function compareSingle(candidate, current, leadSuit) {
   const candidateSuit = effectiveSuit(candidate);
   const currentSuit = effectiveSuit(current);
@@ -859,6 +926,7 @@ function compareSingle(candidate, current, leadSuit) {
   return getPatternUnitPower(candidate, candidateSuit) - getPatternUnitPower(current, currentSuit);
 }
 
+// 判断是否扣底惩罚等级牌。
 function isBottomPenaltyLevelCard(card) {
   const currentLevelRank = getCurrentLevelRank();
   if (!card || !currentLevelRank || card.suit === "joker") return false;
@@ -866,6 +934,7 @@ function isBottomPenaltyLevelCard(card) {
   return state.trumpSuit === "notrump" ? true : card.suit === state.trumpSuit;
 }
 
+// 获取扣底惩罚。
 function getBottomPenalty() {
   if (!state.lastTrick || !isDefenderTeam(state.lastTrick.winnerId)) return null;
 
@@ -895,6 +964,7 @@ function getBottomPenalty() {
   };
 }
 
+// 获取扣底结果摘要。
 function getBottomResultSummary() {
   if (!state.lastTrick) return null;
   const bottomPlayer = getPlayer(state.lastTrick.winnerId);

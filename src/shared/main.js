@@ -1,7 +1,9 @@
+// 判断当前是否轮到玩家本人行动。
 function isHumanTurnActive() {
   return !state.gameOver && state.phase === "playing" && state.currentTurnId === 1;
 }
 
+// 同步托管按钮的显示和状态。
 function syncAutoManagedButton() {
   if (!dom.autoManagedBtn || typeof getPlayer !== "function") return;
   const human = getPlayer(1);
@@ -10,10 +12,12 @@ function syncAutoManagedButton() {
   dom.autoManagedBtn.setAttribute("aria-pressed", managed ? "true" : "false");
 }
 
+// 规范化 AI 难度取值。
 function normalizeAiDifficulty(value) {
   return AI_DIFFICULTY_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_DIFFICULTY;
 }
 
+// 设置当前 AI 难度并刷新界面。
 function setAiDifficulty(value) {
   state.aiDifficulty = normalizeAiDifficulty(value);
   if (dom.aiDifficultySelect && dom.aiDifficultySelect.value !== state.aiDifficulty) {
@@ -24,6 +28,7 @@ function setAiDifficulty(value) {
   }
 }
 
+// 应用托管状态。
 function applyAutoManagedState(enabled) {
   if (typeof getPlayer !== "function") return;
   const human = getPlayer(1);

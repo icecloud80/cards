@@ -302,6 +302,7 @@ const TEXT = {
   },
 };
 
+// 生成牌的说明文本。
 function describeCard(card) {
   if (!card) return "";
   if (card.rank === "RJ") return TEXT.cards.bigJoker;
@@ -309,10 +310,12 @@ function describeCard(card) {
   return `${SUIT_LABEL[card.suit]} ${card.rank}`;
 }
 
+// 获取出现序号文案。
 function getOccurrenceLabel(occurrence = 1) {
   return TEXT.occurrences[occurrence] || `第${occurrence}张`;
 }
 
+// 生成目标牌的说明文本。
 function describeTarget(target) {
   const prefix = getOccurrenceLabel(target.occurrence ?? 1);
   if (target.suit === "joker") {
@@ -321,11 +324,13 @@ function describeTarget(target) {
   return `${prefix}${SUIT_LABEL[target.suit]} ${target.rank}`;
 }
 
+// 获取无主反主文案。
 function getNoTrumpCounterLabel(entry) {
   const baseLabel = getNoTrumpDeclarationLabel(entry);
   return baseLabel ? `${baseLabel}反无主` : "";
 }
 
+// 获取无主亮主声明文案。
 function getNoTrumpDeclarationLabel(entry) {
   if (!entry || entry.suit !== "notrump") return "";
   const rank = entry.cards?.[0]?.rank;
@@ -334,6 +339,7 @@ function getNoTrumpDeclarationLabel(entry) {
   return `${entry.count}张王`;
 }
 
+// 格式化亮主声明。
 function formatDeclaration(entry) {
   if (entry?.source === "bottom") {
     return entry.suit === "notrump"
@@ -346,10 +352,12 @@ function formatDeclaration(entry) {
   return `${SUIT_LABEL[entry.suit]} ${entry.rank} x${entry.count}`;
 }
 
+// 返回操作提示里使用的花色名称。
 function getActionSuitLabel(entry) {
   return entry ? SUIT_LABEL[entry.suit] : "";
 }
 
+// 更新结算倒计时文案。
 function updateResultCountdownLabel() {
   if (!dom.resultCountdown || !dom.restartBtn) return;
   dom.resultCountdown.textContent = TEXT.result.countdown(state.resultCountdownValue);
@@ -358,6 +366,7 @@ function updateResultCountdownLabel() {
     : TEXT.buttons.restart;
 }
 
+// 获取牌型文案。
 function getPatternLabel(patternOrType) {
   const pattern = typeof patternOrType === "string"
     ? { type: patternOrType }
@@ -368,6 +377,7 @@ function getPatternLabel(patternOrType) {
   return TEXT.patterns[pattern.type] || "";
 }
 
+// 获取特殊牌型播报。
 function getSpecialPatternAnnouncement(pattern, playerId) {
   if (!pattern?.ok) return "";
   const label = getPatternLabel(pattern);
@@ -375,6 +385,7 @@ function getSpecialPatternAnnouncement(pattern, playerId) {
   return `${getPlayer(playerId).name} 打出${label}`;
 }
 
+// 获取出牌播报文案。
 function getPlayAnnouncement(playerId, pattern, options = {}) {
   const player = getPlayer(playerId);
   if (!player || !pattern?.ok) return "";
@@ -390,6 +401,7 @@ function getPlayAnnouncement(playerId, pattern, options = {}) {
   return `${player.name} ${parts.join(" · ")}`;
 }
 
+// 获取找朋友进度播报。
 function getFriendProgressAnnouncement(playerId, cards) {
   if (state.currentTrick.length !== 1) return null;
   if (!state.friendTarget || isFriendTeamResolved()) return null;
@@ -406,11 +418,13 @@ function getFriendProgressAnnouncement(playerId, cards) {
   };
 }
 
+// 获取单轮结果播报。
 function getTrickOutcomeAnnouncement(winnerId) {
   if (winnerId === 1) return "上轮你大，请出牌";
   return `上轮${getPlayer(winnerId).name}大`;
 }
 
+// 获取胜负结果。
 function getOutcome(points, options = {}) {
   const defendersWin = points >= 120 || options.bottomPenalty?.levels > 0;
   if (options.bottomPenalty?.levels > 0 && points < 120) {
@@ -471,6 +485,7 @@ function getOutcome(points, options = {}) {
   };
 }
 
+// 获取等级结算摘要。
 function getLevelSettlementSummary(outcome) {
   const parts = [];
   if (outcome.bankerLevels > 0) {
@@ -493,6 +508,7 @@ function getLevelSettlementSummary(outcome) {
   return ` ${parts.join(" ")}`;
 }
 
+// 获取扣底结果文本。
 function getBottomResultText(bottomResult) {
   if (!bottomResult) return "";
   if (!bottomResult.defenderBottom) {
@@ -504,6 +520,7 @@ function getBottomResultText(bottomResult) {
   return ` ${bottomResult.playerName}完成扣底，但未形成主级牌成功扣底；本次只计底牌分，不触发翻盘降级。下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
 }
 
+// 生成牌文案的简短表示。
 function shortCardLabel(card) {
   if (card.rank === "RJ") return TEXT.cards.bigJoker;
   if (card.rank === "BJ") return TEXT.cards.smallJoker;

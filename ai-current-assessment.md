@@ -11,7 +11,7 @@
 - `初级`：已经稳定，基本符合当前产品定义，短期不是主战场。
 - `中级`：已经从“纯启发式”进入“启发式 + 短前瞻搜索”的第一阶段，属于当前最关键、也最接近收益兑现的位置。
 - `高级`：目前仍然是“完整记牌版的中级”，还没有进入路线图里定义的 belief / 多世界模拟阶段。
-- 但有一条新的红线需要立刻补入评估结论：AI 决策层绝不能透视对手暗手来判断甩牌成败，当前甩牌过滤实现与这条原则不一致，必须尽快修正。
+- 之前暴露出来的“甩牌透视”红线已经修正：AI 决策层不再直接读取对手暗手判断甩牌成败，而是改成基于公开信息和记牌能力做风险评估。
 
 换句话说，当前项目最准确的判断不是“高级不够强”，而是“中级搜索框架已经起骨架，但还没完全收口；高级暂时还不该往 hidden belief 硬冲”。
 
@@ -50,27 +50,31 @@
 - 已经有统一局面评估 `evaluateState`，并且有 `structure / control / points / friend / bottom / voidPressure / tempo / friendRisk / bottomRisk` 等评分项，见 [src/shared/ai-evaluate.js](/Users/mo.li/Documents/cards/src/shared/ai-evaluate.js#L191)。
 - 已经有目标层 `getIntermediateObjective`，把 `find_friend / run_points / protect_bottom / keep_control / pressure_void` 变成统一权重，而不是全靠即时 if，见 [src/shared/ai-objectives.js](/Users/mo.li/Documents/cards/src/shared/ai-objectives.js)。
 - 已经把 rollout 深度、future delta、触发原因和 debug bundle 打出来，见 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L631) 和 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L827)。
+- 候选层、提示层和模拟层已经基本统一到 `sourceState` 口径；`getLegalSelectionsForState`、`getBeginnerLegalHintForState`、`getIntermediateLegalHintForState` 都已经落地，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js) 与 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L1238)。
+- 里程碑 0 的候选清洗已经完成：非法候选不会进入评分链，debug 里能看见过滤原因和数量，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L834) 与 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L563)。
+- 甩牌判断已经从“全知真值过滤”改成“公开信息风险评估”。AI 现在会基于已出牌、断门和当前难度允许的记牌范围给甩牌打 `throw_safe / throw_guarded / throw_risky` 标签，并把风险惩罚接进首发评分，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L501) 与 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L319)。
 - 专项测试已经覆盖“模拟隔离”“双层前瞻触发”“debug 数据落地”，见 [tests/unit/check-ai-intermediate-search.js](/Users/mo.li/Documents/cards/tests/unit/check-ai-intermediate-search.js#L148)。
+- 回归已经覆盖“AI 不得透视甩牌成败”“中级按公开信息判断甩牌风险边界”，见 [tests/unit/check-ai-intermediate-foundation.js](/Users/mo.li/Documents/cards/tests/unit/check-ai-intermediate-foundation.js#L218)。
 
 还没完全做到的部分：
 
-- 下一阶段清单里“候选与状态解耦”仍标为 `待开始`，而当前候选生成虽然能接收 `simState`，但本质上仍通过 `withSimulationState(...)` 借用全局 `state` 上的旧 helper，见 [ai-next-implementation-checklist.md](/Users/mo.li/Documents/cards/ai-next-implementation-checklist.md#L22) 和 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L23)。
+- 候选与状态解耦的主体已经做完，但还没有彻底纯函数化；当前候选生成虽然能接收 `simState`，仍有一部分 legacy helper 通过 `withSimulationState(...)` 借用全局 `state`，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L58)。
 - 当前候选生成和部分 legacy 逻辑依然依赖 `chooseAiLeadPlay`、`getLegalSelectionsForPlayer`、`state.leadSpec` 这些 live-style 接口，说明“可在 sampled worlds 中纯函数运行”这一步还没真正完成，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L31)。
 - 路线图要求“现有零散 if 规则逐步退化成评分修正器”，但当前 `chooseIntermediatePlay` 前后仍保留不少直接短路规则，例如强制亮友、support-before-reveal 等，这说明框架虽已成型，legacy 规则还没彻底下沉，见 [ai-strategy-roadmap.md](/Users/mo.li/Documents/cards/ai-strategy-roadmap.md#L79) 和 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L816)。
 - 路线图里提到“朋友未明时，持续维护谁更像朋友的简单概率分”，当前还没有显式概率状态，更接近“目标权重 + 若干身份特判”，尚未形成真正的 lightweight belief。
 - 调试信息已经有了，但性能保护还没形成明确的上限控制和专项性能回归；清单里这一项仍是 `待开始`，见 [ai-next-implementation-checklist.md](/Users/mo.li/Documents/cards/ai-next-implementation-checklist.md#L46)。
-- 当前“失败甩牌过滤”虽然解决了脏候选问题，但它直接复用了规则层的 `getThrowFailure(...)`。该函数会检查其他玩家真实手牌，所以它适合作为规则裁定，不适合作为 AI 决策依据。这意味着当前中级在甩牌点上仍然存在“局部透视”问题，必须回退到“基于已出牌和记牌能力的风险判断”。
+- 甩牌风险评估的第一版已经接进首发候选和评分，但它还不等于完整的“评估函数第二版”；像 `turnAccess`、失去先手后的连续跑分潜力、残局安全起手值这些更核心的牌权项还没接完。
 
 和路线图对比：
 
 - 对“当前已实现的产品中级”来说，已经明显超出原来的纯启发式阶段。
 - 对“目标中的中级”来说，已经完成了大半骨架，尤其是候选、模拟、评估、双层前瞻、debug 这些高价值部分。
-- 但如果按工程完成度来打分，我会把当前中级放在 `70% - 80%` 区间，而不是已 fully done。
+- 但如果按工程完成度来打分，我会把当前中级放在 `80% - 88%` 区间，而不是已 fully done。
 
 结论：
 
 - 中级是当前最健康的一档，也是最值得继续投入的一档。
-- 现在最重要的不是再加更多中级规则，而是先修掉“甩牌透视”这条红线，再继续把搜索框架彻底“去全局状态化 + 去 legacy 直返化”。
+- 现在最重要的不是再加更多中级规则，而是把剩余的双层前瞻触发、评估函数第二版和性能保护收口。
 
 ### 高级 AI
 
@@ -115,54 +119,33 @@
 
 ## 下一步最值得做的提升
 
-### 第一优先级：完成“候选与状态解耦”
+### 第一优先级：补完“双层前瞻”的残局续控判断
 
-这是我认为最该先做的一步。
+这是现在最该继续推进的一步。
 
 原因：
 
-- 这是从“现在能跑”走向“后面能持续升级”的关键分水岭。
-- 不把候选和 helper 从 live `state` 里拆出来，后面的 `beliefState`、sampled worlds、多世界评估都会很别扭，甚至会逼着你继续在全局态上打补丁。
-- 这一步完成后，中级搜索会更稳定，高级 belief 才有真正的承载层。
+- 当前中级已经能看到“本墩结束”和“下次自己行动前”，但还没有把“抢回先手后下一拍能不能稳住”显式写进触发条件和解释口径。
+- 这一步做完，中级才算真正从“能看两步”走到“会用两步信息做牌权判断”。
 
 建议的具体目标：
 
-- 让候选生成和合法性判断优先吃 `simState`，而不是借 `withSimulationState(...)` 套用 live helper。
-- 给 `chooseAiLeadPlay` / `getLegalSelectionsForPlayer` 这类旧接口补一层 state adapter，逐步把核心逻辑改造成显式传参。
-- 梳理仍直接读 `state` 的候选、比较、分类、提示函数，列出清单后逐个迁移。
+- 把“残局抢回先手后，下一拍是否还能安全起手”接进 rollout 扩展触发。
+- 把“本墩赢了但高概率立刻送回牌权”的场景显式打成 `turn_access_risk`。
+- 给这类局面补专项回归，避免只凭整局胜负观察退化。
 
-### 额外的红线优先级：移除“透视式甩牌判断”
-
-这件事需要插队到里程碑靠前位置。
-
-原因：
-
-- 它不是普通策略优劣问题，而是“AI 是否作弊”的边界问题。
-- 当前 `getThrowFailure(...)` 的使用方式，会让 AI 在甩牌候选上知道“别人手里到底有没有更大的同类组件”，这和路线图里“不透视”的原则冲突。
-- 这类问题如果不先收掉，后面继续调中级评估函数，得到的很多结论都会被污染。
-
-建议目标：
-
-- 将“规则裁定层的甩牌失败判断”和“AI 决策层的甩牌安全评估”彻底拆开。
-- 中级只允许使用：
-  - 已出高张
-  - 已暴露断门
-  - 当前桌面牌型
-  - 与自己结构相关的高张记忆
-- 高级在 `beliefState` 之前，只能把范围扩展到“完整已出牌记忆”，仍不能读取暗手。
-- 把 “`AAKK` 可以尝试甩、`AAKK+99` 是否继续扩” 变成风险问题，而不是全知真值判断。
-
-### 第二优先级：做“评估函数第二版”
+### 第二优先级：继续做“评估函数第二版”
 
 原因：
 
 - 现在中级已经有 rollout，没有更好的评分器，前瞻价值就会被打折。
-- 当前 `tempo / friendRisk / bottomRisk` 已经有第一版，这说明第二版不是从零开始，而是可以顺着现有 breakdown 往前推。
+- 当前 `tempo / friendRisk / bottomRisk` 已经有第一版，`throw risk` 也已经开始接入，这说明第二版不是从零开始，而是可以顺着现有 breakdown 往前推。
 
 建议重点：
 
 - 明确补 `turnAccess / 回手能力 / 牌权流向`。
 - 把更多“先判断再直接 return”的 legacy 规则改成评分修正项。
+- 继续把甩牌风险从候选层标签推进成 `evaluateState` 可解释 breakdown 的正式组成部分。
 - 针对每个评分项增加单项回归，避免调权重时黑盒化。
 
 ### 第三优先级：补性能与调试保护
@@ -188,13 +171,14 @@
 
 - 路线图已经明确写了，在中级搜索框架落稳前，不建议过早引入复杂 hidden sampling，见 [ai-strategy-roadmap.md](/Users/mo.li/Documents/cards/ai-strategy-roadmap.md#L222)。
 - 当前代码也证明，最值钱的基础设施已经有了，但承载高级推断所需的“去全局状态化”还没完成。
+- 当前代码也证明，中级的基础设施已经足够支撑继续打磨，真正的短板已经从“框架缺失”转成“收口和调优不够完整”。
 
 ## 最终判断
 
 如果把当前三档 AI 放到路线图上定位：
 
 - `初级`：已稳定，可视为完成态。
-- `中级`：已从启发式迈入短前瞻时代，但仍有最后一段工程收口要做。
+- `中级`：已从启发式迈入短前瞻时代，红线问题也已修掉，但仍有最后一段工程收口要做。
 - `高级`：仍处于“记牌增强版中级”，尚未进入真正的高级阶段。
 
 因此，下一步最正确的主线不是“让高级更像高级”，而是：

@@ -86,6 +86,55 @@ function getSimulationVoidPressureScore(simState, playerId) {
   }, 0);
 }
 
+/**
+ * 作用：
+ * 评估当前局面对“已知队友协同”是否友好。
+ *
+ * 为什么这样写：
+ * 朋友已揭晓后，中级 AI 不能只是把 `find_friend` 权重降下来，
+ * 还需要显式看懂“当前牌权是否落在已知队友手里”“是否值得继续让同侧维持节奏”。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估协同价值的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回队友协同分；正值表示当前局面更利于已知队友协同。
+ *
+ * 注意：
+ * - 只有在朋友已揭晓后才生效，未揭晓阶段返回 0。
+ * - 该项强调“已知同侧谁在控牌”，不读取任何对手暗手。
+ */
+function getSimulationAllySupportScore(simState, playerId) {
+  if (!simState || !PLAYER_ORDER.includes(playerId) || !isSimulationFriendTeamResolved(simState)) return 0;
+  const allies = simState.players
+    .map((player) => player.id)
+    .filter((otherId) => otherId !== playerId && isSimulationSameSide(simState, playerId, otherId));
+  if (allies.length === 0) return 0;
+
+  const controllerId = getSimulationTurnAccessControllerId(simState);
+  const trickPoints = Array.isArray(simState.currentTrick)
+    ? simState.currentTrick.reduce((sum, play) => sum + getComboPointValue(play.cards || []), 0)
+    : 0;
+  let score = 0;
+
+  if (controllerId != null) {
+    if (allies.includes(controllerId)) score += 20 + trickPoints * 0.4;
+    else if (controllerId === playerId) score += 8 + trickPoints * 0.15;
+    else score -= 16 + trickPoints * 0.35;
+  }
+
+  if (!simState.currentTrick?.length) {
+    if (allies.includes(simState.currentTurnId)) score += 10;
+    else if (simState.currentTurnId === playerId) score += 4;
+    else score -= 6;
+  }
+
+  if (allies.includes(simState.leaderId)) score += 5;
+  if (simState.hiddenFriendId && allies.includes(simState.hiddenFriendId)) score += 4;
+  return score;
+}
+
 function getSimulationCurrentWinningPlay(simState) {
   if (!simState?.currentTrick?.length) return null;
   if (!simState.leadSpec) return simState.currentTrick[0] || null;
@@ -438,6 +487,7 @@ function evaluateState(simState, playerId, objective = getIntermediateObjective(
     control: getSimulationControlScore(simState, playerId),
     points: getSimulationPointsScore(simState, playerId),
     friend: getSimulationFriendScore(simState, playerId),
+    allySupport: getSimulationAllySupportScore(simState, playerId),
     bottom: getSimulationBottomScore(simState, playerId),
     voidPressure: getSimulationVoidPressureScore(simState, playerId),
     tempo: getSimulationTempoScore(simState, playerId),

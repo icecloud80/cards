@@ -291,10 +291,48 @@ function runIntermediateFoundationSuite(context) {
     const evaluation = evaluateState(cloneSimulationState(state), 3, getIntermediateObjective(3, "lead", cloneSimulationState(state)));
     assert(typeof evaluation.total === "number", "evaluateState: should return numeric total");
     assert(typeof evaluation.breakdown.structure === "number", "evaluateState: should expose structure breakdown");
+    assert(typeof evaluation.breakdown.allySupport === "number", "evaluateState: should expose ally-support breakdown");
     assert(typeof evaluation.breakdown.tempo === "number", "evaluateState: should expose tempo breakdown");
     assert(typeof evaluation.breakdown.friendRisk === "number", "evaluateState: should expose friend-risk breakdown");
     assert(typeof evaluation.breakdown.bottomRisk === "number", "evaluateState: should expose bottom-risk breakdown");
     assert(evaluation.objective.primary.length > 0, "evaluateState: should include objective");
+
+    resetCommonState();
+    state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
+    state.hiddenFriendId = 2;
+    state.currentTurnId = 2;
+    state.leaderId = 2;
+    const resolvedBankerLeadObjective = getIntermediateObjective(2, "lead", cloneSimulationState(state));
+    assert(resolvedBankerLeadObjective.primary === "clear_trump", "getIntermediateObjective: revealed friend should switch banker-side lead priority toward clear_trump");
+    assert(resolvedBankerLeadObjective.weights.allySupport > resolvedBankerLeadObjective.weights.friend, "getIntermediateObjective: revealed friend should weight ally support above friend search");
+
+    resetCommonState();
+    state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
+    state.hiddenFriendId = 2;
+    state.players = [
+      basePlayer(1, [makeCard("ally-p1-c-5", "clubs", "5")], true),
+      basePlayer(2, [makeCard("ally-p2-s-a", "spades", "A")]),
+      basePlayer(3, [makeCard("ally-p3-c-k", "clubs", "K")]),
+      basePlayer(4, [makeCard("ally-p4-d-9", "diamonds", "9")]),
+      basePlayer(5, [makeCard("ally-p5-h-9", "hearts", "9")]),
+    ];
+    state.currentTrick = [
+      { playerId: 2, cards: [makeCard("ally-lead-s-8", "spades", "8")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    state.currentTurnId = 1;
+    state.leaderId = 2;
+    const allyControlState = cloneSimulationState(state);
+    const enemyControlState = cloneSimulationState(state);
+    enemyControlState.currentTrick = [
+      { playerId: 4, cards: [makeCard("enemy-lead-d-8", "diamonds", "8")] },
+    ];
+    enemyControlState.leadSpec = classifyPlay(enemyControlState.currentTrick[0].cards);
+    enemyControlState.currentTurnId = 1;
+    enemyControlState.leaderId = 4;
+    const allySupportEval = evaluateState(allyControlState, 1, getIntermediateObjective(1, "follow", allyControlState));
+    const enemySupportEval = evaluateState(enemyControlState, 1, getIntermediateObjective(1, "follow", enemyControlState));
+    assert(allySupportEval.breakdown.allySupport > enemySupportEval.breakdown.allySupport, "evaluateState: revealed-friend ally control should score better allySupport than opponent control");
 
     resetCommonState();
     const ownTurnTempoState = cloneSimulationState(state);
@@ -450,6 +488,8 @@ function runIntermediateFoundationSuite(context) {
         "simulation-state candidate generation ok",
         "objective weighting scaffold ok",
         "state evaluation scaffold ok",
+        "revealed-friend objective switch ok",
+        "ally-support evaluation scaffold ok",
         "tempo evaluation scaffold ok",
         "friend-risk evaluation scaffold ok",
         "bottom-risk evaluation scaffold ok",

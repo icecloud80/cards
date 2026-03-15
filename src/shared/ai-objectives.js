@@ -26,6 +26,7 @@ function buildIntermediateObjectiveWeights(baseWeights, primary, secondary) {
 
 function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   const unresolvedFriend = !!simState.friendTarget && !isSimulationFriendTeamResolved(simState);
+  const resolvedFriend = !!simState.friendTarget && isSimulationFriendTeamResolved(simState);
   const defenderSide = isSimulationDefenderTeam(simState, playerId);
   const cardsLeft = simState.players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
   const lateRound = cardsLeft <= 20;
@@ -39,6 +40,15 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   } else if (lateRound && defenderSide) {
     primary = "protect_bottom";
     secondary = "keep_control";
+  } else if (resolvedFriend && !defenderSide && mode === "lead") {
+    primary = "clear_trump";
+    secondary = "keep_control";
+  } else if (resolvedFriend && !defenderSide) {
+    primary = "keep_control";
+    secondary = "run_points";
+  } else if (resolvedFriend && defenderSide) {
+    primary = "keep_control";
+    secondary = "pressure_void";
   } else if (!defenderSide && mode === "lead") {
     primary = "run_points";
     secondary = "keep_control";
@@ -51,14 +61,15 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     structure: 1.15,
     control: 1.0,
     points: defenderSide ? 0.8 : 1.0,
-    friend: unresolvedFriend ? 1.15 : 0.45,
+    friend: unresolvedFriend ? 1.15 : resolvedFriend ? 0.1 : 0.45,
+    allySupport: resolvedFriend ? 0.95 : 0.05,
     bottom: lateRound ? 1.0 : 0.3,
     voidPressure: defenderSide ? 0.95 : 0.45,
     tempo: 0.85,
     turnAccess: 0.95,
     controlRisk: lateRound ? 1.05 : 0.75,
     safeLead: lateRound ? 0.8 : 0.2,
-    friendRisk: unresolvedFriend ? 0.75 : 0.2,
+    friendRisk: unresolvedFriend ? 0.75 : resolvedFriend ? 0.05 : 0.2,
     bottomRisk: lateRound ? 0.85 : 0.2,
   }, {
     find_friend: "friend",
@@ -84,6 +95,9 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "keep_control" || secondary === "clear_trump") weights.turnAccess += 0.2;
   if (primary === "keep_control" || primary === "clear_trump") weights.controlRisk += 0.35;
   if (secondary === "keep_control" || secondary === "clear_trump") weights.controlRisk += 0.15;
+  if (resolvedFriend) weights.allySupport += 0.25;
+  if (resolvedFriend && (primary === "keep_control" || primary === "clear_trump")) weights.allySupport += 0.35;
+  if (resolvedFriend && (secondary === "keep_control" || secondary === "clear_trump")) weights.allySupport += 0.15;
   if (primary === "protect_bottom") weights.bottomRisk += 0.35;
   if (secondary === "protect_bottom") weights.bottomRisk += 0.15;
   if (primary === "protect_bottom") weights.safeLead += 0.35;

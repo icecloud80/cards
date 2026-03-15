@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  作用：
+  提供一份更适合对话窗口内联预览的 PC mockup 缩放版 SVG。
+  
+  为什么这样写：
+  原始 SVG 画布较宽，部分预览器会缩放得不理想；
+  这里通过较小的展示尺寸复用同一视口，方便直接看完整构图。
+  
+  输入：
+  @param {void} xxx - 静态资源，无运行时输入。
+  
+  输出：
+  @returns {SVGDocument} 一张 1200x675 的 PC 布局预览图。
+  
+  注意：
+  - 仅调整展示尺寸，不改变设计稿内容。
+  - 正式设计源文件仍以 `pc-layout-mockup.svg` 为准。
+-->
+<svg width="1200" height="675" viewBox="0 0 1560 878" xmlns="http://www.w3.org/2000/svg">
+  <image href="pc-layout-mockup.svg" x="0" y="0" width="1560" height="878"/>
+</svg>

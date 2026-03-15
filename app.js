@@ -390,23 +390,22 @@ function refreshSavedProgressAvailability() {
 }
 
 function getReadyStartMessage() {
-  if (!state.startSelection) {
-    return state.hasSavedProgress
-      ? "请选择“新的游戏”或“继续游戏”。继续游戏会读取浏览器中保存的 5 位玩家等级进度。"
-      : "请选择“新的游戏”开始。本浏览器里还没有可继续的等级进度。";
-  }
-  const actionLabel = state.startSelection === "continue" ? "已读取浏览器中的等级进度" : "已创建新的等级进度";
-  return `${actionLabel}。当前由玩家${state.nextFirstDealPlayerId || 1}先抓牌，点击“开始发牌”后进入抓牌与亮主流程。`;
+  return state.hasSavedProgress
+    ? "点击“开始游戏”会把 5 位玩家等级重置为 2 并直接开局；也可以点“继续游戏”读取当前浏览器中的等级进度。"
+    : "点击“开始游戏”会把 5 位玩家等级重置为 2 并直接开局。当前浏览器里还没有可继续的等级进度。";
 }
 
-function startNewProgress() {
+function startNewProgress(autoStart = false) {
   state.playerLevels = { ...INITIAL_LEVELS };
   state.startSelection = "new";
   saveProgressToCookie();
   setupGame();
+  if (autoStart) {
+    startDealing();
+  }
 }
 
-function continueSavedProgress() {
+function continueSavedProgress(autoStart = false) {
   const savedLevels = loadProgressFromCookie();
   if (!savedLevels) {
     state.hasSavedProgress = false;
@@ -418,6 +417,9 @@ function continueSavedProgress() {
   state.hasSavedProgress = true;
   state.startSelection = "continue";
   setupGame();
+  if (autoStart) {
+    startDealing();
+  }
 }
 
 function applySavedLayoutState() {
@@ -472,9 +474,6 @@ function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);
   refreshSavedProgressAvailability();
-  if (!state.startSelection) {
-    state.startSelection = state.hasSavedProgress ? "continue" : "new";
-  }
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
   state.players = PLAYER_ORDER.map((id) => ({
@@ -3398,9 +3397,7 @@ function toggleSelection(cardId) {
 
 function updateActionHint() {
   if (state.phase === "ready") {
-    dom.actionHint.textContent = state.startSelection
-      ? "开始界面已就绪。点击“开始发牌”后，大家会从空手进入逐张发牌。"
-      : "请先选择“新的游戏”或“继续游戏”，再开始发牌。";
+    dom.actionHint.textContent = "开始界面已就绪。点击“开始游戏”会重置等级并直接开局；有存档时也可以继续游戏。";
     return;
   }
   if (state.phase === "dealing") {
@@ -3654,15 +3651,16 @@ function renderCenterPanel() {
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
   dom.passCounterBtn.disabled = state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1;
   dom.passCounterBtn.hidden = state.phase !== "countering" || state.currentTurnId !== 1;
-  dom.newProgressBtn.hidden = state.phase !== "ready";
-  dom.newProgressBtn.disabled = state.gameOver || state.phase !== "ready";
-  dom.newProgressBtn.classList.toggle("primary", state.startSelection === "new");
+  dom.newProgressBtn.hidden = true;
+  dom.newProgressBtn.disabled = true;
+  dom.newProgressBtn.classList.remove("primary");
   dom.continueGameBtn.hidden = state.phase !== "ready";
   dom.continueGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.hasSavedProgress;
-  dom.continueGameBtn.classList.toggle("primary", state.startSelection === "continue");
-  dom.continueGameBtn.textContent = state.hasSavedProgress ? "继续游戏" : "继续游戏（无存档）";
+  dom.continueGameBtn.classList.toggle("primary", false);
+  dom.continueGameBtn.textContent = "继续游戏";
   dom.startGameBtn.hidden = state.phase !== "ready";
-  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.startSelection;
+  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready";
+  dom.startGameBtn.textContent = "开始游戏";
 }
 
 function isHumanTurnActive() {
@@ -3670,8 +3668,8 @@ function isHumanTurnActive() {
 }
 
 dom.startGameBtn.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready" || !state.startSelection) return;
-  startDealing();
+  if (state.gameOver || state.phase !== "ready") return;
+  startNewProgress(true);
 });
 
 dom.newProgressBtn.addEventListener("click", () => {
@@ -3680,8 +3678,8 @@ dom.newProgressBtn.addEventListener("click", () => {
 });
 
 dom.continueGameBtn.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready") return;
-  continueSavedProgress();
+  if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
+  continueSavedProgress(true);
 });
 
 dom.playBtn.addEventListener("click", () => {

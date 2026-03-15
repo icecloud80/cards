@@ -2475,8 +2475,10 @@
 
       body.mobile-index2 .mobile-broadcast {
         position: absolute;
-        left: 18px;
-        right: 18px;
+        left: 50%;
+        width: fit-content;
+        min-width: min(42vw, 160px);
+        max-width: min(68vw, 260px);
         top: calc(
           62px +
           clamp(86px, 11.5vh, 104px) +
@@ -2485,7 +2487,7 @@
           clamp(54px, 7.2vh, 66px) -
           8px
         );
-        height: clamp(54px, 7.2vh, 66px);
+        min-height: clamp(54px, 7.2vh, 66px);
         display: none;
         align-items: center;
         gap: 8px;
@@ -2498,6 +2500,7 @@
         z-index: 7;
         touch-action: none;
         cursor: grab;
+        transform: translateX(-50%);
       }
 
       body.mobile-index2 .mobile-broadcast-copy {
@@ -2510,9 +2513,12 @@
         font-size: 12px;
         font-weight: 700;
         line-height: 1.35;
-        white-space: nowrap;
+        white-space: normal;
         overflow: hidden;
         text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
       }
 
       body.mobile-index2 .mobile-broadcast-close {

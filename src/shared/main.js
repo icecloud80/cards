@@ -77,8 +77,8 @@ function applyAutoManagedState(enabled) {
 }
 
 dom.startGameBtn.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready" || !state.startSelection) return;
-  startDealing();
+  if (state.gameOver || state.phase !== "ready") return;
+  startNewProgress(true);
 });
 
 dom.newProgressBtn?.addEventListener("click", () => {
@@ -87,8 +87,8 @@ dom.newProgressBtn?.addEventListener("click", () => {
 });
 
 dom.continueGameBtn?.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready") return;
-  continueSavedProgress();
+  if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
+  continueSavedProgress(true);
 });
 
 dom.playBtn.addEventListener("click", () => {

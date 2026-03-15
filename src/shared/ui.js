@@ -485,9 +485,7 @@ function toggleSelection(cardId) {
 
 function updateActionHint() {
   if (state.phase === "ready") {
-    dom.actionHint.textContent = state.startSelection
-      ? "开始界面已就绪。点击“开始发牌”后，大家会从空手进入逐张发牌。"
-      : "请先选择“新的游戏”或“继续游戏”，再开始发牌。";
+    dom.actionHint.textContent = "开始界面已就绪。点击“开始游戏”会重置等级并直接开局；有存档时也可以继续游戏。";
     return;
   }
   if (state.phase === "dealing") {
@@ -809,13 +807,14 @@ function renderCenterPanel() {
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
   dom.passCounterBtn.disabled = state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1;
   dom.passCounterBtn.hidden = state.phase !== "countering" || state.currentTurnId !== 1;
-  dom.newProgressBtn.hidden = state.phase !== "ready";
-  dom.newProgressBtn.disabled = state.gameOver || state.phase !== "ready";
-  dom.newProgressBtn.classList.toggle("primary", state.startSelection === "new");
+  dom.newProgressBtn.hidden = true;
+  dom.newProgressBtn.disabled = true;
+  dom.newProgressBtn.classList.remove("primary");
   dom.continueGameBtn.hidden = state.phase !== "ready";
   dom.continueGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.hasSavedProgress;
-  dom.continueGameBtn.classList.toggle("primary", state.startSelection === "continue");
-  dom.continueGameBtn.textContent = state.hasSavedProgress ? "继续游戏" : "继续游戏（无存档）";
+  dom.continueGameBtn.classList.toggle("primary", false);
+  dom.continueGameBtn.textContent = "继续游戏";
   dom.startGameBtn.hidden = state.phase !== "ready";
-  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.startSelection;
+  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready";
+  dom.startGameBtn.textContent = "开始游戏";
 }

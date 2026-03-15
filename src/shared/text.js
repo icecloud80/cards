@@ -274,12 +274,22 @@ const TEXT = {
       exhaustSuit: "同门牌不够时，必须把手里剩余的同门牌全部跟出。",
     },
     bottomPenaltyLabels: {
-      single: "单张主级牌扣底",
-      pair: "两张主级牌扣底",
-      triple: "三张主级牌扣底",
-      tractor: "含主级牌拖拉机扣底",
-      train: "含主级牌火车 / 宇宙飞船扣底",
-      bulldozer: "含主级牌推土机扣底",
+      trump: {
+        single: "单张主级牌扣底",
+        pair: "两张主级牌扣底",
+        triple: "三张主级牌扣底",
+        tractor: "含主级牌拖拉机扣底",
+        train: "含主级牌火车 / 宇宙飞船扣底",
+        bulldozer: "含主级牌推土机扣底",
+      },
+      vice: {
+        single: "单张副级牌扣底",
+        pair: "两张副级牌扣底",
+        triple: "三张副级牌扣底",
+        tractor: "含副级牌拖拉机扣底",
+        train: "含副级牌火车 / 宇宙飞船扣底",
+        bulldozer: "含副级牌推土机扣底",
+      },
     },
     bottomScoreLabels: {
       single: "单扣",

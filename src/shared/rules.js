@@ -1045,12 +1045,76 @@ function compareSingle(candidate, current, leadSuit) {
   return getPatternUnitPower(candidate, candidateSuit) - getPatternUnitPower(current, currentSuit);
 }
 
-// 判断是否扣底惩罚等级牌。
-function isBottomPenaltyLevelCard(card) {
+/**
+ * 作用：
+ * 判断一张牌在当前主牌环境下，是否能触发成功扣底降级，并返回对应的扣底模式。
+ *
+ * 为什么这样写：
+ * 主级牌和副级牌的回退规则不同，末手判定时需要先区分“主扣”还是“副扣”，后续才能走对的等级回退表。
+ *
+ * 输入：
+ * @param {{suit: string, rank: string} | null} card - 末手制胜牌型里的一张牌
+ *
+ * 输出：
+ * @returns {"trump" | "vice" | null} 该牌命中的扣底模式；不命中时返回 `null`
+ *
+ * 注意：
+ * - 无主时所有级牌都按主扣处理
+ * - 王不能触发主级/副级扣底判定
+ */
+function getBottomPenaltyModeForCard(card) {
   const currentLevelRank = getCurrentLevelRank();
-  if (!card || !currentLevelRank || card.suit === "joker") return false;
-  if (card.rank !== currentLevelRank) return false;
-  return state.trumpSuit === "notrump" ? true : card.suit === state.trumpSuit;
+  if (!card || !currentLevelRank || card.suit === "joker") return null;
+  if (card.rank !== currentLevelRank) return null;
+  if (state.trumpSuit === "notrump") return "trump";
+  return card.suit === state.trumpSuit ? "trump" : "vice";
+}
+
+/**
+ * 作用：
+ * 根据扣底模式和牌型类型，生成结算与日志使用的成功扣底标签。
+ *
+ * 为什么这样写：
+ * 成功扣底现在同时支持主级牌和副级牌，两套标签统一从这里取，可以避免 UI 文案和规则判定脱节。
+ *
+ * 输入：
+ * @param {"trump" | "vice"} mode - 当前成功扣底对应的模式
+ * @param {string} type - 当前末手牌型类型
+ *
+ * 输出：
+ * @returns {string} 对应的成功扣底说明文案
+ *
+ * 注意：
+ * - 传入未知模式或未知牌型时会回退为空字符串，调用方应自行兜底
+ * - 这里不负责计算降级数，只负责标签
+ */
+function getBottomPenaltyLabel(mode, type) {
+  return TEXT.rules.bottomPenaltyLabels[mode]?.[type] || "";
+}
+
+/**
+ * 作用：
+ * 计算某个当前等级在成功扣底时，真正需要执行的降级步数。
+ *
+ * 为什么这样写：
+ * 对 `J / Q / K / A` 这类有主扣/副扣回退锚点的等级，多张成功扣底需要先回退到锚点，再继续按牌型级数向下扣；否则会少算一级，无法满足像“副 J 双扣回 7、三扣回 6”这样的业务规则。
+ *
+ * 输入：
+ * @param {string} rank - 打家当前等级
+ * @param {{levels?: number, mode?: string} | null} penalty - 当前成功扣底信息
+ *
+ * 输出：
+ * @returns {number} 最终应传给降级函数的总步数
+ *
+ * 注意：
+ * - 只在存在特殊回退锚点且牌型不是单张时额外补 1 步
+ * - 普通等级或单张成功扣底保持现有降级步数不变
+ */
+function getBottomPenaltyDropSteps(rank, penalty) {
+  const baseLevels = Math.max(0, penalty?.levels || 0);
+  if (baseLevels <= 1) return baseLevels;
+  const fallbackMap = getPenaltyFallbackMap(penalty?.mode || "trump");
+  return fallbackMap[rank] ? baseLevels + 1 : baseLevels;
 }
 
 // 获取扣底惩罚。
@@ -1059,27 +1123,31 @@ function getBottomPenalty() {
 
   const winningPlay = state.lastTrick.plays.find((play) => play.playerId === state.lastTrick.winnerId);
   if (!winningPlay || winningPlay.cards.length === 0) return null;
-  if (!winningPlay.cards.some((card) => isBottomPenaltyLevelCard(card))) return null;
+  const penaltyModes = winningPlay.cards
+    .map((card) => getBottomPenaltyModeForCard(card))
+    .filter(Boolean);
+  if (penaltyModes.length === 0) return null;
+  const mode = penaltyModes.includes("trump") ? "trump" : "vice";
 
   const pattern = classifyPlay(winningPlay.cards);
   if (!pattern.ok) return null;
 
   const penaltyByType = {
-    single: { levels: 1, label: TEXT.rules.bottomPenaltyLabels.single },
-    pair: { levels: 2, label: TEXT.rules.bottomPenaltyLabels.pair },
-    triple: { levels: 3, label: TEXT.rules.bottomPenaltyLabels.triple },
-    tractor: { levels: 4, label: TEXT.rules.bottomPenaltyLabels.tractor },
-    train: { levels: 6, label: TEXT.rules.bottomPenaltyLabels.train },
-    bulldozer: { levels: 6, label: TEXT.rules.bottomPenaltyLabels.bulldozer },
+    single: { levels: 1 },
+    pair: { levels: 2 },
+    triple: { levels: 3 },
+    tractor: { levels: 4 },
+    train: { levels: 6 },
+    bulldozer: { levels: 6 },
   };
   const penalty = penaltyByType[pattern.type];
   if (!penalty) return null;
 
   return {
     levels: penalty.levels,
-    label: penalty.label,
+    label: getBottomPenaltyLabel(mode, pattern.type),
     winnerId: state.lastTrick.winnerId,
-    mode: "trump",
+    mode,
   };
 }
 

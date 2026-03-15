@@ -2075,9 +2075,10 @@ function applyLevelSettlement(outcome, bankerPenalty = null) {
   }
   if (bankerPenalty?.levels > 0) {
     const bankerLevelBeforePenalty = getPlayerLevel(state.bankerId);
+    const bankerPenaltyDropSteps = getBottomPenaltyDropSteps(bankerLevelBeforePenalty, bankerPenalty);
     state.playerLevels[state.bankerId] = dropLevel(
       bankerLevelBeforePenalty,
-      bankerPenalty.levels,
+      bankerPenaltyDropSteps,
       bankerPenalty.mode || "trump"
     );
     if (state.hiddenFriendId && FACE_CARD_LEVELS.has(bankerLevelBeforePenalty)) {

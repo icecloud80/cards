@@ -191,7 +191,7 @@ const TEXT = {
     buryingOther: (count) => `当前共 ${count} 张，等待打家整理底牌。`,
     callingFriendSelf: (count) => `当前共 ${count} 张，请先在弹出的菜单里叫朋友，再进入首轮出牌。`,
     callingFriendOther: (count) => `当前共 ${count} 张，等待打家叫朋友。`,
-    playing: (count) => `当前共 ${count} 张，点击牌即可选择；首家支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和甩牌。`,
+    playing: (count) => `当前共 ${count} 张，点击牌即可选择；首家只能出同一门的合法牌型，支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和甩牌。`,
     setupSpecialLabelWithTrump: "当前主牌",
     setupSpecialLabelWithoutTrump: "级牌 / 王",
     specialLabelNormal: "主牌",
@@ -244,7 +244,7 @@ const TEXT = {
     throwPenaltySummaryBanker: (penalty) => `非打家加 ${penalty} 分`,
     validation: {
       selectCards: "请选择要出的牌。",
-      leadSupported: "首家当前支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和基础甩牌。",
+      leadSupported: "首家只能出同一门的合法牌型，支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和基础甩牌；末手也不能混花色出牌。",
       followCount: (count) => `这一轮需要跟 ${count} 张牌。`,
       sameSuitFirst: "有足够同门牌时，必须先跟同门。",
       pairMustFollow: "对家出对时，你有对子就必须跟对子；三张刻子不用强拆成对。",

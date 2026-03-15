@@ -1637,12 +1637,11 @@ function meetsBeginnerAutoDeclarationHeuristic(playerId, declaration, mode = "de
 
   if (declaration.suit === "notrump") {
     if (mode !== "counter") return true;
-    return countCommonTrumpCardsForPlayer(playerId) >= 4;
+    return countCommonTrumpCardsForPlayer(playerId) >= 5;
   }
 
   const trumpCount = countTrumpCardsForDeclaration(playerId, declaration);
-  const handCount = player.hand.length;
-  return trumpCount > 7 || trumpCount >= Math.ceil(handCount / 4);
+  return trumpCount >= 10;
 }
 
 /**

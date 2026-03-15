@@ -267,7 +267,7 @@ function runDeclarationStrategySuite(context) {
      * @returns {void} 直接把测试手牌写入玩家 2。
      *
      * 注意：
-     * - 这里按黑桃为主时共有 8 张主牌，满足“大于 7 张”门槛。
+     * - 这里按黑桃为主时共有 10 张主牌，满足初级自动亮主门槛。
      */
     function setupStrongSuitDeclareScenario(difficulty) {
       resetDeclarationState(difficulty);
@@ -280,8 +280,8 @@ function runDeclarationStrategySuite(context) {
         makeCard("s6", "spades", "6"),
         makeCard("s7", "spades", "7"),
         makeCard("s8", "spades", "8"),
-        makeCard("c9", "clubs", "9"),
-        makeCard("h9", "hearts", "9"),
+        makeCard("s9", "spades", "9"),
+        makeCard("s10", "spades", "10"),
         makeCard("dk", "diamonds", "K"),
         makeCard("ca", "clubs", "A"),
       ]);
@@ -406,7 +406,7 @@ function runDeclarationStrategySuite(context) {
      * @returns {void} 直接写入当前亮主和玩家 2 手牌。
      *
      * 注意：
-     * - 这里的 4 张常主由两张大王和两张级牌组成。
+     * - 这里的 5 张常主由两张大王和三张级牌组成。
      */
     function setupStrongNoTrumpCounterScenario(difficulty) {
       resetDeclarationState(difficulty);
@@ -417,10 +417,10 @@ function runDeclarationStrategySuite(context) {
         makeCard("bj-2", "joker", "BJ"),
         makeCard("d2-1", "diamonds", "2"),
         makeCard("h2-1", "hearts", "2"),
+        makeCard("s2-1", "spades", "2"),
         makeCard("c9", "clubs", "9"),
         makeCard("d9", "diamonds", "9"),
         makeCard("h8", "hearts", "8"),
-        makeCard("s8", "spades", "8"),
       ]);
     }
 
@@ -487,7 +487,7 @@ function runDeclarationStrategySuite(context) {
 
     setupWeakNoTrumpCounterScenario("beginner");
     assert(getCounterDeclarationForPlayer(2)?.suit === "notrump", "beginner: legal no-trump counter should still exist");
-    assert(getAutoCounterDeclarationForPlayer(2) === null, "beginner: no-trump counter should require at least four common trumps");
+    assert(getAutoCounterDeclarationForPlayer(2) === null, "beginner: no-trump counter should require at least five common trumps");
     results.push("beginner weak no-trump counter blocked");
 
     setupStrongNoTrumpCounterScenario("beginner");

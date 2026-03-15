@@ -131,6 +131,8 @@ const dom = {
   resultBody: document.getElementById("resultBody"),
   resultBottomCards: document.getElementById("resultBottomCards"),
   resultCountdown: document.getElementById("resultCountdown"),
+  copyResultLogBtn: document.getElementById("copyResultLogBtn"),
+  downloadResultLogBtn: document.getElementById("downloadResultLogBtn"),
   restartBtn: document.getElementById("restartBtn"),
   closeResultBtn: document.getElementById("closeResultBtn"),
   friendPickerPanel: document.getElementById("friendPickerPanel"),
@@ -182,6 +184,7 @@ const state = {
   showBottomPanel: true,
   showRulesPanel: false,
   logs: [],
+  allLogs: [],
   gameOver: false,
   selectedFriendOccurrence: 1,
   selectedFriendSuit: "hearts",
@@ -537,6 +540,7 @@ function setupGame() {
   state.showBottomPanel = false;
   state.showRulesPanel = false;
   state.logs = [];
+  state.allLogs = [];
   state.gameOver = false;
   state.bottomRevealMessage = "";
   state.selectedFriendOccurrence = 1;
@@ -3091,8 +3095,83 @@ function getBottomResultText(bottomResult) {
 
 // 追加播报。
 function appendLog(message) {
+  if (!message) return;
+  state.allLogs.push(message);
   state.logs.unshift(message);
   state.logs = state.logs.slice(0, 5);
+}
+
+function getResultLogText() {
+  const lines = [
+    "五人找朋友升级 对局日志",
+    `结果：${dom.resultTitle?.textContent?.trim() || "未结算"}`,
+  ];
+  const summary = dom.resultBody?.textContent?.trim();
+  if (summary) {
+    lines.push(`结算：${summary}`);
+  }
+  lines.push("");
+  lines.push("全局播报：");
+  if (state.allLogs.length === 0) {
+    lines.push("（无日志）");
+  } else {
+    lines.push(...state.allLogs.map((entry, index) => `${index + 1}. ${entry}`));
+  }
+  return lines.join("\n");
+}
+
+function getResultLogFilename() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `five-friends-log-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.txt`;
+}
+
+function setResultLogButtonFeedback(button, idleLabel, nextLabel) {
+  if (!button) return;
+  button.textContent = nextLabel;
+  window.setTimeout(() => {
+    button.textContent = idleLabel;
+  }, 1600);
+}
+
+async function copyResultLog() {
+  const text = getResultLogText();
+  if (!text) return;
+  const idleLabel = dom.copyResultLogBtn?.dataset.idleLabel || "复制日志";
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "true");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+    setResultLogButtonFeedback(dom.copyResultLogBtn, idleLabel, "已复制");
+  } catch (error) {
+    setResultLogButtonFeedback(dom.copyResultLogBtn, idleLabel, "复制失败");
+  }
+}
+
+function downloadResultLog() {
+  const text = getResultLogText();
+  if (!text) return;
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = getResultLogFilename();
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  const idleLabel = dom.downloadResultLogBtn?.dataset.idleLabel || "下载日志";
+  setResultLogButtonFeedback(dom.downloadResultLogBtn, idleLabel, "已下载");
 }
 
 // 渲染当前界面并同步对外快照。
@@ -4056,6 +4135,14 @@ dom.newGameBtn.addEventListener("click", startNewProgress);
 
 dom.restartBtn.addEventListener("click", () => {
   beginNextGame(true);
+});
+
+dom.copyResultLogBtn?.addEventListener("click", () => {
+  copyResultLog();
+});
+
+dom.downloadResultLogBtn?.addEventListener("click", () => {
+  downloadResultLog();
 });
 
 dom.closeResultBtn?.addEventListener("click", () => {

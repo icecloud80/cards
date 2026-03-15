@@ -320,6 +320,14 @@ dom.restartBtn.addEventListener("click", () => {
   beginNextGame(true);
 });
 
+dom.copyResultLogBtn?.addEventListener("click", () => {
+  copyResultLog();
+});
+
+dom.downloadResultLogBtn?.addEventListener("click", () => {
+  downloadResultLog();
+});
+
 dom.closeResultBtn?.addEventListener("click", () => {
   goToMainMenu();
 });

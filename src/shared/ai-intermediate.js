@@ -61,6 +61,41 @@ function scoreIntermediateReturnLead(playerId, combo, player) {
   return score;
 }
 
+// 判断中级 AI 是否处于早期帮庄接手和带牌节奏。
+function isIntermediateEarlyFriendTempo(playerId) {
+  if (playerId === state.bankerId || !state.friendTarget || state.trickNumber > 4) return false;
+  if (isFriendTeamResolved()) {
+    return areSameSide(playerId, state.bankerId);
+  }
+  return isAiProspectiveFriend(playerId) || isAiCertainFriend(playerId);
+}
+
+// 评估朋友在早期接手后的带牌节奏。
+function scoreIntermediateFriendTempoLead(playerId, combo) {
+  if (!isIntermediateEarlyFriendTempo(playerId) || !Array.isArray(combo) || combo.length === 0) return 0;
+  const pattern = classifyPlay(combo);
+  const leadSuit = effectiveSuit(combo[0]);
+  let score = 0;
+
+  if (pattern.type === "single") {
+    score -= leadSuit === "trump" ? 14 : 18;
+  } else if (pattern.type === "pair") {
+    score += 22;
+  } else if (pattern.type === "triple") {
+    score += 28;
+  } else if (pattern.type === "tractor") {
+    score += 36;
+  } else if (pattern.type === "train") {
+    score += 42;
+  } else if (pattern.type === "bulldozer") {
+    score += 48;
+  }
+
+  if (leadSuit === "trump" && pattern.type !== "single") score -= 8;
+  score -= getComboPointValue(combo) * 2;
+  return score;
+}
+
 // 评估一手牌打完后的连贯性。
 function scoreHandContinuity(playerId, hand) {
   if (!Array.isArray(hand) || hand.length === 0) return 0;
@@ -101,6 +136,33 @@ function scoreComboResourceUse(combo) {
 function getHandAfterCombo(hand, combo) {
   const removeIds = new Set(combo.map((card) => card.id));
   return hand.filter((card) => !removeIds.has(card.id));
+}
+
+// 评估首发是否不必要地拆掉完整三张组。
+function scoreLeadTripleBreakPenalty(handBefore, combo) {
+  if (!Array.isArray(handBefore) || !Array.isArray(combo) || combo.length === 0) return 0;
+  const pattern = classifyPlay(combo);
+  const comboKeyCounts = new Map();
+  for (const card of combo) {
+    const key = card.suit + "-" + card.rank;
+    comboKeyCounts.set(key, (comboKeyCounts.get(key) || 0) + 1);
+  }
+
+  const handKeyCounts = new Map();
+  for (const card of handBefore) {
+    const key = card.suit + "-" + card.rank;
+    handKeyCounts.set(key, (handKeyCounts.get(key) || 0) + 1);
+  }
+
+  let score = 0;
+  for (const [key, handCount] of handKeyCounts.entries()) {
+    if (handCount !== 3) continue;
+    const used = comboKeyCounts.get(key) || 0;
+    if (used === 0 && (pattern.type === "single" || pattern.type === "pair")) score -= 120;
+    if (used > 0 && used < 3) score -= 220;
+    if (used === 3) score += 96;
+  }
+  return score;
 }
 
 // 返回中级 AI 当前视角下的对手 ID 列表。
@@ -304,6 +366,8 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice) {
   }
 
   score += scoreIntermediateReturnLead(playerId, combo, player);
+  score += scoreIntermediateFriendTempoLead(playerId, combo);
+  score += scoreLeadTripleBreakPenalty(handBefore, combo);
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
 
@@ -381,7 +445,13 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
   if (state.friendTarget && !isFriendTeamResolved()) {
     const containsTarget = combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank);
     if (containsTarget && canAiRevealFriendNow(playerId)) {
-      score += state.trickNumber === 1 ? 90 : 36;
+      if (beats) {
+        score += state.trickNumber <= 4 ? 150 : 54;
+      } else if (currentWinningPlay?.playerId === state.bankerId) {
+        score -= state.trickNumber <= 4 ? 180 : 72;
+      } else {
+        score += state.trickNumber === 1 ? 90 : 36;
+      }
     }
   }
 
@@ -397,11 +467,15 @@ function chooseIntermediateFollowPlay(playerId, candidates) {
   const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const revealOpportunity = canAiRevealFriendNow(playerId);
   const revealChoice = revealOpportunity ? chooseAiRevealCombo(candidates) : [];
+  const revealBeats = revealChoice.length > 0 && currentWinningPlay
+    ? wouldAiComboBeatCurrent(playerId, revealChoice, currentWinningPlay)
+    : false;
   const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
   const beginnerChoice = getBeginnerLegalHintForPlayer(playerId);
 
   if (supportChoice.length > 0) return supportChoice;
-  if (revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
+  if (revealChoice.length > 0 && (revealBeats || currentWinningPlay?.playerId !== state.bankerId)
+    && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
   }
 

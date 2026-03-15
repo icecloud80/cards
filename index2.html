@@ -2822,9 +2822,17 @@
       body.mobile-index2 .last-trick .played-card {
         width: 36px;
         height: 52px;
-        margin-left: -8px;
+        flex: 0 0 auto;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+      }
+
+      body.mobile-index2 .cards-row .card-btn {
+        margin-left: 0;
+      }
+
+      body.mobile-index2 .cards-row.compact-overlap .card-btn {
+        margin-left: -16px;
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -2884,6 +2892,12 @@
         box-shadow: var(--shadow-lg);
       }
 
+      body.mobile-index2 #mobileInfoSheet .mobile-sheet-card {
+        padding: 11px 11px 10px;
+        max-height: min(78vh, 680px);
+        overflow: hidden;
+      }
+
       body.mobile-index2 .mobile-sheet-card.dark {
         background: linear-gradient(180deg, rgba(22, 38, 48, 0.96), rgba(10, 20, 28, 0.94));
         color: #f8f0dc;
@@ -2894,6 +2908,30 @@
         align-items: center;
         justify-content: space-between;
         margin-bottom: 10px;
+      }
+
+      body.mobile-index2 .mobile-sheet-head-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      body.mobile-index2 #mobileInfoSheet .mobile-sheet-head {
+        margin-bottom: 6px;
+      }
+
+      body.mobile-index2 .mobile-info-version {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(255, 249, 239, 0.92);
+        color: #7e5721;
+        box-shadow: var(--shadow-md);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
       }
 
       body.mobile-index2 .mobile-sheet-card.dark .mobile-sheet-head {
@@ -2907,28 +2945,27 @@
 
       body.mobile-index2 .mobile-info-list {
         display: grid;
-        gap: 8px;
-        max-height: min(46vh, 420px);
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-right: 4px;
+        gap: 6px;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
       }
 
       body.mobile-index2 .mobile-info-section {
-        margin-top: 12px;
+        margin-top: 8px;
       }
 
       body.mobile-index2 .mobile-info-section-title {
         display: block;
-        margin-bottom: 8px;
-        font-size: 12px;
+        margin-bottom: 5px;
+        font-size: 11px;
         font-weight: 800;
         color: #7f5420;
       }
 
       body.mobile-index2 .mobile-info-card {
-        padding: 10px;
-        border-radius: 12px;
+        padding: 7px 8px;
+        border-radius: 10px;
         background: rgba(255, 255, 255, 0.58);
       }
 
@@ -2949,16 +2986,16 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 6px;
       }
 
       body.mobile-index2 .mobile-info-name {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 800;
       }
 
       body.mobile-index2 .mobile-info-role {
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 800;
         color: #85541d;
       }
@@ -2966,13 +3003,13 @@
       body.mobile-index2 .mobile-info-meta {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
-        margin-top: 8px;
+        gap: 4px;
+        margin-top: 5px;
       }
 
       body.mobile-index2 .mobile-info-meta div {
-        padding: 6px 4px;
-        border-radius: 8px;
+        padding: 4px 3px;
+        border-radius: 7px;
         background: rgba(255, 255, 255, 0.5);
         text-align: center;
       }
@@ -2980,13 +3017,13 @@
       body.mobile-index2 .mobile-info-meta span {
         display: block;
         color: var(--muted);
-        font-size: 9px;
+        font-size: 8px;
       }
 
       body.mobile-index2 .mobile-info-meta strong {
         display: block;
-        margin-top: 2px;
-        font-size: 12px;
+        margin-top: 1px;
+        font-size: 11px;
       }
 
       body.mobile-index2 .mobile-ai-hands {
@@ -3024,10 +3061,10 @@
 
       body.mobile-index2 .mobile-log-list {
         margin: 0;
-        padding-left: 18px;
+        padding-left: 15px;
         color: var(--muted);
-        font-size: 12px;
-        line-height: 1.6;
+        font-size: 10px;
+        line-height: 1.35;
       }
 
       body.mobile-index2 .mobile-sheet-card.dark .mobile-log-list,
@@ -3283,7 +3320,10 @@
         <section id="mobileInfoSheet" class="mobile-sheet">
           <div class="mobile-sheet-card">
             <div class="mobile-sheet-head">
-              <strong>信息</strong>
+              <div class="mobile-sheet-head-main">
+                <strong>信息</strong>
+                <span id="mobileInfoVersion" class="mobile-info-version"></span>
+              </div>
               <button id="mobileCloseInfoBtn" class="mobile-icon-btn" type="button" aria-label="关闭信息">×</button>
             </div>
             <div class="mobile-info-section">
@@ -3542,6 +3582,10 @@
               <div id="resultBottomCards" class="bottom-cards"></div>
             </div>
             <p id="resultCountdown" class="result-countdown">30 秒后自动开局：30</p>
+            <div class="action-row" style="margin-top: 12px;">
+              <button id="copyResultLogBtn" class="action-btn" type="button">复制日志</button>
+              <button id="downloadResultLogBtn" class="action-btn" type="button">下载日志</button>
+            </div>
             <div class="action-row" style="margin-top: 18px;">
               <button id="restartBtn" class="action-btn primary">再来一局</button>
               <button id="closeResultBtn" class="action-btn" type="button">关闭</button>
@@ -3604,6 +3648,7 @@
           friendCard: document.getElementById("mobileFriendCard"),
           friendOccurrence: document.getElementById("mobileFriendOccurrence"),
           infoBtn: document.getElementById("mobileInfoBtn"),
+          infoVersion: document.getElementById("mobileInfoVersion"),
           lastTrickBtn: document.getElementById("mobileLastTrickBtn"),
           menuBtn: document.getElementById("mobileMenuBtn"),
           broadcast: document.getElementById("mobileBroadcast"),
@@ -3658,6 +3703,10 @@
           lastTrickCards: document.getElementById("lastTrickCards"),
           closeLastTrickBtn: document.getElementById("closeLastTrickBtn"),
         };
+
+        if (mobileDom.infoVersion) {
+          mobileDom.infoVersion.textContent = `v${APP_VERSION}`;
+        }
 
         let latestSnapshot = null;
         let mobileCheatBuffer = "";
@@ -3734,6 +3783,16 @@
             advanced: "高",
             master: "师",
           })[value] || "初";
+        }
+
+        function syncTopbarStats(snapshot = window.__fiveFriendsSnapshot || null) {
+          mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
+          mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
+          if (mobileDom.difficulty) {
+            mobileDom.difficulty.textContent = getMobileDifficultyLabel(
+              originalDom.aiDifficultySelect?.value || snapshot?.aiDifficulty || "beginner"
+            );
+          }
         }
 
         function syncFriendCard(snapshot) {
@@ -3871,7 +3930,10 @@
             </div>
           `).join("");
 
-          const logs = [...originalDom.logList.querySelectorAll("li")].map((item) => item.textContent.trim()).filter(Boolean);
+          const logs = [...originalDom.logList.querySelectorAll("li")]
+            .map((item) => item.textContent.trim())
+            .filter(Boolean)
+            .slice(0, 4);
           mobileDom.logList.innerHTML = logs.length
             ? logs.map((item) => `<li>${item}</li>`).join("")
             : "<li>当前没有播报</li>";
@@ -4100,13 +4162,7 @@
             mobileDom.difficultySelect.value = originalDom.aiDifficultySelect?.value || snapshot.aiDifficulty || "beginner";
             mobileDom.difficultySelect.disabled = !!originalDom.aiDifficultySelect?.disabled;
           }
-          mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
-          mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
-          if (mobileDom.difficulty) {
-            mobileDom.difficulty.textContent = getMobileDifficultyLabel(
-              originalDom.aiDifficultySelect?.value || snapshot.aiDifficulty || "beginner"
-            );
-          }
+          syncTopbarStats(snapshot);
           syncTrumpStatus(snapshot);
           syncFriendCard(snapshot);
           syncAutoManagedButton();
@@ -4274,6 +4330,7 @@
         mobileDom.broadcast.addEventListener("pointercancel", stopBroadcastDrag);
 
         window.addEventListener("fivefriends:render", handleRender);
+        window.addEventListener("fivefriends:scorepanel", () => syncTopbarStats());
         window.addEventListener("resize", scheduleViewportMetrics);
         window.addEventListener("orientationchange", scheduleViewportMetrics);
         window.visualViewport?.addEventListener("resize", scheduleViewportMetrics);
@@ -4282,6 +4339,7 @@
           handleRender({ detail: window.__fiveFriendsSnapshot });
         } else {
           document.body.dataset.mobileScreen = originalDom.startGameBtn.hidden ? "play" : "setup";
+          syncTopbarStats();
           syncTrumpStatus(window.__fiveFriendsSnapshot || null);
           syncFriendCard(window.__fiveFriendsSnapshot || null);
           syncAutoManagedButton();

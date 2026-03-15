@@ -249,6 +249,9 @@ function renderScorePanel() {
   if (typeof syncAutoManagedButton === "function") {
     syncAutoManagedButton();
   }
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
+    window.dispatchEvent(new CustomEvent("fivefriends:scorepanel"));
+  }
 }
 
 // 渲染五个玩家座位信息。
@@ -449,6 +452,7 @@ function renderHand() {
 
     const wrapper = document.createElement("div");
     wrapper.className = "hand-group";
+    wrapper.dataset.groupKey = group.key;
     const chip = document.createElement("div");
     chip.className = `group-chip${group.red ? " red" : ""}`;
     chip.textContent = group.label;
@@ -456,6 +460,10 @@ function renderHand() {
 
     const row = document.createElement("div");
     row.className = "cards-row";
+    row.dataset.cardCount = String(cards.length);
+    if (cards.length >= 10) {
+      row.classList.add("compact-overlap");
+    }
     for (const card of cards) {
       const button = buildCardNode(card, `card-btn${state.selectedCardIds.includes(card.id) ? " selected" : ""}${isTrump(card) ? " trump" : ""}`);
       button.type = "button";
@@ -608,8 +616,10 @@ function getFriendPickerRanksForSuit(suit) {
       { value: "BJ", label: TEXT.cards.smallJoker },
     ];
   }
+  const levelRank = getCurrentLevelRank();
   return [...RANKS]
     .reverse()
+    .filter((rank) => !(levelRank && rank === levelRank && suit !== state.trumpSuit))
     .map((rank) => ({ value: rank, label: rank }));
 }
 

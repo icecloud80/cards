@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+printf '%s\n' 'Running unit regression tests before commit...'
+node --test --test-reporter=spec tests/unit/regressions.test.js

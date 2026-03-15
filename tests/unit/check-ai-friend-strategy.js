@@ -182,6 +182,84 @@ function runFriendStrategySuite(context) {
       state.currentTurnId = 3;
     }
 
+    function setupDelayRevealOnBankerAceLeadScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.trickNumber = 1;
+      state.players = [
+        basePlayer(1, [makeCard("b-h-a", "hearts", "A")], true),
+        basePlayer(2, [makeCard("p2-d-9", "diamonds", "9")]),
+        basePlayer(3, [
+          makeCard("p3-h-k", "hearts", "K"),
+          makeCard("p3-h-3", "hearts", "3"),
+        ]),
+        basePlayer(4, [makeCard("p4-h-8", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-h-7", "hearts", "7")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "K", occurrence: 2 });
+      state.friendTarget.matchesSeen = 1;
+      state.currentTrick = [{
+        playerId: 1,
+        cards: [makeCard("lead-h-a", "hearts", "A")],
+      }];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 1;
+      state.currentTurnId = 3;
+    }
+
+    function setupDelayRevealOnSecondBankerAceScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.trickNumber = 2;
+      state.players = [
+        basePlayer(1, [makeCard("b-h-a-2", "hearts", "A")], true),
+        basePlayer(2, [makeCard("p2-d-9", "diamonds", "9")]),
+        basePlayer(3, [
+          makeCard("p3-h-a-3", "hearts", "A"),
+          makeCard("p3-h-3-2", "hearts", "3"),
+        ]),
+        basePlayer(4, [makeCard("p4-h-8-2", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-h-7-2", "hearts", "7")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 3 });
+      state.friendTarget.matchesSeen = 2;
+      state.currentTrick = [{
+        playerId: 1,
+        cards: [makeCard("lead-h-a-2", "hearts", "A")],
+      }];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 1;
+      state.currentTurnId = 3;
+    }
+
+    function setupRevealTakeoverScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.trickNumber = 2;
+      state.players = [
+        basePlayer(1, [makeCard("b-h-q", "hearts", "Q")], true),
+        basePlayer(2, [makeCard("p2-d-9-2", "diamonds", "9")]),
+        basePlayer(3, [
+          makeCard("p3-h-k-2", "hearts", "K"),
+          makeCard("p3-h-3-3", "hearts", "3"),
+        ]),
+        basePlayer(4, [makeCard("p4-h-8-3", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-h-7-3", "hearts", "7")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "K", occurrence: 2 });
+      state.friendTarget.matchesSeen = 1;
+      state.currentTrick = [{
+        playerId: 1,
+        cards: [makeCard("lead-h-q-2", "hearts", "Q")],
+      }];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 1;
+      state.currentTurnId = 3;
+    }
+
     // 搭建回牌给庄家的测试场景。
     function setupReturnToBankerScenario(difficulty) {
       resetCommonState();
@@ -402,6 +480,30 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
+    function setupPreserveTripleLeadScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-c-3", "clubs", "3")], true),
+        basePlayer(2, [makeCard("p2-d-3", "diamonds", "3")]),
+        basePlayer(3, [
+          makeCard("p3-s-k-1", "spades", "K"),
+          makeCard("p3-s-k-2", "spades", "K"),
+          makeCard("p3-s-k-3", "spades", "K"),
+          makeCard("p3-s-9", "spades", "9"),
+        ]),
+        basePlayer(4, [makeCard("p4-h-3", "hearts", "3")]),
+        basePlayer(5, [makeCard("p5-c-4", "clubs", "4")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 2;
+      state.hiddenFriendId = 2;
+      state.currentTurnId = 3;
+      state.leaderId = 3;
+    }
+
     // 搭建避免给庄家将吃机会的测试场景。
     function setupAvoidBankerRuffLeadScenario(difficulty) {
       resetCommonState();
@@ -483,6 +585,35 @@ function runFriendStrategySuite(context) {
       assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": opening-lead probe should delay reveal and play low heart");
       results.push(difficulty + " opening-probe delay reveal ok");
     }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupDelayRevealOnBankerAceLeadScenario(difficulty);
+      assert(canAiRevealFriendNow(3) === true, difficulty + ": banker-A lead case should still be a reveal opportunity");
+      const hint = getLegalHintForPlayer(3);
+      assert(hint.length === 1, difficulty + ": banker-A lead delay should still choose a single follow card");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": should delay revealing second K when banker already leads A");
+      results.push(difficulty + " banker-A delay reveal ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupDelayRevealOnSecondBankerAceScenario(difficulty);
+      assert(canAiRevealFriendNow(3) === true, difficulty + ": second banker-A lead should still be a reveal opportunity");
+      const hint = getLegalHintForPlayer(3);
+      assert(hint.length === 1, difficulty + ": second banker-A delay should still choose a single follow card");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": should delay revealing third A when banker leads another A that still keeps control");
+      results.push(difficulty + " second banker-A delay reveal ok");
+    }
+
+    setupRevealTakeoverScenario("beginner");
+    const beginnerRevealTakeover = getLegalHintForPlayer(3);
+    assert(beginnerRevealTakeover.length === 1, "beginner: reveal-takeover scenario should choose a single follow card");
+    results.push("beginner reveal-takeover baseline -> " + beginnerRevealTakeover[0].suit + "-" + beginnerRevealTakeover[0].rank);
+
+    setupRevealTakeoverScenario("intermediate");
+    const intermediateRevealTakeover = getLegalHintForPlayer(3);
+    assert(intermediateRevealTakeover.length === 1, "intermediate: reveal-takeover scenario should choose a single follow card");
+    assert(intermediateRevealTakeover[0].suit === "hearts" && intermediateRevealTakeover[0].rank === "K", "intermediate: should reveal and take over when friend card can beat banker lead");
+    results.push("intermediate reveal-takeover ok");
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupAutoFriendScenario(difficulty);
@@ -574,6 +705,17 @@ function runFriendStrategySuite(context) {
     assert(intermediateTrumpClearSafety.length >= 2, "intermediate: trump-clear safety scenario should choose a structured trump lead");
     assert(intermediateTrumpClearSafety.every((card) => card.suit === "spades"), "intermediate: should clear trump before exposing side-suit pair");
     results.push("intermediate trump-clear safety ok");
+
+    setupPreserveTripleLeadScenario("beginner");
+    const beginnerPreserveTripleLead = getLegalHintForPlayer(3);
+    assert(beginnerPreserveTripleLead.length === 3, "beginner: preserve-triple scenario should choose all three trump K");
+    results.push("beginner preserve-triple lead ok");
+
+    setupPreserveTripleLeadScenario("intermediate");
+    const intermediatePreserveTripleLead = getLegalHintForPlayer(3);
+    assert(intermediatePreserveTripleLead.length === 3, "intermediate: preserve-triple scenario should choose all three trump K");
+    assert(intermediatePreserveTripleLead.every((card) => card.suit === "spades" && card.rank === "K"), "intermediate: should not split an exact triple on lead");
+    results.push("intermediate preserve-triple lead ok");
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupAvoidBankerRuffLeadScenario(difficulty);

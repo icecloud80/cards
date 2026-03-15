@@ -83,6 +83,7 @@ function chooseAiRevealCombo(candidates) {
 // 为必然成友的 AI 返回强制亮朋友的出牌。
 function getForcedCertainFriendRevealPlay(playerId, candidates = null) {
   if (!canAiRevealFriendNow(playerId) || !isAiCertainFriend(playerId)) return [];
+  if (shouldAiDelayRevealOnOpeningLead(playerId)) return [];
   const player = getPlayer(playerId);
   if (!player) return [];
   if (Array.isArray(candidates) && candidates.length > 0) {
@@ -146,16 +147,33 @@ function isOneStepBelowFriendTarget(card, target = state.friendTarget) {
   return getPatternUnitPower(targetCard, effectiveSuit(targetCard)) - getPatternUnitPower(card, effectiveSuit(card)) === 1;
 }
 
-// 判断 AI 是否应在首轮首发时延后亮朋友。
+function doesBankerOpeningLeadBlockFriendTakeover(target = state.friendTarget) {
+  if (!target || !state.currentTrick[0]?.cards?.length) return false;
+  const bankerLeadCard = state.currentTrick[0].cards[0];
+  const targetCard = getTargetVirtualCard(target);
+  if (!targetCard) return false;
+  const leadSuit = effectiveSuit(bankerLeadCard);
+  const targetSuit = effectiveSuit(targetCard);
+  if (leadSuit !== targetSuit) return false;
+  return getPatternUnitPower(bankerLeadCard, leadSuit) >= getPatternUnitPower(targetCard, targetSuit);
+}
+
+// 判断 AI 是否应在庄家领单时延后亮朋友。
 function shouldAiDelayRevealOnOpeningLead(playerId) {
-  if (!state.friendTarget || state.trickNumber !== 1 || state.currentTrick[0]?.playerId !== state.bankerId) return false;
+  if (!state.friendTarget || state.currentTrick[0]?.playerId !== state.bankerId) return false;
   if (state.currentTrick[0]?.cards.length !== 1) return false;
   const currentWinningPlay = getCurrentWinningPlay();
-  if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return false;
 
   const bankerLeadCard = state.currentTrick[0].cards[0];
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
+  const revealOpportunity = currentSeen + 1 === neededOccurrence;
+
+  if (revealOpportunity && doesBankerOpeningLeadBlockFriendTakeover(state.friendTarget)) {
+    return true;
+  }
+
+  if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return false;
 
   if (neededOccurrence === 1 && isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget)) {
     return true;
@@ -214,17 +232,19 @@ function areAiSameSide(playerA, playerB) {
 // 为亮朋友前的配合出牌选择方案。
 function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (!state.friendTarget || !currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return [];
-  if (state.trickNumber !== 1 || state.currentTrick[0]?.playerId !== state.bankerId) return [];
+  if (state.currentTrick[0]?.playerId !== state.bankerId) return [];
   if (state.currentTrick[0]?.cards.length !== 1) return [];
 
   const bankerLeadCard = state.currentTrick[0].cards[0];
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
+  const revealOpportunity = currentSeen + 1 === neededOccurrence;
   const delayForFirstTarget = neededOccurrence === 1 && isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget);
   const delayForSecondTarget = neededOccurrence === 2 && currentSeen === 1
     && bankerLeadCard.suit === state.friendTarget.suit
     && bankerLeadCard.rank === state.friendTarget.rank;
-  if (!delayForFirstTarget && !delayForSecondTarget) return [];
+  const blockedTakeover = revealOpportunity && doesBankerOpeningLeadBlockFriendTakeover(state.friendTarget);
+  if (!delayForFirstTarget && !delayForSecondTarget && !blockedTakeover) return [];
   if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return [];
 
   const supportChoices = candidates.filter((combo) =>

@@ -81,6 +81,7 @@ function setupGame() {
   state.showBottomPanel = false;
   state.showRulesPanel = false;
   state.logs = [];
+  state.allLogs = [];
   state.gameOver = false;
   state.bottomRevealMessage = "";
   state.selectedFriendOccurrence = 1;
@@ -1026,6 +1027,15 @@ function getBuryProtectedCardIds(cards) {
   return protectedIds;
 }
 
+// 计算埋底时应尽量保留的高控制力。
+function getBuryControlRetentionScore(card) {
+  if (!card) return 0;
+  if (isTrump(card)) return 0;
+  if (card.rank === "A") return 180;
+  if (card.rank === "Q") return 24;
+  return 0;
+}
+
 // 为玩家生成埋底建议。
 function getBuryHintForPlayer(playerId) {
   const player = getPlayer(playerId);
@@ -1060,7 +1070,7 @@ function getBuryHintForPlayer(playerId) {
     return [...player.hand]
       .sort((a, b) => {
         const getScore = (card) => {
-          let score = (isTrump(card) ? 1000 : 0) + scoreValue(card) * 50 + cardStrength(card);
+          let score = (isTrump(card) ? 1000 : 0) + scoreValue(card) * 50 + cardStrength(card) + getBuryControlRetentionScore(card);
           if (protectedCardIds.has(card.id)) score += 600;
           if (!isTrump(card)) {
             score += suitCounts[card.suit] * 14;
@@ -1079,8 +1089,8 @@ function getBuryHintForPlayer(playerId) {
   }
   return [...player.hand]
     .sort((a, b) => {
-      const aScore = (isTrump(a) ? 1000 : 0) + scoreValue(a) * 50 + cardStrength(a) + (protectedCardIds.has(a.id) ? 600 : 0);
-      const bScore = (isTrump(b) ? 1000 : 0) + scoreValue(b) * 50 + cardStrength(b) + (protectedCardIds.has(b.id) ? 600 : 0);
+      const aScore = (isTrump(a) ? 1000 : 0) + scoreValue(a) * 50 + cardStrength(a) + getBuryControlRetentionScore(a) + (protectedCardIds.has(a.id) ? 600 : 0);
+      const bScore = (isTrump(b) ? 1000 : 0) + scoreValue(b) * 50 + cardStrength(b) + getBuryControlRetentionScore(b) + (protectedCardIds.has(b.id) ? 600 : 0);
       return aScore - bScore;
     })
     .slice(0, 7);
@@ -1465,7 +1475,7 @@ function maybeRevealFriend(playerId, cards) {
   if (!state.friendTarget) return null;
   if (state.friendTarget.revealed || state.friendTarget.failed) return null;
   const matchedCards = cards.filter(
-    (card) => card.rank === state.friendTarget.rank && card.suit === state.friendTarget.suit
+    (card) => isFriendTargetMatchCard(card)
   );
   if (matchedCards.length === 0) return null;
 
@@ -1817,6 +1827,81 @@ function applyLevelSettlement(outcome, bankerPenalty = null) {
 
 // 追加播报。
 function appendLog(message) {
+  if (!message) return;
+  state.allLogs.push(message);
   state.logs.unshift(message);
   state.logs = state.logs.slice(0, 5);
+}
+
+function getResultLogText() {
+  const lines = [
+    "五人找朋友升级 对局日志",
+    `结果：${dom.resultTitle?.textContent?.trim() || "未结算"}`,
+  ];
+  const summary = dom.resultBody?.textContent?.trim();
+  if (summary) {
+    lines.push(`结算：${summary}`);
+  }
+  lines.push("");
+  lines.push("全局播报：");
+  if (state.allLogs.length === 0) {
+    lines.push("（无日志）");
+  } else {
+    lines.push(...state.allLogs.map((entry, index) => `${index + 1}. ${entry}`));
+  }
+  return lines.join("\n");
+}
+
+function getResultLogFilename() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `five-friends-log-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.txt`;
+}
+
+function setResultLogButtonFeedback(button, idleLabel, nextLabel) {
+  if (!button) return;
+  button.textContent = nextLabel;
+  window.setTimeout(() => {
+    button.textContent = idleLabel;
+  }, 1600);
+}
+
+async function copyResultLog() {
+  const text = getResultLogText();
+  if (!text) return;
+  const idleLabel = dom.copyResultLogBtn?.dataset.idleLabel || "复制日志";
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "true");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+    setResultLogButtonFeedback(dom.copyResultLogBtn, idleLabel, "已复制");
+  } catch (error) {
+    setResultLogButtonFeedback(dom.copyResultLogBtn, idleLabel, "复制失败");
+  }
+}
+
+function downloadResultLog() {
+  const text = getResultLogText();
+  if (!text) return;
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = getResultLogFilename();
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  const idleLabel = dom.downloadResultLogBtn?.dataset.idleLabel || "下载日志";
+  setResultLogButtonFeedback(dom.downloadResultLogBtn, idleLabel, "已下载");
 }

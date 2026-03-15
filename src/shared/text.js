@@ -406,10 +406,10 @@ function getFriendProgressAnnouncement(playerId, cards) {
   if (state.currentTrick.length !== 1) return null;
   if (!state.friendTarget || isFriendTeamResolved()) return null;
   if (state.friendTarget.suit === "joker") return null;
-  const hasTargetSuit = cards.some((card) => card.suit === state.friendTarget.suit);
+  const hasTargetSuit = cards.some((card) => isFriendSearchSignalCard(card));
   if (!hasTargetSuit) return null;
   const hitExactTarget = cards.some(
-    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+    (card) => isFriendTargetMatchCard(card)
   );
   if (hitExactTarget) return null;
   return {

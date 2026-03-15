@@ -131,6 +131,32 @@ function runBuryStrategySuite(context) {
       ];
     }
 
+    function setupAvoidBuryingAceScenario(difficulty) {
+      resetBuryState(difficulty);
+      state.players = [
+        basePlayer(1, [
+          makeCard("ca", "clubs", "A"),
+          makeCard("c4", "clubs", "4"),
+          makeCard("c6", "clubs", "6"),
+          makeCard("d3", "diamonds", "3"),
+          makeCard("d4", "diamonds", "4"),
+          makeCard("d6", "diamonds", "6"),
+          makeCard("h3", "hearts", "3"),
+          makeCard("h4", "hearts", "4"),
+          makeCard("h6", "hearts", "6"),
+          makeCard("h7", "hearts", "7"),
+          makeCard("s9", "spades", "9"),
+          makeCard("s10", "spades", "10"),
+          makeCard("sj", "spades", "J"),
+          makeCard("sq", "spades", "Q"),
+        ], true),
+        basePlayer(2, []),
+        basePlayer(3, []),
+        basePlayer(4, []),
+        basePlayer(5, []),
+      ];
+    }
+
     const results = [];
 
     for (const difficulty of ["beginner", "intermediate"]) {
@@ -143,6 +169,15 @@ function runBuryStrategySuite(context) {
       assert(!buryIds.has("c8-1"), difficulty + ": should not bury tractor card c8-1");
       assert(!buryIds.has("c8-2"), difficulty + ": should not bury tractor card c8-2");
       results.push(difficulty + " bury-protect tractor ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupAvoidBuryingAceScenario(difficulty);
+      const bury = getBuryHintForPlayer(1);
+      assert(bury.length === 7, difficulty + ": ace-protection bury hint should return 7 cards");
+      const buryIds = new Set(bury.map((card) => card.id));
+      assert(!buryIds.has("ca"), difficulty + ": should not bury side-suit A when enough low cards exist");
+      results.push(difficulty + " bury-protect ace ok");
     }
 
     globalThis.__buryStrategyResults = { results };

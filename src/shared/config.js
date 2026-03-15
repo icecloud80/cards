@@ -15,7 +15,8 @@ const SUIT_SYMBOL = {
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const NEGATIVE_LEVELS = ["-2", "-A"];
-const APP_VERSION_LABEL = "原型版 v1.2";
+const APP_VERSION = "2.0";
+const APP_VERSION_LABEL = `原型版 v${APP_VERSION}`;
 const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
 const FACE_CARD_LEVELS = new Set(["J", "Q", "K", "A"]);
 const TRUMP_PENALTY_LEVEL_FALLBACK = {
@@ -121,6 +122,35 @@ function getNextCardFaceOption() {
   return CARD_FACE_OPTIONS[nextIndex] || CARD_FACE_OPTIONS[0];
 }
 
+function getActiveLevelRankForFriendLogic() {
+  return state?.declaration?.rank || state?.levelRank || null;
+}
+
+function isViceLevelCard(card) {
+  if (!card || card.suit === "joker") return false;
+  const levelRank = getActiveLevelRankForFriendLogic();
+  if (!levelRank || card.rank !== levelRank) return false;
+  return state?.trumpSuit && state.trumpSuit !== "notrump" && card.suit !== state.trumpSuit;
+}
+
+function isBlockedFriendTargetCard(target) {
+  if (!target || target.suit === "joker") return false;
+  return isViceLevelCard(target);
+}
+
+function isFriendTargetMatchCard(card, target = state?.friendTarget) {
+  if (!card || !target) return false;
+  if (isBlockedFriendTargetCard(target)) return false;
+  return card.rank === target.rank && card.suit === target.suit;
+}
+
+function isFriendSearchSignalCard(card, target = state?.friendTarget) {
+  if (!card || !target || target.suit === "joker") return false;
+  if (isBlockedFriendTargetCard(target)) return false;
+  if (card.suit !== target.suit) return false;
+  return !isViceLevelCard(card);
+}
+
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
   return acc;
@@ -201,6 +231,8 @@ const dom = {
   resultBody: document.getElementById("resultBody"),
   resultBottomCards: document.getElementById("resultBottomCards"),
   resultCountdown: document.getElementById("resultCountdown"),
+  copyResultLogBtn: document.getElementById("copyResultLogBtn"),
+  downloadResultLogBtn: document.getElementById("downloadResultLogBtn"),
   restartBtn: document.getElementById("restartBtn"),
   closeResultBtn: document.getElementById("closeResultBtn"),
   friendPickerPanel: document.getElementById("friendPickerPanel"),
@@ -255,6 +287,7 @@ const state = {
   aiDifficulty: DEFAULT_AI_DIFFICULTY,
   cardFaceKey: loadSavedCardFaceKey(),
   logs: [],
+  allLogs: [],
   gameOver: false,
   selectedFriendOccurrence: 1,
   selectedFriendSuit: "hearts",

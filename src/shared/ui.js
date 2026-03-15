@@ -597,14 +597,24 @@ function renderLastTrick() {
   }
   dom.lastTrickMeta.textContent = TEXT.lastTrick.meta(state.lastTrick.trickNumber, getPlayer(state.lastTrick.winnerId).name, state.lastTrick.points);
   dom.lastTrickCards.innerHTML = state.lastTrick.plays
-    .map((play) => `
-      <div style="margin-top:10px;">
-        <div class="subtle">${getPlayer(play.playerId).name}</div>
+    .map((play) => {
+      const player = getPlayer(play.playerId);
+      const role = getVisibleRole(play.playerId);
+      const roleBadge = role?.label
+        ? `<span class="role-badge ${role.kind || "unknown"}">${role.label}</span>`
+        : "";
+      return `
+      <div class="last-trick-entry" style="margin-top:10px;">
+        <div class="last-trick-entry-head">
+          <div class="subtle last-trick-entry-name">${player.name}</div>
+          ${roleBadge}
+        </div>
         <div class="spot-row" style="min-height:70px; margin-top:6px;">
           ${play.cards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")}
         </div>
       </div>
-    `)
+    `;
+    })
     .join("");
 }
 

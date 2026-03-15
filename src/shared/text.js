@@ -24,6 +24,8 @@ const TEXT = {
   buttons: {
     restart: "再来一局",
     restartWithCountdown: (countdown) => `再来一局 (${countdown})`,
+    autoManage: "本局托管",
+    debug: "Debug",
     select: "选择",
     cancelSelection: "取消选择",
     buryPickSeven: "选 7 张",
@@ -217,6 +219,11 @@ const TEXT = {
   lastTrick: {
     empty: "当前还没有上一轮记录。",
     meta: (trickNumber, winnerName, points) => `第 ${trickNumber} 轮 · 胜者：${winnerName} · 本轮 ${points} 分`,
+  },
+  debug: {
+    title: "调试看牌",
+    empty: "当前没有手牌。",
+    handCount: (name, count) => `${name} 当前手牌 ${count} 张`,
   },
   friendPicker: {
     suitOptions: [

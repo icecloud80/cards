@@ -472,6 +472,9 @@ function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);
   refreshSavedProgressAvailability();
+  if (!state.startSelection) {
+    state.startSelection = state.hasSavedProgress ? "continue" : "new";
+  }
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
   state.players = PLAYER_ORDER.map((id) => ({

@@ -33,6 +33,9 @@ function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);
   refreshSavedProgressAvailability();
+  if (!state.startSelection) {
+    state.startSelection = state.hasSavedProgress ? "continue" : "new";
+  }
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
   state.players = PLAYER_ORDER.map((id) => ({
@@ -65,6 +68,7 @@ function setupGame() {
   state.phase = "ready";
   state.showLastTrick = false;
   state.showLogPanel = true;
+  state.showDebugPanel = false;
   state.showBottomPanel = false;
   state.showRulesPanel = false;
   state.logs = [];
@@ -83,6 +87,9 @@ function setupGame() {
     return acc;
   }, {});
   state.awaitingHumanDeclaration = false;
+  state.selectedDebugPlayerId = PLAYER_ORDER.includes(state.selectedDebugPlayerId) && state.selectedDebugPlayerId !== 1
+    ? state.selectedDebugPlayerId
+    : 2;
   state.currentTurnId = state.nextFirstDealPlayerId || 1;
   state.leaderId = state.currentTurnId;
   dom.resultOverlay.classList.remove("show");

@@ -8,6 +8,7 @@ function render() {
   renderLastTrick();
   renderFriendPicker();
   renderLogs();
+  renderDebugPanel();
   renderBottomPanel();
   renderBottomRevealCenter();
   renderResultBottomCards();
@@ -234,6 +235,9 @@ function renderScorePanel() {
           ? TEXT.scorePanel.pause
           : TEXT.scorePanel.currentTurn(state.currentTurnId);
   dom.toggleBottomBtn.disabled = !canHumanViewBottomCards();
+  if (typeof syncAutoManagedButton === "function") {
+    syncAutoManagedButton();
+  }
 }
 
 function renderSeats() {
@@ -643,6 +647,74 @@ function renderLogs() {
   dom.logList.innerHTML = state.logs.map((item) => `<li>${item}</li>`).join("");
 }
 
+function renderDebugPanel() {
+  if (!dom.debugPanel || !dom.toggleDebugBtn || !dom.debugPlayerTabs || !dom.debugHandMeta || !dom.debugHandCards) return;
+
+  const isPc = APP_PLATFORM === "pc";
+  const visible = isPc && !!state.showDebugPanel;
+  const selectedPlayerId = PLAYER_ORDER.includes(state.selectedDebugPlayerId) && state.selectedDebugPlayerId !== 1
+    ? state.selectedDebugPlayerId
+    : 2;
+  const player = getPlayer(selectedPlayerId);
+
+  dom.toggleDebugBtn.hidden = !isPc;
+  dom.toggleDebugBtn.classList.toggle("alert", visible);
+  dom.toggleDebugBtn.textContent = TEXT.buttons.debug;
+  dom.debugPanel.classList.toggle("hidden", !visible);
+
+  dom.debugPlayerTabs.innerHTML = PLAYER_ORDER
+    .filter((playerId) => playerId !== 1)
+    .map((playerId) => `<button type="button" class="tiny-btn${selectedPlayerId === playerId ? " alert" : ""}" data-debug-player="${playerId}">玩家${playerId}</button>`)
+    .join("");
+
+  if (!player) {
+    dom.debugHandMeta.textContent = TEXT.debug.empty;
+    dom.debugHandCards.innerHTML = `<div class="empty-note">${TEXT.debug.empty}</div>`;
+    return;
+  }
+
+  const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
+  const specialLabel = isSetupPhase
+    ? (state.declaration ? TEXT.hand.setupSpecialLabelWithTrump : TEXT.hand.setupSpecialLabelWithoutTrump)
+    : TEXT.hand.specialLabelNormal;
+  const setupLevelRank = getLevelRank(player.level);
+  const groups = [
+    { key: "trump", label: specialLabel, red: true },
+    { key: "clubs", label: SUIT_LABEL.clubs, red: false },
+    { key: "diamonds", label: SUIT_LABEL.diamonds, red: true },
+    { key: "spades", label: SUIT_LABEL.spades, red: false },
+    { key: "hearts", label: SUIT_LABEL.hearts, red: true },
+  ];
+
+  dom.debugHandMeta.textContent = TEXT.debug.handCount(player.name, player.hand.length);
+  dom.debugHandCards.innerHTML = groups
+    .map((group) => {
+      const cards = player.hand.filter((card) => {
+        if (group.key === "trump") {
+          if (isSetupPhase && !state.declaration) {
+            return card.suit === "joker" || card.rank === setupLevelRank;
+          }
+          return isTrump(card);
+        }
+        if (isSetupPhase && !state.declaration) {
+          return card.suit === group.key && card.rank !== setupLevelRank;
+        }
+        return !isTrump(card) && card.suit === group.key;
+      }).sort(compareHandCardsForDisplay);
+      if (cards.length === 0) return "";
+      return `
+        <div class="debug-hand-group">
+          <div class="group-chip${group.red ? " red" : ""}">${group.label}</div>
+          <div class="debug-cards-row">
+            ${cards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")}
+          </div>
+        </div>
+      `;
+    })
+    .filter(Boolean)
+    .join("") || `<div class="empty-note">${TEXT.debug.empty}</div>`;
+}
+
 function renderCenterPanel() {
   const humanDeclaration = getBestDeclarationForPlayer(1);
   const humanCounter = getCounterDeclarationForPlayer(1);
@@ -689,6 +761,14 @@ function renderCenterPanel() {
   const humanTurn = isHumanTurnActive();
   dom.beatBtn.hidden = state.phase !== "playing" || !selectedBeat;
   dom.beatBtn.disabled = !humanTurn || !selectedBeat;
+  if (dom.autoManagedBtn) {
+    dom.autoManagedBtn.hidden = state.phase === "ready";
+    dom.autoManagedBtn.disabled = state.gameOver || state.phase === "ready";
+    dom.autoManagedBtn.textContent = TEXT.buttons.autoManage;
+  }
+  if (dom.toggleDebugBtn) {
+    dom.toggleDebugBtn.textContent = TEXT.buttons.debug;
+  }
   dom.hintBtn.hidden = isOpeningPhase || state.phase === "ready" || state.phase === "bottomReveal" || friendCallingPhase || (state.phase === "burying" && !humanCanBury);
   dom.playBtn.hidden = isOpeningPhase || state.phase === "ready" || state.phase === "bottomReveal" || friendCallingPhase || (state.phase === "burying" && !humanCanBury);
   dom.playBtn.textContent = state.phase === "burying" ? TEXT.buttons.bury : TEXT.buttons.play;

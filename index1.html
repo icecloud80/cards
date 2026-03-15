@@ -1098,6 +1098,45 @@
         z-index: 5;
       }
 
+      .debug-panel {
+        right: var(--edge-gap);
+        top: 34%;
+        width: 360px;
+        max-height: 360px;
+        padding: 14px 16px;
+        z-index: 5;
+        overflow: hidden;
+      }
+
+      .debug-panel .subtle {
+        color: rgba(248, 240, 220, 0.75);
+      }
+
+      .debug-player-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .debug-hand-scroll {
+        margin-top: 12px;
+        max-height: 250px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .debug-hand-group + .debug-hand-group {
+        margin-top: 12px;
+      }
+
+      .debug-cards-row {
+        display: flex;
+        align-items: end;
+        min-height: 84px;
+        padding-top: 6px;
+      }
+
       .bottom-note .subtle {
         color: rgba(248, 240, 220, 0.75);
       }
@@ -1389,8 +1428,10 @@
           <div class="score-actions">
             <button id="toggleLastTrickBtn" class="tiny-btn">上一轮</button>
             <button id="toggleLogBtn" class="tiny-btn">播报</button>
+            <button id="toggleDebugBtn" class="tiny-btn">Debug</button>
             <button id="toggleBottomBtn" class="tiny-btn">底牌</button>
             <button id="toggleRulesBtn" class="tiny-btn">规则帮助</button>
+            <button id="autoManagedBtn" class="tiny-btn" type="button" aria-pressed="false">本局托管</button>
             <button id="toggleCardFaceBtn" class="tiny-btn">牌面：经典</button>
             <button id="layoutEditBtn" class="tiny-btn">布局编辑</button>
             <button id="newGameBtn" class="tiny-btn">新牌局</button>
@@ -1438,6 +1479,20 @@
             </div>
           </div>
           <ul id="logList" class="log-list"></ul>
+        </section>
+
+        <section id="debugPanel" class="panel dark floating-panel debug-panel hidden" data-layout-id="debug-panel">
+          <div id="debugPanelDrag" class="panel-head panel-drag">
+            <div class="label">调试看牌</div>
+            <div class="panel-controls">
+              <button id="closeDebugBtn" class="panel-close" type="button">×</button>
+            </div>
+          </div>
+          <div id="debugHandMeta" class="subtle">当前没有手牌。</div>
+          <div id="debugPlayerTabs" class="debug-player-tabs"></div>
+          <div class="debug-hand-scroll">
+            <div id="debugHandCards"></div>
+          </div>
         </section>
 
         <section class="panel center-panel" data-layout-id="center-panel">

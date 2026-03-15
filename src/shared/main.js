@@ -2,6 +2,80 @@ function isHumanTurnActive() {
   return !state.gameOver && state.phase === "playing" && state.currentTurnId === 1;
 }
 
+function syncAutoManagedButton() {
+  if (!dom.autoManagedBtn || typeof getPlayer !== "function") return;
+  const human = getPlayer(1);
+  const managed = !!human && !human.isHuman;
+  dom.autoManagedBtn.classList.toggle("alert", managed);
+  dom.autoManagedBtn.setAttribute("aria-pressed", managed ? "true" : "false");
+}
+
+function applyAutoManagedState(enabled) {
+  if (typeof getPlayer !== "function") return;
+  const human = getPlayer(1);
+  if (!human) return;
+
+  human.isHuman = !enabled;
+  if (enabled && state.selectedCardIds) {
+    state.selectedCardIds = [];
+  }
+  if (typeof render === "function") {
+    render();
+  }
+  syncAutoManagedButton();
+
+  if (!enabled) {
+    if (typeof clearTimers === "function" && typeof startTurn === "function" && state.phase === "playing" && state.currentTurnId === 1) {
+      clearTimers();
+      startTurn();
+    }
+    return;
+  }
+
+  if (state.phase === "dealing" && state.awaitingHumanDeclaration && typeof getBestDeclarationForPlayer === "function" && typeof canOverrideDeclaration === "function" && typeof declareTrump === "function") {
+    const best = getBestDeclarationForPlayer(1);
+    if (best && canOverrideDeclaration(best)) {
+      declareTrump(1, best, "auto");
+      if (state.dealIndex >= state.dealCards.length && typeof clearTimers === "function" && typeof finishDealingPhase === "function") {
+        clearTimers();
+        finishDealingPhase();
+      }
+    }
+    return;
+  }
+
+  if (state.phase === "countering" && state.currentTurnId === 1 && typeof getCounterDeclarationForPlayer === "function") {
+    const counter = getCounterDeclarationForPlayer(1);
+    if (counter && typeof counterDeclare === "function") {
+      counterDeclare(1, counter);
+    } else if (typeof passCounterForCurrentPlayer === "function") {
+      passCounterForCurrentPlayer();
+    }
+    return;
+  }
+
+  if (state.phase === "burying" && state.bankerId === 1 && typeof getBuryHintForPlayer === "function" && typeof completeBurying === "function") {
+    const buryCards = getBuryHintForPlayer(1);
+    if (buryCards.length === 7) {
+      completeBurying(1, buryCards.map((card) => card.id));
+    }
+    return;
+  }
+
+  if (state.phase === "callingFriend" && state.bankerId === 1 && typeof confirmFriendTargetSelection === "function") {
+    const best = typeof chooseFriendTarget === "function" ? chooseFriendTarget()?.target : null;
+    if (best) {
+      confirmFriendTargetSelection(best);
+    }
+    return;
+  }
+
+  if (state.phase === "playing" && state.currentTurnId === 1 && typeof clearTimers === "function" && typeof autoPlayCurrentTurn === "function") {
+    clearTimers();
+    autoPlayCurrentTurn();
+  }
+}
+
 dom.startGameBtn.addEventListener("click", () => {
   if (state.gameOver || state.phase !== "ready" || !state.startSelection) return;
   startDealing();
@@ -34,6 +108,13 @@ dom.beatBtn.addEventListener("click", () => {
     .filter(Boolean);
   if (!doesSelectionBeatCurrent(1, selected)) return;
   playCards(1, [...state.selectedCardIds]);
+});
+
+dom.autoManagedBtn?.addEventListener("click", () => {
+  if (typeof getPlayer !== "function") return;
+  const human = getPlayer(1);
+  if (!human || state.gameOver || state.phase === "ready") return;
+  applyAutoManagedState(human.isHuman);
 });
 
 dom.hintBtn.addEventListener("click", () => {
@@ -153,6 +234,11 @@ dom.toggleLogBtn.addEventListener("click", () => {
   renderLogs();
 });
 
+dom.toggleDebugBtn?.addEventListener("click", () => {
+  state.showDebugPanel = !state.showDebugPanel;
+  renderDebugPanel();
+});
+
 dom.toggleBottomBtn.addEventListener("click", () => {
   if (!canHumanViewBottomCards()) return;
   state.showBottomPanel = !state.showBottomPanel;
@@ -181,6 +267,18 @@ dom.closeLogBtn.addEventListener("click", () => {
   renderLogs();
 });
 
+dom.debugPlayerTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-debug-player]");
+  if (!button) return;
+  state.selectedDebugPlayerId = Number(button.dataset.debugPlayer);
+  renderDebugPanel();
+});
+
+dom.closeDebugBtn?.addEventListener("click", () => {
+  state.showDebugPanel = false;
+  renderDebugPanel();
+});
+
 dom.closeBottomBtn.addEventListener("click", () => {
   state.showBottomPanel = false;
   renderLogs();
@@ -202,6 +300,7 @@ dom.closeResultBtn?.addEventListener("click", () => {
 });
 
 makeFloatingPanel(dom.logPanel, dom.logPanelDrag);
+makeFloatingPanel(dom.debugPanel, dom.debugPanelDrag);
 makeFloatingPanel(dom.bottomPanel, dom.bottomPanelDrag);
 makeFloatingPanel(dom.rulesPanel, dom.rulesPanelDrag);
 for (const element of getLayoutElements()) {

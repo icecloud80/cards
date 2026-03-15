@@ -47,30 +47,42 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     secondary = "keep_control";
   }
 
+  const weights = buildIntermediateObjectiveWeights({
+    structure: 1.15,
+    control: 1.0,
+    points: defenderSide ? 0.8 : 1.0,
+    friend: unresolvedFriend ? 1.15 : 0.45,
+    bottom: lateRound ? 1.0 : 0.3,
+    voidPressure: defenderSide ? 0.95 : 0.45,
+    tempo: 0.85,
+    friendRisk: unresolvedFriend ? 0.75 : 0.2,
+    bottomRisk: lateRound ? 0.85 : 0.2,
+  }, {
+    find_friend: "friend",
+    run_points: "points",
+    protect_bottom: "bottom",
+    clear_trump: "control",
+    keep_control: "control",
+    pressure_void: "voidPressure",
+  }[primary], {
+    find_friend: "friend",
+    run_points: "points",
+    protect_bottom: "bottom",
+    clear_trump: "control",
+    keep_control: "control",
+    pressure_void: "voidPressure",
+  }[secondary]);
+
+  if (primary === "find_friend") weights.friendRisk += 0.35;
+  if (secondary === "find_friend") weights.friendRisk += 0.15;
+  if (primary === "keep_control" || primary === "clear_trump") weights.tempo += 0.35;
+  if (secondary === "keep_control" || secondary === "clear_trump") weights.tempo += 0.15;
+  if (primary === "protect_bottom") weights.bottomRisk += 0.35;
+  if (secondary === "protect_bottom") weights.bottomRisk += 0.15;
+
   return {
     primary,
     secondary,
-    weights: buildIntermediateObjectiveWeights({
-      structure: 1.15,
-      control: 1.0,
-      points: defenderSide ? 0.8 : 1.0,
-      friend: unresolvedFriend ? 1.15 : 0.45,
-      bottom: lateRound ? 1.0 : 0.3,
-      voidPressure: defenderSide ? 0.95 : 0.45,
-    }, {
-      find_friend: "friend",
-      run_points: "points",
-      protect_bottom: "bottom",
-      clear_trump: "control",
-      keep_control: "control",
-      pressure_void: "voidPressure",
-    }[primary], {
-      find_friend: "friend",
-      run_points: "points",
-      protect_bottom: "bottom",
-      clear_trump: "control",
-      keep_control: "control",
-      pressure_void: "voidPressure",
-    }[secondary]),
+    weights,
   };
 }

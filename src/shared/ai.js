@@ -5,6 +5,42 @@ function getLegalHintForPlayer(playerId) {
     : getIntermediateLegalHintForPlayer(playerId);
 }
 
+function rankEmergencyLegalSelections(playerId, combos) {
+  return combos.sort((a, b) => {
+    const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
+    if (structureDiff !== 0) return structureDiff;
+    const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0)
+      - b.reduce((sum, card) => sum + scoreValue(card), 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return classifyPlay(a).power - classifyPlay(b).power;
+  });
+}
+
+function findEmergencyLegalSelection(playerId) {
+  const player = getPlayer(playerId);
+  if (!player) return [];
+  const hand = [...player.hand].sort((a, b) => cardStrength(a) - cardStrength(b));
+  if (hand.length === 0) return [];
+
+  if (state.currentTrick.length === 0) {
+    return [hand[0]];
+  }
+
+  if (!state.leadSpec) return [];
+  const targetCount = state.leadSpec.count;
+  if (hand.length < targetCount) {
+    return validateSelection(playerId, hand).ok ? hand : [];
+  }
+  if (hand.length === targetCount && validateSelection(playerId, hand).ok) {
+    return hand;
+  }
+
+  const validCombos = enumerateCombinations(hand, targetCount)
+    .filter((combo) => validateSelection(playerId, combo).ok);
+  if (validCombos.length === 0) return [];
+  return rankEmergencyLegalSelections(playerId, validCombos)[0];
+}
+
 // 构建强制跟牌兜底方案。
 function buildForcedFollowFallback(playerId) {
   const player = getPlayer(playerId);
@@ -72,6 +108,17 @@ function autoPlayCurrentTurn() {
     return;
   }
   const forced = buildForcedFollowFallback(player.id);
-  if (forced.length === 0) return;
-  playCards(player.id, forced.map((card) => card.id));
+  if (forced.length > 0 && playCards(player.id, forced.map((card) => card.id))) {
+    return;
+  }
+  const emergency = findEmergencyLegalSelection(player.id);
+  if (emergency.length > 0 && playCards(player.id, emergency.map((card) => card.id))) {
+    return;
+  }
+  console.warn("AI autoplay stalled without a legal selection", {
+    playerId: player.id,
+    handCount: player.hand.length,
+    trickCount: state.currentTrick.length,
+    leadSpec: state.leadSpec,
+  });
 }

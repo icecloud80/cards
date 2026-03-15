@@ -383,8 +383,12 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
   if (!player || combo.length === 0) return Number.NEGATIVE_INFINITY;
   const handBefore = player.hand;
   const handAfter = getHandAfterCombo(handBefore, combo);
+  const leadSuitCards = state.leadSpec ? handBefore.filter((card) => effectiveSuit(card) === state.leadSpec.suit) : [];
   const currentPattern = currentWinningPlay ? classifyPlay(currentWinningPlay.cards) : null;
   const pattern = classifyPlay(combo);
+  const comboSuit = pattern.suit || effectiveSuit(combo[0]);
+  const voidOnLeadSuit = !!state.leadSpec && leadSuitCards.length === 0;
+  const trumpEscape = voidOnLeadSuit && comboSuit === "trump";
   const beats = !!currentWinningPlay && wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay);
   const comboPoints = getComboPointValue(combo);
   const tablePoints = getCurrentTrickPointValue();
@@ -440,6 +444,35 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
     }
   }
 
+  if (trumpEscape) {
+    const trumpCommitment = combo.reduce((sum, card) => {
+      let cardScore = 16;
+      if (card.suit === "joker") cardScore += 20;
+      if (card.rank === getCurrentLevelRank()) cardScore += 12;
+      if (getPatternUnitPower(card, "trump") >= 14) cardScore += 8;
+      return sum + cardScore;
+    }, 0);
+
+    if (!beats) {
+      score -= trumpCommitment * 4;
+      if (pattern.type === "pair") score -= 160;
+      if (pattern.type === "tractor" || pattern.type === "train" || pattern.type === "bulldozer") score -= 220;
+      if (currentPattern?.suit === "trump") {
+        score -= pattern.type === "pair" ? 320 : 240;
+      }
+    } else if (allyWinning) {
+      score -= trumpCommitment * 1.8 + 90;
+    }
+  }
+
+  if (trumpEscape && beats && currentPattern?.suit === "trump") {
+    const currentHasJoker = currentWinningPlay.cards.some((card) => card.suit === "joker");
+    const comboHasJoker = combo.some((card) => card.suit === "joker");
+    if (currentHasJoker && !comboHasJoker) {
+      score -= pattern.type === "pair" ? 320 : 220;
+    }
+  }
+
   score += scoreRememberedStructurePromotion(playerId, combo) * 0.85;
 
   return score;
@@ -462,17 +495,51 @@ function getIntermediateRolloutMode(simState, playerId, fallbackMode = "lead") {
   return "follow";
 }
 
+function shouldExtendIntermediateRollout(playerId, simState, mode = "lead", combo = [], currentWinningPlay = null) {
+  const player = getSimulationPlayer(simState, playerId);
+  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return false;
+
+  if (mode === "follow" && currentWinningPlay) {
+    const beatsCurrent = wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay);
+    if (!beatsCurrent) return false;
+    if (!isFriendTeamResolved()
+      && isAiTentativeDefender(playerId)
+      && isAiTentativeDefender(currentWinningPlay.playerId)) {
+      return false;
+    }
+  }
+
+  const unresolvedFriend = !!simState.friendTarget && !isSimulationFriendTeamResolved(simState);
+  const lateRound = simState.players.reduce((sum, seat) => sum + (seat.hand?.length || 0), 0) <= 20;
+  const bottomSensitive = lateRound && isSimulationDefenderTeam(simState, playerId);
+  const trumpCount = player.hand.filter((card) => effectiveSuit(card) === "trump").length;
+  const structureCount = getStructureCombosFromHand(player.hand).length;
+
+  return unresolvedFriend || bottomSensitive || trumpCount >= 5 || structureCount >= 2;
+}
+
 function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fallbackMode) {
   const rollout = simulateCandidateToEndOfCurrentTrick(cloneSimulationState(state), playerId, combo);
+  const currentWinningPlay = fallbackMode === "follow" ? getCurrentWinningPlay() : null;
+  const tentativeDefenderOvertake = fallbackMode === "follow"
+    && currentWinningPlay
+    && !isFriendTeamResolved()
+    && isAiTentativeDefender(playerId)
+    && isAiTentativeDefender(currentWinningPlay.playerId)
+    && wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay);
   if (!rollout.completed) {
     return {
       score: 0,
       delta: 0,
+      futureDelta: 0,
       completed: false,
       nextMode: fallbackMode,
       winnerId: null,
       points: 0,
       trace: rollout.trace || [],
+      depth: 0,
+      reachedOwnTurn: false,
+      futureTrace: [],
     };
   }
 
@@ -482,6 +549,10 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
   const delta = nextEvaluation.total - (baselineEvaluation?.total || 0);
   const sameSideWin = rollout.winnerId ? isSimulationSameSide(rollout.resultState, playerId, rollout.winnerId) : false;
   let score = delta * 0.35;
+  let depth = 1;
+  let futureDelta = 0;
+  let reachedOwnTurn = false;
+  let futureTrace = [];
 
   if (rollout.winnerId === playerId) {
     score += 16;
@@ -495,14 +566,36 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
     score += sameSideWin ? rollout.points * 1.5 : -rollout.points * 1.5;
   }
 
+  if (tentativeDefenderOvertake) {
+    score -= 42;
+  }
+
+  if (shouldExtendIntermediateRollout(playerId, rollout.resultState, fallbackMode, combo, currentWinningPlay)) {
+    const futureRollout = simulateUntilNextOwnTurn(rollout.resultState, playerId);
+    futureTrace = futureRollout.trace || [];
+    reachedOwnTurn = !!futureRollout.reachedOwnTurn;
+    if (futureRollout.reachedOwnTurn) {
+      depth = 2;
+      const futureMode = getIntermediateRolloutMode(futureRollout.resultState, playerId, nextMode);
+      const futureObjective = getIntermediateObjective(playerId, futureMode, futureRollout.resultState);
+      const futureEvaluation = evaluateState(futureRollout.resultState, playerId, futureObjective);
+      futureDelta = futureEvaluation.total - (baselineEvaluation?.total || 0);
+      score += futureDelta * 0.08;
+    }
+  }
+
   return {
     score,
     delta,
+    futureDelta,
     completed: true,
     nextMode,
     winnerId: rollout.winnerId,
     points: rollout.points || 0,
     trace: rollout.trace || [],
+    depth,
+    reachedOwnTurn,
+    futureTrace,
   };
 }
 
@@ -527,6 +620,10 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
         rolloutPoints: rollout.points,
         rolloutNextMode: rollout.nextMode,
         rolloutTrace: rollout.trace,
+        rolloutDepth: rollout.depth,
+        rolloutFutureDelta: rollout.futureDelta,
+        rolloutReachedOwnTurn: rollout.reachedOwnTurn,
+        rolloutFutureTrace: rollout.futureTrace,
         score: heuristicScore + rollout.score,
       };
     })
@@ -571,6 +668,10 @@ function buildScoredIntermediateFollowEntries(
         rolloutPoints: rollout.points,
         rolloutNextMode: rollout.nextMode,
         rolloutTrace: rollout.trace,
+        rolloutDepth: rollout.depth,
+        rolloutFutureDelta: rollout.futureDelta,
+        rolloutReachedOwnTurn: rollout.reachedOwnTurn,
+        rolloutFutureTrace: rollout.futureTrace,
         score: heuristicScore + rollout.score,
       };
     })
@@ -582,21 +683,30 @@ function buildScoredIntermediateFollowEntries(
 }
 
 function buildIntermediateDecisionBundle(playerId, mode, liveCandidates = null) {
-  const simState = cloneSimulationState(state);
+  return buildIntermediateDecisionBundleForState(playerId, mode, state, liveCandidates);
+}
+
+function buildIntermediateCandidateEntriesFromLiveCandidates(sourceState, playerId, liveCandidates) {
+  return withCandidateSourceState(sourceState, () => dedupeCandidateEntries(liveCandidates.map((cards) => {
+    const pattern = classifyPlay(cards);
+    const tags = [pattern.type, pattern.suit || effectiveSuit(cards[0])];
+    if (doesSelectionBeatCurrent(playerId, cards)) tags.push("beats");
+    if (matchesLeadPattern(pattern, state.leadSpec)) tags.push("matched");
+    return createCandidateEntry(cards, "legal", tags);
+  })));
+}
+
+function buildIntermediateDecisionBundleForState(playerId, mode, sourceState = state, liveCandidates = null) {
+  const simState = cloneSimulationState(sourceState);
   const objective = getIntermediateObjective(playerId, mode, simState);
   const candidateEntries = mode === "follow" && Array.isArray(liveCandidates)
-    ? dedupeCandidateEntries(liveCandidates.map((cards) => {
-        const pattern = classifyPlay(cards);
-        const tags = [pattern.type, pattern.suit || effectiveSuit(cards[0])];
-        if (doesSelectionBeatCurrent(playerId, cards)) tags.push("beats");
-        if (matchesLeadPattern(pattern, state.leadSpec)) tags.push("matched");
-        return createCandidateEntry(cards, "legal", tags);
-      }))
-    : generateCandidatePlays(state, playerId, mode);
+    ? buildIntermediateCandidateEntriesFromLiveCandidates(sourceState, playerId, liveCandidates)
+    : generateCandidatePlays(sourceState, playerId, mode);
   const evaluation = evaluateState(simState, playerId, objective);
   return {
     playerId,
     mode,
+    sourceState,
     objective,
     evaluation,
     candidateEntries,
@@ -779,24 +889,32 @@ function chooseAiFollowPlay(playerId, candidates) {
 function getFollowStructureScore(combo) {
   if (!state.leadSpec) return 0;
   const pattern = classifyPlay(combo);
+  const comboSuit = pattern.suit || effectiveSuit(combo[0]);
+  const followsLeadSuit = comboSuit === state.leadSpec.suit;
   const suitedCount = combo.filter((card) => effectiveSuit(card) === state.leadSpec.suit).length;
   let score = suitedCount * 10;
 
   if (matchesLeadPattern(pattern, state.leadSpec)) {
-    score += 1000;
+    if (followsLeadSuit) {
+      score += 1000;
+    } else if (comboSuit === "trump") {
+      score += 120;
+    } else {
+      score += 40;
+    }
   }
 
   if (state.leadSpec.type === "pair") {
-    score += getForcedPairUnits(combo) * 120;
+    score += getForcedPairUnits(combo) * (followsLeadSuit ? 120 : comboSuit === "trump" ? 18 : 6);
   } else if (state.leadSpec.type === "triple") {
-    score += getTripleUnits(combo) * 150;
-    score += getForcedPairUnits(combo) * 40;
+    score += getTripleUnits(combo) * (followsLeadSuit ? 150 : comboSuit === "trump" ? 24 : 8);
+    score += getForcedPairUnits(combo) * (followsLeadSuit ? 40 : comboSuit === "trump" ? 10 : 4);
   } else if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train") {
-    score += getForcedPairUnits(combo) * 140;
+    score += getForcedPairUnits(combo) * (followsLeadSuit ? 140 : comboSuit === "trump" ? 20 : 8);
   } else if (state.leadSpec.type === "bulldozer") {
     const tripleUnits = getTripleUnits(combo);
-    score += tripleUnits * 160;
-    score += getForcedPairUnitsWithReservedTriples(combo, tripleUnits) * 50;
+    score += tripleUnits * (followsLeadSuit ? 160 : comboSuit === "trump" ? 26 : 10);
+    score += getForcedPairUnitsWithReservedTriples(combo, tripleUnits) * (followsLeadSuit ? 50 : comboSuit === "trump" ? 12 : 5);
   }
 
   return score;

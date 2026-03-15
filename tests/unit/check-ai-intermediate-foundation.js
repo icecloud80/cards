@@ -143,6 +143,9 @@ function runIntermediateFoundationSuite(context) {
     const leadCandidates = generateCandidatePlays(state, 3, "lead");
     assert(leadCandidates.length > 0, "generateCandidatePlays: should produce lead candidates");
     assert(leadCandidates.every((entry) => Array.isArray(entry.cards) && typeof entry.source === "string"), "generateCandidatePlays: every entry should include cards and source");
+    const simulatedLeadCandidates = generateCandidatePlays(cloneSimulationState(state), 3, "lead");
+    assert(simulatedLeadCandidates.length > 0, "generateCandidatePlays: should also produce lead candidates from simulation state");
+    assert(simulatedLeadCandidates.every((entry) => Array.isArray(entry.cards) && typeof entry.source === "string"), "generateCandidatePlays: simulation-state entries should preserve candidate metadata");
 
     resetCommonState();
     state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false };
@@ -154,7 +157,60 @@ function runIntermediateFoundationSuite(context) {
     const evaluation = evaluateState(cloneSimulationState(state), 3, getIntermediateObjective(3, "lead", cloneSimulationState(state)));
     assert(typeof evaluation.total === "number", "evaluateState: should return numeric total");
     assert(typeof evaluation.breakdown.structure === "number", "evaluateState: should expose structure breakdown");
+    assert(typeof evaluation.breakdown.tempo === "number", "evaluateState: should expose tempo breakdown");
+    assert(typeof evaluation.breakdown.friendRisk === "number", "evaluateState: should expose friend-risk breakdown");
+    assert(typeof evaluation.breakdown.bottomRisk === "number", "evaluateState: should expose bottom-risk breakdown");
     assert(evaluation.objective.primary.length > 0, "evaluateState: should include objective");
+
+    resetCommonState();
+    const ownTurnTempoState = cloneSimulationState(state);
+    ownTurnTempoState.currentTurnId = 3;
+    ownTurnTempoState.leaderId = 3;
+    ownTurnTempoState.currentTrick = [];
+    ownTurnTempoState.leadSpec = null;
+    const enemyTurnTempoState = cloneSimulationState(state);
+    enemyTurnTempoState.currentTurnId = 4;
+    enemyTurnTempoState.leaderId = 4;
+    enemyTurnTempoState.currentTrick = [];
+    enemyTurnTempoState.leadSpec = null;
+    const ownTurnTempo = evaluateState(ownTurnTempoState, 3, getIntermediateObjective(3, "lead", ownTurnTempoState));
+    const enemyTurnTempo = evaluateState(enemyTurnTempoState, 3, getIntermediateObjective(3, "lead", enemyTurnTempoState));
+    assert(ownTurnTempo.breakdown.tempo > enemyTurnTempo.breakdown.tempo, "evaluateState: own turn should score higher tempo than opponent turn");
+
+    resetCommonState();
+    state.currentTurnId = 1;
+    state.bankerId = 1;
+    state.players[0].hand = sortHand([
+      makeCard("banker-h-a", "hearts", "A"),
+      makeCard("banker-c-9", "clubs", "9"),
+    ]);
+    state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false, matchesSeen: 0 };
+    const bankerFriendRiskEval = evaluateState(cloneSimulationState(state), 1, getIntermediateObjective(1, "lead", cloneSimulationState(state)));
+    assert(bankerFriendRiskEval.breakdown.friendRisk < 0, "evaluateState: banker holding target card should incur friend-risk penalty");
+
+    resetCommonState();
+    state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
+    state.hiddenFriendId = 2;
+    state.players = [
+      basePlayer(1, [makeCard("late-p1-c-5", "clubs", "5")], true),
+      basePlayer(2, [makeCard("late-p2-s-a", "spades", "A")]),
+      basePlayer(3, [makeCard("late-p3-c-k", "clubs", "K")]),
+      basePlayer(4, [makeCard("late-p4-d-9", "diamonds", "9")]),
+      basePlayer(5, [makeCard("late-p5-h-9", "hearts", "9")]),
+    ];
+    state.bottomCards = [makeCard("late-bottom-h-5", "hearts", "5"), makeCard("late-bottom-s-10", "spades", "10")];
+    state.currentTrick = [];
+    state.leadSpec = null;
+    state.trickNumber = 10;
+    const ownControlBottomState = cloneSimulationState(state);
+    ownControlBottomState.currentTurnId = 3;
+    ownControlBottomState.leaderId = 3;
+    const enemyControlBottomState = cloneSimulationState(state);
+    enemyControlBottomState.currentTurnId = 1;
+    enemyControlBottomState.leaderId = 1;
+    const ownControlBottomEval = evaluateState(ownControlBottomState, 3, getIntermediateObjective(3, "lead", ownControlBottomState));
+    const enemyControlBottomEval = evaluateState(enemyControlBottomState, 3, getIntermediateObjective(3, "lead", enemyControlBottomState));
+    assert(ownControlBottomEval.breakdown.bottomRisk > enemyControlBottomEval.breakdown.bottomRisk, "evaluateState: late-round same-side control should score better bottom-risk than opponent control");
 
     resetCommonState();
     const liveHandSizeBeforeRollout = state.players[2].hand.length;
@@ -171,15 +227,81 @@ function runIntermediateFoundationSuite(context) {
     assert(Array.isArray(state.lastAiDecision.candidateEntries) && state.lastAiDecision.candidateEntries.length > 0, "chooseIntermediatePlay: should persist candidate entries for debug");
     assert(state.lastAiDecision.candidateEntries.every((entry) => typeof entry.heuristicScore === "number"), "chooseIntermediatePlay: should persist heuristic candidate scores");
     assert(state.lastAiDecision.candidateEntries.every((entry) => typeof entry.rolloutScore === "number"), "chooseIntermediatePlay: should persist rollout candidate scores");
+    const simulatedBundle = buildIntermediateDecisionBundleForState(3, "lead", cloneSimulationState(state));
+    assert(Array.isArray(simulatedBundle.candidateEntries) && simulatedBundle.candidateEntries.length > 0, "buildIntermediateDecisionBundleForState: should build candidates from simulation state");
+    assert(simulatedBundle.sourceState !== state, "buildIntermediateDecisionBundleForState: should preserve explicit source state reference");
+
+    resetCommonState();
+    state.currentTurnId = 4;
+    state.leaderId = 1;
+    state.currentTrickBeatCount = 1;
+    state.players = [
+      basePlayer(1, [makeCard("b-c-9", "clubs", "9")], true),
+      basePlayer(2, [makeCard("p2-d-9", "diamonds", "9")]),
+      basePlayer(3, [makeCard("p3-c-7", "clubs", "7")]),
+      basePlayer(4, [
+        makeCard("p4-h-2-1", "hearts", "2"),
+        makeCard("p4-h-2-2", "hearts", "2"),
+        makeCard("p4-c-3", "clubs", "3"),
+        makeCard("p4-d-4", "diamonds", "4"),
+      ]),
+      basePlayer(5, [makeCard("p5-s-9", "spades", "9")]),
+    ];
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("t1-s-7-1", "spades", "7"), makeCard("t1-s-7-2", "spades", "7")] },
+      { playerId: 2, cards: [makeCard("t2-s-5", "spades", "5"), makeCard("t2-s-6", "spades", "6")] },
+      { playerId: 3, cards: [makeCard("t3-j-r-1", "joker", "RJ"), makeCard("t3-j-r-2", "joker", "RJ")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    const avoidTrumpPairChoice = chooseIntermediatePlay(4, "follow", getLegalSelectionsForPlayer(4));
+    assert(avoidTrumpPairChoice.length === 2, "chooseIntermediatePlay follow: should return a legal two-card follow");
+    assert(!avoidTrumpPairChoice.every((card) => card.rank === "2" && card.suit === "hearts"), "chooseIntermediatePlay follow: should not waste a trump pair when it cannot win");
+
+    resetCommonState();
+    state.currentTurnId = 4;
+    state.leaderId = 1;
+    state.players = [
+      basePlayer(1, [makeCard("last-p1-s-7", "spades", "7")], true),
+      basePlayer(2, [makeCard("last-p2-s-8", "spades", "8")]),
+      basePlayer(3, [makeCard("last-p3-j-r", "joker", "RJ")]),
+      basePlayer(4, [makeCard("last-p4-h-3", "hearts", "3")]),
+      basePlayer(5, [makeCard("last-p5-s-9", "spades", "9")]),
+    ];
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("last-t1-s-7", "spades", "7")] },
+      { playerId: 2, cards: [makeCard("last-t2-s-8", "spades", "8")] },
+      { playerId: 3, cards: [makeCard("last-t3-j-r", "joker", "RJ")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    const originalHint = getLegalHintForPlayer;
+    const originalSearch = findLegalSelectionBySearch;
+    const originalForced = buildForcedFollowFallback;
+    getLegalHintForPlayer = function brokenHint() { return []; };
+    findLegalSelectionBySearch = function brokenSearch() { return []; };
+    buildForcedFollowFallback = function brokenForced() { return []; };
+    autoPlayCurrentTurn();
+    getLegalHintForPlayer = originalHint;
+    findLegalSelectionBySearch = originalSearch;
+    buildForcedFollowFallback = originalForced;
+    clearTimers();
+    assert(state.players[3].hand.length === 0, "autoPlayCurrentTurn: emergency fallback should still play the last card");
+    assert(state.currentTrick.length === 4, "autoPlayCurrentTurn: emergency fallback should advance the live trick");
 
     globalThis.__intermediateFoundationResults = {
       results: [
         "simulation clone isolation ok",
         "candidate generation scaffold ok",
+        "simulation-state candidate generation ok",
         "objective weighting scaffold ok",
         "state evaluation scaffold ok",
+        "tempo evaluation scaffold ok",
+        "friend-risk evaluation scaffold ok",
+        "bottom-risk evaluation scaffold ok",
         "single trick rollout isolation ok",
         "intermediate unified entry scaffold ok",
+        "simulation-state decision bundle ok",
+        "void follow avoids wasting trump pair ok",
+        "autoplay emergency fallback ok",
       ],
     };
   `;

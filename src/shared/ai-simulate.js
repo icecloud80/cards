@@ -274,3 +274,54 @@ function simulateCandidateToEndOfCurrentTrick(simState, playerId, cards, chooser
   });
   return rollout;
 }
+
+function simulateUntilNextOwnTurn(simState, playerId, chooser = getSimulationHintForPlayer, options = {}) {
+  return withSimulationState(simState, () => {
+    const trace = [];
+    const maxSteps = Math.max(1, options.maxSteps || PLAYER_ORDER.length);
+    let steps = 0;
+
+    while (!state.gameOver && state.phase === "playing" && steps < maxSteps) {
+      if (state.currentTurnId === playerId) {
+        return {
+          reachedOwnTurn: true,
+          resultState: cloneSimulationState(state),
+          trace,
+          steps,
+          nextTurnId: state.currentTurnId,
+          trickNumber: state.trickNumber,
+        };
+      }
+
+      const currentActorId = state.currentTurnId;
+      if (!PLAYER_ORDER.includes(currentActorId)) break;
+
+      let cards = chooser(currentActorId, cloneSimulationState(state), trace);
+      if (!Array.isArray(cards) || cards.length === 0) {
+        cards = getSimulationHintForPlayer(currentActorId);
+      }
+      if (!Array.isArray(cards) || cards.length === 0) break;
+
+      const ok = playCards(currentActorId, cards.map((card) => card.id), {
+        skipStartTurn: true,
+        skipResolveDelay: true,
+      });
+      if (!ok) break;
+
+      trace.push({
+        playerId: currentActorId,
+        cards: cloneCardsForSimulation(cards),
+      });
+      steps += 1;
+    }
+
+    return {
+      reachedOwnTurn: state.phase === "playing" && state.currentTurnId === playerId,
+      resultState: cloneSimulationState(state),
+      trace,
+      steps,
+      nextTurnId: state.currentTurnId,
+      trickNumber: state.trickNumber,
+    };
+  });
+}

@@ -1,0 +1,184 @@
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+
+function loadGameContext() {
+  const context = {
+    console,
+    setTimeout,
+    clearTimeout,
+    setInterval,
+    clearInterval,
+  };
+  context.window = context;
+  context.globalThis = context;
+  context.localStorage = {
+    getItem() {
+      return null;
+    },
+    setItem() {},
+  };
+  context.CustomEvent = function CustomEvent(type, options = {}) {
+    return { type, detail: options.detail };
+  };
+  context.document = {
+    cookie: "",
+    querySelector() {
+      return null;
+    },
+    getElementById() {
+      return null;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  context.sortPlayedCards = function sortPlayedCards(cards) {
+    return [...cards].sort((a, b) => context.cardStrength(a) - context.cardStrength(b));
+  };
+  context.render = function render() {};
+  context.renderScorePanel = function renderScorePanel() {};
+  context.renderHand = function renderHand() {};
+  context.renderCenterPanel = function renderCenterPanel() {};
+  context.updateActionHint = function updateActionHint() {};
+  context.appendLog = function appendLog() {};
+  context.queueCenterAnnouncement = function queueCenterAnnouncement() {};
+
+  vm.createContext(context);
+  const files = [
+    path.join(__dirname, "../../src/shared/config.js"),
+    path.join(__dirname, "../../src/shared/rules.js"),
+    path.join(__dirname, "../../src/shared/text.js"),
+    path.join(__dirname, "../../src/shared/game.js"),
+    path.join(__dirname, "../../src/shared/ai-shared.js"),
+    path.join(__dirname, "../../src/shared/ai-beginner.js"),
+    path.join(__dirname, "../../src/shared/ai-simulate.js"),
+    path.join(__dirname, "../../src/shared/ai-objectives.js"),
+    path.join(__dirname, "../../src/shared/ai-evaluate.js"),
+    path.join(__dirname, "../../src/shared/ai-candidates.js"),
+    path.join(__dirname, "../../src/shared/ai-intermediate.js"),
+    path.join(__dirname, "../../src/shared/ai.js"),
+  ];
+  for (const file of files) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  }
+  return context;
+}
+
+function runIntermediateSearchSuite(context) {
+  const testSource = `
+    function assert(condition, message) {
+      if (!condition) throw new Error(message);
+    }
+
+    function makeCard(id, suit, rank) {
+      return { id, suit, rank };
+    }
+
+    function basePlayer(id, hand, isHuman = false) {
+      return {
+        id,
+        name: "玩家" + id,
+        hand: sortHand(hand),
+        played: [],
+        capturedPoints: 0,
+        roundPoints: 0,
+        level: "2",
+        isHuman,
+      };
+    }
+
+    function resetExtendedSearchState() {
+      state.gameOver = false;
+      state.phase = "playing";
+      state.aiDifficulty = "intermediate";
+      state.playerLevels = { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
+      state.trumpSuit = "clubs";
+      state.levelRank = "2";
+      state.declaration = null;
+      state.currentTrick = [];
+      state.leadSpec = null;
+      state.currentTurnId = 3;
+      state.leaderId = 3;
+      state.bankerId = 1;
+      state.hiddenFriendId = null;
+      state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false, matchesSeen: 0 };
+      state.trickNumber = 3;
+      state.defenderPoints = 20;
+      state.playHistory = [];
+      state.lastAiDecision = null;
+      state.bottomCards = [makeCard("bottom-h-5", "hearts", "5"), makeCard("bottom-s-10", "spades", "10")];
+      state.exposedTrumpVoid = { 1: false, 2: false, 3: false, 4: false, 5: false };
+      state.exposedSuitVoid = {
+        1: { clubs: false, diamonds: false, spades: false, hearts: false },
+        2: { clubs: false, diamonds: false, spades: false, hearts: true },
+        3: { clubs: false, diamonds: false, spades: false, hearts: false },
+        4: { clubs: false, diamonds: false, spades: false, hearts: false },
+        5: { clubs: false, diamonds: false, spades: false, hearts: false },
+      };
+      state.players = [
+        basePlayer(1, [
+          makeCard("p1-c-a", "clubs", "A"),
+          makeCard("p1-s-9", "spades", "9"),
+          makeCard("p1-d-7", "diamonds", "7"),
+        ], true),
+        basePlayer(2, [
+          makeCard("p2-h-9", "hearts", "9"),
+          makeCard("p2-s-8", "spades", "8"),
+          makeCard("p2-d-8", "diamonds", "8"),
+        ]),
+        basePlayer(3, [
+          makeCard("p3-h-k-1", "hearts", "K"),
+          makeCard("p3-h-k-2", "hearts", "K"),
+          makeCard("p3-c-7", "clubs", "7"),
+          makeCard("p3-s-6", "spades", "6"),
+        ]),
+        basePlayer(4, [
+          makeCard("p4-d-9", "diamonds", "9"),
+          makeCard("p4-h-8", "hearts", "8"),
+          makeCard("p4-s-7", "spades", "7"),
+        ]),
+        basePlayer(5, [
+          makeCard("p5-s-k", "spades", "K"),
+          makeCard("p5-h-7", "hearts", "7"),
+          makeCard("p5-d-6", "diamonds", "6"),
+        ]),
+      ];
+    }
+
+    resetExtendedSearchState();
+    const trickRollout = simulateCandidateToEndOfCurrentTrick(cloneSimulationState(state), 3, [state.players[2].hand[2]]);
+    assert(trickRollout.completed, "simulateCandidateToEndOfCurrentTrick: should finish the current trick before extended search");
+    const liveHandSize = state.players[2].hand.length;
+    const ownTurnRollout = simulateUntilNextOwnTurn(trickRollout.resultState, 3);
+    assert(ownTurnRollout.reachedOwnTurn, "simulateUntilNextOwnTurn: should reach the AI player's next action");
+    assert(ownTurnRollout.trace.length > 0, "simulateUntilNextOwnTurn: should simulate intermediate players before own turn");
+    assert(ownTurnRollout.resultState.currentTurnId === 3, "simulateUntilNextOwnTurn: should stop exactly on the AI turn");
+    assert(state.players[2].hand.length === liveHandSize, "simulateUntilNextOwnTurn: should not mutate live hand state");
+    assert(state.currentTrick.length === 0, "simulateUntilNextOwnTurn: should not mutate live trick state");
+
+    resetExtendedSearchState();
+    const leadChoice = chooseIntermediatePlay(3, "lead");
+    assert(Array.isArray(leadChoice) && leadChoice.length > 0, "chooseIntermediatePlay: should still select a lead under extended search");
+    assert(state.lastAiDecision, "chooseIntermediatePlay: should record debug decision data");
+    assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutDepth >= 2), "chooseIntermediatePlay: qualifying search scenarios should record depth-2 rollout entries");
+    assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutReachedOwnTurn), "chooseIntermediatePlay: extended rollout should reach own next turn for at least one candidate");
+
+    globalThis.__intermediateSearchResults = {
+      results: [
+        "next-own-turn simulation isolation ok",
+        "intermediate rollout depth escalation ok",
+      ],
+    };
+  `;
+
+  vm.runInContext(testSource, context, { filename: "ai-intermediate-search-inline.js" });
+  return context.__intermediateSearchResults;
+}
+
+const context = loadGameContext();
+const output = runIntermediateSearchSuite(context);
+
+console.log("AI intermediate search regression passed:");
+for (const result of output.results) {
+  console.log("- " + result);
+}

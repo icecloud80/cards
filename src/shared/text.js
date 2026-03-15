@@ -44,7 +44,7 @@ const TEXT = {
   patterns: {
     triple: "刻子",
     tractor: "拖拉机",
-    train: "宇宙飞船",
+    train: "火车",
     bulldozer: "推土机",
     throw: "甩牌",
     leadTrump: "吊主",
@@ -191,7 +191,7 @@ const TEXT = {
     buryingOther: (count) => `当前共 ${count} 张，等待打家整理底牌。`,
     callingFriendSelf: (count) => `当前共 ${count} 张，请先在弹出的菜单里叫朋友，再进入首轮出牌。`,
     callingFriendOther: (count) => `当前共 ${count} 张，等待打家叫朋友。`,
-    playing: (count) => `当前共 ${count} 张，点击牌即可选择；首家支持单张、对子、拖拉机、8 张含以上的宇宙飞船、刻子、推土机和甩牌。`,
+    playing: (count) => `当前共 ${count} 张，点击牌即可选择；首家支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和甩牌。`,
     setupSpecialLabelWithTrump: "当前主牌",
     setupSpecialLabelWithoutTrump: "级牌 / 王",
     specialLabelNormal: "主牌",
@@ -244,14 +244,14 @@ const TEXT = {
     throwPenaltySummaryBanker: (penalty) => `非打家加 ${penalty} 分`,
     validation: {
       selectCards: "请选择要出的牌。",
-      leadSupported: "首家当前支持单张、对子、拖拉机、8 张含以上的宇宙飞船、刻子、推土机和基础甩牌。",
+      leadSupported: "首家当前支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和基础甩牌。",
       followCount: (count) => `这一轮需要跟 ${count} 张牌。`,
       sameSuitFirst: "有足够同门牌时，必须先跟同门。",
       pairMustFollow: "对家出对时，你有对子就必须跟对子；三张刻子不用强拆成对。",
       tripleMustFollow: "首家出刻子时，你有刻子就必须跟刻子。",
       tripleFollowPair: "首家出刻子时，没有刻子也要尽量跟对子。",
-      trainMustFollow: "首家出拖拉机或宇宙飞船时，你有同长度连对就必须跟连对。",
-      trainFollowPairs: "首家出拖拉机或宇宙飞船时，没有连对也要尽量跟对子；三张刻子不用拆对。",
+      trainMustFollow: "首家出拖拉机、火车或宇宙飞船时，你有同长度连对就必须跟连对。",
+      trainFollowPairs: "首家出拖拉机、火车或宇宙飞船时，没有连对也要尽量跟对子；三张刻子不用拆对。",
       bulldozerMustFollow: "首家出推土机时，你有同长度推土机就必须跟推土机。",
       bulldozerTriples: "首家出推土机时，你有刻子就必须先跟刻子。",
       bulldozerPairs: "首家出推土机时，你有对子就必须跟对子；两对即可，不需要把三张硬拆成对。",
@@ -263,7 +263,7 @@ const TEXT = {
       pair: "两张主级牌扣底",
       triple: "三张主级牌扣底",
       tractor: "含主级牌拖拉机扣底",
-      train: "含主级牌宇宙飞船扣底",
+      train: "含主级牌火车 / 宇宙飞船扣底",
       bulldozer: "含主级牌推土机扣底",
     },
   },
@@ -358,13 +358,19 @@ function updateResultCountdownLabel() {
     : TEXT.buttons.restart;
 }
 
-function getPatternLabel(type) {
-  return TEXT.patterns[type] || "";
+function getPatternLabel(patternOrType) {
+  const pattern = typeof patternOrType === "string"
+    ? { type: patternOrType }
+    : (patternOrType || {});
+  if (pattern.type === "train") {
+    return pattern.chainLength >= 4 ? "宇宙飞船" : TEXT.patterns.train;
+  }
+  return TEXT.patterns[pattern.type] || "";
 }
 
 function getSpecialPatternAnnouncement(pattern, playerId) {
   if (!pattern?.ok) return "";
-  const label = getPatternLabel(pattern.type);
+  const label = getPatternLabel(pattern);
   if (!label) return "";
   return `${getPlayer(playerId).name} 打出${label}`;
 }
@@ -376,7 +382,7 @@ function getPlayAnnouncement(playerId, pattern, options = {}) {
   if (options.leadTrump) {
     parts.push(TEXT.patterns.leadTrump);
   }
-  const special = getPatternLabel(pattern.type);
+  const special = options.isLead ? getPatternLabel(pattern) : "";
   if (special) {
     parts.push(special);
   }

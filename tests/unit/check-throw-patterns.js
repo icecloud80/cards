@@ -91,7 +91,12 @@ function runRegressionSuite(context) {
         expectedType: "bulldozer",
       },
       {
-        name: "exact train",
+        name: "exact 3-pair train",
+        cards: makeCards([["A", 2], ["K", 2], ["Q", 2]]),
+        expectedType: "train",
+      },
+      {
+        name: "exact spaceship",
         cards: makeCards([["A", 2], ["K", 2], ["Q", 2], ["J", 2]]),
         expectedType: "train",
       },
@@ -99,13 +104,13 @@ function runRegressionSuite(context) {
         name: "train should not eat triple",
         cards: makeCards([["A", 2], ["K", 2], ["Q", 2], ["J", 3]]),
         expectedType: "throw",
-        expectedSignature: "tractor:6:3|triple:3:0",
+        expectedSignature: "train:6:3|triple:3:0",
       },
       {
         name: "tractor + triple with extra A",
         cards: makeCards([["A", 3], ["K", 2], ["Q", 2], ["J", 2]]),
         expectedType: "throw",
-        expectedSignature: "tractor:6:3|triple:3:0",
+        expectedSignature: "train:6:3|triple:3:0",
       },
       {
         name: "bulldozer + pair from lower ranks",
@@ -117,7 +122,7 @@ function runRegressionSuite(context) {
         name: "extra A prefers triple + tractor",
         cards: makeCards([["A", 3], ["K", 2], ["Q", 2], ["J", 2]]),
         expectedType: "throw",
-        expectedSignature: "tractor:6:3|triple:3:0",
+        expectedSignature: "train:6:3|triple:3:0",
       },
       {
         name: "train beats split pairs",

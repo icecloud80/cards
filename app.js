@@ -1503,7 +1503,9 @@ function getSpecialPatternAnnouncement(pattern, playerId) {
     bulldozer: "推土机",
     throw: "甩牌",
   };
-  const label = labelMap[pattern.type];
+  const label = pattern.type === "train" && pattern.chainLength >= 4
+    ? "宇宙飞船"
+    : labelMap[pattern.type];
   if (!label) return "";
   return `${getPlayer(playerId).name} 打出${label}`;
 }
@@ -1522,7 +1524,9 @@ function getPlayAnnouncement(playerId, pattern, options = {}) {
     bulldozer: "推土机",
     throw: "甩牌",
   };
-  const special = labelMap[pattern.type];
+  const special = options.isLead
+    ? (pattern.type === "train" && pattern.chainLength >= 4 ? "宇宙飞船" : labelMap[pattern.type])
+    : "";
   if (special) {
     parts.push(special);
   }
@@ -2104,7 +2108,7 @@ function classifyPlay(cards) {
     const chainLength = pairs.length;
     return {
       ok: true,
-      type: chainLength >= 4 ? "train" : "tractor",
+      type: chainLength >= 3 ? "train" : "tractor",
       count: sorted.length,
       suit,
       chainLength,
@@ -2302,7 +2306,7 @@ function validateSelection(playerId, cards) {
 
   if (state.currentTrick.length === 0) {
     if (pattern.ok) return { ok: true };
-    return { ok: false, reason: "首家当前支持单张、对子、拖拉机、火车、刻子、推土机和基础甩牌。" };
+    return { ok: false, reason: "首家当前支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和基础甩牌。" };
   }
 
   if (cards.length !== state.leadSpec.count) {
@@ -2339,14 +2343,14 @@ function validateSelection(playerId, cards) {
     if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train") {
       if (hasMatchingPattern(suited, state.leadSpec)) {
         if (!matchesLeadPattern(pattern, state.leadSpec)) {
-          return { ok: false, reason: "首家出拖拉机或火车时，你有同长度连对就必须跟连对。" };
+          return { ok: false, reason: "首家出拖拉机、火车或宇宙飞船时，你有同长度连对就必须跟连对。" };
         }
         return { ok: true };
       }
 
       const requiredPairs = Math.min(state.leadSpec.chainLength || 0, getForcedPairUnits(suited));
       if (requiredPairs > 0 && getForcedPairUnits(cards) < requiredPairs) {
-        return { ok: false, reason: "首家出拖拉机或火车时，没有连对也要尽量跟对子；三张刻子不用拆对。" };
+        return { ok: false, reason: "首家出拖拉机、火车或宇宙飞船时，没有连对也要尽量跟对子；三张刻子不用拆对。" };
       }
       return { ok: true };
     }
@@ -2481,7 +2485,10 @@ function playCards(playerId, cardIds, options = {}) {
   }
   const playAnnouncement = throwFailure || (pattern.type === "throw" && state.currentTrick.length > 1)
     ? ""
-    : getPlayAnnouncement(playerId, pattern, { leadTrump: leadTrumpAnnouncement });
+    : getPlayAnnouncement(playerId, pattern, {
+      leadTrump: leadTrumpAnnouncement,
+      isLead: state.currentTrick.length === 1,
+    });
   if (playAnnouncement) {
     queueCenterAnnouncement(playAnnouncement, leadTrumpAnnouncement && isVisibleAllyOfHuman(playerId) ? "ally" : "default");
   }
@@ -3313,7 +3320,7 @@ function renderHand() {
       ? `当前共 ${human.hand.length} 张，请先在弹出的菜单里叫朋友，再进入首轮出牌。`
       : `当前共 ${human.hand.length} 张，等待打家叫朋友。`;
   } else {
-    dom.handSummary.textContent = `当前共 ${human.hand.length} 张，点击牌即可选择；首家支持单张、对子、拖拉机、火车、刻子、推土机和甩牌。`;
+    dom.handSummary.textContent = `当前共 ${human.hand.length} 张，点击牌即可选择；首家支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和甩牌。`;
   }
   const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
   const specialLabel = isSetupPhase

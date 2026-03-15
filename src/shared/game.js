@@ -1321,7 +1321,10 @@ function playCards(playerId, cardIds, options = {}) {
   }
   const playAnnouncement = throwFailure || (pattern.type === "throw" && state.currentTrick.length > 1)
     ? ""
-    : getPlayAnnouncement(playerId, pattern, { leadTrump: leadTrumpAnnouncement });
+    : getPlayAnnouncement(playerId, pattern, {
+      leadTrump: leadTrumpAnnouncement,
+      isLead: state.currentTrick.length === 1,
+    });
   if (playAnnouncement) {
     queueCenterAnnouncement(playAnnouncement, leadTrumpAnnouncement && isVisibleAllyOfHuman(playerId) ? "ally" : "default");
   }

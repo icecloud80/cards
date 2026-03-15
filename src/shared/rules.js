@@ -553,7 +553,7 @@ function classifyPlay(cards) {
     const chainLength = pairs.length;
     return {
       ok: true,
-      type: chainLength >= 4 ? "train" : "tractor",
+      type: chainLength >= 3 ? "train" : "tractor",
       count: sorted.length,
       suit,
       chainLength,

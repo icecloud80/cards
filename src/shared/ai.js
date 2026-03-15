@@ -405,6 +405,18 @@ function getIntermediateReturnTargetIds(playerId) {
   return nonBankerAllies.length > 0 ? nonBankerAllies : allies;
 }
 
+function getIntermediateReturnSignal(targetId, leadSuit) {
+  if (!leadSuit || leadSuit === "trump") return 0;
+  let signal = state.exposedSuitVoid[targetId]?.[leadSuit] ? 1 : 0;
+  const targetPlayer = getPlayer(targetId);
+  if (!targetPlayer) return signal;
+  const hasLeadSuit = targetPlayer.hand.some((card) => effectiveSuit(card) === leadSuit);
+  if (!hasLeadSuit) {
+    signal += targetId === state.bankerId ? 2 : 1;
+  }
+  return signal;
+}
+
 function scoreIntermediateReturnLead(playerId, combo, player) {
   if (!player || combo.length !== 1) return 0;
   const leadCard = combo[0];
@@ -414,14 +426,17 @@ function scoreIntermediateReturnLead(playerId, combo, player) {
   const targetIds = getIntermediateReturnTargetIds(playerId);
   if (targetIds.length === 0) return 0;
 
-  const voidTargets = targetIds.filter((targetId) => state.exposedSuitVoid[targetId]?.[leadSuit]);
-  if (voidTargets.length === 0) return 0;
+  const returnSignals = targetIds
+    .map((targetId) => ({ targetId, signal: getIntermediateReturnSignal(targetId, leadSuit) }))
+    .filter((entry) => entry.signal > 0);
+  if (returnSignals.length === 0) return 0;
 
   const sameSuitCards = player.hand.filter((card) => effectiveSuit(card) === leadSuit);
   const lowestSuitCard = sameSuitCards.length > 0 ? lowestCard(sameSuitCards) : leadCard;
-  let score = voidTargets.length * 26 - getComboPointValue(combo) * 3;
+  let score = returnSignals.reduce((sum, entry) => sum + entry.signal * 26, 0) - getComboPointValue(combo) * 3;
   if (lowestSuitCard?.id === leadCard.id) score += 18;
   if (targetIds[0] === state.bankerId) score += 12;
+  score -= cardStrength(leadCard) * 2;
   return score;
 }
 

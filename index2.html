@@ -2005,6 +2005,14 @@
         flex: 0 0 auto;
       }
 
+      body.mobile-index2 .mobile-state.clickable {
+        cursor: pointer;
+      }
+
+      body.mobile-index2 .mobile-state.clickable .mobile-state-card {
+        box-shadow: inset 0 0 0 1px rgba(216, 92, 76, 0.22);
+      }
+
       body.mobile-index2 .mobile-state-tag {
         color: #85541d;
         font-size: 10px;
@@ -3131,7 +3139,7 @@
               <span class="mobile-state-tag">主</span>
               <div id="mobileTrumpCard" class="mobile-state-card empty">--<span id="mobileTrumpLevel" class="mobile-level-badge"></span></div>
             </div>
-            <div class="mobile-state">
+            <div id="mobileFriendState" class="mobile-state">
               <span class="mobile-state-tag">朋</span>
               <div id="mobileFriendCard" class="mobile-state-card mobile-friend-card empty">
                 --
@@ -3517,6 +3525,7 @@
           autoBtn: document.getElementById("mobileAutoBtn"),
           trumpCard: document.getElementById("mobileTrumpCard"),
           trumpLevel: document.getElementById("mobileTrumpLevel"),
+          friendState: document.getElementById("mobileFriendState"),
           friendCard: document.getElementById("mobileFriendCard"),
           friendOccurrence: document.getElementById("mobileFriendOccurrence"),
           infoBtn: document.getElementById("mobileInfoBtn"),
@@ -3644,6 +3653,14 @@
           const occurrence = snapshot?.friendTarget?.occurrence;
           mobileDom.friendOccurrence.textContent = occurrence ? String(occurrence) : "";
           mobileDom.friendOccurrence.classList.toggle("show", !!occurrence);
+          const canRetarget = typeof canRetargetFriendSelection === "function" && canRetargetFriendSelection();
+          if (mobileDom.friendState) {
+            mobileDom.friendState.classList.toggle("clickable", canRetarget);
+            mobileDom.friendState.setAttribute("role", canRetarget ? "button" : "presentation");
+            mobileDom.friendState.setAttribute("tabindex", canRetarget ? "0" : "-1");
+            mobileDom.friendState.setAttribute("aria-label", canRetarget ? "重新选择朋友牌" : "朋友牌");
+            mobileDom.friendState.title = canRetarget ? "可重新选择一次朋友牌" : "";
+          }
         }
 
         function syncTrumpStatus(snapshot) {
@@ -4003,6 +4020,16 @@
           if (!originalDom.aiDifficultySelect) return;
           originalDom.aiDifficultySelect.value = mobileDom.difficultySelect.value;
           originalDom.aiDifficultySelect.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        mobileDom.friendState?.addEventListener("click", () => {
+          if (typeof reopenFriendSelection !== "function") return;
+          reopenFriendSelection();
+        });
+        mobileDom.friendState?.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          if (typeof reopenFriendSelection !== "function") return;
+          event.preventDefault();
+          reopenFriendSelection();
         });
         mobileDom.autoBtn.addEventListener("click", () => {
           if (typeof getPlayer !== "function") return;

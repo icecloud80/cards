@@ -374,46 +374,134 @@ function isSameSuitSet(cards) {
   return cards.every((card) => effectiveSuit(card) === suit);
 }
 
-function decomposeThrowComponents(cards) {
-  if (!isSameSuitSet(cards)) return null;
-  const remaining = [...cards].sort((a, b) => cardStrength(b) - cardStrength(a));
-  const components = [];
+function removePickedCards(cards, pickedCards) {
+  const remaining = [...cards];
+  for (const picked of pickedCards) {
+    const index = remaining.findIndex((card) => card.id === picked.id);
+    if (index >= 0) remaining.splice(index, 1);
+  }
+  return remaining;
+}
 
-  const takeComponent = (componentCards) => {
-    for (const picked of componentCards) {
-      const index = remaining.findIndex((card) => card.id === picked.id);
-      if (index >= 0) remaining.splice(index, 1);
-    }
-    components.push({
-      ...classifyPlay(componentCards),
-      cards: sortPlayedCards(componentCards),
-    });
+function getThrowSearchKey(cards) {
+  const counts = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, count]) => `${key}:${count}`)
+    .join("|");
+}
+
+function getThrowComponentTypeWeight(component) {
+  const typeOrder = {
+    single: 0,
+    pair: 1,
+    triple: 2,
+    tractor: 3,
+    train: 4,
+    bulldozer: 5,
+  };
+  return typeOrder[component?.type] ?? -1;
+}
+
+function compareThrowComponentStrength(a, b) {
+  const typeDiff = getThrowComponentTypeWeight(a) - getThrowComponentTypeWeight(b);
+  if (typeDiff !== 0) return typeDiff;
+  if ((a.count ?? 0) !== (b.count ?? 0)) return (a.count ?? 0) - (b.count ?? 0);
+  if ((a.chainLength ?? 0) !== (b.chainLength ?? 0)) return (a.chainLength ?? 0) - (b.chainLength ?? 0);
+  return (a.power ?? 0) - (b.power ?? 0);
+}
+
+function buildThrowComponent(componentCards) {
+  const pattern = classifyPlay(componentCards);
+  if (!pattern.ok || pattern.type === "throw" || pattern.type === "invalid") return null;
+  return {
+    ...pattern,
+    cards: sortPlayedCards(componentCards),
+  };
+}
+
+function getThrowCandidateComponents(cards) {
+  const candidates = [];
+  const seen = new Set();
+
+  const addCandidate = (componentCards) => {
+    const component = buildThrowComponent(componentCards);
+    if (!component) return;
+    const key = component.cards.map((card) => card.id).sort().join("|");
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push(component);
   };
 
-  while (remaining.length > 0) {
-    const bulldozers = findSerialTuples(remaining, 3);
-    if (bulldozers.length > 0) {
-      takeComponent(bulldozers[bulldozers.length - 1]);
-      continue;
-    }
-    const serialPairs = findSerialTuples(remaining, 2);
-    if (serialPairs.length > 0) {
-      takeComponent(serialPairs[serialPairs.length - 1]);
-      continue;
-    }
-    const triples = findTriples(remaining);
-    if (triples.length > 0) {
-      takeComponent(triples[triples.length - 1]);
-      continue;
-    }
-    const pairs = findPairs(remaining);
-    if (pairs.length > 0) {
-      takeComponent(pairs[pairs.length - 1]);
-      continue;
-    }
-    takeComponent([remaining[0]]);
+  for (const combo of findSerialTuples(cards, 3)) addCandidate(combo);
+  for (const combo of findSerialTuples(cards, 2)) addCandidate(combo);
+  for (const combo of findTriples(cards)) addCandidate(combo);
+  for (const combo of findPairs(cards)) addCandidate(combo);
+
+  const groups = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(card);
+  }
+  for (const group of groups.values()) {
+    addCandidate([group[0]]);
   }
 
+  return candidates.sort((a, b) => compareThrowComponentStrength(b, a));
+}
+
+function compareThrowDecomposition(a, b) {
+  if (!a && !b) return 0;
+  if (a && !b) return 1;
+  if (!a && b) return -1;
+
+  const singleCountA = a.filter((component) => component.type === "single").length;
+  const singleCountB = b.filter((component) => component.type === "single").length;
+  if (singleCountA !== singleCountB) return singleCountB - singleCountA;
+
+  if (a.length !== b.length) return b.length - a.length;
+
+  const sortedA = [...a].sort(compareThrowComponentStrength);
+  const sortedB = [...b].sort(compareThrowComponentStrength);
+  for (let i = 0; i < Math.min(sortedA.length, sortedB.length); i += 1) {
+    const diff = compareThrowComponentStrength(sortedA[i], sortedB[i]);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function searchBestThrowDecomposition(cards, memo = new Map()) {
+  if (cards.length === 0) return [];
+  const key = getThrowSearchKey(cards);
+  if (memo.has(key)) return memo.get(key);
+
+  let best = null;
+  const candidates = getThrowCandidateComponents(cards);
+  for (const component of candidates) {
+    const remaining = removePickedCards(cards, component.cards);
+    const rest = searchBestThrowDecomposition(remaining, memo);
+    if (!rest) continue;
+    const attempt = [component, ...rest];
+    if (compareThrowDecomposition(attempt, best) > 0) {
+      best = attempt;
+    }
+  }
+
+  memo.set(key, best);
+  return best;
+}
+
+function decomposeThrowComponents(cards) {
+  if (!isSameSuitSet(cards)) return null;
+  const components = searchBestThrowDecomposition(
+    [...cards].sort((a, b) => cardStrength(b) - cardStrength(a))
+  );
+  if (!components) return null;
   return components.every((component) => component.ok) ? components : null;
 }
 

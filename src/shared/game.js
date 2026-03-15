@@ -81,6 +81,7 @@ function setupGame() {
   state.selectedFriendOccurrence = 1;
   state.selectedFriendSuit = "hearts";
   state.selectedFriendRank = "A";
+  state.friendRetargetUsed = false;
   state.resultCountdownValue = 30;
   state.exposedTrumpVoid = PLAYER_ORDER.reduce((acc, id) => {
     acc[id] = false;
@@ -108,27 +109,52 @@ function setupGame() {
   render();
 }
 
-function chooseFriendTarget() {
-  const banker = getPlayer(state.bankerId);
-  if (!banker) {
-    return {
-      target: buildFriendTarget({
-        suit: "hearts",
-        rank: "A",
-        occurrence: 1,
-      }),
-      ownerId: 2,
-    };
-  }
+function getFriendAutoRankPriority() {
+  return getPlayerLevelRank(state.bankerId) === "A" ? ["K", "A"] : ["A", "K"];
+}
 
-  const rankPriority = getPlayerLevelRank(state.bankerId) === "A"
-    ? ["K", "A", "Q", "J", "10"]
-    : ["A", "K", "Q", "J", "10"];
+function getFriendAutoRankGroups() {
+  return [getFriendAutoRankPriority()];
+}
+
+function getFriendTargetFallback() {
+  return {
+    target: buildFriendTarget({
+      suit: "hearts",
+      rank: "A",
+      occurrence: 1,
+    }),
+    ownerId: 2,
+  };
+}
+
+function collectFriendTargetCandidates(banker, ranks, scoreFn) {
   const suitPriority = [...SUITS.filter((suit) => suit !== state.trumpSuit), state.trumpSuit].filter(Boolean);
   const targetCandidates = [];
 
-  for (const suit of suitPriority) {
-    for (const rank of rankPriority) {
+  for (const rank of ranks) {
+    if (rank === "RJ" || rank === "BJ") {
+      const bankerCopies = banker.hand.filter((card) => card.suit === "joker" && card.rank === rank).length;
+      const owners = state.players
+        .filter((player) => player.id !== state.bankerId)
+        .filter((player) => player.hand.some((card) => card.suit === "joker" && card.rank === rank));
+      if (owners.length === 0) continue;
+      const otherCopies = state.players
+        .filter((player) => player.id !== state.bankerId)
+        .reduce((sum, player) => sum + player.hand.filter((card) => card.suit === "joker" && card.rank === rank).length, 0);
+      const maxOccurrence = Math.min(3, bankerCopies + otherCopies);
+      for (let occurrence = bankerCopies + 1; occurrence <= maxOccurrence; occurrence += 1) {
+        const target = { suit: "joker", rank, occurrence };
+        targetCandidates.push({
+          target,
+          ownerId: owners[0].id,
+          score: scoreFn(target, banker, owners),
+        });
+      }
+      continue;
+    }
+
+    for (const suit of suitPriority) {
       const bankerCopies = banker.hand.filter((card) => card.suit === suit && card.rank === rank).length;
       const owners = state.players
         .filter((player) => player.id !== state.bankerId)
@@ -143,48 +169,73 @@ function chooseFriendTarget() {
         targetCandidates.push({
           target,
           ownerId: owners[0].id,
-          score: scoreFriendTargetCandidate(target, banker, owners),
+          score: scoreFn(target, banker, owners),
         });
       }
     }
   }
 
-  for (const rank of ["RJ", "BJ"]) {
-    const bankerCopies = banker.hand.filter((card) => card.suit === "joker" && card.rank === rank).length;
-    const owners = state.players
-      .filter((player) => player.id !== state.bankerId)
-      .filter((player) => player.hand.some((card) => card.suit === "joker" && card.rank === rank));
-    if (owners.length === 0) continue;
-    const otherCopies = state.players
-      .filter((player) => player.id !== state.bankerId)
-      .reduce((sum, player) => sum + player.hand.filter((card) => card.suit === "joker" && card.rank === rank).length, 0);
-    const maxOccurrence = Math.min(3, bankerCopies + otherCopies);
-    for (let occurrence = bankerCopies + 1; occurrence <= maxOccurrence; occurrence += 1) {
-      const target = { suit: "joker", rank, occurrence };
-      targetCandidates.push({
-        target,
-        ownerId: owners[0].id,
-        score: scoreFriendTargetCandidate(target, banker, owners),
-      });
-    }
-  }
+  return targetCandidates;
+}
 
+function pickBestFriendTargetFromCandidates(targetCandidates) {
   const bestCandidate = targetCandidates.sort((a, b) => b.score - a.score)[0];
-  if (bestCandidate) {
-    return {
-      target: buildFriendTarget(bestCandidate.target),
-      ownerId: bestCandidate.ownerId,
-    };
-  }
+  return bestCandidate
+    ? {
+        target: buildFriendTarget(bestCandidate.target),
+        ownerId: bestCandidate.ownerId,
+      }
+    : null;
+}
 
-  return {
-    target: buildFriendTarget({
-      suit: "hearts",
-      rank: "A",
-      occurrence: 1,
-    }),
-    ownerId: 2,
-  };
+function scoreBeginnerFriendTargetCandidate(target, banker, owners) {
+  const bankerSuitCards = banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
+  const bankerTargetCopies = bankerSuitCards.filter((card) => card.rank === target.rank).length;
+  const bankerSupportCards = bankerSuitCards.filter((card) => card.rank !== target.rank);
+  const rankBonus = {
+    A: 60,
+    K: 48,
+    RJ: 44,
+    BJ: 36,
+    Q: 20,
+    J: 8,
+    "10": 4,
+  }[target.rank] || 0;
+  const occurrenceBonus = target.occurrence === bankerTargetCopies + 1 ? 12 : target.occurrence === 2 ? 6 : 3;
+  const suitBonus = target.suit !== "joker" && target.suit !== state.trumpSuit ? 14 : 0;
+  const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
+  const jokerPenalty = target.suit === "joker" ? 8 : 0;
+  const uniqueOwnerBonus = owners.length === 1 ? 10 : 3;
+  const supportPenalty = bankerSupportCards.length === 0 ? 12 : bankerSupportCards.length >= 4 ? 8 : 0;
+  return rankBonus + occurrenceBonus + suitBonus + uniqueOwnerBonus - trumpPenalty - jokerPenalty - supportPenalty;
+}
+
+function chooseBeginnerFriendTarget() {
+  const banker = getPlayer(state.bankerId);
+  if (!banker) return getFriendTargetFallback();
+  for (const ranks of getFriendAutoRankGroups()) {
+    const candidates = collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate);
+    const best = pickBestFriendTargetFromCandidates(candidates);
+    if (best) return best;
+  }
+  return getFriendTargetFallback();
+}
+
+function chooseIntermediateFriendTarget() {
+  const banker = getPlayer(state.bankerId);
+  if (!banker) return getFriendTargetFallback();
+  for (const ranks of getFriendAutoRankGroups()) {
+    const candidates = collectFriendTargetCandidates(banker, ranks, scoreFriendTargetCandidate);
+    const best = pickBestFriendTargetFromCandidates(candidates);
+    if (best) return best;
+  }
+  return getFriendTargetFallback();
+}
+
+function chooseFriendTarget() {
+  return state.aiDifficulty === "intermediate"
+    ? chooseIntermediateFriendTarget()
+    : chooseBeginnerFriendTarget();
 }
 
 function getCardsForFriendSuit(cards, suit) {
@@ -192,9 +243,7 @@ function getCardsForFriendSuit(cards, suit) {
 }
 
 function getFriendRecommendationRankPriority() {
-  return getPlayerLevelRank(state.bankerId) === "A"
-    ? ["K", "A", "Q", "J", "10"]
-    : ["A", "K", "Q", "J", "10"];
+  return getFriendAutoRankPriority();
 }
 
 function scoreFriendRecommendationCandidate(target, meta) {
@@ -467,6 +516,31 @@ function confirmFriendTargetSelection(selection = {
   setFriendTarget(selection);
   appendLog(TEXT.log.friendCalled(state.friendTarget.label));
   enterPlayingPhase();
+}
+
+function canRetargetFriendSelection() {
+  return state.bankerId === 1
+    && !state.gameOver
+    && !!state.friendTarget
+    && !state.friendRetargetUsed
+    && state.phase === "playing"
+    && state.trickNumber === 1
+    && state.currentTrick.length === 0;
+}
+
+function reopenFriendSelection() {
+  if (!canRetargetFriendSelection()) return false;
+  clearTimers();
+  state.selectedFriendOccurrence = state.friendTarget.occurrence || 1;
+  state.selectedFriendSuit = state.friendTarget.suit;
+  state.selectedFriendRank = state.friendTarget.rank;
+  state.phase = "callingFriend";
+  state.currentTurnId = state.bankerId;
+  state.leaderId = state.bankerId;
+  state.friendRetargetUsed = true;
+  appendLog("打家重新选择了朋友牌。");
+  render();
+  return true;
 }
 
 function enterPlayingPhase() {

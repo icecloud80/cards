@@ -55,6 +55,7 @@ function canAiRevealFriendNow(playerId) {
 
 function shouldAiRevealFriend(playerId) {
   if (!canAiRevealFriendNow(playerId)) return false;
+  if (isAiCertainFriend(playerId)) return true;
   if (shouldAiDelayRevealOnOpeningLead(playerId)) return false;
   return getAiRevealIntentScore(playerId) >= 2;
 }
@@ -69,6 +70,17 @@ function chooseAiRevealCombo(candidates) {
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;
   })[0];
+}
+
+function getForcedCertainFriendRevealPlay(playerId, candidates = null) {
+  if (!canAiRevealFriendNow(playerId) || !isAiCertainFriend(playerId)) return [];
+  const player = getPlayer(playerId);
+  if (!player) return [];
+  if (Array.isArray(candidates) && candidates.length > 0) {
+    return chooseAiRevealCombo(candidates);
+  }
+  const friendCard = player.hand.find((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank);
+  return friendCard ? [friendCard] : [];
 }
 
 function getPendingPlayersAfter(playerId) {
@@ -537,6 +549,8 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice) {
 }
 
 function chooseIntermediateLeadPlay(playerId) {
+  const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
+  if (forcedReveal.length > 0) return forcedReveal;
   const candidates = getIntermediateLeadCandidates(playerId);
   if (candidates.length === 0) return [];
   const beginnerChoice = getBeginnerLegalHintForPlayer(playerId);
@@ -597,6 +611,8 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
 
 function chooseIntermediateFollowPlay(playerId, candidates) {
   if (candidates.length === 0) return [];
+  const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
+  if (forcedReveal.length > 0) return forcedReveal;
   const currentWinningPlay = getCurrentWinningPlay();
   const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const revealOpportunity = canAiRevealFriendNow(playerId);
@@ -620,6 +636,8 @@ function chooseIntermediateFollowPlay(playerId, candidates) {
 function chooseAiLeadPlay(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
+  const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
+  if (forcedReveal.length > 0) return forcedReveal;
   const noTrumpPowerLead = chooseAiNoTrumpBankerPowerLead(playerId, player);
   if (noTrumpPowerLead.length > 0) return noTrumpPowerLead;
   if (playerId === state.bankerId && state.friendTarget && !isFriendTeamResolved() && state.friendTarget.suit !== "joker") {
@@ -649,6 +667,8 @@ function chooseAiLeadPlay(playerId) {
 
 function chooseAiFollowPlay(playerId, candidates) {
   if (candidates.length === 0) return [];
+  const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
+  if (forcedReveal.length > 0) return forcedReveal;
   const currentWinningPlay = getCurrentWinningPlay();
   const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
@@ -738,6 +758,8 @@ function getBeginnerLegalHintForPlayer(playerId) {
 
   const hand = player.hand;
   if (state.currentTrick.length === 0) {
+    const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
+    if (forcedReveal.length > 0) return forcedReveal;
     const aiLead = chooseAiLeadPlay(playerId);
     if (aiLead.length > 0) return aiLead;
     const bulldozers = findSerialTuples(hand, 3);
@@ -754,6 +776,8 @@ function getBeginnerLegalHintForPlayer(playerId) {
   }
 
   const candidates = getLegalSelectionsForPlayer(playerId);
+  const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
+  if (forcedReveal.length > 0) return forcedReveal;
   const aiChoice = chooseAiFollowPlay(playerId, candidates);
   if (aiChoice.length > 0) return aiChoice;
 
@@ -811,10 +835,14 @@ function getIntermediateLegalHintForPlayer(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
   if (state.currentTrick.length === 0) {
+    const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
+    if (forcedReveal.length > 0) return forcedReveal;
     const leadChoice = chooseIntermediateLeadPlay(playerId);
     return leadChoice.length > 0 ? leadChoice : getBeginnerLegalHintForPlayer(playerId);
   }
   const candidates = getLegalSelectionsForPlayer(playerId);
+  const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
+  if (forcedReveal.length > 0) return forcedReveal;
   if (candidates.length > 0) {
     const followChoice = chooseIntermediateFollowPlay(playerId, candidates);
     if (followChoice.length > 0) return followChoice;

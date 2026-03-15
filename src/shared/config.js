@@ -252,6 +252,7 @@ const state = {
   selectedFriendOccurrence: 1,
   selectedFriendSuit: "hearts",
   selectedFriendRank: "A",
+  friendRetargetUsed: false,
   nextFirstDealPlayerId: 1,
   bottomRevealMessage: "",
   exposedTrumpVoid: {},

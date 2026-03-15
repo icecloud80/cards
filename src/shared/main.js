@@ -77,11 +77,7 @@ function applyAutoManagedState(enabled) {
   }
 
   if (state.phase === "callingFriend" && state.bankerId === 1 && typeof confirmFriendTargetSelection === "function") {
-    const best = typeof getFriendPickerRecommendation === "function"
-      ? getFriendPickerRecommendation()?.target
-      : typeof chooseFriendTarget === "function"
-        ? chooseFriendTarget()?.target
-        : null;
+    const best = typeof chooseFriendTarget === "function" ? chooseFriendTarget()?.target : null;
     if (best) {
       confirmFriendTargetSelection(best);
     }

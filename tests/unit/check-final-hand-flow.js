@@ -67,6 +67,14 @@ function loadGameContext() {
     path.join(__dirname, "../../src/shared/rules.js"),
     path.join(__dirname, "../../src/shared/text.js"),
     path.join(__dirname, "../../src/shared/game.js"),
+    path.join(__dirname, "../../src/shared/ai-shared.js"),
+    path.join(__dirname, "../../src/shared/ai-beginner.js"),
+    path.join(__dirname, "../../src/shared/ai-objectives.js"),
+    path.join(__dirname, "../../src/shared/ai-evaluate.js"),
+    path.join(__dirname, "../../src/shared/ai-candidates.js"),
+    path.join(__dirname, "../../src/shared/ai-simulate.js"),
+    path.join(__dirname, "../../src/shared/ai-intermediate.js"),
+    path.join(__dirname, "../../src/shared/ai.js"),
   ];
   for (const file of files) {
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
@@ -141,6 +149,14 @@ function runSuite(context) {
       makeCard("p1-s6", "spades", "6"),
     ];
 
+    state.aiDifficulty = "beginner";
+    const beginnerHint = getLegalHintForPlayer(2);
+    assert(beginnerHint.length === 3, "beginner AI should select the whole remaining hand on the final lead");
+
+    state.aiDifficulty = "intermediate";
+    const intermediateHint = getLegalHintForPlayer(2);
+    assert(intermediateHint.length === 3, "intermediate AI should select the whole remaining hand on the final lead");
+
     const leadCards = [...state.players[1].hand];
     const leadValidation = validateSelection(2, leadCards);
     assert(leadValidation.ok, "final-hand lead should be legal when leading the whole remaining hand");
@@ -161,6 +177,8 @@ function runSuite(context) {
     assert(state.lastTrick && state.lastTrick.winnerId === 5, "the strongest full-hand selection should win the final trick");
 
     globalThis.__finalHandFlowResults = {
+      beginnerHintCount: beginnerHint.length,
+      intermediateHintCount: intermediateHint.length,
       leadType: state.leadSpec?.type || null,
       winnerId: state.lastTrick?.winnerId || null,
       gameOver: state.gameOver,
@@ -175,6 +193,8 @@ const context = loadGameContext();
 const output = runSuite(context);
 
 console.log("Final-hand flow regression passed:");
+console.log(`- beginner hint count: ${output.beginnerHintCount}`);
+console.log(`- intermediate hint count: ${output.intermediateHintCount}`);
 console.log(`- lead type: ${output.leadType}`);
 console.log(`- winner: 玩家${output.winnerId}`);
 console.log(`- game over: ${output.gameOver}`);

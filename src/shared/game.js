@@ -1616,7 +1616,7 @@ function recordSetupDecisionSnapshot(playerId, mode, candidateEntries, selectedE
  * 用户要求保留初级现有风格，只做很小的策略修正。
  * 因此这里不引入复杂评分器，只加两条简单门槛：
  * 1. 花色主至少要有足够主牌数量，避免短主硬坐庄。
- * 2. 反无主至少要有 4 张常主，避免只有两王就轻率反无主。
+ * 2. 亮无主 / 反无主至少要有 5 张常主，避免只有少量常主就轻率打无主。
  *
  * 输入：
  * @param {number} playerId - 需要评估自动决策的玩家 ID。
@@ -1628,16 +1628,21 @@ function recordSetupDecisionSnapshot(playerId, mode, candidateEntries, selectedE
  *
  * 注意：
  * - 只对初级 AI 的自动行为生效，不影响人类玩家的合法按钮与提示。
- * - 花色主门槛采用“主牌数大于 7 或达到当前手牌的 1/4”。
- * - 反无主门槛采用“常主至少 4 张”。
+ * - 花色主门槛采用“常主 + 主花色合计至少 10 张”。
+ * - 亮无主门槛采用“常主至少 5 张”。
+ * - 反无主除了至少 5 张常主外，还会比较当前花色主对自己是否已经明显更合适。
  */
 function meetsBeginnerAutoDeclarationHeuristic(playerId, declaration, mode = "declare") {
   const player = getPlayer(playerId);
   if (!player || !declaration) return false;
 
   if (declaration.suit === "notrump") {
+    const commonTrumpCount = countCommonTrumpCardsForPlayer(playerId);
+    if (commonTrumpCount < 5) return false;
     if (mode !== "counter") return true;
-    return countCommonTrumpCardsForPlayer(playerId) >= 5;
+    if (!state.declaration || state.declaration.suit === "notrump") return true;
+    const currentTrumpCount = countTrumpCardsForDeclaration(playerId, state.declaration, state.declaration.rank);
+    return currentTrumpCount - commonTrumpCount <= 1;
   }
 
   const trumpCount = countTrumpCardsForDeclaration(playerId, declaration);
@@ -1687,7 +1692,7 @@ function getAutoDeclarationForPlayer(playerId) {
  * @returns {?object} 自动流程愿意采用的反主方案；没有则返回 `null`。
  *
  * 注意：
- * - 初级会额外要求反无主时至少拥有 4 张常主。
+ * - 初级会额外要求反无主时至少拥有 5 张常主。
  * - 其他难度目前继续沿用原有合法最高档方案。
  */
 function getAutoCounterDeclarationForPlayer(playerId) {

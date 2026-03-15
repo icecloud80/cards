@@ -670,9 +670,10 @@
         min-height: 152px;
       }
 
+      /* 玩家自己的本轮出牌区缩为原先约 2/3，并继续保持底部中轴对称。 */
       .trick-spot.bottom {
-        left: 29%;
-        right: 29%;
+        left: 36%;
+        right: 36%;
         bottom: 33.8%;
         min-height: 136px;
       }
@@ -994,7 +995,7 @@
       .focus-announcement.show {
         min-height: 48px;
         padding: 12px 14px;
-        background: linear-gradient(180deg, rgba(28, 47, 56, 0.96), rgba(15, 28, 35, 0.92));
+        background: linear-gradient(180deg, rgba(28, 47, 56, 0.32), rgba(15, 28, 35, 0.28));
         color: #f8f0dc;
         font-size: 20px;
         box-shadow: 0 12px 22px rgba(0, 0, 0, 0.18);
@@ -1003,15 +1004,15 @@
       }
 
       .focus-announcement.strong {
-        background: linear-gradient(180deg, rgba(157, 53, 43, 0.98), rgba(109, 29, 22, 0.94));
+        background: linear-gradient(180deg, rgba(157, 53, 43, 0.34), rgba(109, 29, 22, 0.3));
       }
 
       .focus-announcement.ally {
-        background: linear-gradient(180deg, rgba(41, 125, 86, 0.98), rgba(22, 85, 56, 0.94));
+        background: linear-gradient(180deg, rgba(41, 125, 86, 0.34), rgba(22, 85, 56, 0.3));
       }
 
       .focus-announcement.friend {
-        background: linear-gradient(180deg, rgba(225, 145, 53, 0.98), rgba(177, 96, 21, 0.94));
+        background: linear-gradient(180deg, rgba(225, 145, 53, 0.34), rgba(177, 96, 21, 0.3));
       }
 
       .center-tag {
@@ -1357,21 +1358,9 @@
         overflow: hidden;
       }
 
+      /* PC 底部手牌区取消顶部说明行，把垂直空间完整留给手牌分组。 */
       .hand-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 10px;
-      }
-
-      .hand-head .title {
-        font-size: 19px;
-      }
-
-      .hand-head span {
-        color: var(--muted);
-        font-size: 12px;
+        display: none;
       }
 
       .hand-groups {

@@ -729,6 +729,8 @@
         line-height: 1;
         letter-spacing: 0.2px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        pointer-events: none;
+        z-index: 2;
       }
 
       .spot-winning-badge {
@@ -743,6 +745,10 @@
         bottom: 10px;
         background: linear-gradient(180deg, rgba(120, 170, 186, 0.96), rgba(67, 120, 136, 0.96));
         color: #effbff;
+      }
+
+      .trick-spot.zoomable .spot-winning-badge {
+        top: 34px;
       }
 
       .spot-zoom {
@@ -1030,7 +1036,7 @@
       .focus-announcement.show {
         min-height: 48px;
         padding: 12px 14px;
-        background: linear-gradient(180deg, rgba(28, 47, 56, 0.32), rgba(15, 28, 35, 0.28));
+        background: linear-gradient(180deg, rgba(28, 47, 56, 0.96), rgba(15, 28, 35, 0.92));
         color: #f8f0dc;
         font-size: 20px;
         box-shadow: 0 12px 22px rgba(0, 0, 0, 0.18);
@@ -1039,15 +1045,15 @@
       }
 
       .focus-announcement.strong {
-        background: linear-gradient(180deg, rgba(157, 53, 43, 0.34), rgba(109, 29, 22, 0.3));
+        background: linear-gradient(180deg, rgba(157, 53, 43, 0.98), rgba(109, 29, 22, 0.94));
       }
 
       .focus-announcement.ally {
-        background: linear-gradient(180deg, rgba(41, 125, 86, 0.34), rgba(22, 85, 56, 0.3));
+        background: linear-gradient(180deg, rgba(41, 125, 86, 0.98), rgba(22, 85, 56, 0.94));
       }
 
       .focus-announcement.friend {
-        background: linear-gradient(180deg, rgba(225, 145, 53, 0.34), rgba(177, 96, 21, 0.3));
+        background: linear-gradient(180deg, rgba(225, 145, 53, 0.98), rgba(177, 96, 21, 0.94));
       }
 
       .center-tag {

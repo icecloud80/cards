@@ -202,6 +202,51 @@ function runIntermediateSearchSuite(context) {
       state.leadSpec = classifyPlay(state.currentTrick[0].cards);
     }
 
+    function resetPositiveSafeLeadState() {
+      state.gameOver = false;
+      state.phase = "playing";
+      state.aiDifficulty = "intermediate";
+      state.showDebugPanel = false;
+      state.playerLevels = { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
+      state.trumpSuit = "clubs";
+      state.levelRank = "2";
+      state.declaration = null;
+      state.currentTrick = [];
+      state.leadSpec = null;
+      state.currentTurnId = 3;
+      state.leaderId = 3;
+      state.bankerId = 1;
+      state.hiddenFriendId = 5;
+      state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, matchesSeen: 1 };
+      state.trickNumber = 10;
+      state.defenderPoints = 70;
+      state.playHistory = [];
+      state.lastAiDecision = null;
+      state.aiDecisionHistory = [];
+      state.aiDecisionHistorySeq = 0;
+      state.bottomCards = [makeCard("safe-bottom-h-5", "hearts", "5"), makeCard("safe-bottom-s-10", "spades", "10")];
+      state.exposedTrumpVoid = { 1: false, 2: false, 3: false, 4: false, 5: false };
+      state.exposedSuitVoid = {
+        1: { clubs: false, diamonds: false, spades: false, hearts: false },
+        2: { clubs: false, diamonds: false, spades: false, hearts: false },
+        3: { clubs: false, diamonds: false, spades: false, hearts: false },
+        4: { clubs: false, diamonds: false, spades: false, hearts: false },
+        5: { clubs: false, diamonds: false, spades: false, hearts: false },
+      };
+      state.players = [
+        basePlayer(1, [makeCard("safe-p1-d-a", "diamonds", "A")], true),
+        basePlayer(2, [makeCard("safe-p2-s-7", "spades", "7")]),
+        basePlayer(3, [
+          makeCard("safe-p3-h-a-1", "hearts", "A"),
+          makeCard("safe-p3-h-a-2", "hearts", "A"),
+          makeCard("safe-p3-c-a", "clubs", "A"),
+          makeCard("safe-p3-s-6", "spades", "6"),
+        ]),
+        basePlayer(4, [makeCard("safe-p4-s-8", "spades", "8")]),
+        basePlayer(5, [makeCard("safe-p5-h-6", "hearts", "6")]),
+      ];
+    }
+
     resetExtendedSearchState();
     const trickRollout = simulateCandidateToEndOfCurrentTrick(cloneSimulationState(state), 3, [state.players[2].hand[2]]);
     assert(trickRollout.completed, "simulateCandidateToEndOfCurrentTrick: should finish the current trick before extended search");
@@ -235,6 +280,8 @@ function runIntermediateSearchSuite(context) {
       3,
       getIntermediateObjective(3, "follow", cloneSimulationState(state))
     );
+    assert(accessBaseline.breakdown.turnAccess < 0, "evaluateState: before抢回当前墩时，牌权续控分应体现当前处于失控");
+    assert(accessBaseline.breakdown.controlRisk < 0, "evaluateState: before抢回当前墩时，失先手代价应为负值");
     const turnAccessRollout = getIntermediateRolloutSummary(
       3,
       [state.players[2].hand.find((card) => card.id === "risk-p3-c-7")],
@@ -246,6 +293,16 @@ function runIntermediateSearchSuite(context) {
     assert(turnAccessRollout.triggerFlags.includes("no_safe_next_lead"), "getIntermediateRolloutSummary: should flag when regained lead has no safe next opening");
     assert(turnAccessRollout.triggerFlags.includes("turn_access_risk"), "getIntermediateRolloutSummary: should mark when next lead likely hands control back to opponents");
     assert(turnAccessRollout.futureTrace.length > 0, "getIntermediateRolloutSummary: turn-access extension should preserve next-lead simulation trace");
+    assert(turnAccessRollout.nextEvaluation.breakdown.turnAccess > accessBaseline.breakdown.turnAccess, "evaluateState: 抢回当前墩后，牌权续控分应高于原始失控局面");
+    assert(turnAccessRollout.nextEvaluation.breakdown.safeLead < 0, "evaluateState: 抢回当前墩但下一拍没有安全起手时，残局安全起手值应为负值");
+
+    resetPositiveSafeLeadState();
+    const safeLeadEvaluation = evaluateState(
+      cloneSimulationState(state),
+      3,
+      getIntermediateObjective(3, "lead", cloneSimulationState(state))
+    );
+    assert(safeLeadEvaluation.breakdown.safeLead > 0, "evaluateState: 残局轮到自己首发且存在安全结构时，应给出正的残局安全起手值");
 
     globalThis.__intermediateSearchResults = {
       results: [
@@ -253,6 +310,7 @@ function runIntermediateSearchSuite(context) {
         "intermediate rollout depth escalation ok",
         "intermediate debug stats scaffold ok",
         "turn access risk extension ok",
+        "evaluateState turn access breakdown ok",
       ],
     };
   `;

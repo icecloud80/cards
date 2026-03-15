@@ -233,7 +233,7 @@ function runDeclarationStrategySuite(context) {
      * @returns {void} 直接把测试手牌写入玩家 2。
      *
      * 注意：
-     * - 这里的方块主总数只有 2 张级牌，不满足“大于 7 张”也不满足“达到手牌 1/4”。
+     * - 这里的方块主总数远低于“常主 + 主花色至少 10 张”的初级门槛。
      */
     function setupWeakSuitDeclareScenario(difficulty) {
       resetDeclarationState(difficulty);
@@ -284,6 +284,67 @@ function runDeclarationStrategySuite(context) {
         makeCard("s10", "spades", "10"),
         makeCard("dk", "diamonds", "K"),
         makeCard("ca", "clubs", "A"),
+      ]);
+    }
+
+    /**
+     * 作用：
+     * 搭建“常主不足时不应自动亮无主”的场景。
+     *
+     * 为什么这样写：
+     * 用户要求初级 AI 亮无主也至少要有 5 张常主，
+     * 这里用只有两张黑王的合法无主方案，验证它会被门槛拦下。
+     *
+     * 输入：
+     * @param {string} difficulty - 场景使用的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接把测试手牌写入玩家 2。
+     *
+     * 注意：
+     * - 这里不提供同花色级牌组合，确保合法最优方案就是无主。
+     */
+    function setupWeakNoTrumpDeclareScenario(difficulty) {
+      resetDeclarationState(difficulty);
+      state.players[1].hand = sortHand([
+        makeCard("bj-1", "joker", "BJ"),
+        makeCard("bj-2", "joker", "BJ"),
+        makeCard("c9", "clubs", "9"),
+        makeCard("d9", "diamonds", "9"),
+        makeCard("h8", "hearts", "8"),
+        makeCard("s8", "spades", "8"),
+        makeCard("ck", "clubs", "K"),
+        makeCard("ha", "hearts", "A"),
+      ]);
+    }
+
+    /**
+     * 作用：
+     * 搭建“常主足够时可以自动亮无主”的场景。
+     *
+     * 为什么这样写：
+     * 需要验证初级 AI 在常主数量足够时，不会把合法无主方案误拦掉。
+     *
+     * 输入：
+     * @param {string} difficulty - 场景使用的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接把测试手牌写入玩家 2。
+     *
+     * 注意：
+     * - 这里的 5 张常主由两张黑王和三张级牌组成。
+     */
+    function setupStrongNoTrumpDeclareScenario(difficulty) {
+      resetDeclarationState(difficulty);
+      state.players[1].hand = sortHand([
+        makeCard("bj-1", "joker", "BJ"),
+        makeCard("bj-2", "joker", "BJ"),
+        makeCard("d2-1", "diamonds", "2"),
+        makeCard("h2-1", "hearts", "2"),
+        makeCard("s2-1", "spades", "2"),
+        makeCard("c9", "clubs", "9"),
+        makeCard("d9", "diamonds", "9"),
+        makeCard("h8", "hearts", "8"),
       ]);
     }
 
@@ -364,7 +425,7 @@ function runDeclarationStrategySuite(context) {
      * 搭建“常主不足时不应自动反无主”的场景。
      *
      * 为什么这样写：
-     * 用户要求初级 AI 反无主至少持有 4 张常主，
+     * 用户要求初级 AI 反无主至少持有 5 张常主，
      * 这里需要验证只有两王时会被策略门槛拦下。
      *
      * 输入：
@@ -397,7 +458,7 @@ function runDeclarationStrategySuite(context) {
      * 搭建“常主足够时可以自动反无主”的场景。
      *
      * 为什么这样写：
-     * 需要验证 4 张及以上常主不会被新门槛误杀，保证初级仍能在明显强无主时出手。
+     * 需要验证 5 张及以上常主不会被新门槛误杀，保证初级仍能在明显强无主时出手。
      *
      * 输入：
      * @param {string} difficulty - 场景使用的 AI 难度。
@@ -421,6 +482,40 @@ function runDeclarationStrategySuite(context) {
         makeCard("c9", "clubs", "9"),
         makeCard("d9", "diamonds", "9"),
         makeCard("h8", "hearts", "8"),
+      ]);
+    }
+
+    /**
+     * 作用：
+     * 搭建“常主虽多但当前花色主更适合自己时不应反无主”的场景。
+     *
+     * 为什么这样写：
+     * 用户特别指出，反无主不能只看常主总数。
+     * 这里让玩家 2 虽然已经有 5 张常主，但在当前梅花主下还能额外吃到多张梅花主，
+     * 用来验证初级 AI 会识别“当前花色主已经明显更适合自己”，从而不轻率反无主。
+     *
+     * 输入：
+     * @param {string} difficulty - 场景使用的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前亮主和玩家 2 手牌。
+     *
+     * 注意：
+     * - 这里当前主牌总数比常主多出不止 1 张，因此应被视为更适合继续打花色主。
+     */
+    function setupSuitRichNoTrumpCounterScenario(difficulty) {
+      resetDeclarationState(difficulty);
+      state.phase = "countering";
+      state.declaration = { playerId: 3, suit: "clubs", rank: "2", count: 2, cards: [] };
+      state.players[1].hand = sortHand([
+        makeCard("bj-1", "joker", "BJ"),
+        makeCard("bj-2", "joker", "BJ"),
+        makeCard("d2-1", "diamonds", "2"),
+        makeCard("h2-1", "hearts", "2"),
+        makeCard("s2-1", "spades", "2"),
+        makeCard("cA", "clubs", "A"),
+        makeCard("cK", "clubs", "K"),
+        makeCard("cQ", "clubs", "Q"),
       ]);
     }
 
@@ -485,6 +580,15 @@ function runDeclarationStrategySuite(context) {
     assert(getAutoDeclarationForPlayer(2)?.suit === "spades", "beginner: long-suit declaration should pass heuristic");
     results.push("beginner long-suit auto declare allowed");
 
+    setupWeakNoTrumpDeclareScenario("beginner");
+    assert(getBestDeclarationForPlayer(2)?.suit === "notrump", "beginner: legal no-trump declaration should still exist");
+    assert(getAutoDeclarationForPlayer(2) === null, "beginner: no-trump declaration should require at least five common trumps");
+    results.push("beginner weak no-trump declare blocked");
+
+    setupStrongNoTrumpDeclareScenario("beginner");
+    assert(getAutoDeclarationForPlayer(2)?.suit === "notrump", "beginner: strong no-trump declaration should pass common-trump heuristic");
+    results.push("beginner strong no-trump declare allowed");
+
     setupWeakNoTrumpCounterScenario("beginner");
     assert(getCounterDeclarationForPlayer(2)?.suit === "notrump", "beginner: legal no-trump counter should still exist");
     assert(getAutoCounterDeclarationForPlayer(2) === null, "beginner: no-trump counter should require at least five common trumps");
@@ -493,6 +597,11 @@ function runDeclarationStrategySuite(context) {
     setupStrongNoTrumpCounterScenario("beginner");
     assert(getAutoCounterDeclarationForPlayer(2)?.suit === "notrump", "beginner: strong no-trump counter should pass common-trump heuristic");
     results.push("beginner strong no-trump counter allowed");
+
+    setupSuitRichNoTrumpCounterScenario("beginner");
+    assert(getCounterDeclarationForPlayer(2)?.suit === "notrump", "beginner: legal no-trump counter should still exist when clubs are long");
+    assert(getAutoCounterDeclarationForPlayer(2) === null, "beginner: no-trump counter should be skipped when current suit trump is already clearly better");
+    results.push("beginner suit-rich no-trump counter blocked");
 
     setupIntermediateWeakCounterScenario();
     assert(getCounterDeclarationForPlayer(2)?.suit === "notrump", "intermediate: legal counter option should still be no-trump");

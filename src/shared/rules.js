@@ -18,17 +18,21 @@ function createDeck() {
       suit: "joker",
       rank: "BJ",
       pack,
-      img: `${CARD_ASSET_DIR}/black_joker.svg`,
+      img: getJokerImage("BJ"),
     });
     deck.push({
       id: `c-${pack}-joker-RJ-${seq++}`,
       suit: "joker",
       rank: "RJ",
       pack,
-      img: `${CARD_ASSET_DIR}/red_joker.svg`,
+      img: getJokerImage("RJ"),
     });
   }
   return shuffle(deck);
+}
+
+function getJokerImage(rank) {
+  return `${getCurrentCardAssetDir()}/${rank === "RJ" ? "red_joker" : "black_joker"}.svg`;
 }
 
 function getCardImage(suit, rank) {
@@ -38,7 +42,14 @@ function getCardImage(suit, rank) {
     Q: "queen",
     J: "jack",
   }[rank] || rank;
-  return `${CARD_ASSET_DIR}/${rankName}_of_${suit}.svg`;
+  return `${getCurrentCardAssetDir()}/${rankName}_of_${suit}.svg`;
+}
+
+function resolveCardImage(card) {
+  if (!card) return "";
+  if (card.suit === "joker") return getJokerImage(card.rank);
+  if (card.suit && card.rank) return getCardImage(card.suit, card.rank);
+  return card.img || "";
 }
 
 function shuffle(items) {
@@ -488,12 +499,32 @@ function classifyPlay(cards) {
   return { ok: false, type: "invalid", count: sorted.length, suit };
 }
 
+function getThrowComponentShape(component) {
+  if (!component) return "";
+  return `${component.type}:${component.chainLength || 0}:${component.count || 0}`;
+}
+
+function getThrowShapeSignature(pattern) {
+  if (!pattern || pattern.type !== "throw" || !Array.isArray(pattern.components)) return "";
+  return [...pattern.components]
+    .map(getThrowComponentShape)
+    .sort()
+    .join("|");
+}
+
+function matchesThrowShape(pattern, leadSpec) {
+  return getThrowShapeSignature(pattern) !== "" && getThrowShapeSignature(pattern) === getThrowShapeSignature(leadSpec);
+}
+
 function matchesLeadPattern(pattern, leadSpec) {
   if (!pattern?.ok || !leadSpec) return false;
   if (pattern.count !== leadSpec.count) return false;
   if (pattern.type !== leadSpec.type) return false;
   if (pattern.type === "tractor" || pattern.type === "train" || pattern.type === "bulldozer") {
     return pattern.chainLength === leadSpec.chainLength;
+  }
+  if (pattern.type === "throw") {
+    return matchesThrowShape(pattern, leadSpec);
   }
   return true;
 }
@@ -506,7 +537,7 @@ function hasMatchingPattern(cards, leadSpec) {
   if (leadSpec.type === "tractor") return findSerialTuples(cards, 2, leadSpec.chainLength).length > 0;
   if (leadSpec.type === "train") return findSerialTuples(cards, 2, leadSpec.chainLength).some((combo) => classifyPlay(combo).type === "train");
   if (leadSpec.type === "bulldozer") return findSerialTuples(cards, 3, leadSpec.chainLength).length > 0;
-  if (leadSpec.type === "throw") return cards.length >= leadSpec.count;
+  if (leadSpec.type === "throw") return getPatternCombos(cards, leadSpec).length > 0;
   return false;
 }
 
@@ -520,7 +551,11 @@ function getPatternCombos(cards, leadSpec) {
   if (leadSpec.type === "bulldozer") return findSerialTuples(cards, 3, leadSpec.chainLength);
   if (leadSpec.type === "throw") {
     return enumerateCombinations(cards, leadSpec.count)
-      .filter((combo) => isSameSuitSet(combo) && classifyPlay(combo).ok)
+      .filter((combo) => {
+        if (!isSameSuitSet(combo)) return false;
+        const pattern = classifyPlay(combo);
+        return pattern.ok && pattern.type === "throw" && matchesThrowShape(pattern, leadSpec);
+      })
       .sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
   }
   return [];
@@ -549,6 +584,15 @@ function enumerateCombinations(cards, count) {
 }
 
 function compareSameTypePlay(candidatePattern, currentPattern, leadSuit) {
+  if (candidatePattern.type === "throw" && currentPattern.type === "throw") {
+    const candidateComponents = [...candidatePattern.components].sort((a, b) => (b.power ?? 0) - (a.power ?? 0));
+    const currentComponents = [...currentPattern.components].sort((a, b) => (b.power ?? 0) - (a.power ?? 0));
+    for (let i = 0; i < Math.min(candidateComponents.length, currentComponents.length); i += 1) {
+      const diff = compareSameTypePlay(candidateComponents[i], currentComponents[i], leadSuit);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  }
   const candidateTrump = candidatePattern.suit === "trump";
   const currentTrump = currentPattern.suit === "trump";
   if (candidateTrump && !currentTrump) return 1;

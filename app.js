@@ -61,6 +61,8 @@ const PLAYER_AVATARS = {
   5: { label: "狼", src: "./avatars/wolf.svg" },
 };
 const LAYOUT_STORAGE_KEY = "five-friends-layout-v9";
+const PROGRESS_COOKIE_KEY = "five_friends_progress_v1";
+const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
   return acc;
@@ -110,6 +112,8 @@ const dom = {
   beatBtn: document.getElementById("beatBtn"),
   hintBtn: document.getElementById("hintBtn"),
   playBtn: document.getElementById("playBtn"),
+  newProgressBtn: document.getElementById("newProgressBtn"),
+  continueGameBtn: document.getElementById("continueGameBtn"),
   declareBtn: document.getElementById("declareBtn"),
   passCounterBtn: document.getElementById("passCounterBtn"),
   logPanel: document.getElementById("logPanel"),
@@ -185,6 +189,8 @@ const state = {
   bottomRevealMessage: "",
   exposedTrumpVoid: {},
   awaitingHumanDeclaration: false,
+  hasSavedProgress: false,
+  startSelection: null,
 };
 
 function createDeck() {
@@ -341,6 +347,79 @@ function saveLayoutState() {
   window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layouts));
 }
 
+function normalizePlayerLevels(levels) {
+  return PLAYER_ORDER.reduce((acc, playerId) => {
+    const value = levels?.[playerId] ?? levels?.[String(playerId)];
+    acc[playerId] = RANKS.includes(value) ? value : INITIAL_LEVELS[playerId];
+    return acc;
+  }, {});
+}
+
+function readCookieValue(name) {
+  const encodedName = `${name}=`;
+  return document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith(encodedName))
+    ?.slice(encodedName.length) || "";
+}
+
+function loadProgressFromCookie() {
+  const raw = readCookieValue(PROGRESS_COOKIE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw));
+    return normalizePlayerLevels(parsed.playerLevels);
+  } catch {
+    document.cookie = `${PROGRESS_COOKIE_KEY}=; Max-Age=0; path=/; SameSite=Lax`;
+    return null;
+  }
+}
+
+function saveProgressToCookie(levels = state.playerLevels) {
+  const playerLevels = normalizePlayerLevels(levels);
+  const payload = encodeURIComponent(JSON.stringify({
+    playerLevels,
+    savedAt: Date.now(),
+  }));
+  document.cookie = `${PROGRESS_COOKIE_KEY}=${payload}; Max-Age=${PROGRESS_COOKIE_MAX_AGE}; path=/; SameSite=Lax`;
+  state.hasSavedProgress = true;
+}
+
+function refreshSavedProgressAvailability() {
+  state.hasSavedProgress = !!loadProgressFromCookie();
+}
+
+function getReadyStartMessage() {
+  if (!state.startSelection) {
+    return state.hasSavedProgress
+      ? "请选择“新的游戏”或“继续游戏”。继续游戏会读取浏览器中保存的 5 位玩家等级进度。"
+      : "请选择“新的游戏”开始。本浏览器里还没有可继续的等级进度。";
+  }
+  const actionLabel = state.startSelection === "continue" ? "已读取浏览器中的等级进度" : "已创建新的等级进度";
+  return `${actionLabel}。当前由玩家${state.nextFirstDealPlayerId || 1}先抓牌，点击“开始发牌”后进入抓牌与亮主流程。`;
+}
+
+function startNewProgress() {
+  state.playerLevels = { ...INITIAL_LEVELS };
+  state.startSelection = "new";
+  saveProgressToCookie();
+  setupGame();
+}
+
+function continueSavedProgress() {
+  const savedLevels = loadProgressFromCookie();
+  if (!savedLevels) {
+    state.hasSavedProgress = false;
+    state.startSelection = null;
+    render();
+    return;
+  }
+  state.playerLevels = savedLevels;
+  state.hasSavedProgress = true;
+  state.startSelection = "continue";
+  setupGame();
+}
+
 function applySavedLayoutState() {
   const raw = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
   if (!raw) return;
@@ -392,6 +471,7 @@ function resetLayoutState() {
 function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);
+  refreshSavedProgressAvailability();
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
   state.players = PLAYER_ORDER.map((id) => ({
@@ -447,7 +527,7 @@ function setupGame() {
   state.dealCards = deck.splice(0, 31 * 5);
   state.bottomCards = deck.splice(0, 7);
 
-  appendLog(`新牌局已准备好。下一局由玩家${state.currentTurnId}先抓牌，点击“开始发牌”后正式进入发牌阶段。`);
+  appendLog(getReadyStartMessage());
 
   render();
 }
@@ -1343,6 +1423,7 @@ function updateResultCountdownLabel() {
 
 function goToMainMenu() {
   dom.resultOverlay.classList.remove("show");
+  state.startSelection = null;
   setupGame();
 }
 
@@ -2751,6 +2832,7 @@ function applyLevelSettlement(outcome, bankerPenalty = null) {
   }
   syncPlayerLevels();
   state.levelRank = null;
+  saveProgressToCookie();
 }
 
 function getLevelSettlementSummary(outcome) {
@@ -3039,7 +3121,7 @@ function renderScorePanel() {
   dom.timerHint.textContent = state.gameOver
     ? "本局已结束"
     : state.phase === "ready"
-      ? `新牌局已就绪。当前由玩家${state.nextFirstDealPlayerId || 1}先抓牌，点击“开始发牌”后进入抓牌与亮主流程。`
+      ? getReadyStartMessage()
     : state.phase === "dealing"
       ? (state.awaitingHumanDeclaration
         ? "发牌结束。其他玩家都没有亮主，玩家1可在 15 秒内决定是否补亮；超时后再翻底定主。"
@@ -3197,7 +3279,7 @@ function renderTrickSpots() {
 function renderHand() {
   const human = getPlayer(1);
   if (state.phase === "ready") {
-    dom.handSummary.textContent = `新牌局已准备好。你当前是 Lv:${human.level}，本局由玩家${state.nextFirstDealPlayerId || 1}先抓牌，点击“开始发牌”后进入抓牌和亮主。`;
+    dom.handSummary.textContent = `${getReadyStartMessage()} 你当前是 Lv:${human.level}。`;
   } else if (state.phase === "dealing") {
     const humanOptions = getDeclarationOptions(1);
     dom.handSummary.textContent = state.awaitingHumanDeclaration
@@ -3227,8 +3309,8 @@ function renderHand() {
   }
   const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
   const specialLabel = isSetupPhase
-    ? (state.declaration ? "当前主牌 / 王" : "级牌 / 王")
-    : "主牌 / 王";
+    ? (state.declaration ? "当前主牌" : "级牌 / 王")
+    : "主牌";
   const setupLevelRank = human.level;
   const groups = [
     { key: "trump", label: specialLabel, red: true },
@@ -3313,7 +3395,9 @@ function toggleSelection(cardId) {
 
 function updateActionHint() {
   if (state.phase === "ready") {
-    dom.actionHint.textContent = "新牌局等待开始。点击“开始发牌”后，大家才会从空手进入逐张发牌。";
+    dom.actionHint.textContent = state.startSelection
+      ? "开始界面已就绪。点击“开始发牌”后，大家会从空手进入逐张发牌。"
+      : "请先选择“新的游戏”或“继续游戏”，再开始发牌。";
     return;
   }
   if (state.phase === "dealing") {
@@ -3433,6 +3517,13 @@ function renderFriendPicker() {
     { value: "clubs", label: "梅花" },
     { value: "joker", label: "王" },
   ];
+  const suitGlyphMap = {
+    hearts: { glyph: "♥", tone: "red" },
+    spades: { glyph: "♠", tone: "black" },
+    diamonds: { glyph: "♦", tone: "red" },
+    clubs: { glyph: "♣", tone: "black" },
+    joker: { glyph: "王", tone: "gold" },
+  };
   const occurrenceOptions = [
     { value: 1, label: "第一张" },
     { value: 2, label: "第二张" },
@@ -3453,14 +3544,19 @@ function renderFriendPicker() {
     .map((option) => `<button type="button" class="tiny-btn${state.selectedFriendOccurrence === option.value ? " alert" : ""}" data-friend-occurrence="${option.value}">${option.label}</button>`)
     .join("");
   dom.friendSuitOptions.innerHTML = suitOptions
-    .map((option) => `<button type="button" class="tiny-btn${state.selectedFriendSuit === option.value ? " alert" : ""}" data-friend-suit="${option.value}">${option.label}</button>`)
+    .map((option) => {
+      const glyph = suitGlyphMap[option.value] || { glyph: option.label, tone: "black" };
+      return `<button type="button" class="tiny-btn friend-suit-btn${state.selectedFriendSuit === option.value ? " alert" : ""}" data-friend-suit="${option.value}" aria-label="${option.label}">
+        <span class="friend-picker-suit-glyph ${glyph.tone}">${glyph.glyph}</span>
+      </button>`;
+    })
     .join("");
   dom.friendRankOptions.innerHTML = rankOptions
-    .map((option) => `<button type="button" class="tiny-btn${state.selectedFriendRank === option.value ? " alert" : ""}" data-friend-rank="${option.value}">${option.label}</button>`)
+    .map((option) => `<button type="button" class="tiny-btn friend-rank-btn${state.selectedFriendRank === option.value ? " alert" : ""}" data-friend-rank="${option.value}">${option.label}</button>`)
     .join("");
   dom.friendPickerPreview.innerHTML = `
     <div class="subtle">当前将叫：${previewTarget.label}</div>
-    <div style="margin-top:10px;">${buildCardNode(previewTarget, "friend-card").outerHTML}</div>
+    <div>${buildCardNode(previewTarget, "friend-card").outerHTML}</div>
   `;
 }
 
@@ -3555,8 +3651,15 @@ function renderCenterPanel() {
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
   dom.passCounterBtn.disabled = state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1;
   dom.passCounterBtn.hidden = state.phase !== "countering" || state.currentTurnId !== 1;
+  dom.newProgressBtn.hidden = state.phase !== "ready";
+  dom.newProgressBtn.disabled = state.gameOver || state.phase !== "ready";
+  dom.newProgressBtn.classList.toggle("primary", state.startSelection === "new");
+  dom.continueGameBtn.hidden = state.phase !== "ready";
+  dom.continueGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.hasSavedProgress;
+  dom.continueGameBtn.classList.toggle("primary", state.startSelection === "continue");
+  dom.continueGameBtn.textContent = state.hasSavedProgress ? "继续游戏" : "继续游戏（无存档）";
   dom.startGameBtn.hidden = state.phase !== "ready";
-  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready";
+  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.startSelection;
 }
 
 function isHumanTurnActive() {
@@ -3564,8 +3667,18 @@ function isHumanTurnActive() {
 }
 
 dom.startGameBtn.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready") return;
+  if (state.gameOver || state.phase !== "ready" || !state.startSelection) return;
   startDealing();
+});
+
+dom.newProgressBtn.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "ready") return;
+  startNewProgress();
+});
+
+dom.continueGameBtn.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "ready") return;
+  continueSavedProgress();
 });
 
 dom.playBtn.addEventListener("click", () => {
@@ -3734,7 +3847,7 @@ dom.closeRulesBtn.addEventListener("click", () => {
   renderLogs();
 });
 
-dom.newGameBtn.addEventListener("click", setupGame);
+dom.newGameBtn.addEventListener("click", startNewProgress);
 
 dom.restartBtn.addEventListener("click", () => {
   beginNextGame(true);

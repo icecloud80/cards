@@ -37,7 +37,7 @@ function render() {
           cards: (state.declaration.cards || []).map((card) => ({
             suit: card.suit,
             rank: card.rank,
-            img: card.img,
+            img: resolveCardImage(card),
           })),
         }
       : null,
@@ -203,13 +203,17 @@ function renderScorePanel() {
   const visibleDefenderPoints = getVisibleDefenderPoints();
   dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
   dom.toggleLastTrickBtn.textContent = state.showLastTrick ? TEXT.buttons.toggleLastTrickClose : TEXT.buttons.toggleLastTrickOpen;
+  if (dom.toggleCardFaceBtn) {
+    dom.toggleCardFaceBtn.textContent = TEXT.buttons.cardFace(getCurrentCardFaceOption().label);
+    dom.toggleCardFaceBtn.disabled = CARD_FACE_OPTIONS.length <= 1;
+  }
   dom.turnTimer.textContent = (state.phase === "ready" || (state.phase === "dealing" && !state.awaitingHumanDeclaration) || state.phase === "callingFriend" || state.phase === "ending")
     ? "--"
     : String(Math.max(0, state.countdown));
   dom.timerHint.textContent = state.gameOver
     ? TEXT.scorePanel.ended
     : state.phase === "ready"
-      ? TEXT.scorePanel.ready(state.nextFirstDealPlayerId || 1)
+      ? getReadyStartMessage()
     : state.phase === "dealing"
       ? (state.awaitingHumanDeclaration
         ? TEXT.scorePanel.dealingAwaitHuman
@@ -367,7 +371,7 @@ function renderTrickSpots() {
 function renderHand() {
   const human = getPlayer(1);
   if (state.phase === "ready") {
-    dom.handSummary.textContent = TEXT.hand.ready(human.level, state.nextFirstDealPlayerId || 1);
+    dom.handSummary.textContent = `${getReadyStartMessage()} 你当前是 Lv:${human.level}。`;
   } else if (state.phase === "dealing") {
     const humanOptions = getDeclarationOptions(1);
     dom.handSummary.textContent = state.awaitingHumanDeclaration
@@ -457,7 +461,7 @@ function buildCardNode(card, className) {
   node.className = className;
   node.setAttribute("aria-label", shortCardLabel(card));
   const image = document.createElement("img");
-  image.src = card.img;
+  image.src = resolveCardImage(card);
   image.alt = shortCardLabel(card);
   node.appendChild(image);
   return node;
@@ -477,7 +481,9 @@ function toggleSelection(cardId) {
 
 function updateActionHint() {
   if (state.phase === "ready") {
-    dom.actionHint.textContent = TEXT.actionHint.ready;
+    dom.actionHint.textContent = state.startSelection
+      ? "开始界面已就绪。点击“开始发牌”后，大家会从空手进入逐张发牌。"
+      : "请先选择“新的游戏”或“继续游戏”，再开始发牌。";
     return;
   }
   if (state.phase === "dealing") {
@@ -592,6 +598,13 @@ function renderFriendPicker() {
 
   const suitOptions = TEXT.friendPicker.suitOptions;
   const occurrenceOptions = TEXT.friendPicker.occurrenceOptions;
+  const suitGlyphMap = {
+    hearts: { glyph: "♥", tone: "red" },
+    spades: { glyph: "♠", tone: "black" },
+    diamonds: { glyph: "♦", tone: "red" },
+    clubs: { glyph: "♣", tone: "black" },
+    joker: { glyph: "王", tone: "gold" },
+  };
   const rankOptions = getFriendPickerRanksForSuit(state.selectedFriendSuit);
   if (!rankOptions.some((entry) => entry.value === state.selectedFriendRank)) {
     state.selectedFriendRank = rankOptions[0]?.value || "A";
@@ -607,14 +620,19 @@ function renderFriendPicker() {
     .map((option) => `<button type="button" class="tiny-btn${state.selectedFriendOccurrence === option.value ? " alert" : ""}" data-friend-occurrence="${option.value}">${option.label}</button>`)
     .join("");
   dom.friendSuitOptions.innerHTML = suitOptions
-    .map((option) => `<button type="button" class="tiny-btn${state.selectedFriendSuit === option.value ? " alert" : ""}" data-friend-suit="${option.value}">${option.label}</button>`)
+    .map((option) => {
+      const glyph = suitGlyphMap[option.value] || { glyph: option.label, tone: "black" };
+      return `<button type="button" class="tiny-btn friend-suit-btn${state.selectedFriendSuit === option.value ? " alert" : ""}" data-friend-suit="${option.value}" aria-label="${option.label}">
+        <span class="friend-picker-suit-glyph ${glyph.tone}">${glyph.glyph}</span>
+      </button>`;
+    })
     .join("");
   dom.friendRankOptions.innerHTML = rankOptions
-    .map((option) => `<button type="button" class="tiny-btn${state.selectedFriendRank === option.value ? " alert" : ""}" data-friend-rank="${option.value}">${option.label}</button>`)
+    .map((option) => `<button type="button" class="tiny-btn friend-rank-btn${state.selectedFriendRank === option.value ? " alert" : ""}" data-friend-rank="${option.value}">${option.label}</button>`)
     .join("");
   dom.friendPickerPreview.innerHTML = `
     <div class="subtle">${TEXT.friend.pickerPreview(previewTarget.label)}</div>
-    <div style="margin-top:10px;">${buildCardNode(previewTarget, "friend-card").outerHTML}</div>
+    <div>${buildCardNode(previewTarget, "friend-card").outerHTML}</div>
   `;
 }
 
@@ -691,13 +709,15 @@ function renderCenterPanel() {
     dom.declareBtn.textContent = humanCounter
       ? (humanCounter.suit === "notrump"
         ? getNoTrumpCounterLabel(humanCounter)
-        : `反主${getActionSuitLabel(humanCounter)} x${humanCounter.count}`)
+        : `反${getActionSuitLabel(humanCounter)} ${humanCounter.count}张`)
       : TEXT.buttons.counter;
   } else if (state.phase === "dealing") {
     if (humanDeclaration) {
-      dom.declareBtn.textContent = state.declaration
-        ? `抢亮${getActionSuitLabel(humanDeclaration)}主`
-        : `亮${getActionSuitLabel(humanDeclaration)}主`;
+      dom.declareBtn.textContent = humanDeclaration.suit === "notrump"
+        ? (state.declaration ? `抢亮${getNoTrumpDeclarationLabel(humanDeclaration)}无主` : `亮${getNoTrumpDeclarationLabel(humanDeclaration)}无主`)
+        : (state.declaration
+          ? `抢亮${getActionSuitLabel(humanDeclaration)} ${humanDeclaration.count}张`
+          : `亮${getActionSuitLabel(humanDeclaration)} ${humanDeclaration.count}张`);
     } else {
       dom.declareBtn.textContent = state.declaration ? TEXT.buttons.redeclare : TEXT.buttons.declare;
     }
@@ -709,6 +729,13 @@ function renderCenterPanel() {
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
   dom.passCounterBtn.disabled = state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1;
   dom.passCounterBtn.hidden = state.phase !== "countering" || state.currentTurnId !== 1;
+  dom.newProgressBtn.hidden = state.phase !== "ready";
+  dom.newProgressBtn.disabled = state.gameOver || state.phase !== "ready";
+  dom.newProgressBtn.classList.toggle("primary", state.startSelection === "new");
+  dom.continueGameBtn.hidden = state.phase !== "ready";
+  dom.continueGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.hasSavedProgress;
+  dom.continueGameBtn.classList.toggle("primary", state.startSelection === "continue");
+  dom.continueGameBtn.textContent = state.hasSavedProgress ? "继续游戏" : "继续游戏（无存档）";
   dom.startGameBtn.hidden = state.phase !== "ready";
-  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready";
+  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.startSelection;
 }

@@ -63,8 +63,53 @@ const PLAYER_AVATARS = {
   5: { label: "狼", src: "./avatars/wolf.svg" },
 };
 const APP_PLATFORM = window.APP_PLATFORM || "pc";
-const CARD_ASSET_DIR = window.CARD_ASSET_DIR || "./cards";
+const FALLBACK_CARD_ASSET_DIR = window.CARD_ASSET_DIR || "./cards";
+const CARD_FACE_OPTIONS = Array.isArray(window.CARD_FACE_OPTIONS) && window.CARD_FACE_OPTIONS.length > 0
+  ? window.CARD_FACE_OPTIONS
+  : [{ key: "default", label: "默认", dir: FALLBACK_CARD_ASSET_DIR }];
+const DEFAULT_CARD_FACE_KEY = CARD_FACE_OPTIONS.some((option) => option.key === window.DEFAULT_CARD_FACE_KEY)
+  ? window.DEFAULT_CARD_FACE_KEY
+  : CARD_FACE_OPTIONS[0].key;
+const CARD_FACE_STORAGE_KEY = `five-friends-card-face-${APP_PLATFORM}-v1`;
 const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
+const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
+const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function getCardFaceOption(key = DEFAULT_CARD_FACE_KEY) {
+  return CARD_FACE_OPTIONS.find((option) => option.key === key) || CARD_FACE_OPTIONS[0];
+}
+
+function loadSavedCardFaceKey() {
+  try {
+    const saved = window.localStorage.getItem(CARD_FACE_STORAGE_KEY);
+    return saved && CARD_FACE_OPTIONS.some((option) => option.key === saved) ? saved : DEFAULT_CARD_FACE_KEY;
+  } catch (error) {
+    return DEFAULT_CARD_FACE_KEY;
+  }
+}
+
+function saveCardFaceKey(key) {
+  try {
+    window.localStorage.setItem(CARD_FACE_STORAGE_KEY, getCardFaceOption(key).key);
+  } catch (error) {
+    // Ignore storage failures so the game still works in private mode.
+  }
+}
+
+function getCurrentCardFaceOption() {
+  return getCardFaceOption(state.cardFaceKey);
+}
+
+function getCurrentCardAssetDir() {
+  return getCurrentCardFaceOption().dir || FALLBACK_CARD_ASSET_DIR;
+}
+
+function getNextCardFaceOption() {
+  const currentIndex = CARD_FACE_OPTIONS.findIndex((option) => option.key === state.cardFaceKey);
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % CARD_FACE_OPTIONS.length : 0;
+  return CARD_FACE_OPTIONS[nextIndex] || CARD_FACE_OPTIONS[0];
+}
+
 const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   acc[id] = "2";
   return acc;
@@ -107,6 +152,7 @@ const dom = {
   toggleLogBtn: document.getElementById("toggleLogBtn"),
   toggleBottomBtn: document.getElementById("toggleBottomBtn"),
   toggleRulesBtn: document.getElementById("toggleRulesBtn"),
+  toggleCardFaceBtn: document.getElementById("toggleCardFaceBtn"),
   layoutEditBtn: document.getElementById("layoutEditBtn"),
   resetLayoutBtn: document.getElementById("resetLayoutBtn"),
   newGameBtn: document.getElementById("newGameBtn"),
@@ -114,6 +160,8 @@ const dom = {
   beatBtn: document.getElementById("beatBtn"),
   hintBtn: document.getElementById("hintBtn"),
   playBtn: document.getElementById("playBtn"),
+  newProgressBtn: document.getElementById("newProgressBtn"),
+  continueGameBtn: document.getElementById("continueGameBtn"),
   declareBtn: document.getElementById("declareBtn"),
   passCounterBtn: document.getElementById("passCounterBtn"),
   logPanel: document.getElementById("logPanel"),
@@ -180,6 +228,7 @@ const state = {
   showLogPanel: true,
   showBottomPanel: true,
   showRulesPanel: false,
+  cardFaceKey: loadSavedCardFaceKey(),
   logs: [],
   gameOver: false,
   selectedFriendOccurrence: 1,
@@ -190,4 +239,48 @@ const state = {
   exposedTrumpVoid: {},
   exposedSuitVoid: {},
   awaitingHumanDeclaration: false,
+  hasSavedProgress: false,
+  startSelection: null,
 };
+
+function normalizePlayerLevels(levels) {
+  return PLAYER_ORDER.reduce((acc, playerId) => {
+    const value = levels?.[playerId] ?? levels?.[String(playerId)];
+    acc[playerId] = RANKS.includes(value) ? value : INITIAL_LEVELS[playerId];
+    return acc;
+  }, {});
+}
+
+function readCookieValue(name) {
+  const encodedName = `${name}=`;
+  return document.cookie
+    .split("; ")
+    .find((entry) => entry.startsWith(encodedName))
+    ?.slice(encodedName.length) || "";
+}
+
+function loadProgressFromCookie() {
+  const raw = readCookieValue(PROGRESS_COOKIE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw));
+    return normalizePlayerLevels(parsed.playerLevels);
+  } catch (error) {
+    document.cookie = `${PROGRESS_COOKIE_KEY}=; Max-Age=0; path=/; SameSite=Lax`;
+    return null;
+  }
+}
+
+function saveProgressToCookie(levels = state.playerLevels) {
+  const playerLevels = normalizePlayerLevels(levels);
+  const payload = encodeURIComponent(JSON.stringify({
+    playerLevels,
+    savedAt: Date.now(),
+  }));
+  document.cookie = `${PROGRESS_COOKIE_KEY}=${payload}; Max-Age=${PROGRESS_COOKIE_MAX_AGE}; path=/; SameSite=Lax`;
+  state.hasSavedProgress = true;
+}
+
+function refreshSavedProgressAvailability() {
+  state.hasSavedProgress = !!loadProgressFromCookie();
+}

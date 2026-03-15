@@ -10,9 +10,9 @@ const TEXT = {
     3: "第三张",
   },
   declarations: {
-    noTrumpCounterBig: "对大王反无主",
-    noTrumpCounterSmall: "对小王反无主",
-    noTrumpCounterDefault: "反无主",
+    noTrumpCounterBig: "大王反无主",
+    noTrumpCounterSmall: "小王反无主",
+    noTrumpCounterDefault: "王反无主",
     bottomNoTrump: "翻底定无主",
     bottomSuitPrefix: "翻底定主 ",
     notRevealed: "尚未亮主 · 各家按自己的 Lv 亮主",
@@ -37,6 +37,7 @@ const TEXT = {
     startGame: "开始发牌",
     toggleLastTrickOpen: "上一轮",
     toggleLastTrickClose: "收起上一轮",
+    cardFace: (label) => `牌面：${label}`,
   },
   patterns: {
     triple: "刻子",
@@ -136,7 +137,7 @@ const TEXT = {
     ended: "本局已结束",
     ready: (firstPlayerId) => `新牌局已就绪。当前由玩家${firstPlayerId}先抓牌，点击“开始发牌”后进入抓牌与亮主流程。`,
     dealingAwaitHuman: "发牌结束。其他玩家都没有亮主，玩家1可在 15 秒内决定是否补亮；超时后再翻底定主。",
-    dealing: "发牌进行中，每位玩家用自己当前 Lv 对应的级牌亮主或抢亮；若始终无人亮主，则由先抓牌玩家翻底定主做打家。打无主时，王和本局级牌都算主。",
+    dealing: "发牌进行中，可用 2/3 张同花色级牌亮主，也可用 2/3 张同色王亮无主；若始终无人亮主，则由先抓牌玩家翻底定主做打家。打无主时，王和本局级牌都算主。",
     bottomReveal: (message) => `${message} 底牌公开展示 30 秒后进入扣底。`,
     countering: (playerId) => `最后反主阶段：当前轮到玩家${playerId}，30 秒内决定是否反主。`,
     buryingSelf: "你已拿起底牌，请在 60 秒内选 7 张重新扣底。",
@@ -180,7 +181,7 @@ const TEXT = {
     dealingAwaitHuman: (count, countdown, options) => `当前共 ${count} 张，其他玩家都没亮主；你可在 ${countdown} 秒内补亮：${options.join(" / ")}。`,
     dealingAwaitHumanNoOption: (count) => `当前共 ${count} 张，其他玩家都没亮主，等待翻底定主。`,
     dealingCanDeclare: (count, options) => `当前共 ${count} 张，已可亮主：${options.join(" / ")}。`,
-    dealingNoDeclare: (count, level) => `当前共 ${count} 张，发牌中按花色分组显示；你当前是 Lv:${level}，拿到同花色两张 ${level} 即可亮主。`,
+    dealingNoDeclare: (count, level) => `当前共 ${count} 张，发牌中按花色分组显示；你当前是 Lv:${level}，拿到 2/3 张同花色 ${level} 或 2/3 张同色王即可亮主。`,
     counteringCan: (count, option) => `当前共 ${count} 张，你可以用 ${option} 进行最后反主。`,
     counteringCannot: (count) => `当前共 ${count} 张，你没有更强主牌可用于最后反主。`,
     bottomReveal: (count) => `当前共 ${count} 张，正在展示翻底定主结果；30 秒后由打家拿底并扣底。`,
@@ -189,20 +190,20 @@ const TEXT = {
     callingFriendSelf: (count) => `当前共 ${count} 张，请先在弹出的菜单里叫朋友，再进入首轮出牌。`,
     callingFriendOther: (count) => `当前共 ${count} 张，等待打家叫朋友。`,
     playing: (count) => `当前共 ${count} 张，点击牌即可选择；首家支持单张、对子、拖拉机、8 张含以上的宇宙飞船、刻子、推土机和甩牌。`,
-    setupSpecialLabelWithTrump: "当前主牌 / 王",
+    setupSpecialLabelWithTrump: "当前主牌",
     setupSpecialLabelWithoutTrump: "级牌 / 王",
-    specialLabelNormal: "主牌 / 王",
+    specialLabelNormal: "主牌",
   },
   actionHint: {
     ready: "新牌局等待开始。点击“开始发牌”后，大家才会从空手进入逐张发牌。",
     dealingAwaitHuman: (countdown, declaration) => `其他玩家都没亮主。你可在 ${countdown} 秒内补亮 ${declaration}；若不亮，则转入翻底定主。`,
     dealingAwaitHumanNoOption: "其他玩家都没亮主，等待翻底定主。",
     dealingCanDeclare: (declaration) => `发牌中。你现在可以亮主：${declaration}。如果不点“亮主”，发牌会继续进行。`,
-    dealing: "发牌中。花色之间不分大小；一般只有更多张数才能反，同张数反无主只接受对大王或对小王。",
+    dealing: "发牌中。亮主顺序为 2 张级牌 < 2 张小王 < 2 张大王 < 3 张级牌 < 3 张小王 < 3 张大王。",
     bottomReveal: "无人亮主，正在公开展示翻底结果。30 秒后进入打家扣底。",
     counteringWait: (playerId) => `最后反主阶段。当前由玩家${playerId}决定是否反主，请等待。`,
-    counteringCan: (declaration) => `最后反主阶段。你可以用 ${declaration} 反主；更多张数优先，同张数反无主只接受对大王或对小王。`,
-    counteringCannot: "最后反主阶段。你没有可用的更高张数组合，也没有对大王或对小王可反无主，30 秒后会自动不反主。",
+    counteringCan: (declaration) => `最后反主阶段。你可以用 ${declaration} 反主；顺序固定为 2 张级牌 < 2 张小王 < 2 张大王 < 3 张级牌 < 3 张小王 < 3 张大王。`,
+    counteringCannot: "最后反主阶段。你没有更高一档的合法反主组合，30 秒后会自动不反主。",
     buryingWait: "打家正在整理底牌，请等待。",
     buryingReady: "已选择 7 张底牌，可以确认扣牌。",
     buryingPicking: (count) => `请从手中选出 7 张重新扣底。当前已选 ${count} 张。`,
@@ -313,11 +314,16 @@ function describeTarget(target) {
 }
 
 function getNoTrumpCounterLabel(entry) {
+  const baseLabel = getNoTrumpDeclarationLabel(entry);
+  return baseLabel ? `${baseLabel}反无主` : "";
+}
+
+function getNoTrumpDeclarationLabel(entry) {
   if (!entry || entry.suit !== "notrump") return "";
   const rank = entry.cards?.[0]?.rank;
-  if (rank === "RJ") return TEXT.declarations.noTrumpCounterBig;
-  if (rank === "BJ") return TEXT.declarations.noTrumpCounterSmall;
-  return TEXT.declarations.noTrumpCounterDefault;
+  if (rank === "RJ") return `${entry.count}张大王`;
+  if (rank === "BJ") return `${entry.count}张小王`;
+  return `${entry.count}张王`;
 }
 
 function formatDeclaration(entry) {
@@ -327,7 +333,7 @@ function formatDeclaration(entry) {
       : `${TEXT.declarations.bottomSuitPrefix}${SUIT_LABEL[entry.suit]}`;
   }
   if (entry.suit === "notrump") {
-    return getNoTrumpCounterLabel(entry);
+    return getNoTrumpDeclarationLabel(entry);
   }
   return `${SUIT_LABEL[entry.suit]} ${entry.rank} x${entry.count}`;
 }

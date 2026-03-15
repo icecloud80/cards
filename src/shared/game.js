@@ -1,6 +1,38 @@
+function getReadyStartMessage() {
+  if (!state.startSelection) {
+    return state.hasSavedProgress
+      ? "请选择“新的游戏”或“继续游戏”。继续游戏会读取浏览器中保存的 5 位玩家等级进度。"
+      : "请选择“新的游戏”开始。本浏览器里还没有可继续的等级进度。";
+  }
+  const actionLabel = state.startSelection === "continue" ? "已读取浏览器中的等级进度" : "已创建新的等级进度";
+  return `${actionLabel}。当前由玩家${state.nextFirstDealPlayerId || 1}先抓牌，点击“开始发牌”后进入抓牌与亮主流程。`;
+}
+
+function startNewProgress() {
+  state.playerLevels = { ...INITIAL_LEVELS };
+  state.startSelection = "new";
+  saveProgressToCookie();
+  setupGame();
+}
+
+function continueSavedProgress() {
+  const savedLevels = loadProgressFromCookie();
+  if (!savedLevels) {
+    state.hasSavedProgress = false;
+    state.startSelection = null;
+    render();
+    return;
+  }
+  state.playerLevels = savedLevels;
+  state.hasSavedProgress = true;
+  state.startSelection = "continue";
+  setupGame();
+}
+
 function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);
+  refreshSavedProgressAvailability();
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
   state.players = PLAYER_ORDER.map((id) => ({
@@ -60,7 +92,7 @@ function setupGame() {
   state.dealCards = deck.splice(0, 31 * 5);
   state.bottomCards = deck.splice(0, 7);
 
-  appendLog(TEXT.log.setupGame(state.currentTurnId));
+  appendLog(getReadyStartMessage());
 
   render();
 }
@@ -183,7 +215,7 @@ function buildFriendTarget(target) {
     ...target,
     label: describeTarget(target),
     img: target.suit === "joker"
-      ? `${CARD_ASSET_DIR}/${target.rank === "RJ" ? "red_joker" : "black_joker"}.svg`
+      ? getJokerImage(target.rank)
       : getCardImage(target.suit, target.rank),
   };
 }
@@ -451,8 +483,7 @@ function getDeclarationOptions(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
   const playerLevel = getPlayerLevelRank(playerId);
-
-  return SUITS.map((suit) => {
+  const suitOptions = SUITS.map((suit) => {
     const cards = player.hand.filter((card) => card.suit === suit && card.rank === playerLevel);
     return {
       playerId,
@@ -462,25 +493,54 @@ function getDeclarationOptions(playerId) {
       cards,
     };
   })
-    .filter((entry) => entry.count >= 2)
-    .sort((a, b) => {
-      if (b.count !== a.count) return b.count - a.count;
-      return SUITS.indexOf(b.suit) - SUITS.indexOf(a.suit);
-    });
+    .filter((entry) => entry.count === 2 || entry.count === 3);
+
+  const jokerOptions = ["BJ", "RJ"].flatMap((rank) => {
+    const cards = player.hand.filter((card) => card.suit === "joker" && card.rank === rank);
+    const options = [];
+    if (cards.length >= 2) {
+      options.push({
+        playerId,
+        suit: "notrump",
+        rank: playerLevel,
+        count: 2,
+        cards: cards.slice(0, 2),
+      });
+    }
+    if (cards.length >= 3) {
+      options.push({
+        playerId,
+        suit: "notrump",
+        rank: playerLevel,
+        count: 3,
+        cards: cards.slice(0, 3),
+      });
+    }
+    return options;
+  });
+
+  return [...suitOptions, ...jokerOptions].sort((a, b) => getDeclarationPriority(b) - getDeclarationPriority(a));
 }
 
 function getBestDeclarationForPlayer(playerId) {
   return getDeclarationOptions(playerId)[0] || null;
 }
 
+function getDeclarationPriority(entry) {
+  if (!entry || (entry.count !== 2 && entry.count !== 3)) return -1;
+  const base = entry.count === 2 ? 20 : 30;
+  if (entry.suit !== "notrump") return base;
+  const jokerRank = entry.cards?.[0]?.rank;
+  if (jokerRank === "BJ") return base + 1;
+  if (jokerRank === "RJ") return base + 2;
+  return base;
+}
+
 function canOverrideDeclaration(candidate, current = state.declaration) {
   if (!candidate) return false;
   if (!current) return true;
   if (candidate.playerId === current.playerId) return false;
-  if (candidate.suit === "notrump" && current.suit !== "notrump" && candidate.count === current.count) {
-    return true;
-  }
-  return candidate.count > current.count;
+  return getDeclarationPriority(candidate) > getDeclarationPriority(current);
 }
 
 function getDeclarationCards(entry = state.declaration) {
@@ -544,46 +604,15 @@ function maybeAutoDeclare(playerId) {
 }
 
 function getNoTrumpCounterOption(playerId) {
-  const current = state.declaration;
-  if (!current || current.suit === "notrump" || current.count < 2) return null;
-  if (current.count !== 2) return null;
-  const player = getPlayer(playerId);
-  if (!player) return null;
-  const bigJokers = player.hand.filter((card) => card.rank === "RJ");
-  if (bigJokers.length >= 2) {
-    return {
-      playerId,
-      suit: "notrump",
-      count: 2,
-      cards: bigJokers.slice(0, 2),
-    };
-  }
-  const smallJokers = player.hand.filter((card) => card.rank === "BJ");
-  if (smallJokers.length >= 2) {
-    return {
-      playerId,
-      suit: "notrump",
-      count: 2,
-      cards: smallJokers.slice(0, 2),
-    };
-  }
-  return null;
+  return getDeclarationOptions(playerId).find((entry) => entry.suit === "notrump") || null;
 }
 
 function getCounterDeclarationForPlayer(playerId) {
   const current = state.declaration;
   if (!current) return null;
-  const candidates = getDeclarationOptions(playerId)
-    .filter((entry) => entry.count > current.count);
-  const noTrumpOption = getNoTrumpCounterOption(playerId);
-  if (noTrumpOption) {
-    candidates.unshift(noTrumpOption);
-  }
-  return candidates.sort((a, b) => {
-    if (a.suit === "notrump" && b.suit !== "notrump") return -1;
-    if (a.suit !== "notrump" && b.suit === "notrump") return 1;
-    return b.count - a.count;
-  })[0] || null;
+  return getDeclarationOptions(playerId)
+    .filter((entry) => canOverrideDeclaration(entry, current))
+    .sort((a, b) => getDeclarationPriority(b) - getDeclarationPriority(a))[0] || null;
 }
 
 function getNextCounterPlayerId(fromId) {
@@ -823,6 +852,7 @@ function clearTimers() {
 
 function goToMainMenu() {
   dom.resultOverlay.classList.remove("show");
+  state.startSelection = null;
   setupGame();
 }
 
@@ -1295,6 +1325,7 @@ function applyLevelSettlement(outcome, bankerPenalty = null) {
   }
   syncPlayerLevels();
   state.levelRank = null;
+  saveProgressToCookie();
 }
 
 function appendLog(message) {

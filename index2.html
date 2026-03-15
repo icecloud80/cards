@@ -2039,6 +2039,19 @@
         cursor: pointer;
       }
 
+      body.mobile-index2 .mobile-icon-btn img {
+        width: 18px;
+        height: 18px;
+        display: block;
+        margin: 0 auto;
+        object-fit: contain;
+      }
+
+      body.mobile-index2 .mobile-icon-btn.active {
+        background: rgba(216, 92, 76, 0.18);
+        box-shadow: inset 0 0 0 1px rgba(216, 92, 76, 0.28);
+      }
+
       body.mobile-index2 .mobile-topbar-actions {
         display: flex;
         align-items: center;
@@ -2413,6 +2426,11 @@
       body.mobile-index2 .mobile-spot-role.friend {
         background: rgba(47, 143, 106, 0.18);
         color: #8de0b8;
+      }
+
+      body.mobile-index2 .mobile-spot-role.managed {
+        background: rgba(216, 92, 76, 0.18);
+        color: #ffd6cf;
       }
 
       body.mobile-index2 .mobile-spot-no-trump {
@@ -2825,36 +2843,109 @@
         top: calc(max(8px, env(safe-area-inset-top)) + 42px) !important;
         bottom: auto !important;
         width: auto !important;
-        max-height: min(34vh, 270px);
+        max-height: min(38vh, 310px);
         transform: none !important;
-        padding: 12px 12px 10px;
+        padding: 12px 12px 12px;
         overflow: auto;
         z-index: 12;
         box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
       }
 
       body.mobile-index2 .friend-picker .label {
-        margin-bottom: 6px;
-        font-size: 12px;
-      }
-
-      body.mobile-index2 .friend-picker-actions {
-        margin-top: 8px;
-      }
-
-      body.mobile-index2 .friend-picker-row {
-        gap: 6px;
-        margin-top: 6px;
-      }
-
-      body.mobile-index2 .friend-picker .tiny-btn {
-        min-height: 32px;
-        padding: 7px 9px;
+        margin-bottom: 4px;
         font-size: 11px;
       }
 
+      body.mobile-index2 .friend-picker-actions {
+        margin-top: 7px;
+      }
+
+      body.mobile-index2 .friend-picker-row {
+        display: grid;
+        gap: 6px;
+        margin-top: 4px;
+      }
+
+      body.mobile-index2 .friend-picker-row.occurrences {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      body.mobile-index2 .friend-picker-row.suits {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      body.mobile-index2 .friend-picker-row.ranks {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      body.mobile-index2 .friend-picker .subtle {
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
+      body.mobile-index2 .friend-picker .tiny-btn {
+        min-height: 28px;
+        padding: 5px 6px;
+        font-size: 10px;
+        border-radius: 10px;
+      }
+
+      body.mobile-index2 .friend-picker .tiny-btn.friend-rank-btn {
+        min-height: 26px;
+        padding: 4px 0;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      body.mobile-index2 .friend-picker .tiny-btn.friend-suit-btn {
+        min-height: 34px;
+        padding: 4px 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      body.mobile-index2 .friend-picker-suit-glyph {
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      body.mobile-index2 .friend-picker-suit-glyph.red {
+        color: #cb4e46;
+      }
+
+      body.mobile-index2 .friend-picker-suit-glyph.black {
+        color: #203038;
+      }
+
+      body.mobile-index2 .friend-picker-suit-glyph.gold {
+        color: #9f6a14;
+        font-size: 16px;
+      }
+
+      body.mobile-index2 .friend-picker-preview {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      body.mobile-index2 .friend-picker-preview .friend-card {
+        width: 24px;
+        height: 34px;
+        margin-left: 0;
+        flex: 0 0 auto;
+      }
+
+      body.mobile-index2 .friend-picker .tiny-btn {
+        min-height: 28px;
+        padding: 5px 6px;
+        font-size: 10px;
+      }
+
       body.mobile-index2 .friend-picker .action-row {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         margin-top: 10px !important;
       }
 
@@ -2888,9 +2979,18 @@
             </div>
           </div>
           <div class="mobile-topbar-actions">
-            <button id="mobileInfoBtn" class="mobile-icon-btn" type="button" aria-label="查看信息">&#8505;</button>
-            <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮">&#8635;</button>
-            <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单">&#9776;</button>
+            <button id="mobileAutoBtn" class="mobile-icon-btn" type="button" aria-label="本局托管" title="本局托管">
+              <img src="./icons/icon_robot.png" alt="" />
+            </button>
+            <button id="mobileInfoBtn" class="mobile-icon-btn" type="button" aria-label="查看信息" title="查看信息">
+              <img src="./icons/info-button.svg" alt="" />
+            </button>
+            <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮" title="查看上一轮">
+              <img src="./icons/icon_back.png" alt="" />
+            </button>
+            <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单" title="打开设置菜单">
+              <img src="./icons/icon_menu.png" alt="" />
+            </button>
           </div>
         </section>
 
@@ -2928,6 +3028,7 @@
             <p>手机模式会在开局后切换到纯对局视图，仅保留出牌区、手牌区和底部操作。</p>
             <div class="mobile-setup-actions">
               <button id="mobileStartBtn" class="mobile-primary-btn" type="button">开始游戏</button>
+              <button id="mobileSetupContinueBtn" class="mobile-secondary-btn" type="button">继续游戏</button>
               <button id="mobileSetupRulesBtn" class="mobile-secondary-btn" type="button">规则</button>
               <button id="mobileSetupNewBtn" class="mobile-secondary-btn" type="button">重置牌局</button>
             </div>
@@ -2959,6 +3060,7 @@
             </div>
             <div class="mobile-menu-actions">
               <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">开始新游戏</button>
+              <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌面</button>
               <button id="mobileMenuLayoutBtn" class="mobile-menu-btn" type="button">布局编辑</button>
               <button id="mobileMenuBottomBtn" class="mobile-menu-btn" type="button">底牌</button>
               <button id="mobileMenuRulesBtn" class="mobile-menu-btn" type="button">规则帮助</button>
@@ -3038,6 +3140,7 @@
             <button id="toggleLogBtn" class="tiny-btn">播报</button>
             <button id="toggleBottomBtn" class="tiny-btn">底牌</button>
             <button id="toggleRulesBtn" class="tiny-btn">规则帮助</button>
+            <button id="toggleCardFaceBtn" class="tiny-btn">牌面：新牌面</button>
             <button id="layoutEditBtn" class="tiny-btn">布局编辑</button>
             <button id="newGameBtn" class="tiny-btn">新牌局</button>
           </div>
@@ -3097,6 +3200,8 @@
             <button id="beatBtn" class="action-btn">毙牌</button>
             <button id="hintBtn" class="action-btn">选择</button>
             <button id="playBtn" class="action-btn primary">出牌</button>
+            <button id="newProgressBtn" class="action-btn">新的游戏</button>
+            <button id="continueGameBtn" class="action-btn">继续游戏</button>
             <button id="startGameBtn" class="action-btn primary">开始发牌</button>
             <button id="declareBtn" class="action-btn">亮主</button>
             <button id="passCounterBtn" class="action-btn">不反主</button>
@@ -3107,16 +3212,16 @@
           <div class="label">叫朋友</div>
           <div id="friendPickerHint" class="subtle"></div>
           <div class="friend-picker-actions">
-            <div class="label">先选第几张</div>
-            <div id="friendOccurrenceOptions" class="friend-picker-row"></div>
+            <div class="label">第几张</div>
+            <div id="friendOccurrenceOptions" class="friend-picker-row occurrences"></div>
           </div>
           <div class="friend-picker-actions">
-            <div class="label">再选花色</div>
-            <div id="friendSuitOptions" class="friend-picker-row"></div>
+            <div class="label">花色</div>
+            <div id="friendSuitOptions" class="friend-picker-row suits"></div>
           </div>
           <div class="friend-picker-actions">
-            <div class="label">再选点数</div>
-            <div id="friendRankOptions" class="friend-picker-row"></div>
+            <div class="label">点数</div>
+            <div id="friendRankOptions" class="friend-picker-row ranks"></div>
           </div>
           <div id="friendPickerPreview" class="friend-picker-preview"></div>
           <div class="action-row" style="margin-top: 14px;">
@@ -3237,6 +3342,7 @@
           setupScreen: document.getElementById("mobileSetupScreen"),
           score: document.getElementById("mobileScore"),
           timer: document.getElementById("mobileTimer"),
+          autoBtn: document.getElementById("mobileAutoBtn"),
           trumpCard: document.getElementById("mobileTrumpCard"),
           friendCard: document.getElementById("mobileFriendCard"),
           friendOccurrence: document.getElementById("mobileFriendOccurrence"),
@@ -3257,8 +3363,10 @@
           closeMenuBtn: document.getElementById("mobileCloseMenuBtn"),
           closeLastTrickBtn: document.getElementById("mobileCloseLastTrickBtn"),
           startBtn: document.getElementById("mobileStartBtn"),
+          setupContinueBtn: document.getElementById("mobileSetupContinueBtn"),
           setupRulesBtn: document.getElementById("mobileSetupRulesBtn"),
           setupNewBtn: document.getElementById("mobileSetupNewBtn"),
+          menuCardFaceBtn: document.getElementById("mobileMenuCardFaceBtn"),
           menuLayoutBtn: document.getElementById("mobileMenuLayoutBtn"),
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
           menuRulesBtn: document.getElementById("mobileMenuRulesBtn"),
@@ -3267,10 +3375,12 @@
 
         const originalDom = {
           startGameBtn: document.getElementById("startGameBtn"),
+          continueGameBtn: document.getElementById("continueGameBtn"),
           toggleLastTrickBtn: document.getElementById("toggleLastTrickBtn"),
           toggleLogBtn: document.getElementById("toggleLogBtn"),
           toggleBottomBtn: document.getElementById("toggleBottomBtn"),
           toggleRulesBtn: document.getElementById("toggleRulesBtn"),
+          toggleCardFaceBtn: document.getElementById("toggleCardFaceBtn"),
           layoutEditBtn: document.getElementById("layoutEditBtn"),
           newGameBtn: document.getElementById("newGameBtn"),
           friendCardMount: document.getElementById("friendCardMount"),
@@ -3370,6 +3480,7 @@
         }
 
         function syncTrickSpotDecorations(snapshot) {
+          const humanManaged = typeof getPlayer === "function" ? !!getPlayer(1) && !getPlayer(1).isHuman : false;
           for (const player of snapshot.players) {
             const spot = document.getElementById(`trickSpot-${player.id}`);
             const label = spot?.querySelector(".label");
@@ -3380,12 +3491,13 @@
               : roleKind === "friend"
                 ? player.role?.label || "朋友"
                 : "";
+            const managedLabel = player.id === 1 && humanManaged ? '<span class="mobile-spot-role managed">托管中</span>' : "";
             const showNoTrumpBadge = ["playing", "pause", "ending"].includes(snapshot.phase)
               && player.handCount > 0
               && !!player.exposedTrumpVoid;
             label.innerHTML = roleLabel
-              ? `<span>${player.name}</span><span class="mobile-spot-role${roleKind === "friend" ? " friend" : ""}">${roleLabel}</span>`
-              : `<span>${player.name}</span>`;
+              ? `<span>${player.name}</span><span class="mobile-spot-role${roleKind === "friend" ? " friend" : ""}">${roleLabel}</span>${managedLabel}`
+              : `<span>${player.name}</span>${managedLabel}`;
             const existingBadge = spot.querySelector(".mobile-spot-no-trump");
             if (existingBadge) existingBadge.remove();
             if (showNoTrumpBadge) {
@@ -3426,9 +3538,84 @@
         }
 
         function syncMenuLabels() {
+          mobileDom.menuCardFaceBtn.textContent = originalDom.toggleCardFaceBtn?.textContent.trim() || "牌面";
           mobileDom.menuLayoutBtn.textContent = originalDom.layoutEditBtn?.textContent.trim() || "布局编辑";
           mobileDom.menuBottomBtn.textContent = originalDom.toggleBottomBtn.textContent.trim() || "底牌";
           mobileDom.menuRulesBtn.textContent = originalDom.toggleRulesBtn.textContent.trim() || "规则帮助";
+        }
+
+        function syncAutoManagedButton() {
+          if (typeof getPlayer !== "function") return;
+          const human = getPlayer(1);
+          const managed = !!human && !human.isHuman;
+          mobileDom.autoBtn.classList.toggle("active", managed);
+          mobileDom.autoBtn.setAttribute("aria-pressed", managed ? "true" : "false");
+        }
+
+        function applyAutoManagedState(enabled) {
+          if (typeof getPlayer !== "function") return;
+          const human = getPlayer(1);
+          if (!human) return;
+
+          human.isHuman = !enabled;
+          if (enabled && state?.selectedCardIds) {
+            state.selectedCardIds = [];
+          }
+          if (typeof render === "function") {
+            render();
+          }
+          syncAutoManagedButton();
+
+          if (!enabled) {
+            if (typeof clearTimers === "function" && typeof startTurn === "function" && state?.phase === "playing" && state.currentTurnId === 1) {
+              clearTimers();
+              startTurn();
+            }
+            return;
+          }
+
+          if (state?.phase === "dealing" && state.awaitingHumanDeclaration && typeof getBestDeclarationForPlayer === "function" && typeof canOverrideDeclaration === "function" && typeof declareTrump === "function") {
+            const best = getBestDeclarationForPlayer(1);
+            if (best && canOverrideDeclaration(best)) {
+              declareTrump(1, best, "auto");
+              if (state.dealIndex >= state.dealCards.length && typeof clearTimers === "function" && typeof finishDealingPhase === "function") {
+                clearTimers();
+                finishDealingPhase();
+              }
+            }
+            return;
+          }
+
+          if (state?.phase === "countering" && state.currentTurnId === 1 && typeof getCounterDeclarationForPlayer === "function") {
+            const counter = getCounterDeclarationForPlayer(1);
+            if (counter && typeof counterDeclare === "function") {
+              counterDeclare(1, counter);
+            } else if (typeof passCounterForCurrentPlayer === "function") {
+              passCounterForCurrentPlayer();
+            }
+            return;
+          }
+
+          if (state?.phase === "burying" && state.bankerId === 1 && typeof getBuryHintForPlayer === "function" && typeof completeBurying === "function") {
+            const buryCards = getBuryHintForPlayer(1);
+            if (buryCards.length === 7) {
+              completeBurying(1, buryCards.map((card) => card.id));
+            }
+            return;
+          }
+
+          if (state?.phase === "callingFriend" && state.bankerId === 1 && typeof confirmFriendTargetSelection === "function") {
+            const best = typeof chooseFriendTarget === "function" ? chooseFriendTarget()?.target : null;
+            if (best) {
+              confirmFriendTargetSelection(best);
+            }
+            return;
+          }
+
+          if (state?.phase === "playing" && state.currentTurnId === 1 && typeof clearTimers === "function" && typeof autoPlayCurrentTurn === "function") {
+            clearTimers();
+            autoPlayCurrentTurn();
+          }
         }
 
         let handLayoutQueued = false;
@@ -3556,10 +3743,16 @@
           const snapshot = event.detail;
           const isSetup = snapshot.phase === "ready";
           document.body.dataset.mobileScreen = isSetup ? "setup" : "play";
+          mobileDom.startBtn.disabled = !!originalDom.startGameBtn?.disabled;
+          if (mobileDom.setupContinueBtn) {
+            mobileDom.setupContinueBtn.disabled = !!originalDom.continueGameBtn?.disabled;
+            mobileDom.setupContinueBtn.textContent = originalDom.continueGameBtn?.textContent?.trim() || "继续游戏";
+          }
           mobileDom.score.textContent = originalDom.defenderScore.textContent.trim() || "0";
           mobileDom.timer.textContent = originalDom.turnTimer.textContent.trim() || "--";
           syncTrumpStatus(snapshot);
           syncFriendCard(snapshot);
+          syncAutoManagedButton();
           syncTrickSpotDecorations(snapshot);
           renderInfoSheet(snapshot);
           syncLastTrickSheet();
@@ -3572,14 +3765,22 @@
         }
 
         mobileDom.startBtn.addEventListener("click", () => clickOriginal(originalDom.startGameBtn));
+        mobileDom.setupContinueBtn?.addEventListener("click", () => clickOriginal(originalDom.continueGameBtn));
         mobileDom.setupRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
         mobileDom.setupNewBtn.addEventListener("click", () => clickOriginal(originalDom.newGameBtn));
+        mobileDom.autoBtn.addEventListener("click", () => {
+          if (typeof getPlayer !== "function") return;
+          const human = getPlayer(1);
+          if (!human || state?.gameOver || state?.phase === "ready") return;
+          applyAutoManagedState(human.isHuman);
+        });
         mobileDom.lastTrickBtn.addEventListener("click", () => {
           mobileDom.infoSheet.classList.remove("show");
           mobileDom.settingsSheet.classList.remove("show");
           syncLastTrickSheet();
           mobileDom.lastTrickSheet.classList.add("show");
         });
+        mobileDom.menuCardFaceBtn.addEventListener("click", () => clickOriginal(originalDom.toggleCardFaceBtn));
         mobileDom.menuLayoutBtn.addEventListener("click", () => clickOriginal(originalDom.layoutEditBtn));
         mobileDom.menuBottomBtn.addEventListener("click", () => clickOriginal(originalDom.toggleBottomBtn));
         mobileDom.menuRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
@@ -3681,6 +3882,7 @@
           document.body.dataset.mobileScreen = originalDom.startGameBtn.hidden ? "play" : "setup";
           syncTrumpStatus(window.__fiveFriendsSnapshot || null);
           syncFriendCard(window.__fiveFriendsSnapshot || null);
+          syncAutoManagedButton();
           syncMenuLabels();
           syncBroadcast();
           scheduleHandLayout();

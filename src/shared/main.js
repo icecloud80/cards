@@ -3,8 +3,18 @@ function isHumanTurnActive() {
 }
 
 dom.startGameBtn.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready") return;
+  if (state.gameOver || state.phase !== "ready" || !state.startSelection) return;
   startDealing();
+});
+
+dom.newProgressBtn?.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "ready") return;
+  startNewProgress();
+});
+
+dom.continueGameBtn?.addEventListener("click", () => {
+  if (state.gameOver || state.phase !== "ready") return;
+  continueSavedProgress();
 });
 
 dom.playBtn.addEventListener("click", () => {
@@ -154,6 +164,14 @@ dom.toggleRulesBtn.addEventListener("click", () => {
   renderLogs();
 });
 
+dom.toggleCardFaceBtn?.addEventListener("click", () => {
+  if (CARD_FACE_OPTIONS.length <= 1) return;
+  const nextFace = getNextCardFaceOption();
+  state.cardFaceKey = nextFace.key;
+  saveCardFaceKey(nextFace.key);
+  render();
+});
+
 dom.layoutEditBtn.addEventListener("click", () => {
   setLayoutEditMode(!state.layoutEditMode);
 });
@@ -173,7 +191,7 @@ dom.closeRulesBtn.addEventListener("click", () => {
   renderLogs();
 });
 
-dom.newGameBtn.addEventListener("click", setupGame);
+dom.newGameBtn.addEventListener("click", startNewProgress);
 
 dom.restartBtn.addEventListener("click", () => {
   beginNextGame(true);
@@ -193,4 +211,3 @@ applySavedLayoutState();
 dom.versionBadge.textContent = APP_VERSION_LABEL;
 
 setupGame();
-

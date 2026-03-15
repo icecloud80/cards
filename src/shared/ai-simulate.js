@@ -179,12 +179,30 @@ function withSimulationState(simState, runner) {
   }
 }
 
+/**
+ * 作用：
+ * 为模拟态玩家生成一手稳定的合法提示牌。
+ *
+ * 为什么这样写：
+ * 模拟链路需要和 sourceState 版提示 helper 共用同一套兜底口径，
+ * 否则 rollout 里看到的后续行为会和真实提示链出现偏差。
+ *
+ * 输入：
+ * @param {number} playerId - 当前需要提示出牌的模拟玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回该玩家在当前模拟态下的提示牌组。
+ *
+ * 注意：
+ * - 当前函数依赖调用方已经把模拟态应用到全局 `state`。
+ * - 优先级保持不变：beginner hint -> 搜索兜底 -> 强制跟牌兜底。
+ */
 function getSimulationHintForPlayer(playerId) {
   const hint = getBeginnerLegalHintForPlayer(playerId);
   if (hint.length > 0) return hint;
-  const fallback = findLegalSelectionBySearch(playerId);
+  const fallback = findLegalSelectionBySearchForState(state, playerId);
   if (fallback.length > 0) return fallback;
-  return buildForcedFollowFallback(playerId);
+  return buildForcedFollowFallbackForState(state, playerId);
 }
 
 function simulatePlay(simState, playerId, cards, options = {}) {

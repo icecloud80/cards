@@ -177,8 +177,12 @@ function runIntermediateFoundationSuite(context) {
     ];
     state.leadSpec = classifyPlay(state.currentTrick[0].cards);
     assert(doesSelectionBeatCurrentForState(followSourceState, 3, sourceTrumpSingle), "doesSelectionBeatCurrentForState: should evaluate beatability from sourceState instead of live state");
+    const sourceForcedFallback = buildForcedFollowFallbackForState(followSourceState, 3);
+    assert(getComboKey(sourceForcedFallback) === getComboKey([followSourceState.players[2].hand.find((card) => card.id === "follow-p3-d-6")]), "buildForcedFollowFallbackForState: should construct fallback from sourceState hand order");
     const sourceLegalSelections = getLegalSelectionsForState(followSourceState, 3);
     assert(sourceLegalSelections.some((combo) => getComboKey(combo) === getComboKey(sourceTrumpSingle)), "getLegalSelectionsForState: should enumerate legal follows from sourceState instead of live state");
+    const searchedFromSource = findLegalSelectionBySearchForState(followSourceState, 3);
+    assert(sourceLegalSelections.some((combo) => getComboKey(combo) === getComboKey(searchedFromSource)), "findLegalSelectionBySearchForState: should return one of the legal sourceState candidates");
     const followCandidates = generateCandidatePlays(followSourceState, 3, "follow");
     assert(followCandidates.some((entry) => getComboKey(entry.cards) === getComboKey(sourceTrumpSingle) && entry.tags.includes("beats")), "generateCandidatePlays follow: should tag beating candidates from sourceState context");
 

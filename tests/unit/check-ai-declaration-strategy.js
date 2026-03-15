@@ -200,6 +200,8 @@ function runDeclarationStrategySuite(context) {
       state.currentTrick = [];
       state.leadSpec = null;
       state.bottomCards = [];
+      state.dealCards = [];
+      state.dealIndex = 0;
       state.counterPasses = 0;
       state.awaitingHumanDeclaration = false;
       state.players = [
@@ -282,6 +284,78 @@ function runDeclarationStrategySuite(context) {
 
     /**
      * 作用：
+     * 搭建“中级应延迟低价值两张亮主”的场景。
+     *
+     * 为什么这样写：
+     * 中级第一阶段需要允许低价值两张方案继续等牌，
+     * 这里用早期手牌和很弱的方块两张级牌，验证自动流程会先观望。
+     *
+     * 输入：
+     * @param {void} - 场景固定使用中级 AI。
+     *
+     * 输出：
+     * @returns {void} 直接写入玩家 2 的测试手牌。
+     *
+     * 注意：
+     * - 玩家 2 当前只有 8 张牌，说明后面仍有大量摸牌空间。
+     * - 这组牌只有两张方块级牌，没有额外主控与长套支撑。
+     */
+    function setupIntermediateDelayDeclareScenario() {
+      resetDeclarationState("intermediate");
+      state.players[1].hand = sortHand([
+        makeCard("d2-1", "diamonds", "2"),
+        makeCard("d2-2", "diamonds", "2"),
+        makeCard("c7", "clubs", "7"),
+        makeCard("h8", "hearts", "8"),
+        makeCard("s9", "spades", "9"),
+        makeCard("ck", "clubs", "K"),
+        makeCard("ha", "hearts", "A"),
+        makeCard("s5", "spades", "5"),
+      ]);
+    }
+
+    /**
+     * 作用：
+     * 搭建“中级应在同档位里选择更好主种”的场景。
+     *
+     * 为什么这样写：
+     * 旧逻辑在同档位里基本只受花色枚举顺序影响，
+     * 这里同时给出梅花和红桃两组两张级牌，验证中级会选主控更强的红桃。
+     *
+     * 输入：
+     * @param {void} - 场景固定使用中级 AI。
+     *
+     * 输出：
+     * @returns {void} 直接写入玩家 2 的测试手牌。
+     *
+     * 注意：
+     * - 红桃方案额外带有长套和高张，应该比梅花方案更适合坐庄。
+     * - 这手牌长度较高，主要是为了让红桃方案的评分明显高于延迟阈值。
+     */
+    function setupIntermediatePreferBetterSuitScenario() {
+      resetDeclarationState("intermediate");
+      state.players[1].hand = sortHand([
+        makeCard("c2-1", "clubs", "2"),
+        makeCard("c2-2", "clubs", "2"),
+        makeCard("h2-1", "hearts", "2"),
+        makeCard("h2-2", "hearts", "2"),
+        makeCard("ha", "hearts", "A"),
+        makeCard("hk", "hearts", "K"),
+        makeCard("hq", "hearts", "Q"),
+        makeCard("hj", "hearts", "J"),
+        makeCard("h10", "hearts", "10"),
+        makeCard("h9", "hearts", "9"),
+        makeCard("h8", "hearts", "8"),
+        makeCard("ca", "clubs", "A"),
+        makeCard("c6", "clubs", "6"),
+        makeCard("dk", "diamonds", "K"),
+        makeCard("sA", "spades", "A"),
+        makeCard("s9", "spades", "9"),
+      ]);
+    }
+
+    /**
+     * 作用：
      * 搭建“常主不足时不应自动反无主”的场景。
      *
      * 为什么这样写：
@@ -345,6 +419,44 @@ function runDeclarationStrategySuite(context) {
       ]);
     }
 
+    /**
+     * 作用：
+     * 搭建“中级应放弃低收益反主”的场景。
+     *
+     * 为什么这样写：
+     * 中级第一阶段的反主策略重点，是避免“能反就反”。
+     * 这里让当前亮主已经是低一档的无主，而玩家 2 只多出一档王张升级空间，
+     * 验证自动流程会判断这次“只升一点档”的反无主收益不足而放弃。
+     *
+     * 输入：
+     * @param {void} - 场景固定使用中级 AI。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前亮主和玩家 2 测试手牌。
+     *
+     * 注意：
+     * - 当前亮主是两张黑王无主，玩家 2 手里有两张红王。
+     * - 这种反主虽然合法，但除了档位更高，几乎拿不到额外主牌结构收益。
+     */
+    function setupIntermediateWeakCounterScenario() {
+      resetDeclarationState("intermediate");
+      state.phase = "countering";
+      state.declaration = { playerId: 3, suit: "notrump", rank: "2", count: 2, cards: [
+        makeCard("bj-1", "joker", "BJ"),
+        makeCard("bj-2", "joker", "BJ"),
+      ] };
+      state.players[1].hand = sortHand([
+        makeCard("rj-1", "joker", "RJ"),
+        makeCard("rj-2", "joker", "RJ"),
+        makeCard("c9", "clubs", "9"),
+        makeCard("c8", "clubs", "8"),
+        makeCard("h9", "hearts", "9"),
+        makeCard("h8", "hearts", "8"),
+        makeCard("s9", "spades", "9"),
+        makeCard("s8", "spades", "8"),
+      ]);
+    }
+
     const results = [];
 
     setupWeakSuitDeclareScenario("beginner");
@@ -354,9 +466,15 @@ function runDeclarationStrategySuite(context) {
     assert(state.declaration === null, "beginner: maybeAutoDeclare should not commit blocked short-suit declaration");
     results.push("beginner short-suit auto declare blocked");
 
-    setupWeakSuitDeclareScenario("intermediate");
-    assert(getAutoDeclarationForPlayer(2)?.suit === "diamonds", "intermediate: short-suit declaration should remain available");
-    results.push("intermediate short-suit auto declare unchanged");
+    setupIntermediateDelayDeclareScenario();
+    assert(getBestDeclarationForPlayer(2)?.suit === "diamonds", "intermediate: legal best declaration should still be diamonds");
+    assert(getAutoDeclarationForPlayer(2) === null, "intermediate: low-value two-card declaration should be delayed");
+    results.push("intermediate weak two-card declare delayed");
+
+    setupIntermediatePreferBetterSuitScenario();
+    assert(getBestDeclarationForPlayer(2)?.suit === "clubs", "intermediate: legal best declaration still follows old suit order baseline");
+    assert(getAutoDeclarationForPlayer(2)?.suit === "hearts", "intermediate: auto declaration should prefer stronger same-tier heart trump");
+    results.push("intermediate better-suit declaration chosen");
 
     setupStrongSuitDeclareScenario("beginner");
     assert(getAutoDeclarationForPlayer(2)?.suit === "spades", "beginner: long-suit declaration should pass heuristic");
@@ -370,6 +488,11 @@ function runDeclarationStrategySuite(context) {
     setupStrongNoTrumpCounterScenario("beginner");
     assert(getAutoCounterDeclarationForPlayer(2)?.suit === "notrump", "beginner: strong no-trump counter should pass common-trump heuristic");
     results.push("beginner strong no-trump counter allowed");
+
+    setupIntermediateWeakCounterScenario();
+    assert(getCounterDeclarationForPlayer(2)?.suit === "notrump", "intermediate: legal counter option should still be no-trump");
+    assert(getAutoCounterDeclarationForPlayer(2) === null, "intermediate: low-upgrade counter should be skipped");
+    results.push("intermediate weak counter skipped");
 
     globalThis.__declarationStrategyResults = { results };
   `;

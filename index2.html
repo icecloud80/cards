@@ -863,17 +863,71 @@
         justify-content: center;
         align-items: end;
         margin-top: 16px;
-        min-height: 96px;
+        min-height: 128px;
       }
 
-      .bottom-reveal-cards .played-card {
+      /* 翻底公示需要保留 7 个固定卡位，顺序号和牌背都挂在 slot 容器里。 */
+      .bottom-reveal-cards .bottom-reveal-slot {
+        position: relative;
+        width: 66px;
+        padding-top: 28px;
+        margin-left: -12px;
+        flex: 0 0 auto;
+      }
+
+      .bottom-reveal-cards .bottom-reveal-slot:first-child {
+        margin-left: 0;
+      }
+
+      .bottom-reveal-cards .bottom-reveal-order {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        z-index: 1;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        transform: translateX(-50%);
+        background: linear-gradient(180deg, rgba(122, 71, 23, 0.96), rgba(77, 45, 16, 0.92));
+        box-shadow: 0 6px 12px rgba(28, 18, 8, 0.18);
+        color: #fff8e8;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 24px;
+        text-align: center;
+      }
+
+      .bottom-reveal-cards .bottom-reveal-slot .played-card {
         width: 66px;
         height: 96px;
-        margin-left: -12px;
+        margin-left: 0;
       }
 
-      .bottom-reveal-cards .played-card:first-child {
-        margin-left: 0;
+      /* 未翻开的底牌继续显示背面，避免公示时误导成“全部翻开”。 */
+      .played-card.face-down {
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(114, 34, 26, 0.96), rgba(71, 18, 15, 0.96));
+        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+      }
+
+      .played-card.face-down::before {
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border: 2px solid rgba(246, 224, 180, 0.72);
+        box-shadow: inset 0 0 0 2px rgba(89, 21, 16, 0.38);
+      }
+
+      .played-card.face-down .face-down-core {
+        position: absolute;
+        inset: 16px;
+        background:
+          repeating-linear-gradient(
+            45deg,
+            rgba(247, 226, 189, 0.92) 0 4px,
+            rgba(147, 44, 33, 0.9) 4px 8px
+          );
+        box-shadow: inset 0 0 0 2px rgba(255, 247, 228, 0.3);
       }
 
       .center-panel {
@@ -1922,6 +1976,21 @@
         height: var(--mobile-card-height);
       }
 
+      .bottom-reveal-cards .bottom-reveal-slot {
+        width: var(--mobile-card-width);
+        padding-top: 26px;
+        margin-left: -12px;
+      }
+
+      .bottom-reveal-cards .bottom-reveal-slot:first-child {
+        margin-left: 0;
+      }
+
+      .bottom-reveal-cards .bottom-reveal-slot .played-card {
+        width: var(--mobile-card-width);
+        height: var(--mobile-card-height);
+      }
+
       .card-btn,
       .played-card,
       .friend-card {
@@ -2875,6 +2944,28 @@
         -webkit-tap-highlight-color: transparent;
       }
 
+      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-slot {
+        width: 36px;
+        padding-top: 18px;
+        margin-left: -6px;
+      }
+
+      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-slot:first-child {
+        margin-left: 0;
+      }
+
+      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-slot .played-card {
+        width: 36px;
+        height: 52px;
+      }
+
+      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-order {
+        width: 16px;
+        height: 16px;
+        font-size: 9px;
+        line-height: 16px;
+      }
+
       body.mobile-index2 .cards-row .card-btn {
         margin-left: calc(-1px * var(--mobile-card-overlap, 8));
       }
@@ -3601,7 +3692,7 @@
             <li>首局由玩家1先抓牌；之后由上一局最后扣底或守底成功的玩家先抓牌。</li>
             <li>新牌局先等待玩家点击“开始发牌”，之后才进入发牌阶段。</li>
             <li>每位玩家按自己的 Lv 亮主或反主，不能自己反自己。</li>
-            <li>如果发牌结束后始终无人亮主，则由先抓牌的玩家翻底定主并直接做打家。</li>
+            <li>如果发牌结束后始终无人亮主，则由先抓牌的玩家翻底定主并直接做打家；公示时只展示实际已经翻开的底牌。</li>
             <li>打家扣底完成后，需要先叫朋友，再进入正式出牌。</li>
             <li>打家重新扣下的 7 张底牌，分牌总和不能超过 25 分；超过时不能确认扣牌。</li>
             <li>叫朋友时可选第一张、第二张或第三张目标牌；若打家误出前置张数，则本局可能变成 1 打 4。</li>

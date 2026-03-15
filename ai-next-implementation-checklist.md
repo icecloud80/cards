@@ -2,6 +2,29 @@
 
 目标：先把中级 AI 的短前瞻做完整，再考虑高级 belief。
 
+## 里程碑 0. 合法性与日志一致性兜底
+
+- 状态：`新增`
+- 目标：先修掉“会选到失败甩牌”和“debug 标签把合法候选记成 invalid”这类会污染搜索结果的基础问题。
+- 背景：
+  - 2026-03-15 的五人找朋友复盘里，庄家残局出现了“甩牌失败后被强制改单张并倒扣 10 分”的情况。
+  - 同一局的第 9 轮跟牌记录中，多个候选写着 `来源 legal`，却带有 `invalid / clubs`、`invalid / spades` 标签，说明候选分类和 debug 命名至少有一处没有对齐。
+- 交付：
+  - 在候选生成阶段增加“甩牌前严格合法性验证”，非法甩牌组合不得进入评分与 rollout。
+  - 在 rollout 前增加一次防御式断言，保证 `chooseIntermediatePlay` 不会把非法候选送进模拟链路。
+  - 统一候选 `source / tags / flags` 的命名规则，区分“合法但不成型”“合法但不压”“真正非法”。
+  - 在 debug bundle 中显式记录“候选被过滤原因”，避免日志里出现 `legal + invalid` 混搭。
+- 验收：
+  - 不再出现“AI 主动选择甩牌失败方案”的对局日志。
+  - `state.lastAiDecision.candidateEntries` 中，所有进入评分排序的候选都能通过合法性复验。
+  - 调试日志中不再出现 `来源 legal` 同时携带 `invalid` 标签的记录。
+- 主要文件：
+  - `src/shared/ai-candidates.js`
+  - `src/shared/ai-intermediate.js`
+  - `src/shared/ai-simulate.js`
+  - `tests/unit/check-throw-patterns.js`
+  - `tests/unit/check-ai-intermediate-foundation.js`
+
 ## 里程碑 1. 双层前瞻
 
 - 状态：`进行中`
@@ -10,9 +33,12 @@
   - 新增 `simulateUntilNextOwnTurn(simState, playerId, chooser)`
   - 在中级 rollout 中按局面决定是否启用扩展前瞻
   - 将 rollout depth / future delta 写入 debug bundle
+  - 把“残局抢回先手后，下一拍是否能安全起手”纳入扩展前瞻触发条件
+  - 把“本墩赢了但下一拍高概率送回牌权”的场景显式记成 `turn_access_risk`
 - 验收：
   - 模拟不污染真实 `state`
   - 能在未明朋友、末局保底、高主集中、结构牌较多时触发
+  - 能在残局抢分 / 护底场景中区分“抢这一墩有利”和“抢完反而送底”
   - `npm test` 通过
 - 主要文件：
   - `src/shared/ai-simulate.js`
@@ -27,8 +53,10 @@
   - 让候选生成可接收 `simState`
   - 将依赖 live state 的 helper 缩到适配层
   - 梳理哪些函数还偷偷读取全局状态
+  - 把“甩牌合法性检查”“结构匹配检查”“跟牌分类标签”都改为基于传入 `sourceState` 计算
 - 验收：
   - 候选生成可在模拟态运行
+  - 合法性判断、候选标签、rollout 评分在 live state 与 simState 下结果一致
   - 中级现有回归不回退
 
 ## 里程碑 3. 评估函数第二版
@@ -39,9 +67,40 @@
   - 新增 `tempo` / `turnAccess` 类评分项
   - 新增 `friendRisk` / `bottomRisk` 修正项
   - 将更多 legacy 特判下沉为评分修正
+  - 新增“失去先手后对手连续跑分潜力”评分项，优先覆盖庄家方被反跑的场景
+  - 新增“残局安全起手值”评分项，评估抢回先手后是否还有可持续控牌动作
+  - 让“清门 / 送缺门 / 送将军门”不再只由即时 if 决定，而是由统一权重调节
 - 验收：
   - `evaluateState` 输出可解释 breakdown
+  - 至少能解释这 3 类局面：
+    - 为什么不该用高主硬抢一个会立刻丢回去的 20 分墩
+    - 为什么在对手长套明显时，要更重地惩罚失去先手
+    - 为什么残局首发时要优先避免失败甩牌和危险单吊
   - 新增针对单项评分的回归
+- 主要文件：
+  - `src/shared/ai-evaluate.js`
+  - `src/shared/ai-objectives.js`
+  - `src/shared/ai-intermediate.js`
+  - `tests/unit/check-ai-intermediate-search.js`
+  - `tests/unit/check-headless-full-game.js`
+
+## 里程碑 3.5. 对局复盘专项场景回归
+
+- 状态：`新增`
+- 目标：把这类“看起来赢了但 AI 决策有明显漏洞”的日志复盘，沉淀成可重复跑的专项样本。
+- 交付：
+  - 新增“残局甩牌失败保护”专项用例。
+  - 新增“失先手导致对手连续跑分”专项用例。
+  - 新增“合法候选标签一致性”专项用例。
+  - 让 headless full game 支持从固定 seed 生成可复盘日志，并能抽取异常候选摘要。
+- 验收：
+  - 复盘过的问题都能被至少一条单测或回归覆盖。
+  - 回归失败时能直接看到是哪类问题回退，而不是只有“本局输了”。
+- 主要文件：
+  - `tests/unit/check-ai-intermediate-search.js`
+  - `tests/unit/check-throw-patterns.js`
+  - `tests/unit/check-headless-full-game.js`
+  - `tests/support/headless-full-game-runner.js`
 
 ## 里程碑 4. 调试与性能保护
 
@@ -51,6 +110,18 @@
   - 记录候选来源、rollout depth、future delta、触发原因
   - 增加候选数和扩展深度的上限
   - 增加关键搜索场景的专项回归
+  - 记录“候选被过滤数量”和“过滤原因分布”
+  - 记录“赢墩后下一拍是否仍有出牌权优势”的摘要指标
+  - 为残局模式单独设置扩展深度和候选上限，避免普通局面也被高成本搜索拖慢
 - 验收：
   - 可从 debug 数据看出 AI 为什么选这手
+  - 可从 debug 数据看出 AI 为什么没有选某类看似激进的候选
   - 复杂局面没有明显卡顿
+
+## 推荐执行顺序
+
+1. 先做 `里程碑 0`，因为它解决的是“非法动作进入搜索”和“日志误导调参”的基础可信度问题。
+2. 再补 `里程碑 1` 中与残局续控相关的扩展触发，让中级 AI 真正看到“这一墩之后会怎样”。
+3. 然后推进 `里程碑 3`，把这局暴露出来的“失先手代价”和“残局安全起手”变成评估函数的一部分。
+4. 同步落地 `里程碑 3.5`，确保每次修复都能被专项回归接住。
+5. 最后做 `里程碑 4` 的性能和调试保护，给后续继续调权重留足空间。

@@ -81,7 +81,144 @@ function renderBottomPanel() {
     : `<div class="empty-note">${TEXT.bottom.unavailable}</div>`;
 }
 
-// 渲染亮底牌阶段的中央提示区。
+/**
+ * 作用：
+ * 读取当前翻底阶段真正已经翻开的底牌数量。
+ *
+ * 为什么这样写：
+ * 翻底展示既要保留所有底牌卡位，又只能公开已经翻开的那一部分；
+ * 统一在这里裁剪数量，可以让渲染层和规则层只通过一个字段协作。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态。
+ *
+ * 输出：
+ * @returns {number} 当前应当显示正面的底牌张数。
+ *
+ * 注意：
+ * - 返回值会被限制在 `0 ~ state.bottomCards.length` 范围内。
+ * - 正常翻底流程优先使用 `state.bottomRevealCount`，没有时才回退到声明对象里的记录。
+ */
+function getBottomRevealVisibleCount() {
+  const rawCount = state.bottomRevealCount || state.declaration?.revealCount || 0;
+  return Math.max(0, Math.min(state.bottomCards.length, rawCount));
+}
+
+/**
+ * 作用：
+ * 为展示场景创建一张只读的明牌节点。
+ *
+ * 为什么这样写：
+ * 翻底公示区不需要按钮交互，但仍要复用现有牌面图片与主牌描边样式，
+ * 单独创建展示节点可以避免把交互态按钮样式带进公示区。
+ *
+ * 输入：
+ * @param {object} card - 要显示的牌对象。
+ * @param {string} className - 追加到节点上的样式类名。
+ *
+ * 输出：
+ * @returns {HTMLDivElement} 一张只负责展示的牌面节点。
+ *
+ * 注意：
+ * - 该节点仅用于展示，不要绑定点击事件。
+ * - `aria-label` 需要保留，方便辅助技术描述当前牌面。
+ */
+function buildDisplayCardNode(card, className) {
+  const node = document.createElement("div");
+  node.className = className;
+  node.setAttribute("role", "img");
+  node.setAttribute("aria-label", shortCardLabel(card));
+  const image = document.createElement("img");
+  image.src = resolveCardImage(card);
+  image.alt = shortCardLabel(card);
+  node.appendChild(image);
+  return node;
+}
+
+/**
+ * 作用：
+ * 创建翻底公示里尚未翻开的底牌背面节点。
+ *
+ * 为什么这样写：
+ * 用户希望公示区继续保留 7 张底牌的位置，但未翻开的牌必须显示背面，
+ * 这样才能同时体现翻牌顺序和“翻到即停”的规则。
+ *
+ * 输入：
+ * @param {string} className - 追加到节点上的样式类名。
+ * @param {string} ariaLabel - 给辅助技术使用的描述文案。
+ *
+ * 输出：
+ * @returns {HTMLDivElement} 一张仅显示牌背的只读节点。
+ *
+ * 注意：
+ * - 这里不依赖单独的牌背图片，避免不同牌面主题下资源不齐导致缺图。
+ * - 视觉样式全部交给 `.face-down` 相关 CSS 控制。
+ */
+function buildFaceDownDisplayCardNode(className, ariaLabel) {
+  const node = document.createElement("div");
+  node.className = className;
+  node.setAttribute("role", "img");
+  node.setAttribute("aria-label", ariaLabel);
+  const core = document.createElement("span");
+  core.className = "face-down-core";
+  node.appendChild(core);
+  return node;
+}
+
+/**
+ * 作用：
+ * 生成翻底公示区单个卡位节点，包含顺序号和牌面/牌背。
+ *
+ * 为什么这样写：
+ * 顺序号和牌本体需要一起布局，单独封装成 slot 后，
+ * 就能稳定地实现“前几张翻正面、后几张保留背面”的表现。
+ *
+ * 输入：
+ * @param {object} card - 当前卡位对应的底牌。
+ * @param {number} index - 当前卡位在底牌序列中的 0 基索引。
+ * @param {number} revealedCount - 当前已经翻开的底牌张数。
+ *
+ * 输出：
+ * @returns {HTMLDivElement} 可直接挂到翻底展示容器里的卡位节点。
+ *
+ * 注意：
+ * - 顺序号采用 1 基展示，和玩家口头描述一致。
+ * - 只有 `index < revealedCount` 的卡位才会显示正面。
+ */
+function buildBottomRevealSlotNode(card, index, revealedCount) {
+  const slot = document.createElement("div");
+  slot.className = "bottom-reveal-slot";
+
+  const orderBadge = document.createElement("span");
+  orderBadge.className = "bottom-reveal-order";
+  orderBadge.textContent = String(index + 1);
+  slot.appendChild(orderBadge);
+
+  const cardNode = index < revealedCount
+    ? buildDisplayCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`)
+    : buildFaceDownDisplayCardNode("played-card face-down", `第 ${index + 1} 张底牌尚未翻开`);
+  slot.appendChild(cardNode);
+
+  return slot;
+}
+
+/**
+ * 作用：
+ * 渲染翻底定主阶段的中央提示区。
+ *
+ * 为什么这样写：
+ * 翻底公示既要同步结算文案和倒计时，也要把“已翻开”和“未翻开”的底牌状态一起呈现给玩家。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态并写入 DOM。
+ *
+ * 输出：
+ * @returns {void} 只更新界面，不返回额外结果。
+ *
+ * 注意：
+ * - 离开 `bottomReveal` 阶段后应立即隐藏整个公示区。
+ * - 渲染时必须保留底牌原始顺序，不能排序。
+ */
 function renderBottomRevealCenter() {
   const showBottomReveal = state.phase === "bottomReveal";
   dom.bottomRevealCenter.classList.toggle("hidden", !showBottomReveal);
@@ -89,9 +226,11 @@ function renderBottomRevealCenter() {
 
   dom.bottomRevealText.textContent = state.bottomRevealMessage || TEXT.bottom.revealFallback;
   dom.bottomRevealTimer.textContent = String(Math.max(0, state.countdown || 0));
-  dom.bottomRevealCards.innerHTML = state.bottomCards
-    .map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML)
-    .join("");
+  dom.bottomRevealCards.innerHTML = "";
+  const revealedCount = getBottomRevealVisibleCount();
+  for (let index = 0; index < state.bottomCards.length; index += 1) {
+    dom.bottomRevealCards.appendChild(buildBottomRevealSlotNode(state.bottomCards[index], index, revealedCount));
+  }
 }
 
 // 渲染结算结果底牌。

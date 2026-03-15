@@ -120,6 +120,7 @@ function setupGame() {
   state.allLogs = [];
   state.gameOver = false;
   state.bottomRevealMessage = "";
+  state.bottomRevealCount = 0;
   state.selectedFriendOccurrence = 1;
   state.selectedFriendSuit = "hearts";
   state.selectedFriendRank = "A";
@@ -148,7 +149,6 @@ function setupGame() {
   state.bottomCards = deck.splice(0, 7);
 
   appendSessionHeaderLogs();
-  appendLog(getReadyStartMessage());
 
   render();
 }
@@ -659,12 +659,50 @@ function getBottomRevealWeight(card) {
   return RANK_WEIGHT[card.rank] || 0;
 }
 
-// 结算玩家是否因底牌触发叫主。
+/**
+ * 作用：
+ * 结算无人亮主时，先抓牌玩家翻底后最终定出的主花色和展示张数。
+ *
+ * 为什么这样写：
+ * 翻底是按顺序一张张公开的，碰到级牌或王就应该立即停止继续翻牌；
+ * 只有始终没翻到这些“立即定主”牌时，才需要看完整副底牌并按第一次出现的最大牌定主。
+ *
+ * 输入：
+ * @param {number} playerId - 当前负责翻底定主的玩家 ID。
+ *
+ * 输出：
+ * @returns {{playerId:number,suit:string,rank:string|null,count:number,cards:Array,source:string,revealCard:object|null,revealCount:number}} 翻底得到的定主结果。
+ *
+ * 注意：
+ * - `revealCount` 代表公示阶段真正需要翻开的底牌张数。
+ * - 若中途翻到王，则本局直接定为无主，后续底牌不再继续公开。
+ */
 function resolveBottomDeclarationForPlayer(playerId) {
   const playerLevel = getPlayerLevelRank(playerId);
   let highestCard = null;
+  let highestWeight = -1;
 
-  for (const card of state.bottomCards) {
+  for (let revealIndex = 0; revealIndex < state.bottomCards.length; revealIndex += 1) {
+    const card = state.bottomCards[revealIndex];
+    const currentWeight = getBottomRevealWeight(card);
+    if (!highestCard || currentWeight > highestWeight) {
+      highestCard = card;
+      highestWeight = currentWeight;
+    }
+
+    if (card.suit === "joker") {
+      return {
+        playerId,
+        suit: "notrump",
+        rank: playerLevel,
+        count: 0,
+        cards: [],
+        source: "bottom",
+        revealCard: card,
+        revealCount: revealIndex + 1,
+      };
+    }
+
     if (card.rank === playerLevel && card.suit !== "joker") {
       return {
         playerId,
@@ -674,11 +712,8 @@ function resolveBottomDeclarationForPlayer(playerId) {
         cards: [],
         source: "bottom",
         revealCard: card,
+        revealCount: revealIndex + 1,
       };
-    }
-
-    if (!highestCard || getBottomRevealWeight(card) > getBottomRevealWeight(highestCard)) {
-      highestCard = card;
     }
   }
 
@@ -691,6 +726,7 @@ function resolveBottomDeclarationForPlayer(playerId) {
       cards: [],
       source: "bottom",
       revealCard: null,
+      revealCount: 0,
     };
   }
 
@@ -702,6 +738,7 @@ function resolveBottomDeclarationForPlayer(playerId) {
     cards: [],
     source: "bottom",
     revealCard: highestCard,
+    revealCount: state.bottomCards.length,
   };
 }
 
@@ -719,6 +756,7 @@ function finishDealingPhase() {
     const firstDealPlayerId = state.nextFirstDealPlayerId || 1;
     const bottomDeclaration = resolveBottomDeclarationForPlayer(firstDealPlayerId);
     state.declaration = bottomDeclaration;
+    state.bottomRevealCount = bottomDeclaration.revealCount || 0;
     state.trumpSuit = bottomDeclaration.suit;
     state.bankerId = firstDealPlayerId;
     state.levelRank = getPlayerLevelRank(firstDealPlayerId);
@@ -734,6 +772,7 @@ function finishDealingPhase() {
     return;
   }
 
+  state.bottomRevealCount = 0;
   state.trumpSuit = state.declaration.suit;
   state.bankerId = state.declaration.playerId;
   state.phase = "countering";
@@ -896,11 +935,10 @@ function getDeclarationCards(entry = state.declaration) {
  * - 常主只包括级牌和大小王，不包括普通主花色牌。
  * - 这里使用玩家自己的等级牌来判定级牌，和亮主规则保持一致。
  */
-function countCommonTrumpCardsForPlayer(playerId) {
+function countCommonTrumpCardsForPlayer(playerId, levelRank = getPlayerLevelRank(playerId)) {
   const player = getPlayer(playerId);
   if (!player) return 0;
-  const playerLevelRank = getPlayerLevelRank(playerId);
-  return player.hand.filter((card) => card.suit === "joker" || card.rank === playerLevelRank).length;
+  return player.hand.filter((card) => card.suit === "joker" || card.rank === levelRank).length;
 }
 
 /**
@@ -923,16 +961,331 @@ function countCommonTrumpCardsForPlayer(playerId) {
  * - 无主时，这个函数返回的实际上就是常主数量。
  * - 花色主时，主级牌同时满足“级牌”和“主花色牌”条件，但只能计一次。
  */
-function countTrumpCardsForDeclaration(playerId, declaration) {
+function countTrumpCardsForDeclaration(playerId, declaration, levelRank = getPlayerLevelRank(playerId)) {
   const player = getPlayer(playerId);
   if (!player || !declaration) return 0;
-  const playerLevelRank = getPlayerLevelRank(playerId);
   if (declaration.suit === "notrump") {
-    return countCommonTrumpCardsForPlayer(playerId);
+    return countCommonTrumpCardsForPlayer(playerId, levelRank);
   }
   return player.hand.filter((card) =>
-    card.suit === "joker" || card.rank === playerLevelRank || card.suit === declaration.suit
+    card.suit === "joker" || card.rank === levelRank || card.suit === declaration.suit
   ).length;
+}
+
+/**
+ * 作用：
+ * 统计指定亮主方案下的主牌控制力分值。
+ *
+ * 为什么这样写：
+ * 中级亮主第一阶段不做完整搜索，但需要至少能区分“主牌很多”和“主牌真正有控制力”。
+ * 这里用一个轻量权重，把王、级牌和主花色高张折算成可比较的分数，
+ * 让中级在同档位亮主时优先选择更能控牌的方案。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估控制力的玩家 ID。
+ * @param {object} declaration - 候选亮主方案。
+ * @param {string} levelRank - 该方案下生效的级牌点数。
+ *
+ * 输出：
+ * @returns {number} 该方案对应的主牌控制力分值。
+ *
+ * 注意：
+ * - 这里只是启发式控制力，不等价于真实胜率。
+ * - 无主时只统计常主控制力，不把普通花色 A/K 算成主控。
+ */
+function getTrumpControlScoreForDeclaration(playerId, declaration, levelRank = getPlayerLevelRank(playerId)) {
+  const player = getPlayer(playerId);
+  if (!player || !declaration) return 0;
+
+  return player.hand.reduce((sum, card) => {
+    if (card.suit === "joker") {
+      return sum + (card.rank === "RJ" ? 10 : 9);
+    }
+    if (card.rank === levelRank) {
+      return sum + (declaration.suit !== "notrump" && card.suit === declaration.suit ? 8 : 7);
+    }
+    if (declaration.suit === "notrump" || card.suit !== declaration.suit) {
+      return sum;
+    }
+    return sum + ({
+      A: 6,
+      K: 4,
+      Q: 2,
+      J: 1,
+      "10": 1,
+    }[card.rank] || 0);
+  }, 0);
+}
+
+/**
+ * 作用：
+ * 统计指定亮主方案下仍作为副牌保留的高控制牌数量。
+ *
+ * 为什么这样写：
+ * 中级第一阶段除了看主牌本身，还需要稍微看一下副牌的续航能力。
+ * 这里把非主门中的 A / K 视为基础副牌控制资源，用来区分“主够长但副牌全碎”
+ * 和“主副都还能组织”的方案。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估副牌控制的玩家 ID。
+ * @param {object} declaration - 候选亮主方案。
+ * @param {string} levelRank - 该方案下生效的级牌点数。
+ *
+ * 输出：
+ * @returns {number} 方案下保留下来的副牌 A / K 数量。
+ *
+ * 注意：
+ * - 级牌若在该方案下变成主牌，不再计入副牌控制。
+ * - 无主时，只有非级牌的 A / K 会计入这里。
+ */
+function countSideControlCardsForDeclaration(playerId, declaration, levelRank = getPlayerLevelRank(playerId)) {
+  const player = getPlayer(playerId);
+  if (!player || !declaration) return 0;
+  return player.hand.filter((card) => {
+    if (!["A", "K"].includes(card.rank)) return false;
+    if (card.suit === "joker") return false;
+    if (card.rank === levelRank) return false;
+    if (declaration.suit !== "notrump" && card.suit === declaration.suit) return false;
+    return true;
+  }).length;
+}
+
+/**
+ * 作用：
+ * 统计指定亮主方案下的短门潜力或无主短板。
+ *
+ * 为什么这样写：
+ * 中级亮主时需要简单区分“这门主适不适合做短门将吃”和“打无主会不会太失衡”。
+ * 这里统一把各副门剩余数量做一次压缩统计，给中级评分器一个轻量结构信号。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估结构的玩家 ID。
+ * @param {object} declaration - 候选亮主方案。
+ * @param {string} levelRank - 该方案下生效的级牌点数。
+ *
+ * 输出：
+ * @returns {{shortSuitCount:number, voidSuitCount:number, noTrumpFragileCount:number}} 副门结构统计结果。
+ *
+ * 注意：
+ * - 花色主时，`shortSuitCount` 与 `voidSuitCount` 越高，通常越利于后续做短门。
+ * - 无主时，`noTrumpFragileCount` 越高，通常说明结构越容易断。
+ */
+function getSideSuitStructureForDeclaration(playerId, declaration, levelRank = getPlayerLevelRank(playerId)) {
+  const player = getPlayer(playerId);
+  if (!player || !declaration) {
+    return {
+      shortSuitCount: 0,
+      voidSuitCount: 0,
+      noTrumpFragileCount: 0,
+    };
+  }
+
+  const sideCounts = SUITS.reduce((acc, suit) => {
+    acc[suit] = 0;
+    return acc;
+  }, {});
+
+  for (const card of player.hand) {
+    if (card.suit === "joker") continue;
+    if (card.rank === levelRank) continue;
+    if (declaration.suit !== "notrump" && card.suit === declaration.suit) continue;
+    sideCounts[card.suit] += 1;
+  }
+
+  const counts = Object.values(sideCounts);
+  return {
+    shortSuitCount: counts.filter((count) => count > 0 && count <= 2).length,
+    voidSuitCount: counts.filter((count) => count === 0).length,
+    noTrumpFragileCount: counts.filter((count) => count <= 1).length,
+  };
+}
+
+/**
+ * 作用：
+ * 评估中级 AI 在某个亮主方案下的整体适配分。
+ *
+ * 为什么这样写：
+ * 中级第一阶段的目标，是让自动亮主从“只看档位”升级到“开始看这手牌适不适合这样做庄”。
+ * 因此这里把主牌数量、主控、副牌控制和短门潜力压成一个轻量分值，
+ * 用于在自动亮主时比较不同方案的优先级。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估亮主方案的玩家 ID。
+ * @param {object} declaration - 候选亮主方案。
+ * @param {string} levelRank - 该方案下生效的级牌点数。
+ *
+ * 输出：
+ * @returns {number} 中级自动亮主使用的启发式分值。
+ *
+ * 注意：
+ * - 这里的分值只用于同阶段相对比较，不承诺跨阶段可解释。
+ * - 无主与有主走不同加权，避免简单地把无主当作“更高档所以更好”。
+ */
+function scoreIntermediateDeclarationOption(playerId, declaration, levelRank = getPlayerLevelRank(playerId)) {
+  const trumpCount = countTrumpCardsForDeclaration(playerId, declaration, levelRank);
+  const commonTrumpCount = countCommonTrumpCardsForPlayer(playerId, levelRank);
+  const trumpControlScore = getTrumpControlScoreForDeclaration(playerId, declaration, levelRank);
+  const sideControlCount = countSideControlCardsForDeclaration(playerId, declaration, levelRank);
+  const structure = getSideSuitStructureForDeclaration(playerId, declaration, levelRank);
+  const priorityScore = getDeclarationPriority(declaration) * 4;
+
+  if (declaration.suit === "notrump") {
+    return priorityScore
+      + commonTrumpCount * 12
+      + trumpControlScore * 4
+      + sideControlCount * 5
+      - structure.noTrumpFragileCount * 8;
+  }
+
+  return priorityScore
+    + trumpCount * 9
+    + trumpControlScore * 4
+    + sideControlCount * 3
+    + structure.shortSuitCount * 6
+    + structure.voidSuitCount * 4
+    + (declaration.count === 3 ? 12 : 0);
+}
+
+/**
+ * 作用：
+ * 判断中级 AI 是否应该延迟当前的两张亮主方案。
+ *
+ * 为什么这样写：
+ * 文档里“中级第一阶段”明确要求支持低价值两张方案的延迟亮主。
+ * 这里不做复杂概率计算，只用一个简单近似：
+ * 当前仍在发牌、自己后面还有明显摸牌次数、而且这手两张方案评分不高时，先不急着亮。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估是否延迟亮主的玩家 ID。
+ * @param {object} declaration - 当前最优候选亮主方案。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示中级 AI 应先继续等牌。
+ *
+ * 注意：
+ * - 只在当前还没有人亮主时才延迟，避免错失抢亮时机。
+ * - 这里只处理两张方案；三张方案默认不延迟。
+ */
+function shouldDelayDeclarationForIntermediate(playerId, declaration) {
+  const player = getPlayer(playerId);
+  if (!player || !declaration) return false;
+  if (state.phase !== "dealing" || state.declaration) return false;
+  if (declaration.count !== 2) return false;
+
+  const remainingOwnDraws = Math.max(0, 31 - player.hand.length);
+  if (remainingOwnDraws < 3) return false;
+
+  const trumpCount = countTrumpCardsForDeclaration(playerId, declaration);
+  const sideControlCount = countSideControlCardsForDeclaration(playerId, declaration);
+  if (declaration.suit === "notrump") {
+    const commonTrumpCount = countCommonTrumpCardsForPlayer(playerId);
+    return commonTrumpCount <= 3 && sideControlCount <= 2;
+  }
+  return trumpCount <= 5 && sideControlCount <= 2;
+}
+
+/**
+ * 作用：
+ * 为中级及高级自动流程选出最适合的亮主方案。
+ *
+ * 为什么这样写：
+ * 人类提示仍应保留“最高档合法方案”的直觉表达，但 AI 自动亮主需要开始比较同档位方案的质量。
+ * 因此这里专门给自动流程做一层评分排序，并支持中级阶段的低价值延迟亮主。
+ *
+ * 输入：
+ * @param {number} playerId - 需要自动亮主的玩家 ID。
+ *
+ * 输出：
+ * @returns {?object} 自动流程最终愿意采用的亮主方案；没有则返回 `null`。
+ *
+ * 注意：
+ * - 当前高级暂时复用这套中级自动亮主逻辑，后续再叠加更强策略。
+ * - 这里只有自动流程使用，人类按钮仍可依据合法方案自行决定。
+ */
+function getBestAutoDeclarationForIntermediate(playerId) {
+  const options = getDeclarationOptions(playerId);
+  if (options.length === 0) return null;
+
+  const best = [...options].sort((a, b) => {
+    const scoreDiff = scoreIntermediateDeclarationOption(b.playerId, b) - scoreIntermediateDeclarationOption(a.playerId, a);
+    if (scoreDiff !== 0) return scoreDiff;
+    return getDeclarationPriority(b) - getDeclarationPriority(a);
+  })[0];
+
+  if (!best) return null;
+  if (shouldDelayDeclarationForIntermediate(playerId, best)) return null;
+  return best;
+}
+
+/**
+ * 作用：
+ * 评估中级 AI 是否值得用某个方案反主。
+ *
+ * 为什么这样写：
+ * 中级第一阶段的反主目标，不是“有更大就反”，而是“反完后自己的庄位质量有没有明显提升”。
+ * 这里通过比较玩家在当前亮主和新方案下的手牌适配差，再叠加新方案自身分数，
+ * 让中级 AI 对低收益反主更保守。
+ *
+ * 输入：
+ * @param {number} playerId - 需要评估反主方案的玩家 ID。
+ * @param {object} declaration - 候选反主方案。
+ * @param {object} current - 当前桌面的亮主方案。
+ *
+ * 输出：
+ * @returns {number} 中级自动反主使用的启发式分值。
+ *
+ * 注意：
+ * - 当前亮主的手牌适配按它自己的级牌来计算，因为真正生效的主体系就是那套。
+ * - 这里只用于自动反主阈值，不影响人类是否能看到合法反主按钮。
+ */
+function scoreIntermediateCounterOption(playerId, declaration, current) {
+  if (!declaration || !current) return -Infinity;
+  const declarationScore = scoreIntermediateDeclarationOption(playerId, declaration, getPlayerLevelRank(playerId));
+  const currentScore = scoreIntermediateDeclarationOption(playerId, current, current.rank);
+  const priorityDelta = getDeclarationPriority(declaration) - getDeclarationPriority(current);
+  const improvement = declarationScore - currentScore;
+  return declarationScore + improvement * 1.4 + priorityDelta * 10;
+}
+
+/**
+ * 作用：
+ * 为中级及高级自动流程选出最适合的反主方案。
+ *
+ * 为什么这样写：
+ * 中级第一阶段需要先把“合法反主”与“值得自动反主”区分开。
+ * 这里会在所有可压住当前亮主的方案中选分最高的一手，并在分值过低时直接选择不反。
+ *
+ * 输入：
+ * @param {number} playerId - 需要自动反主的玩家 ID。
+ *
+ * 输出：
+ * @returns {?object} 自动流程最终愿意采用的反主方案；没有则返回 `null`。
+ *
+ * 注意：
+ * - 当前高级暂时复用这套中级自动反主逻辑，后续再增加行为推断层。
+ * - 分值阈值偏保守，目的是先过滤“能反但明显不值”的场景。
+ */
+function getBestAutoCounterDeclarationForIntermediate(playerId) {
+  const current = state.declaration;
+  if (!current) return null;
+  const options = getDeclarationOptions(playerId).filter((entry) => canOverrideDeclaration(entry, current));
+  if (options.length === 0) return null;
+
+  const scoredOptions = options
+    .map((entry) => ({
+      entry,
+      improvement: scoreIntermediateDeclarationOption(playerId, entry, getPlayerLevelRank(playerId))
+        - scoreIntermediateDeclarationOption(playerId, current, current.rank),
+      score: scoreIntermediateCounterOption(playerId, entry, current),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return getDeclarationPriority(b.entry) - getDeclarationPriority(a.entry);
+    });
+
+  const best = scoredOptions[0];
+  if (!best || best.improvement < 18 || best.score < 120) return null;
+  return best.entry;
 }
 
 /**
@@ -992,10 +1345,12 @@ function meetsBeginnerAutoDeclarationHeuristic(playerId, declaration, mode = "de
  * - 其他难度目前继续沿用原有“取最高档”的逻辑。
  */
 function getAutoDeclarationForPlayer(playerId) {
-  const best = getBestDeclarationForPlayer(playerId);
-  if (!best) return null;
-  if (state.aiDifficulty !== "beginner") return best;
-  return meetsBeginnerAutoDeclarationHeuristic(playerId, best, "declare") ? best : null;
+  if (state.aiDifficulty === "beginner") {
+    const best = getBestDeclarationForPlayer(playerId);
+    if (!best) return null;
+    return meetsBeginnerAutoDeclarationHeuristic(playerId, best, "declare") ? best : null;
+  }
+  return getBestAutoDeclarationForIntermediate(playerId);
 }
 
 /**
@@ -1017,10 +1372,12 @@ function getAutoDeclarationForPlayer(playerId) {
  * - 其他难度目前继续沿用原有合法最高档方案。
  */
 function getAutoCounterDeclarationForPlayer(playerId) {
-  const best = getCounterDeclarationForPlayer(playerId);
-  if (!best) return null;
-  if (state.aiDifficulty !== "beginner") return best;
-  return meetsBeginnerAutoDeclarationHeuristic(playerId, best, "counter") ? best : null;
+  if (state.aiDifficulty === "beginner") {
+    const best = getCounterDeclarationForPlayer(playerId);
+    if (!best) return null;
+    return meetsBeginnerAutoDeclarationHeuristic(playerId, best, "counter") ? best : null;
+  }
+  return getBestAutoCounterDeclarationForIntermediate(playerId);
 }
 
 // 执行一次叫主。

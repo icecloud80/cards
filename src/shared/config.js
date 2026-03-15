@@ -314,6 +314,7 @@ const state = {
   friendRetargetUsed: false,
   nextFirstDealPlayerId: 1,
   bottomRevealMessage: "",
+  bottomRevealCount: 0,
   exposedTrumpVoid: {},
   exposedSuitVoid: {},
   awaitingHumanDeclaration: false,

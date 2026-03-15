@@ -30,6 +30,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-final-hand-flow.js"),
   },
   {
+    name: "Headless full-game regression",
+    file: path.join(__dirname, "check-headless-full-game.js"),
+  },
+  {
     name: "Result subinfo regression",
     file: path.join(__dirname, "check-result-subinfo.js"),
   },

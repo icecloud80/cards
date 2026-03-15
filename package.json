@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "node --test --test-reporter=spec tests/unit/regressions.test.js"
+    "test:unit": "node --test --test-reporter=spec tests/unit/regressions.test.js",
+    "test:headless": "node tests/unit/check-headless-full-game.js"
   }
 }

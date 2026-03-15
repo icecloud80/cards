@@ -495,17 +495,30 @@ function getIntermediateRolloutMode(simState, playerId, fallbackMode = "lead") {
   return "follow";
 }
 
-function shouldExtendIntermediateRollout(playerId, simState, mode = "lead", combo = [], currentWinningPlay = null) {
+function getIntermediateRolloutExtensionSignals(playerId, simState, mode = "lead", combo = [], currentWinningPlay = null) {
   const player = getSimulationPlayer(simState, playerId);
-  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return false;
+  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) {
+    return {
+      shouldExtend: false,
+      flags: [],
+    };
+  }
 
   if (mode === "follow" && currentWinningPlay) {
     const beatsCurrent = wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay);
-    if (!beatsCurrent) return false;
+    if (!beatsCurrent) {
+      return {
+        shouldExtend: false,
+        flags: ["follow_non_beating"],
+      };
+    }
     if (!isFriendTeamResolved()
       && isAiTentativeDefender(playerId)
       && isAiTentativeDefender(currentWinningPlay.playerId)) {
-      return false;
+      return {
+        shouldExtend: false,
+        flags: ["tentative_defender_hold"],
+      };
     }
   }
 
@@ -514,8 +527,50 @@ function shouldExtendIntermediateRollout(playerId, simState, mode = "lead", comb
   const bottomSensitive = lateRound && isSimulationDefenderTeam(simState, playerId);
   const trumpCount = player.hand.filter((card) => effectiveSuit(card) === "trump").length;
   const structureCount = getStructureCombosFromHand(player.hand).length;
+  const flags = [];
+  if (unresolvedFriend) flags.push("unresolved_friend");
+  if (bottomSensitive) flags.push("late_bottom_pressure");
+  if (trumpCount >= 5) flags.push("heavy_trump_control");
+  if (structureCount >= 2) flags.push("multi_structure_hand");
+  return {
+    shouldExtend: flags.length > 0,
+    flags,
+  };
+}
 
-  return unresolvedFriend || bottomSensitive || trumpCount >= 5 || structureCount >= 2;
+function getDecisionTimestamp() {
+  if (typeof performance !== "undefined" && typeof performance.now === "function") {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function summarizeEvaluationForDebug(evaluation) {
+  return evaluation
+    ? {
+        total: evaluation.total,
+        breakdown: { ...(evaluation.breakdown || {}) },
+        objective: evaluation.objective
+          ? {
+              primary: evaluation.objective.primary,
+              secondary: evaluation.objective.secondary,
+            }
+          : null,
+      }
+    : null;
+}
+
+function summarizeCandidateDebugStats(candidateEntries) {
+  const entries = Array.isArray(candidateEntries) ? candidateEntries : [];
+  const maxRolloutDepth = entries.reduce((max, entry) => Math.max(max, entry.rolloutDepth || 0), 0);
+  const extendedRolloutCount = entries.filter((entry) => entry.rolloutDepth >= 2).length;
+  const completedRolloutCount = entries.filter((entry) => entry.rolloutCompleted).length;
+  return {
+    candidateCount: entries.length,
+    completedRolloutCount,
+    extendedRolloutCount,
+    maxRolloutDepth,
+  };
 }
 
 function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fallbackMode) {
@@ -540,6 +595,9 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
       depth: 0,
       reachedOwnTurn: false,
       futureTrace: [],
+      triggerFlags: ["rollout_incomplete"],
+      nextEvaluation: summarizeEvaluationForDebug(baselineEvaluation),
+      futureEvaluation: null,
     };
   }
 
@@ -570,7 +628,15 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
     score -= 42;
   }
 
-  if (shouldExtendIntermediateRollout(playerId, rollout.resultState, fallbackMode, combo, currentWinningPlay)) {
+  const extensionSignals = getIntermediateRolloutExtensionSignals(
+    playerId,
+    rollout.resultState,
+    fallbackMode,
+    combo,
+    currentWinningPlay
+  );
+
+  if (extensionSignals.shouldExtend) {
     const futureRollout = simulateUntilNextOwnTurn(rollout.resultState, playerId);
     futureTrace = futureRollout.trace || [];
     reachedOwnTurn = !!futureRollout.reachedOwnTurn;
@@ -581,6 +647,24 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
       const futureEvaluation = evaluateState(futureRollout.resultState, playerId, futureObjective);
       futureDelta = futureEvaluation.total - (baselineEvaluation?.total || 0);
       score += futureDelta * 0.08;
+      return {
+        score,
+        delta,
+        futureDelta,
+        completed: true,
+        nextMode,
+        winnerId: rollout.winnerId,
+        points: rollout.points || 0,
+        trace: rollout.trace || [],
+        depth,
+        reachedOwnTurn,
+        futureTrace,
+        triggerFlags: tentativeDefenderOvertake
+          ? [...extensionSignals.flags, "tentative_defender_overtake_penalty"]
+          : extensionSignals.flags,
+        nextEvaluation: summarizeEvaluationForDebug(nextEvaluation),
+        futureEvaluation: summarizeEvaluationForDebug(futureEvaluation),
+      };
     }
   }
 
@@ -596,6 +680,11 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
     depth,
     reachedOwnTurn,
     futureTrace,
+    triggerFlags: tentativeDefenderOvertake
+      ? [...extensionSignals.flags, "tentative_defender_overtake_penalty"]
+      : extensionSignals.flags,
+    nextEvaluation: summarizeEvaluationForDebug(nextEvaluation),
+    futureEvaluation: null,
   };
 }
 
@@ -624,6 +713,9 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
         rolloutFutureDelta: rollout.futureDelta,
         rolloutReachedOwnTurn: rollout.reachedOwnTurn,
         rolloutFutureTrace: rollout.futureTrace,
+        rolloutTriggerFlags: rollout.triggerFlags,
+        rolloutEvaluation: rollout.nextEvaluation,
+        rolloutFutureEvaluation: rollout.futureEvaluation,
         score: heuristicScore + rollout.score,
       };
     })
@@ -672,6 +764,9 @@ function buildScoredIntermediateFollowEntries(
         rolloutFutureDelta: rollout.futureDelta,
         rolloutReachedOwnTurn: rollout.reachedOwnTurn,
         rolloutFutureTrace: rollout.futureTrace,
+        rolloutTriggerFlags: rollout.triggerFlags,
+        rolloutEvaluation: rollout.nextEvaluation,
+        rolloutFutureEvaluation: rollout.futureEvaluation,
         score: heuristicScore + rollout.score,
       };
     })
@@ -714,6 +809,7 @@ function buildIntermediateDecisionBundleForState(playerId, mode, sourceState = s
 }
 
 function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
+  const decisionStartedAt = getDecisionTimestamp();
   const bundle = buildIntermediateDecisionBundle(playerId, mode, liveCandidates);
   const beginnerChoice = getBeginnerLegalHintForPlayer(playerId);
 
@@ -726,6 +822,7 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
       beginnerChoice,
       bundle.evaluation
     );
+    const debugStats = summarizeCandidateDebugStats(scoredEntries);
     const bestEntry = scoredEntries[0] || null;
     state.lastAiDecision = {
       ...bundle,
@@ -734,6 +831,9 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
       selectedTags: bestEntry?.tags || [],
       selectedScore: bestEntry?.score ?? null,
       selectedCards: bestEntry?.cards || [],
+      selectedBreakdown: bestEntry?.rolloutEvaluation || summarizeEvaluationForDebug(bundle.evaluation),
+      debugStats,
+      decisionTimeMs: Math.round((getDecisionTimestamp() - decisionStartedAt) * 100) / 100,
     };
     return bestEntry?.cards || [];
   }
@@ -766,6 +866,7 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
     beginnerChoice,
     bundle.evaluation
   );
+  const debugStats = summarizeCandidateDebugStats(scoredEntries);
   const bestEntry = scoredEntries[0] || null;
   state.lastAiDecision = {
     ...bundle,
@@ -774,6 +875,9 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
     selectedTags: bestEntry?.tags || [],
     selectedScore: bestEntry?.score ?? null,
     selectedCards: bestEntry?.cards || [],
+    selectedBreakdown: bestEntry?.rolloutEvaluation || summarizeEvaluationForDebug(bundle.evaluation),
+    debugStats,
+    decisionTimeMs: Math.round((getDecisionTimestamp() - decisionStartedAt) * 100) / 100,
   };
   return bestEntry?.cards || [];
 }

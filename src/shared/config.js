@@ -157,6 +157,13 @@ const INITIAL_LEVELS = PLAYER_ORDER.reduce((acc, id) => {
   return acc;
 }, {});
 
+function createDebugDecisionOffsets() {
+  return PLAYER_ORDER.reduce((acc, playerId) => {
+    if (playerId !== 1) acc[playerId] = 0;
+    return acc;
+  }, {});
+}
+
 const dom = {
   table: document.querySelector(".table"),
   friendHint: document.getElementById("friendHint"),
@@ -218,6 +225,12 @@ const dom = {
   closeDebugBtn: document.getElementById("closeDebugBtn"),
   debugPlayerTabs: document.getElementById("debugPlayerTabs"),
   debugHandMeta: document.getElementById("debugHandMeta"),
+  debugDecisionMeta: document.getElementById("debugDecisionMeta"),
+  debugDecisionPrevBtn: document.getElementById("debugDecisionPrevBtn"),
+  debugDecisionIndex: document.getElementById("debugDecisionIndex"),
+  debugDecisionNextBtn: document.getElementById("debugDecisionNextBtn"),
+  debugDecisionCards: document.getElementById("debugDecisionCards"),
+  debugDecisionList: document.getElementById("debugDecisionList"),
   debugHandCards: document.getElementById("debugHandCards"),
   bottomPanel: document.getElementById("bottomPanel"),
   bottomPanelDrag: document.getElementById("bottomPanelDrag"),
@@ -264,6 +277,8 @@ const state = {
   lastTrick: null,
   playHistory: [],
   lastAiDecision: null,
+  aiDecisionHistory: [],
+  aiDecisionHistorySeq: 0,
   bottomCards: [],
   selectedCardIds: [],
   countdown: 15,
@@ -304,6 +319,7 @@ const state = {
   hasSavedProgress: false,
   startSelection: null,
   selectedDebugPlayerId: 2,
+  selectedDebugDecisionOffsets: createDebugDecisionOffsets(),
 };
 
 // 规范化玩家等级进度。

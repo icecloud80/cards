@@ -59,11 +59,16 @@ function getLogTimestamp() {
   });
 }
 
+function getPlayerLevelsLogText() {
+  return PLAYER_ORDER.map((playerId) => `玩家${playerId} Lv:${getPlayerLevel(playerId)}`).join(" · ");
+}
+
 function appendSessionHeaderLogs() {
   appendLog(`游戏版本：${APP_VERSION_LABEL}`);
   appendLog(`AI难度：${getAiDifficultyLogLabel()}`);
   appendLog(`时间：${getLogTimestamp()}`);
   appendLog(`设备：${getPlatformLogLabel()}`);
+  appendLog(`玩家等级：${getPlayerLevelsLogText()}`);
 }
 
 // 初始化一局新的牌局状态。

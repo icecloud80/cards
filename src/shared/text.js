@@ -224,6 +224,17 @@ const TEXT = {
     title: "调试看牌",
     empty: "当前没有手牌。",
     handCount: (name, count) => `${name} 当前手牌 ${count} 张`,
+    noDecision: "当前还没有这位玩家的 AI 决策记录。",
+    latestDecision: (name, mode, primary, secondary) => `${name} 最近一次 ${mode === "follow" ? "跟牌" : "首发"} · 主目标 ${primary} · 次目标 ${secondary}`,
+    selectedCards: (cards) => `最终选择：${cards}`,
+    decisionStats: (timeMs, candidateCount, maxRolloutDepth, extendedRolloutCount) => `耗时 ${timeMs}ms · 候选 ${candidateCount} 个 · 最深 ${maxRolloutDepth} 层 · 双层前瞻 ${extendedRolloutCount} 个`,
+    candidateTitle: (index, score) => `候选 ${index} · 总分 ${score}`,
+    candidateMeta: (source, tags) => `来源 ${source}${tags ? ` · ${tags}` : ""}`,
+    candidateScores: (heuristic, rollout, future) => `启发式 ${heuristic} · rollout ${rollout} · future ${future}`,
+    candidateRollout: (depth, flags) => `搜索深度 ${depth}${flags ? ` · ${flags}` : ""}`,
+    evaluationSummary: (total, primary, secondary) => `评估 ${total} · ${primary} / ${secondary}`,
+    sectionDecision: "AI 决策",
+    sectionHand: "暗手",
   },
   friendPicker: {
     suitOptions: [

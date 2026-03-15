@@ -227,6 +227,11 @@ function runIntermediateFoundationSuite(context) {
     assert(Array.isArray(state.lastAiDecision.candidateEntries) && state.lastAiDecision.candidateEntries.length > 0, "chooseIntermediatePlay: should persist candidate entries for debug");
     assert(state.lastAiDecision.candidateEntries.every((entry) => typeof entry.heuristicScore === "number"), "chooseIntermediatePlay: should persist heuristic candidate scores");
     assert(state.lastAiDecision.candidateEntries.every((entry) => typeof entry.rolloutScore === "number"), "chooseIntermediatePlay: should persist rollout candidate scores");
+    assert(typeof state.lastAiDecision.decisionTimeMs === "number", "chooseIntermediatePlay: should expose decision timing");
+    assert(typeof state.lastAiDecision.debugStats?.candidateCount === "number", "chooseIntermediatePlay: should expose debug candidate count");
+    assert(typeof state.lastAiDecision.debugStats?.maxRolloutDepth === "number", "chooseIntermediatePlay: should expose max rollout depth");
+    assert(state.lastAiDecision.candidateEntries.every((entry) => Array.isArray(entry.rolloutTriggerFlags)), "chooseIntermediatePlay: should expose rollout trigger flags for every candidate");
+    assert(state.lastAiDecision.candidateEntries.every((entry) => entry.rolloutEvaluation && typeof entry.rolloutEvaluation.total === "number"), "chooseIntermediatePlay: should expose rollout evaluation summaries");
     const simulatedBundle = buildIntermediateDecisionBundleForState(3, "lead", cloneSimulationState(state));
     assert(Array.isArray(simulatedBundle.candidateEntries) && simulatedBundle.candidateEntries.length > 0, "buildIntermediateDecisionBundleForState: should build candidates from simulation state");
     assert(simulatedBundle.sourceState !== state, "buildIntermediateDecisionBundleForState: should preserve explicit source state reference");
@@ -299,6 +304,7 @@ function runIntermediateFoundationSuite(context) {
         "bottom-risk evaluation scaffold ok",
         "single trick rollout isolation ok",
         "intermediate unified entry scaffold ok",
+        "intermediate decision debug scaffold ok",
         "simulation-state decision bundle ok",
         "void follow avoids wasting trump pair ok",
         "autoplay emergency fallback ok",

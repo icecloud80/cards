@@ -1,0 +1,2 @@
+artifacts/headless-regression/*
+!artifacts/headless-regression/.gitkeep

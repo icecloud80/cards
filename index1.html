@@ -1153,8 +1153,8 @@
       .debug-panel {
         right: var(--edge-gap);
         top: 34%;
-        width: 360px;
-        max-height: 360px;
+        width: 420px;
+        max-height: 520px;
         padding: 14px 16px;
         z-index: 5;
         overflow: hidden;
@@ -1173,9 +1173,70 @@
 
       .debug-hand-scroll {
         margin-top: 12px;
-        max-height: 250px;
+        max-height: 400px;
         overflow: auto;
         padding-right: 4px;
+      }
+
+      .debug-section + .debug-section {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(248, 240, 220, 0.14);
+      }
+
+      .debug-section-title {
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: rgba(248, 240, 220, 0.9);
+      }
+
+      .debug-decision-summary {
+        display: grid;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .debug-summary-line {
+        line-height: 1.5;
+      }
+
+      .debug-candidate + .debug-candidate {
+        margin-top: 10px;
+      }
+
+      .debug-candidate {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(248, 240, 220, 0.08);
+      }
+
+      .debug-candidate.selected {
+        border-color: rgba(207, 74, 68, 0.4);
+        background: rgba(207, 74, 68, 0.08);
+      }
+
+      .debug-candidate-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .debug-breakdown-row {
+        margin-top: 6px;
+      }
+
+      .debug-breakdown-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px 10px;
+        margin-top: 6px;
+        color: rgba(248, 240, 220, 0.82);
+        font-size: 12px;
       }
 
       .debug-hand-group + .debug-hand-group {
@@ -1548,10 +1609,19 @@
               <button id="closeDebugBtn" class="panel-close" type="button">×</button>
             </div>
           </div>
-          <div id="debugHandMeta" class="subtle">当前没有手牌。</div>
           <div id="debugPlayerTabs" class="debug-player-tabs"></div>
           <div class="debug-hand-scroll">
-            <div id="debugHandCards"></div>
+            <div class="debug-section">
+              <div class="debug-section-title">AI 决策</div>
+              <div id="debugDecisionMeta" class="subtle">当前还没有这位玩家的 AI 决策记录。</div>
+              <div id="debugDecisionCards"></div>
+              <div id="debugDecisionList"></div>
+            </div>
+            <div class="debug-section">
+              <div class="debug-section-title">暗手</div>
+              <div id="debugHandMeta" class="subtle">当前没有手牌。</div>
+              <div id="debugHandCards"></div>
+            </div>
           </div>
         </section>
 

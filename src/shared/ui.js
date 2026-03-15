@@ -332,6 +332,7 @@ function getVisibleRole(playerId) {
 
 // 渲染当前一墩中各玩家的出牌位置。
 function renderTrickSpots() {
+  // 当前墩的实时赢家，用来在桌面出牌区打“大”角标。
   const winningPlay = state.phase === "playing" && typeof getCurrentWinningPlay === "function"
     ? getCurrentWinningPlay()
     : null;
@@ -366,6 +367,7 @@ function renderTrickSpots() {
       : state.phase === "callingFriend"
       ? TEXT.trickSpot.callingFriend
       : TEXT.trickSpot.default;
+    // 桌面端沿用和手机版一致的两枚角标：右上“大”、左下“无”。
     const showNoTrumpBadge = APP_PLATFORM !== "mobile"
       && ["playing", "pause", "ending"].includes(state.phase)
       && player.hand.length > 0
@@ -733,9 +735,14 @@ function renderDebugPanel() {
 
   if (!player) {
     dom.debugHandMeta.textContent = TEXT.debug.empty;
+    if (dom.debugDecisionMeta) dom.debugDecisionMeta.textContent = TEXT.debug.noDecision;
+    if (dom.debugDecisionCards) dom.debugDecisionCards.innerHTML = `<div class="empty-note">${TEXT.debug.noDecision}</div>`;
+    if (dom.debugDecisionList) dom.debugDecisionList.innerHTML = "";
     dom.debugHandCards.innerHTML = `<div class="empty-note">${TEXT.debug.empty}</div>`;
     return;
   }
+
+  renderDebugDecisionPanel(player);
 
   const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
   const specialLabel = isSetupPhase
@@ -777,6 +784,92 @@ function renderDebugPanel() {
     })
     .filter(Boolean)
     .join("") || `<div class="empty-note">${TEXT.debug.empty}</div>`;
+}
+
+function formatDebugCards(cards) {
+  if (!Array.isArray(cards) || cards.length === 0) return "无";
+  return cards.map((card) => shortCardLabel(card)).join("、");
+}
+
+function formatDebugNumber(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "--";
+  return String(Math.round(value * 100) / 100);
+}
+
+function renderDebugDecisionPanel(player) {
+  if (!dom.debugDecisionMeta || !dom.debugDecisionCards || !dom.debugDecisionList) return;
+
+  const decision = state.lastAiDecision;
+  if (!decision || decision.playerId !== player.id) {
+    dom.debugDecisionMeta.textContent = TEXT.debug.noDecision;
+    dom.debugDecisionCards.innerHTML = `<div class="empty-note">${TEXT.debug.noDecision}</div>`;
+    dom.debugDecisionList.innerHTML = "";
+    return;
+  }
+
+  const primary = decision.objective?.primary || "--";
+  const secondary = decision.objective?.secondary || "--";
+  const selectedCards = formatDebugCards(decision.selectedCards);
+  const stats = decision.debugStats || {};
+  const candidateEntries = Array.isArray(decision.candidateEntries) ? decision.candidateEntries.slice(0, 5) : [];
+
+  dom.debugDecisionMeta.textContent = TEXT.debug.latestDecision(player.name, decision.mode, primary, secondary);
+  dom.debugDecisionCards.innerHTML = `
+    <div class="debug-decision-summary">
+      <div class="debug-summary-line">${TEXT.debug.selectedCards(selectedCards)}</div>
+      <div class="debug-summary-line subtle">${TEXT.debug.decisionStats(
+        formatDebugNumber(decision.decisionTimeMs),
+        stats.candidateCount ?? 0,
+        stats.maxRolloutDepth ?? 0,
+        stats.extendedRolloutCount ?? 0
+      )}</div>
+    </div>
+  `;
+
+  dom.debugDecisionList.innerHTML = candidateEntries.map((entry, index) => {
+    const tags = Array.isArray(entry.tags) && entry.tags.length > 0 ? entry.tags.join(" / ") : "";
+    const triggerFlags = Array.isArray(entry.rolloutTriggerFlags) && entry.rolloutTriggerFlags.length > 0
+      ? entry.rolloutTriggerFlags.join(" / ")
+      : "无特殊触发";
+    const rolloutEval = entry.rolloutEvaluation;
+    const futureEval = entry.rolloutFutureEvaluation;
+    const selected = decision.selectedCards && getComboKey(decision.selectedCards) === getComboKey(entry.cards);
+    return `
+      <div class="debug-candidate${selected ? " selected" : ""}">
+        <div class="debug-candidate-head">
+          <strong>${TEXT.debug.candidateTitle(index + 1, formatDebugNumber(entry.score))}</strong>
+          ${selected ? '<span class="group-chip red">已选</span>' : ""}
+        </div>
+        <div class="subtle">${TEXT.debug.candidateMeta(entry.source || "--", tags)}</div>
+        <div class="debug-summary-line">${formatDebugCards(entry.cards)}</div>
+        <div class="subtle">${TEXT.debug.candidateScores(
+          formatDebugNumber(entry.heuristicScore),
+          formatDebugNumber(entry.rolloutScore),
+          formatDebugNumber(entry.rolloutFutureDelta)
+        )}</div>
+        <div class="subtle">${TEXT.debug.candidateRollout(entry.rolloutDepth ?? 0, triggerFlags)}</div>
+        <div class="debug-breakdown-row">
+          <span>${TEXT.debug.evaluationSummary(
+            formatDebugNumber(rolloutEval?.total),
+            rolloutEval?.objective?.primary || "--",
+            rolloutEval?.objective?.secondary || "--"
+          )}</span>
+        </div>
+        <div class="debug-breakdown-grid">
+          ${Object.entries(rolloutEval?.breakdown || {}).map(([key, value]) => `<span>${key}: ${formatDebugNumber(value)}</span>`).join("")}
+        </div>
+        ${futureEval ? `
+          <div class="debug-breakdown-row subtle">
+            <span>${TEXT.debug.evaluationSummary(
+              formatDebugNumber(futureEval.total),
+              futureEval.objective?.primary || "--",
+              futureEval.objective?.secondary || "--"
+            )}</span>
+          </div>
+        ` : ""}
+      </div>
+    `;
+  }).join("") || `<div class="empty-note">${TEXT.debug.noDecision}</div>`;
 }
 
 // 渲染中央操作面板内容。

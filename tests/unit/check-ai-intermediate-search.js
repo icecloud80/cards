@@ -162,11 +162,15 @@ function runIntermediateSearchSuite(context) {
     assert(state.lastAiDecision, "chooseIntermediatePlay: should record debug decision data");
     assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutDepth >= 2), "chooseIntermediatePlay: qualifying search scenarios should record depth-2 rollout entries");
     assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutReachedOwnTurn), "chooseIntermediatePlay: extended rollout should reach own next turn for at least one candidate");
+    assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutTriggerFlags.includes("unresolved_friend")), "chooseIntermediatePlay: extended rollout should record why depth escalation happened");
+    assert(state.lastAiDecision.candidateEntries.some((entry) => entry.rolloutFutureEvaluation && typeof entry.rolloutFutureEvaluation.total === "number"), "chooseIntermediatePlay: depth-2 rollout should expose future evaluation summary");
+    assert(state.lastAiDecision.debugStats.extendedRolloutCount > 0, "chooseIntermediatePlay: debug stats should count extended rollouts");
 
     globalThis.__intermediateSearchResults = {
       results: [
         "next-own-turn simulation isolation ok",
         "intermediate rollout depth escalation ok",
+        "intermediate debug stats scaffold ok",
       ],
     };
   `;

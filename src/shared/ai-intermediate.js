@@ -2,13 +2,8 @@
 function getIntermediateReturnTargetIds(playerId) {
   if (playerId === state.bankerId) return [];
   if (!state.friendTarget || !isFriendTeamResolved()) {
-    if (isAiProspectiveFriend(playerId)) {
+    if (isAiCertainFriend(playerId) || canAiRevealFriendNow(playerId)) {
       return [state.bankerId];
-    }
-    if (isAiTentativeDefender(playerId)) {
-      return state.players
-        .map((player) => player.id)
-        .filter((otherId) => otherId !== playerId && otherId !== state.bankerId && isAiTentativeDefender(otherId));
     }
     return [];
   }
@@ -28,11 +23,8 @@ function getIntermediateReturnTargetIds(playerId) {
 function getIntermediateReturnSignal(targetId, leadSuit) {
   if (!leadSuit || leadSuit === "trump") return 0;
   let signal = state.exposedSuitVoid[targetId]?.[leadSuit] ? 1 : 0;
-  const targetPlayer = getPlayer(targetId);
-  if (!targetPlayer) return signal;
-  const hasLeadSuit = targetPlayer.hand.some((card) => effectiveSuit(card) === leadSuit);
-  if (!hasLeadSuit) {
-    signal += targetId === state.bankerId ? 2 : 1;
+  if (signal > 0 && targetId === state.bankerId) {
+    signal += 1;
   }
   return signal;
 }
@@ -67,7 +59,7 @@ function isIntermediateEarlyFriendTempo(playerId) {
   if (isFriendTeamResolved()) {
     return areSameSide(playerId, state.bankerId);
   }
-  return isAiProspectiveFriend(playerId) || isAiCertainFriend(playerId);
+  return isAiCertainFriend(playerId) || canAiRevealFriendNow(playerId);
 }
 
 // 评估朋友在早期接手后的带牌节奏。
@@ -199,7 +191,8 @@ function getSidePatternPressure(cards) {
 function getIntermediateTrumpControlPlan(playerId, handBefore) {
   const playerTrumpCards = handBefore.filter((card) => effectiveSuit(card) === "trump");
   const enemyIds = getIntermediateEnemyIds(playerId);
-  if (playerTrumpCards.length < 4 || enemyIds.length === 0) {
+  const knownEnemyTrumpVoidCount = enemyIds.filter((enemyId) => state.exposedTrumpVoid[enemyId]).length;
+  if (playerTrumpCards.length < 4) {
     return {
       active: false,
       playerTrumpCards,
@@ -207,25 +200,24 @@ function getIntermediateTrumpControlPlan(playerId, handBefore) {
       ownTrumpPressure: getTrumpPatternPressure(handBefore),
       enemyTrumpPressure: 0,
       sidePatternPressure: getSidePatternPressure(handBefore),
+      knownEnemyTrumpVoidCount,
     };
   }
 
-  const enemyTrumpGroups = enemyIds.map((enemyId) => getPlayer(enemyId)?.hand.filter((card) => effectiveSuit(card) === "trump") || []);
-  const totalEnemyTrump = enemyTrumpGroups.reduce((sum, cards) => sum + cards.length, 0);
   const ownTrumpPressure = getTrumpPatternPressure(handBefore);
-  const enemyTrumpPressure = enemyTrumpGroups.reduce((sum, cards) => sum + getTrumpPatternPressure(cards), 0);
   const sidePatternPressure = getSidePatternPressure(handBefore);
-  const active = totalEnemyTrump > 0
-    && ownTrumpPressure >= enemyTrumpPressure - 6
-    && playerTrumpCards.length >= Math.max(4, totalEnemyTrump - 1);
+  const active = playerTrumpCards.length >= 4
+    && ownTrumpPressure >= 18
+    && (playerTrumpCards.length >= 6 || ownTrumpPressure >= sidePatternPressure - 6);
 
   return {
     active,
     playerTrumpCards,
-    totalEnemyTrump,
+    totalEnemyTrump: 0,
     ownTrumpPressure,
-    enemyTrumpPressure,
+    enemyTrumpPressure: 0,
     sidePatternPressure,
+    knownEnemyTrumpVoidCount,
   };
 }
 
@@ -237,10 +229,9 @@ function scoreIntermediateTrumpClearLead(playerId, combo, handBefore) {
   const {
     active,
     playerTrumpCards,
-    totalEnemyTrump,
     ownTrumpPressure,
-    enemyTrumpPressure,
     sidePatternPressure,
+    knownEnemyTrumpVoidCount,
   } = getIntermediateTrumpControlPlan(playerId, handBefore);
   if (!active) return 0;
 
@@ -251,8 +242,10 @@ function scoreIntermediateTrumpClearLead(playerId, combo, handBefore) {
   let score = 0;
 
   score += 40;
-  if (ownTrumpPressure >= enemyTrumpPressure - 6) score += 18;
-  if (playerTrumpCards.length >= Math.max(4, totalEnemyTrump - 1)) score += 22;
+  if (ownTrumpPressure >= 18) score += 18;
+  if (playerTrumpCards.length >= 4) score += 22;
+  if (playerTrumpCards.length >= 6) score += 12;
+  score += knownEnemyTrumpVoidCount * 8;
   if (pattern.type === "pair") score += 26;
   if (pattern.type === "tractor") score += 46;
   if (pattern.type === "train") score += 54;
@@ -370,6 +363,7 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice) {
   score += scoreLeadTripleBreakPenalty(handBefore, combo);
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
+  score += scoreRememberedStructurePromotion(playerId, combo);
 
   if (combo.every((card) => effectiveSuit(card) === "trump") && !isDefenderTeam(playerId)) {
     score -= 10;
@@ -378,18 +372,9 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice) {
   return score;
 }
 
-// 选择中级 AI 的首发出牌。
-function chooseIntermediateLeadPlay(playerId) {
-  const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
-  if (forcedReveal.length > 0) return forcedReveal;
-  const candidates = getIntermediateLeadCandidates(playerId);
-  if (candidates.length === 0) return [];
-  const beginnerChoice = getBeginnerLegalHintForPlayer(playerId);
-  return candidates.sort((a, b) => {
-    const scoreDiff = scoreIntermediateLeadCandidate(playerId, b, beginnerChoice) - scoreIntermediateLeadCandidate(playerId, a, beginnerChoice);
-    if (scoreDiff !== 0) return scoreDiff;
-    return classifyPlay(a).power - classifyPlay(b).power;
-  })[0];
+function selectBestIntermediateLeadCandidate(playerId, candidateEntries, beginnerChoice) {
+  if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return null;
+  return buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginnerChoice)[0] || null;
 }
 
 // 为中级 AI 的跟牌候选方案计算分数。
@@ -455,36 +440,242 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
     }
   }
 
+  score += scoreRememberedStructurePromotion(playerId, combo) * 0.85;
+
   return score;
 }
 
-// 选择中级 AI 的跟牌出牌。
-function chooseIntermediateFollowPlay(playerId, candidates) {
+function selectBestIntermediateFollowCandidate(playerId, candidateEntries, currentWinningPlay, allyWinning, beginnerChoice) {
+  if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return null;
+  return buildScoredIntermediateFollowEntries(
+    playerId,
+    candidateEntries,
+    currentWinningPlay,
+    allyWinning,
+    beginnerChoice
+  )[0] || null;
+}
+
+function getIntermediateRolloutMode(simState, playerId, fallbackMode = "lead") {
+  if (!simState || simState.phase === "ending") return fallbackMode;
+  if (simState.currentTrick.length === 0 && simState.currentTurnId === playerId) return "lead";
+  return "follow";
+}
+
+function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fallbackMode) {
+  const rollout = simulateCandidateToEndOfCurrentTrick(cloneSimulationState(state), playerId, combo);
+  if (!rollout.completed) {
+    return {
+      score: 0,
+      delta: 0,
+      completed: false,
+      nextMode: fallbackMode,
+      winnerId: null,
+      points: 0,
+      trace: rollout.trace || [],
+    };
+  }
+
+  const nextMode = getIntermediateRolloutMode(rollout.resultState, playerId, fallbackMode);
+  const nextObjective = getIntermediateObjective(playerId, nextMode, rollout.resultState);
+  const nextEvaluation = evaluateState(rollout.resultState, playerId, nextObjective);
+  const delta = nextEvaluation.total - (baselineEvaluation?.total || 0);
+  const sameSideWin = rollout.winnerId ? isSimulationSameSide(rollout.resultState, playerId, rollout.winnerId) : false;
+  let score = delta * 0.35;
+
+  if (rollout.winnerId === playerId) {
+    score += 16;
+  } else if (sameSideWin) {
+    score += 8;
+  } else if (rollout.winnerId) {
+    score -= 10;
+  }
+
+  if (rollout.points > 0 && rollout.winnerId) {
+    score += sameSideWin ? rollout.points * 1.5 : -rollout.points * 1.5;
+  }
+
+  return {
+    score,
+    delta,
+    completed: true,
+    nextMode,
+    winnerId: rollout.winnerId,
+    points: rollout.points || 0,
+    trace: rollout.trace || [],
+  };
+}
+
+function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginnerChoice, baselineEvaluation = null) {
+  if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return [];
+  const baseEvaluation = baselineEvaluation || evaluateState(
+    cloneSimulationState(state),
+    playerId,
+    getIntermediateObjective(playerId, "lead", cloneSimulationState(state))
+  );
+  return candidateEntries
+    .map((entry) => {
+      const heuristicScore = scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice);
+      const rollout = getIntermediateRolloutSummary(playerId, entry.cards, baseEvaluation, "lead");
+      return {
+        ...entry,
+        heuristicScore,
+        rolloutScore: rollout.score,
+        rolloutDelta: rollout.delta,
+        rolloutCompleted: rollout.completed,
+        rolloutWinnerId: rollout.winnerId,
+        rolloutPoints: rollout.points,
+        rolloutNextMode: rollout.nextMode,
+        rolloutTrace: rollout.trace,
+        score: heuristicScore + rollout.score,
+      };
+    })
+    .sort((a, b) => {
+      const scoreDiff = b.score - a.score;
+      if (scoreDiff !== 0) return scoreDiff;
+      return classifyPlay(a.cards).power - classifyPlay(b.cards).power;
+    });
+}
+
+function buildScoredIntermediateFollowEntries(
+  playerId,
+  candidateEntries,
+  currentWinningPlay,
+  allyWinning,
+  beginnerChoice,
+  baselineEvaluation = null
+) {
+  if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return [];
+  const baseEvaluation = baselineEvaluation || evaluateState(
+    cloneSimulationState(state),
+    playerId,
+    getIntermediateObjective(playerId, "follow", cloneSimulationState(state))
+  );
+  return candidateEntries
+    .map((entry) => {
+      const heuristicScore = scoreIntermediateFollowCandidate(
+        playerId,
+        entry.cards,
+        currentWinningPlay,
+        allyWinning,
+        beginnerChoice
+      );
+      const rollout = getIntermediateRolloutSummary(playerId, entry.cards, baseEvaluation, "follow");
+      return {
+        ...entry,
+        heuristicScore,
+        rolloutScore: rollout.score,
+        rolloutDelta: rollout.delta,
+        rolloutCompleted: rollout.completed,
+        rolloutWinnerId: rollout.winnerId,
+        rolloutPoints: rollout.points,
+        rolloutNextMode: rollout.nextMode,
+        rolloutTrace: rollout.trace,
+        score: heuristicScore + rollout.score,
+      };
+    })
+    .sort((a, b) => {
+      const scoreDiff = b.score - a.score;
+      if (scoreDiff !== 0) return scoreDiff;
+      return classifyPlay(a.cards).power - classifyPlay(b.cards).power;
+    });
+}
+
+function buildIntermediateDecisionBundle(playerId, mode, liveCandidates = null) {
+  const simState = cloneSimulationState(state);
+  const objective = getIntermediateObjective(playerId, mode, simState);
+  const candidateEntries = mode === "follow" && Array.isArray(liveCandidates)
+    ? dedupeCandidateEntries(liveCandidates.map((cards) => {
+        const pattern = classifyPlay(cards);
+        const tags = [pattern.type, pattern.suit || effectiveSuit(cards[0])];
+        if (doesSelectionBeatCurrent(playerId, cards)) tags.push("beats");
+        if (matchesLeadPattern(pattern, state.leadSpec)) tags.push("matched");
+        return createCandidateEntry(cards, "legal", tags);
+      }))
+    : generateCandidatePlays(state, playerId, mode);
+  const evaluation = evaluateState(simState, playerId, objective);
+  return {
+    playerId,
+    mode,
+    objective,
+    evaluation,
+    candidateEntries,
+  };
+}
+
+function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
+  const bundle = buildIntermediateDecisionBundle(playerId, mode, liveCandidates);
+  const beginnerChoice = getBeginnerLegalHintForPlayer(playerId);
+
+  if (mode === "lead") {
+    const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
+    if (forcedReveal.length > 0) return forcedReveal;
+    const scoredEntries = buildScoredIntermediateLeadEntries(
+      playerId,
+      bundle.candidateEntries,
+      beginnerChoice,
+      bundle.evaluation
+    );
+    const bestEntry = scoredEntries[0] || null;
+    state.lastAiDecision = {
+      ...bundle,
+      candidateEntries: scoredEntries,
+      selectedSource: bestEntry?.source || null,
+      selectedTags: bestEntry?.tags || [],
+      selectedScore: bestEntry?.score ?? null,
+      selectedCards: bestEntry?.cards || [],
+    };
+    return bestEntry?.cards || [];
+  }
+
+  const candidates = Array.isArray(liveCandidates) ? liveCandidates : bundle.candidateEntries.map((entry) => entry.cards);
   if (candidates.length === 0) return [];
   const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
   if (forcedReveal.length > 0) return forcedReveal;
   const currentWinningPlay = getCurrentWinningPlay();
   const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const revealOpportunity = canAiRevealFriendNow(playerId);
+  const shouldDelayReveal = revealOpportunity && shouldAiDelayRevealOnOpeningLead(playerId);
   const revealChoice = revealOpportunity ? chooseAiRevealCombo(candidates) : [];
   const revealBeats = revealChoice.length > 0 && currentWinningPlay
     ? wouldAiComboBeatCurrent(playerId, revealChoice, currentWinningPlay)
     : false;
   const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
-  const beginnerChoice = getBeginnerLegalHintForPlayer(playerId);
 
   if (supportChoice.length > 0) return supportChoice;
-  if (revealChoice.length > 0 && (revealBeats || currentWinningPlay?.playerId !== state.bankerId)
+  if (!shouldDelayReveal && revealChoice.length > 0 && (revealBeats || currentWinningPlay?.playerId !== state.bankerId)
     && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
   }
 
-  return candidates.sort((a, b) => {
-    const scoreDiff = scoreIntermediateFollowCandidate(playerId, b, currentWinningPlay, allyWinning, beginnerChoice)
-      - scoreIntermediateFollowCandidate(playerId, a, currentWinningPlay, allyWinning, beginnerChoice);
-    if (scoreDiff !== 0) return scoreDiff;
-    return classifyPlay(a).power - classifyPlay(b).power;
-  })[0];
+  const scoredEntries = buildScoredIntermediateFollowEntries(
+    playerId,
+    bundle.candidateEntries,
+    currentWinningPlay,
+    allyWinning,
+    beginnerChoice,
+    bundle.evaluation
+  );
+  const bestEntry = scoredEntries[0] || null;
+  state.lastAiDecision = {
+    ...bundle,
+    candidateEntries: scoredEntries,
+    selectedSource: bestEntry?.source || null,
+    selectedTags: bestEntry?.tags || [],
+    selectedScore: bestEntry?.score ?? null,
+    selectedCards: bestEntry?.cards || [],
+  };
+  return bestEntry?.cards || [];
+}
+
+// 选择中级 AI 的首发出牌。
+function chooseIntermediateLeadPlay(playerId) {
+  return chooseIntermediatePlay(playerId, "lead");
+}
+
+// 选择中级 AI 的跟牌出牌。
+function chooseIntermediateFollowPlay(playerId, candidates) {
+  return chooseIntermediatePlay(playerId, "follow", candidates);
 }
 
 // 选择 AI 当前的首发出牌。

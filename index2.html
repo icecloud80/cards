@@ -2828,11 +2828,7 @@
       }
 
       body.mobile-index2 .cards-row .card-btn {
-        margin-left: 0;
-      }
-
-      body.mobile-index2 .cards-row.compact-overlap .card-btn {
-        margin-left: -16px;
+        margin-left: calc(-1px * var(--mobile-card-overlap, 8));
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -3307,6 +3303,7 @@
               <select id="mobileAiDifficultySelect" class="mobile-setup-select">
                 <option value="beginner">初级</option>
                 <option value="intermediate">中级</option>
+                <option value="advanced" hidden>高级</option>
               </select>
             </label>
             <div class="mobile-setup-actions">
@@ -3495,6 +3492,7 @@
           <select id="aiDifficultySelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
             <option value="beginner">初级</option>
             <option value="intermediate">中级</option>
+            <option value="advanced" hidden>高级</option>
           </select>
         </section>
 
@@ -3602,6 +3600,10 @@
     <script src="./src/shared/rules.js"></script>
     <script src="./src/shared/ai-shared.js"></script>
     <script src="./src/shared/ai-beginner.js"></script>
+    <script src="./src/shared/ai-simulate.js"></script>
+    <script src="./src/shared/ai-objectives.js"></script>
+    <script src="./src/shared/ai-evaluate.js"></script>
+    <script src="./src/shared/ai-candidates.js"></script>
     <script src="./src/shared/ai-intermediate.js"></script>
     <script src="./src/shared/ai.js"></script>
     <script src="./src/shared/game.js"></script>

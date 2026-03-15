@@ -42,6 +42,7 @@ function chooseAiFollowPlay(playerId, candidates) {
   const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
   const revealOpportunity = canAiRevealFriendNow(playerId);
+  const shouldDelayReveal = revealOpportunity && shouldAiDelayRevealOnOpeningLead(playerId);
   const revealChoice = revealOpportunity ? chooseAiRevealCombo(candidates) : [];
   const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
 
@@ -49,7 +50,7 @@ function chooseAiFollowPlay(playerId, candidates) {
     return supportChoice;
   }
 
-  if (revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
+  if (!shouldDelayReveal && revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
   }
 
@@ -82,7 +83,7 @@ function chooseAiFollowPlay(playerId, candidates) {
     })[0];
   }
 
-  if (revealChoice.length > 0) {
+  if (!shouldDelayReveal && revealChoice.length > 0) {
     return revealChoice;
   }
 

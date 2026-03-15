@@ -10,6 +10,14 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-bury-strategy.js"),
   },
   {
+    name: "AI intermediate foundation regression",
+    file: path.join(__dirname, "check-ai-intermediate-foundation.js"),
+  },
+  {
+    name: "AI memory strategy regression",
+    file: path.join(__dirname, "check-ai-memory-strategy.js"),
+  },
+  {
     name: "Play announcement regression",
     file: path.join(__dirname, "check-play-announcements.js"),
   },

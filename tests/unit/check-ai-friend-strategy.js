@@ -52,6 +52,10 @@ function loadGameContext() {
     path.join(__dirname, "../../src/shared/game.js"),
     path.join(__dirname, "../../src/shared/ai-shared.js"),
     path.join(__dirname, "../../src/shared/ai-beginner.js"),
+    path.join(__dirname, "../../src/shared/ai-simulate.js"),
+    path.join(__dirname, "../../src/shared/ai-objectives.js"),
+    path.join(__dirname, "../../src/shared/ai-evaluate.js"),
+    path.join(__dirname, "../../src/shared/ai-candidates.js"),
     path.join(__dirname, "../../src/shared/ai-intermediate.js"),
     path.join(__dirname, "../../src/shared/ai.js"),
   ];
@@ -652,8 +656,8 @@ function runFriendStrategySuite(context) {
     setupReturnToBankerHiddenVoidScenario("intermediate");
     const intermediateHiddenVoidLead = getLegalHintForPlayer(3);
     assert(intermediateHiddenVoidLead.length === 1, "intermediate: hidden-void return scenario should choose a single lead");
-    assert(intermediateHiddenVoidLead[0].suit === "hearts" && intermediateHiddenVoidLead[0].rank === "3", "intermediate: should infer banker void after burying and return with low heart");
-    results.push("intermediate hidden-void return ok");
+    assert(!(intermediateHiddenVoidLead[0].suit === "hearts" && intermediateHiddenVoidLead[0].rank === "3"), "intermediate: should not infer hidden banker void from unseen cards");
+    results.push("intermediate hidden-void stays public-info-only ok");
 
     setupDefenderReturnToAllyScenario("beginner");
     const beginnerDefenderReturnLead = getLegalHintForPlayer(4);
@@ -664,8 +668,8 @@ function runFriendStrategySuite(context) {
     setupDefenderReturnToAllyScenario("intermediate");
     const intermediateDefenderReturnLead = getLegalHintForPlayer(4);
     assert(intermediateDefenderReturnLead.length === 1, "intermediate: defender return scenario should choose a single lead");
-    assert(intermediateDefenderReturnLead[0].suit === "hearts" && intermediateDefenderReturnLead[0].rank === "3", "intermediate: should prefer low heart to hand control to tentative defender ally");
-    results.push("intermediate defender-return lead ok");
+    assert(!(intermediateDefenderReturnLead[0].suit === "hearts" && intermediateDefenderReturnLead[0].rank === "3"), "intermediate: should not hand control to an unrevealed tentative ally");
+    results.push("intermediate defender-return stays public-info-only ok");
 
     setupDefenderFollowSupportScenario("intermediate");
     const intermediateDefenderFollowSupport = getLegalHintForPlayer(4);

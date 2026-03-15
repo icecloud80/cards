@@ -67,6 +67,8 @@ function setupGame() {
   state.currentTrickBeatCount = 0;
   state.leadSpec = null;
   state.lastTrick = null;
+  state.playHistory = [];
+  state.lastAiDecision = null;
   state.bottomCards = [];
   state.selectedCardIds = [];
   state.countdown = 30;
@@ -137,6 +139,25 @@ function getFriendTargetFallback() {
   };
 }
 
+// 统计指定目标牌在底牌中已知被压下的张数。
+function getKnownBuriedTargetCopies(target) {
+  if (!target || !Array.isArray(state.bottomCards)) return 0;
+  return state.bottomCards.filter((card) => card.suit === target.suit && card.rank === target.rank).length;
+}
+
+// 统计按当前可见信息，目标牌更大一级的同花色牌还可能剩在外面的张数。
+function getVisiblePossibleHigherRankCopiesOutsideBanker(target, banker = getPlayer(state.bankerId)) {
+  if (!target || target.suit === "joker" || !banker) return 0;
+  const rankIndex = RANKS.indexOf(target.rank);
+  if (rankIndex < 0 || rankIndex >= RANKS.length - 1) return 0;
+  const higherRanks = RANKS.slice(rankIndex + 1);
+  return higherRanks.reduce((sum, rank) => {
+    const ownCopies = banker.hand.filter((card) => card.suit === target.suit && card.rank === rank).length;
+    const buriedCopies = getKnownBuriedTargetCopies({ suit: target.suit, rank });
+    return sum + Math.max(0, 3 - ownCopies - buriedCopies);
+  }, 0);
+}
+
 // 收集所有可用的朋友目标牌候选项。
 function collectFriendTargetCandidates(banker, ranks, scoreFn) {
   const suitPriority = [...SUITS.filter((suit) => suit !== state.trumpSuit), state.trumpSuit].filter(Boolean);
@@ -145,20 +166,14 @@ function collectFriendTargetCandidates(banker, ranks, scoreFn) {
   for (const rank of ranks) {
     if (rank === "RJ" || rank === "BJ") {
       const bankerCopies = banker.hand.filter((card) => card.suit === "joker" && card.rank === rank).length;
-      const owners = state.players
-        .filter((player) => player.id !== state.bankerId)
-        .filter((player) => player.hand.some((card) => card.suit === "joker" && card.rank === rank));
-      if (owners.length === 0) continue;
-      const otherCopies = state.players
-        .filter((player) => player.id !== state.bankerId)
-        .reduce((sum, player) => sum + player.hand.filter((card) => card.suit === "joker" && card.rank === rank).length, 0);
-      const maxOccurrence = Math.min(3, bankerCopies + otherCopies);
+      const buriedCopies = getKnownBuriedTargetCopies({ suit: "joker", rank });
+      const maxOccurrence = Math.min(3, 3 - buriedCopies);
       for (let occurrence = bankerCopies + 1; occurrence <= maxOccurrence; occurrence += 1) {
         const target = { suit: "joker", rank, occurrence };
         targetCandidates.push({
           target,
-          ownerId: owners[0].id,
-          score: scoreFn(target, banker, owners),
+          ownerId: null,
+          score: scoreFn(target, banker, { buriedCopies }),
         });
       }
       continue;
@@ -166,20 +181,14 @@ function collectFriendTargetCandidates(banker, ranks, scoreFn) {
 
     for (const suit of suitPriority) {
       const bankerCopies = banker.hand.filter((card) => card.suit === suit && card.rank === rank).length;
-      const owners = state.players
-        .filter((player) => player.id !== state.bankerId)
-        .filter((player) => player.hand.some((card) => card.rank === rank && card.suit === suit));
-      if (owners.length === 0) continue;
-      const otherCopies = state.players
-        .filter((player) => player.id !== state.bankerId)
-        .reduce((sum, player) => sum + player.hand.filter((card) => card.rank === rank && card.suit === suit).length, 0);
-      const maxOccurrence = Math.min(3, bankerCopies + otherCopies);
+      const buriedCopies = getKnownBuriedTargetCopies({ suit, rank });
+      const maxOccurrence = Math.min(3, 3 - buriedCopies);
       for (let occurrence = bankerCopies + 1; occurrence <= maxOccurrence; occurrence += 1) {
         const target = { suit, rank, occurrence };
         targetCandidates.push({
           target,
-          ownerId: owners[0].id,
-          score: scoreFn(target, banker, owners),
+          ownerId: null,
+          score: scoreFn(target, banker, { buriedCopies }),
         });
       }
     }
@@ -200,10 +209,11 @@ function pickBestFriendTargetFromCandidates(targetCandidates) {
 }
 
 // 为新手难度的朋友目标牌候选项计算分数。
-function scoreBeginnerFriendTargetCandidate(target, banker, owners) {
+function scoreBeginnerFriendTargetCandidate(target, banker, meta = {}) {
   const bankerSuitCards = banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
   const bankerTargetCopies = bankerSuitCards.filter((card) => card.rank === target.rank).length;
   const bankerSupportCards = bankerSuitCards.filter((card) => card.rank !== target.rank);
+  const buriedCopies = meta.buriedCopies || 0;
   const rankBonus = {
     A: 60,
     K: 48,
@@ -217,9 +227,10 @@ function scoreBeginnerFriendTargetCandidate(target, banker, owners) {
   const suitBonus = target.suit !== "joker" && target.suit !== state.trumpSuit ? 14 : 0;
   const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
   const jokerPenalty = target.suit === "joker" ? 8 : 0;
-  const uniqueOwnerBonus = owners.length === 1 ? 10 : 3;
+  const buriedPenalty = buriedCopies * 18;
+  const higherRankRiskPenalty = getVisiblePossibleHigherRankCopiesOutsideBanker(target, banker) > 0 ? 24 : 0;
   const supportPenalty = bankerSupportCards.length === 0 ? 12 : bankerSupportCards.length >= 4 ? 8 : 0;
-  return rankBonus + occurrenceBonus + suitBonus + uniqueOwnerBonus - trumpPenalty - jokerPenalty - supportPenalty;
+  return rankBonus + occurrenceBonus + suitBonus - trumpPenalty - jokerPenalty - buriedPenalty - higherRankRiskPenalty - supportPenalty;
 }
 
 // 选择新手难度下的朋友目标牌。
@@ -248,9 +259,9 @@ function chooseIntermediateFriendTarget() {
 
 // 选择朋友目标牌。
 function chooseFriendTarget() {
-  return state.aiDifficulty === "intermediate"
-    ? chooseIntermediateFriendTarget()
-    : chooseBeginnerFriendTarget();
+  return state.aiDifficulty === "beginner"
+    ? chooseBeginnerFriendTarget()
+    : chooseIntermediateFriendTarget();
 }
 
 // 取出指定朋友花色对应的牌。
@@ -261,18 +272,6 @@ function getCardsForFriendSuit(cards, suit) {
 // 返回手动找朋友推荐使用的点数顺序。
 function getFriendRecommendationRankPriority() {
   return getFriendAutoRankPriority();
-}
-
-function getFriendTargetHigherRankCopiesOutsideBanker(target, banker = getPlayer(state.bankerId)) {
-  if (!target || target.suit === "joker" || !banker) return 0;
-  const rankIndex = RANKS.indexOf(target.rank);
-  if (rankIndex < 0 || rankIndex >= RANKS.length - 1) return 0;
-  const higherRanks = RANKS.slice(rankIndex + 1);
-  return state.players
-    .filter((player) => player.id !== banker.id)
-    .reduce((sum, player) => (
-      sum + player.hand.filter((card) => card.suit === target.suit && higherRanks.includes(card.rank)).length
-    ), 0);
 }
 
 // 为朋友目标牌推荐项计算分数。
@@ -320,7 +319,7 @@ function scoreFriendRecommendationCandidate(target, meta) {
   const clutterPenalty = Math.max(0, supportCards.length - 2) * 7;
   const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
   const jokerPenalty = target.suit === "joker" ? 16 : 0;
-  const overtakenPenalty = getFriendTargetHigherRankCopiesOutsideBanker(target) > 0 ? 96 : 0;
+  const overtakenPenalty = getVisiblePossibleHigherRankCopiesOutsideBanker(target) > 0 ? 96 : 0;
   const selfHoldBonus = ownCopies > 0 ? ownCopies * 6 : 8;
   const controlPenalty = remainingSuitCards.length === 0 ? 10 : 0;
   const score = rankBonus
@@ -424,20 +423,15 @@ function getFriendPickerRecommendation() {
 }
 
 // 为朋友目标牌候选项计算综合分数。
-function scoreFriendTargetCandidate(target, banker, owners) {
+function scoreFriendTargetCandidate(target, banker, meta = {}) {
   const bankerSuitCards = banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
   const bankerTargetCopies = bankerSuitCards.filter((card) => card.rank === target.rank).length;
   const bankerSupportCards = bankerSuitCards.filter((card) => card.rank !== target.rank);
+  const buriedCopies = meta.buriedCopies || 0;
   const targetPower = target.suit === "joker"
     ? (target.rank === "RJ" ? 200 : 190)
     : cardStrength({ suit: target.suit, rank: target.rank, deckIndex: 0, id: `friend-target-${target.suit}-${target.rank}` });
   const bankerReturnCards = bankerSupportCards.filter((card) => cardStrength(card) < targetPower).length;
-  const ownerSupportCards = owners.flatMap((player) =>
-    player.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit) && card.rank !== target.rank)
-  );
-  const ownerHighCards = owners.flatMap((player) =>
-    player.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit) && cardStrength(card) >= targetPower)
-  );
   const rankBonus = {
     A: 60,
     K: 48,
@@ -451,20 +445,20 @@ function scoreFriendTargetCandidate(target, banker, owners) {
   const suitBonus = target.suit !== "joker" && target.suit !== state.trumpSuit ? 18 : 0;
   const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
   const jokerPenalty = target.suit === "joker" ? 14 : 0;
-  const uniqueOwnerBonus = owners.length === 1 ? 10 : 3;
   const bankerOwnCopyBonus = bankerTargetCopies > 0 ? 8 : 0;
-  const returnBonus = Math.min(bankerReturnCards, 3) * 7 + Math.min(ownerSupportCards.length, 3) * 5 + Math.min(ownerHighCards.length, 2) * 4;
+  const returnBonus = Math.min(bankerReturnCards, 3) * 7;
   const supportPenalty = bankerSupportCards.length === 0 ? 18 : 0;
-  const overtakenPenalty = getFriendTargetHigherRankCopiesOutsideBanker(target, banker) > 0 ? 96 : 0;
+  const overtakenPenalty = getVisiblePossibleHigherRankCopiesOutsideBanker(target, banker) > 0 ? 96 : 0;
+  const buriedPenalty = buriedCopies * 22;
   const voidSetupBonus = target.suit !== "joker" && bankerTargetCopies > 0 && bankerSupportCards.length <= 1
     ? 24
     : target.suit !== "joker" && bankerSupportCards.length === 0
       ? 14
       : 0;
   const returnRouteBonus = target.suit !== "joker" && bankerSupportCards.length <= 1
-    ? Math.min(ownerSupportCards.length, 3) * 6 + Math.min(ownerHighCards.length, 2) * 5
+    ? Math.min(bankerReturnCards, 3) * 5
     : 0;
-  return rankBonus + occurrenceBonus + suitBonus + uniqueOwnerBonus + bankerOwnCopyBonus + returnBonus + voidSetupBonus + returnRouteBonus - trumpPenalty - jokerPenalty - supportPenalty - overtakenPenalty;
+  return rankBonus + occurrenceBonus + suitBonus + bankerOwnCopyBonus + returnBonus + voidSetupBonus + returnRouteBonus - trumpPenalty - jokerPenalty - buriedPenalty - supportPenalty - overtakenPenalty;
 }
 
 // 构建朋友目标牌。
@@ -476,29 +470,6 @@ function buildFriendTarget(target) {
       ? getJokerImage(target.rank)
       : getCardImage(target.suit, target.rank),
   };
-}
-
-// 返回查找朋友目标牌归属的搜索顺序。
-function getFriendSearchOrder(fromId = state.bankerId) {
-  const order = [];
-  let currentId = getNextPlayerId(fromId);
-  while (currentId !== fromId) {
-    order.push(currentId);
-    currentId = getNextPlayerId(currentId);
-  }
-  return order;
-}
-
-// 推断朋友目标牌当前归属的玩家。
-function resolveFriendOwnerId(target, bankerId = state.bankerId) {
-  for (const playerId of getFriendSearchOrder(bankerId)) {
-    const player = getPlayer(playerId);
-    if (!player) continue;
-    if (player.hand.some((card) => card.rank === target.rank && card.suit === target.suit)) {
-      return playerId;
-    }
-  }
-  return null;
 }
 
 // 设置朋友目标牌。
@@ -1041,12 +1012,12 @@ function getBuryHintForPlayer(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
   const protectedCardIds = getBuryProtectedCardIds(player.hand);
-  if (state.aiDifficulty === "intermediate") {
-    const suitCounts = SUITS.reduce((acc, suit) => {
-      acc[suit] = player.hand.filter((card) => !isTrump(card) && card.suit === suit).length;
-      return acc;
-    }, {});
-    const reserveSuitEntry = SUITS
+  const suitCounts = SUITS.reduce((acc, suit) => {
+    acc[suit] = player.hand.filter((card) => !isTrump(card) && card.suit === suit).length;
+    return acc;
+  }, {});
+  const reserveSuitEntry = state.aiDifficulty !== "beginner"
+    ? (SUITS
       .map((suit) => {
         const cards = player.hand
           .filter((card) => !isTrump(card) && card.suit === suit)
@@ -1063,37 +1034,36 @@ function getBuryHintForPlayer(playerId) {
       .sort((a, b) => {
         if (a.count !== b.count) return a.count - b.count;
         return b.strength - a.strength;
-      })[0] || null;
-    const reserveSuit = reserveSuitEntry?.suit || null;
-    const reserveCardId = reserveSuitEntry?.highest?.id || null;
+      })[0] || null)
+    : null;
+  const reserveSuit = reserveSuitEntry?.suit || null;
+  const reserveCardId = reserveSuitEntry?.highest?.id || null;
+  const getScore = (card) => {
+    let score = (isTrump(card) ? 1000 : 0) + scoreValue(card) * 50 + cardStrength(card) + getBuryControlRetentionScore(card);
+    if (protectedCardIds.has(card.id)) score += 600;
+    if (!isTrump(card) && state.aiDifficulty !== "beginner") {
+      score += suitCounts[card.suit] * 14;
+      if (card.suit === reserveSuit) {
+        score -= 110;
+        if (card.id === reserveCardId) score += 260;
+      } else {
+        score += Math.max(0, suitCounts[card.suit] - 2) * 12;
+      }
+    }
+    return score;
+  };
+  const sortByBuryScore = (cards) => [...cards].sort((a, b) => getScore(a) - getScore(b));
+  const sideCards = player.hand.filter((card) => !isTrump(card));
 
-    return [...player.hand]
-      .sort((a, b) => {
-        const getScore = (card) => {
-          let score = (isTrump(card) ? 1000 : 0) + scoreValue(card) * 50 + cardStrength(card) + getBuryControlRetentionScore(card);
-          if (protectedCardIds.has(card.id)) score += 600;
-          if (!isTrump(card)) {
-            score += suitCounts[card.suit] * 14;
-            if (card.suit === reserveSuit) {
-              score -= 110;
-              if (card.id === reserveCardId) score += 260;
-            } else {
-              score += Math.max(0, suitCounts[card.suit] - 2) * 12;
-            }
-          }
-          return score;
-        };
-        return getScore(a) - getScore(b);
-      })
-      .slice(0, 7);
+  // 只要副牌足够凑满 7 张，就不要主动扣主。
+  if (sideCards.length >= 7) {
+    return sortByBuryScore(sideCards).slice(0, 7);
   }
-  return [...player.hand]
-    .sort((a, b) => {
-      const aScore = (isTrump(a) ? 1000 : 0) + scoreValue(a) * 50 + cardStrength(a) + getBuryControlRetentionScore(a) + (protectedCardIds.has(a.id) ? 600 : 0);
-      const bScore = (isTrump(b) ? 1000 : 0) + scoreValue(b) * 50 + cardStrength(b) + getBuryControlRetentionScore(b) + (protectedCardIds.has(b.id) ? 600 : 0);
-      return aScore - bScore;
-    })
-    .slice(0, 7);
+
+  const sortedSideCards = sortByBuryScore(sideCards);
+  const neededTrumpCount = Math.max(0, 7 - sortedSideCards.length);
+  const sortedTrumpCards = sortByBuryScore(player.hand.filter((card) => isTrump(card)));
+  return [...sortedSideCards, ...sortedTrumpCards.slice(0, neededTrumpCount)].slice(0, 7);
 }
 
 // 完成埋底并进入下一阶段。
@@ -1409,6 +1379,10 @@ function playCards(playerId, cardIds, options = {}) {
   if (exposedLeadSuitVoid && state.exposedSuitVoid[playerId]) {
     state.exposedSuitVoid[playerId][state.leadSpec.suit] = true;
   }
+  if (!Array.isArray(state.playHistory)) {
+    state.playHistory = [];
+  }
+  state.playHistory.push(...playedCards.map((card) => ({ ...card })));
   state.currentTrick.push({ playerId, cards: playedCards });
   player.played = playedCards;
   let leadTrumpAnnouncement = false;

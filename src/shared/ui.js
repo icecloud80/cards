@@ -461,9 +461,9 @@ function renderHand() {
     const row = document.createElement("div");
     row.className = "cards-row";
     row.dataset.cardCount = String(cards.length);
-    if (cards.length >= 10) {
-      row.classList.add("compact-overlap");
-    }
+    const extraCards = Math.max(0, cards.length - 13);
+    const overlap = Math.min(16, 8 + extraCards * 0.7);
+    row.style.setProperty("--mobile-card-overlap", overlap.toFixed(1));
     for (const card of cards) {
       const button = buildCardNode(card, `card-btn${state.selectedCardIds.includes(card.id) ? " selected" : ""}${isTrump(card) ? " trump" : ""}`);
       button.type = "button";

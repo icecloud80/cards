@@ -74,6 +74,7 @@ const DEFAULT_CARD_FACE_KEY = CARD_FACE_OPTIONS.some((option) => option.key === 
 const AI_DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "初级" },
   { value: "intermediate", label: "中级" },
+  { value: "advanced", label: "高级" },
 ];
 const DEFAULT_AI_DIFFICULTY = AI_DIFFICULTY_OPTIONS[0].value;
 const CARD_FACE_STORAGE_KEY = `five-friends-card-face-${APP_PLATFORM}-v1`;
@@ -261,6 +262,8 @@ const state = {
   currentTrickBeatCount: 0,
   leadSpec: null,
   lastTrick: null,
+  playHistory: [],
+  lastAiDecision: null,
   bottomCards: [],
   selectedCardIds: [],
   countdown: 15,

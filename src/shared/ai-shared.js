@@ -105,12 +105,6 @@ function getPendingPlayersAfter(playerId) {
   return pending;
 }
 
-// 判断某位玩家是否有牌可以压过当前领先牌。
-function canPlayerBeatCurrentWinning(playerId) {
-  const legalSelections = getLegalSelectionsForPlayer(playerId, 48);
-  return legalSelections.some((combo) => wouldAiComboBeatCurrent(playerId, combo));
-}
-
 // 判断 AI 的牌组能否压过当前最大牌。
 function wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay = getCurrentWinningPlay()) {
   if (!state.leadSpec || !currentWinningPlay || !Array.isArray(combo) || combo.length === 0) return false;
@@ -126,7 +120,7 @@ function wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay = getCurren
 // 判断庄家在不亮朋友时是否大概率守住这一墩。
 function isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay) {
   if (!currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return false;
-  return !getPendingPlayersAfter(playerId).some((pendingPlayerId) => canPlayerBeatCurrentWinning(pendingPlayerId));
+  return getPendingPlayersAfter(playerId).length === 0;
 }
 
 // 按朋友目标构造一张用于比较的虚拟牌。
@@ -173,8 +167,6 @@ function shouldAiDelayRevealOnOpeningLead(playerId) {
     return true;
   }
 
-  if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return false;
-
   if (neededOccurrence === 1 && isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget)) {
     return true;
   }
@@ -193,40 +185,31 @@ function isAiCertainFriend(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
-  const playerCopies = getAiTargetCopiesInHand(playerId);
-  if (playerCopies <= 0) return false;
-
-  const bankerCopies = getAiTargetCopiesInHand(state.bankerId);
-  const otherCopies = state.players
-    .filter((player) => player.id !== playerId && player.id !== state.bankerId)
-    .reduce((sum, player) => sum + getAiTargetCopiesInHand(player.id), 0);
-
-  return currentSeen + bankerCopies + otherCopies < neededOccurrence && currentSeen + bankerCopies + playerCopies >= neededOccurrence;
+  const ownCopies = getAiTargetCopiesInHand(playerId);
+  if (ownCopies <= 0 || neededOccurrence <= 1) return false;
+  return currentSeen + ownCopies >= neededOccurrence && currentSeen + ownCopies >= 3;
 }
 
 // 判断 AI 当前是否属于潜在朋友阵营。
 function isAiProspectiveFriend(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
-  if (getAiTargetCopiesInHand(playerId) <= 0) return false;
+  const ownCopies = getAiTargetCopiesInHand(playerId);
+  if (ownCopies <= 0) return false;
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
-  if (neededOccurrence === 3 && isAiCertainFriend(playerId)) return true;
-  return currentSeen >= neededOccurrence - 1;
+  return currentSeen + ownCopies >= neededOccurrence;
 }
 
 // 判断 AI 当前是否可视为暂定闲家。
 function isAiTentativeDefender(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
-  return getAiTargetCopiesInHand(playerId) === 0 && !isAiProspectiveFriend(playerId);
+  return getAiTargetCopiesInHand(playerId) === 0;
 }
 
 // 判断两名 AI 当前是否属于同一阵营。
 function areAiSameSide(playerA, playerB) {
   if (isFriendTeamResolved()) return areSameSide(playerA, playerB);
-  const aBankerSide = playerA === state.bankerId || isAiProspectiveFriend(playerA);
-  const bBankerSide = playerB === state.bankerId || isAiProspectiveFriend(playerB);
-  if (aBankerSide || bBankerSide) return aBankerSide && bBankerSide;
-  return isAiTentativeDefender(playerA) && isAiTentativeDefender(playerB);
+  return playerA === playerB;
 }
 
 // 为亮朋友前的配合出牌选择方案。
@@ -245,7 +228,6 @@ function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
     && bankerLeadCard.rank === state.friendTarget.rank;
   const blockedTakeover = revealOpportunity && doesBankerOpeningLeadBlockFriendTakeover(state.friendTarget);
   if (!delayForFirstTarget && !delayForSecondTarget && !blockedTakeover) return [];
-  if (!isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay)) return [];
 
   const supportChoices = candidates.filter((combo) =>
     !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
@@ -365,26 +347,14 @@ function chooseAiVoidPressureLead(playerId, player) {
   })[0].combo;
 }
 
-// 统计牌桌上仍未结算的分数总和。
-function getRemainingOpenPoints() {
-  const handPoints = state.players.reduce(
-    (sum, player) => sum + player.hand.reduce((cardSum, card) => cardSum + scoreValue(card), 0),
-    0
-  );
-  const trickPoints = state.currentTrick.reduce(
-    (sum, play) => sum + play.cards.reduce((cardSum, card) => cardSum + scoreValue(card), 0),
-    0
-  );
-  return handPoints + trickPoints;
-}
-
 // 判断 AI 当前是否应该争取扣底。
 function shouldAiAimForBottom(playerId) {
   if (!isDefenderTeam(playerId)) return false;
-  const ceilingWithoutBottom = state.defenderPoints + getRemainingOpenPoints();
-  if (ceilingWithoutBottom < 120) return true;
   const cardsLeft = state.players.reduce((sum, player) => sum + player.hand.length, 0);
-  return ceilingWithoutBottom < 140 && cardsLeft <= 20;
+  const visiblePoints = state.defenderPoints + getCurrentTrickPointValue();
+  if (visiblePoints < 60 && cardsLeft <= 25) return true;
+  if (visiblePoints < 90 && cardsLeft <= 15) return true;
+  return visiblePoints < 110 && cardsLeft <= 10;
 }
 
 // 为扣底准备阶段的垫牌组合计算分数。
@@ -470,7 +440,98 @@ function getLegalSelectionsForPlayer(playerId, limit = 72) {
 
 // 返回当前 AI 难度档位。
 function getAiDifficulty() {
-  return state.aiDifficulty === "intermediate" ? "intermediate" : "beginner";
+  return AI_DIFFICULTY_OPTIONS.some((option) => option.value === state.aiDifficulty)
+    ? state.aiDifficulty
+    : DEFAULT_AI_DIFFICULTY;
+}
+
+function isAdvancedAiDifficulty() {
+  return getAiDifficulty() === "advanced";
+}
+
+function getAiPlayedHistoryCards() {
+  return Array.isArray(state.playHistory) ? state.playHistory : [];
+}
+
+function getStructureCombosFromHand(hand) {
+  if (!Array.isArray(hand) || hand.length === 0) return [];
+  const seen = new Set();
+  const combos = [];
+  const groups = [
+    findSerialTuples(hand, 3),
+    findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "train"),
+    findSerialTuples(hand, 2).filter((combo) => classifyPlay(combo).type === "tractor"),
+    findTriples(hand),
+    findPairs(hand),
+  ];
+
+  for (const entries of groups) {
+    for (const combo of entries) {
+      const key = combo.map((card) => card.id).sort().join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      combos.push(combo);
+    }
+  }
+
+  return combos;
+}
+
+function isMemorableHighCard(card) {
+  return !!card && (isTrump(card) || ["10", "J", "Q", "K", "A", "BJ", "RJ"].includes(card.rank));
+}
+
+function isIntermediateRememberedCardForPlayer(playerId, card) {
+  if (!isMemorableHighCard(card)) return false;
+  const player = getPlayer(playerId);
+  if (!player) return false;
+  const cardSuit = effectiveSuit(card);
+  const cardPower = getPatternUnitPower(card, cardSuit);
+  return getStructureCombosFromHand(player.hand).some((combo) => {
+    const comboSuit = effectiveSuit(combo[0]);
+    if (comboSuit !== cardSuit) return false;
+    const comboTopPower = combo.reduce((max, entry) => Math.max(max, getPatternUnitPower(entry, comboSuit)), -Infinity);
+    return cardPower > comboTopPower;
+  });
+}
+
+function getRememberedPlayedCardsForPlayer(playerId) {
+  const historyCards = getAiPlayedHistoryCards();
+  const difficulty = getAiDifficulty();
+  if (difficulty === "advanced") return historyCards;
+  if (difficulty !== "intermediate") return [];
+  return historyCards.filter((card) => isIntermediateRememberedCardForPlayer(playerId, card));
+}
+
+function isStructurePatternType(type) {
+  return ["pair", "triple", "tractor", "train", "bulldozer"].includes(type);
+}
+
+function scoreRememberedStructurePromotion(playerId, combo) {
+  if (!Array.isArray(combo) || combo.length === 0) return 0;
+  const difficulty = getAiDifficulty();
+  if (difficulty === "beginner") return 0;
+  const pattern = classifyPlay(combo);
+  if (!isStructurePatternType(pattern.type)) return 0;
+
+  const suit = effectiveSuit(combo[0]);
+  const comboTopPower = combo.reduce((max, card) => Math.max(max, getPatternUnitPower(card, suit)), -Infinity);
+  const rememberedHigherCards = getRememberedPlayedCardsForPlayer(playerId)
+    .filter((card) => effectiveSuit(card) === suit && getPatternUnitPower(card, suit) > comboTopPower);
+  if (rememberedHigherCards.length === 0) return 0;
+
+  const typeBonus = {
+    pair: 18,
+    triple: 22,
+    tractor: 28,
+    train: 32,
+    bulldozer: 36,
+  }[pattern.type] || 0;
+  let score = Math.min(rememberedHigherCards.length, 6) * typeBonus;
+  if (difficulty === "advanced") {
+    score += Math.min(rememberedHigherCards.length, 6) * 6;
+  }
+  return score;
 }
 
 // 生成牌组的唯一键值。

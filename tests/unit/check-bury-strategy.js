@@ -157,6 +157,58 @@ function runBuryStrategySuite(context) {
       ];
     }
 
+    function setupPreferSideSuitDiscardScenario(difficulty) {
+      resetBuryState(difficulty);
+      state.players = [
+        basePlayer(1, [
+          makeCard("rj1", "joker", "RJ"),
+          makeCard("rj2", "joker", "RJ"),
+          makeCard("bj", "joker", "BJ"),
+          makeCard("d2-1", "diamonds", "2"),
+          makeCard("d2-2", "diamonds", "2"),
+          makeCard("s2-1", "spades", "2"),
+          makeCard("s2-2", "spades", "2"),
+          makeCard("ck", "clubs", "K"),
+          makeCard("cj", "clubs", "J"),
+          makeCard("c10", "clubs", "10"),
+          makeCard("c7-1", "clubs", "7"),
+          makeCard("c7-2", "clubs", "7"),
+          makeCard("c6", "clubs", "6"),
+          makeCard("da", "diamonds", "A"),
+          makeCard("dq", "diamonds", "Q"),
+          makeCard("d9", "diamonds", "9"),
+          makeCard("d8", "diamonds", "8"),
+          makeCard("d7", "diamonds", "7"),
+          makeCard("d6-1", "diamonds", "6"),
+          makeCard("d6-2", "diamonds", "6"),
+          makeCard("d6-3", "diamonds", "6"),
+          makeCard("d5", "diamonds", "5"),
+          makeCard("d3-1", "diamonds", "3"),
+          makeCard("d3-2", "diamonds", "3"),
+          makeCard("sj", "spades", "J"),
+          makeCard("s10-1", "spades", "10"),
+          makeCard("s10-2", "spades", "10"),
+          makeCard("s9", "spades", "9"),
+          makeCard("s7", "spades", "7"),
+          makeCard("s5", "spades", "5"),
+          makeCard("s3", "spades", "3"),
+          makeCard("hk", "hearts", "K"),
+          makeCard("h10", "hearts", "10"),
+          makeCard("h8-1", "hearts", "8"),
+          makeCard("h8-2", "hearts", "8"),
+          makeCard("h7", "hearts", "7"),
+          makeCard("h6", "hearts", "6"),
+          makeCard("h4", "hearts", "4"),
+        ], true),
+        basePlayer(2, []),
+        basePlayer(3, []),
+        basePlayer(4, []),
+        basePlayer(5, []),
+      ];
+      state.trumpSuit = "clubs";
+      state.declaration = { playerId: 1, suit: "clubs", rank: "2", count: 2, cards: [] };
+    }
+
     const results = [];
 
     for (const difficulty of ["beginner", "intermediate"]) {
@@ -178,6 +230,14 @@ function runBuryStrategySuite(context) {
       const buryIds = new Set(bury.map((card) => card.id));
       assert(!buryIds.has("ca"), difficulty + ": should not bury side-suit A when enough low cards exist");
       results.push(difficulty + " bury-protect ace ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupPreferSideSuitDiscardScenario(difficulty);
+      const bury = getBuryHintForPlayer(1);
+      assert(bury.length === 7, difficulty + ": side-suit discard hint should return 7 cards");
+      assert(bury.every((card) => !isTrump(card)), difficulty + ": should avoid burying trump when side suits are enough");
+      results.push(difficulty + " bury-prefer side suits ok");
     }
 
     globalThis.__buryStrategyResults = { results };

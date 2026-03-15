@@ -1,8 +1,8 @@
 // 为玩家给出当前合法出牌提示。
 function getLegalHintForPlayer(playerId) {
-  return getAiDifficulty() === "intermediate"
-    ? getIntermediateLegalHintForPlayer(playerId)
-    : getBeginnerLegalHintForPlayer(playerId);
+  return getAiDifficulty() === "beginner"
+    ? getBeginnerLegalHintForPlayer(playerId)
+    : getIntermediateLegalHintForPlayer(playerId);
 }
 
 // 构建强制跟牌兜底方案。

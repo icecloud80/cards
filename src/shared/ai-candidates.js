@@ -116,11 +116,126 @@ function getBeginnerLegalHintForState(sourceState, playerId) {
 
 /**
  * 作用：
+ * 校验某组候选在指定状态下是否满足跟牌合法性要求。
+ *
+ * 为什么这样写：
+ * 候选枚举的主要阻碍是旧版 `validateSelection` 直接读取全局 `state`。
+ * 这里先把“跟牌阶段”的规则约束抽成显式 `sourceState` 版本，为候选层继续去全局化铺路。
+ *
+ * 输入：
+ * @param {object|null} sourceState - 当前候选评估使用的真实或模拟牌局状态。
+ * @param {number} playerId - 跟牌玩家 ID。
+ * @param {Array<object>} cards - 待校验的候选牌组。
+ *
+ * 输出：
+ * @returns {{ok: boolean, reason?: string}} 返回该候选在 sourceState 下是否合法。
+ *
+ * 注意：
+ * - 这里只处理“当前墩非空”的跟牌合法性；首发合法性仍由旧链路处理。
+ * - 文案沿用现有 `TEXT.rules.validation`，避免测试和界面口径分叉。
+ */
+function validateFollowSelectionForState(sourceState, playerId, cards) {
+  const player = getCandidateSourcePlayer(sourceState, playerId);
+  const leadSpec = sourceState?.leadSpec || null;
+  if (!player || !Array.isArray(cards) || cards.length === 0) {
+    return { ok: false, reason: TEXT.rules.validation.selectCards };
+  }
+  if (!leadSpec || !sourceState?.currentTrick?.length) {
+    return { ok: false, reason: TEXT.rules.validation.selectCards };
+  }
+
+  const pattern = classifyPlay(cards);
+  if (cards.length !== leadSpec.count) {
+    return { ok: false, reason: TEXT.rules.validation.followCount(leadSpec.count) };
+  }
+
+  const suited = player.hand.filter((card) => effectiveSuit(card) === leadSpec.suit);
+  if (suited.length >= leadSpec.count) {
+    if (!cards.every((card) => effectiveSuit(card) === leadSpec.suit)) {
+      return { ok: false, reason: TEXT.rules.validation.sameSuitFirst };
+    }
+
+    if (leadSpec.type === "pair") {
+      if (hasForcedPair(suited) && pattern.type !== "pair") {
+        return { ok: false, reason: TEXT.rules.validation.pairMustFollow };
+      }
+      return { ok: true };
+    }
+
+    if (leadSpec.type === "triple") {
+      if (hasMatchingPattern(suited, leadSpec)) {
+        if (!matchesLeadPattern(pattern, leadSpec)) {
+          return { ok: false, reason: TEXT.rules.validation.tripleMustFollow };
+        }
+        return { ok: true };
+      }
+
+      if (hasForcedPair(suited) && getForcedPairUnits(cards) < 1) {
+        return { ok: false, reason: TEXT.rules.validation.tripleFollowPair };
+      }
+      return { ok: true };
+    }
+
+    if (leadSpec.type === "tractor" || leadSpec.type === "train") {
+      if (hasMatchingPattern(suited, leadSpec)) {
+        if (!matchesLeadPattern(pattern, leadSpec)) {
+          return { ok: false, reason: TEXT.rules.validation.trainMustFollow };
+        }
+        return { ok: true };
+      }
+
+      const requiredPairs = Math.min(leadSpec.chainLength || 0, getForcedPairUnits(suited));
+      if (requiredPairs > 0 && getForcedPairUnits(cards) < requiredPairs) {
+        return { ok: false, reason: TEXT.rules.validation.trainFollowPairs };
+      }
+      return { ok: true };
+    }
+
+    if (leadSpec.type === "bulldozer") {
+      if (hasMatchingPattern(suited, leadSpec)) {
+        if (!matchesLeadPattern(pattern, leadSpec)) {
+          return { ok: false, reason: TEXT.rules.validation.bulldozerMustFollow };
+        }
+        return { ok: true };
+      }
+
+      const requiredTriples = Math.min(leadSpec.chainLength || 0, getTripleUnits(suited));
+      if (requiredTriples > 0 && getTripleUnits(cards) < requiredTriples) {
+        return { ok: false, reason: TEXT.rules.validation.bulldozerTriples };
+      }
+
+      const requiredPairs = Math.min(2, getForcedPairUnitsWithReservedTriples(suited, requiredTriples));
+      if (requiredPairs > 0 && getForcedPairUnitsWithReservedTriples(cards, requiredTriples) < requiredPairs) {
+        return { ok: false, reason: TEXT.rules.validation.bulldozerPairs };
+      }
+      return { ok: true };
+    }
+
+    if (hasMatchingPattern(suited, leadSpec) && !matchesLeadPattern(pattern, leadSpec)) {
+      return { ok: false, reason: TEXT.rules.validation.samePattern };
+    }
+    return { ok: true };
+  }
+
+  if (suited.length > 0) {
+    const suitedIds = new Set(suited.map((card) => card.id));
+    const selectedSuitedCount = cards.filter((card) => suitedIds.has(card.id)).length;
+    if (selectedSuitedCount !== suited.length) {
+      return { ok: false, reason: TEXT.rules.validation.exhaustSuit };
+    }
+    return { ok: true };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * 作用：
  * 从指定状态读取所有合法跟牌候选，作为 follow 模式的候选基础集。
  *
  * 为什么这样写：
- * 合法性判断目前仍深度依赖现有规则引擎，这一步先通过适配层复用它，
- * 避免在“候选解耦”的第一阶段重写整套规则校验。
+ * 候选层已经开始转向 sourceState 驱动，因此这里把跟牌合法枚举也改成显式状态版本，
+ * 避免为了拿候选集合而反复切换全局 state。
  *
  * 输入：
  * @param {object|null} sourceState - 当前候选评估使用的真实或模拟牌局状态。
@@ -130,11 +245,40 @@ function getBeginnerLegalHintForState(sourceState, playerId) {
  * @returns {Array<Array<object>>} 返回该玩家当前所有合法跟牌候选。
  *
  * 注意：
- * - 这里是当前阶段保守迁移的边界，后续可继续把合法性判断改成显式 state 版本。
- * - 返回的候选顺序仍沿用现有规则引擎的行为。
+ * - 当前只迁移了跟牌合法性，首发合法性仍保留在旧链路。
+ * - 返回的候选顺序尽量保持与旧实现一致，避免行为突变。
  */
 function getLegalSelectionsForState(sourceState, playerId) {
-  return runCandidateLegacyHelper(sourceState, () => getLegalSelectionsForPlayer(playerId));
+  const player = getCandidateSourcePlayer(sourceState, playerId);
+  const leadSpec = sourceState?.leadSpec || null;
+  if (!player || !leadSpec || !sourceState?.currentTrick?.length) return [];
+
+  const hand = [...player.hand].sort((a, b) => cardStrength(a) - cardStrength(b));
+  const targetCount = leadSpec.count;
+  const suited = hand.filter((card) => effectiveSuit(card) === leadSpec.suit);
+  const pools = [];
+
+  if (suited.length >= targetCount) {
+    pools.push(suited);
+  } else if (suited.length > 0) {
+    pools.push([...suited, ...hand.filter((card) => !suited.some((suitedCard) => suitedCard.id === card.id))]);
+  }
+  pools.push(hand);
+
+  const seen = new Set();
+  const results = [];
+  for (const pool of pools) {
+    if (pool.length < targetCount) continue;
+    for (const combo of enumerateCombinations(pool, targetCount)) {
+      if (!validateFollowSelectionForState(sourceState, playerId, combo).ok) continue;
+      const key = combo.map((card) => card.id).sort().join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push(combo);
+      if (results.length >= 72) return results;
+    }
+  }
+  return results;
 }
 
 /**

@@ -87,6 +87,13 @@ function runSuite(context) {
       }
     }
 
+    // 断言条件成立。
+    function assert(condition, message) {
+      if (!condition) {
+        throw new Error(message);
+      }
+    }
+
     const cases = [
       {
         name: "banker big win shows big win and level up",
@@ -137,6 +144,18 @@ function runSuite(context) {
       assertDeepEqual(actual, testCase.expected, testCase.name);
       return { name: testCase.name, actual };
     });
+
+    const underThresholdBottomPenaltyOutcome = getOutcome(110, {
+      bottomPenalty: { levels: 2, label: "两张主级牌扣底" },
+    });
+    assert(underThresholdBottomPenaltyOutcome.winner === "banker", "successful bottom penalty under 120 should not auto-award defenders");
+    assert(underThresholdBottomPenaltyOutcome.bankerLevels === 1, "successful bottom penalty under 120 should keep the normal banker level gain tier");
+
+    const thresholdBottomPenaltyOutcome = getOutcome(120, {
+      bottomPenalty: { levels: 2, label: "两张主级牌扣底" },
+    });
+    assert(thresholdBottomPenaltyOutcome.winner === "defender", "bottoming to 120 or above should still let defenders win");
+    assert(thresholdBottomPenaltyOutcome.defenderLevels === 0, "120-164 points should still be a non-level-up defender win");
 
     globalThis.__resultSubinfoResults = { results };
   `;

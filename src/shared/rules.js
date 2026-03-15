@@ -252,6 +252,28 @@ function scoreValue(card) {
   return 0;
 }
 
+/**
+ * 作用：
+ * 计算一组牌里的总分牌分值。
+ *
+ * 为什么这样写：
+ * 扣底上限、底牌展示和结算都依赖同一套分值口径，集中到一个函数里可以避免多处重复累加时出现规则偏差。
+ *
+ * 输入：
+ * @param {Array<{rank: string}>} cards - 需要统计分值的一组牌
+ *
+ * 输出：
+ * @returns {number} 这组牌按 5/10/K 规则累计后的总分
+ *
+ * 注意：
+ * - 传入空数组或非数组时按 0 分处理
+ * - 这里返回的是原始分值，不包含扣底翻倍或封顶逻辑
+ */
+function getCardsPointTotal(cards) {
+  if (!Array.isArray(cards) || cards.length === 0) return 0;
+  return cards.reduce((sum, card) => sum + scoreValue(card), 0);
+}
+
 // 选出一组牌里最小的那张。
 function lowestCard(cards) {
   return [...cards].sort((a, b) => cardStrength(a) - cardStrength(b))[0];
@@ -635,6 +657,103 @@ function classifyPlay(cards) {
     };
   }
   return { ok: false, type: "invalid", count: sorted.length, suit };
+}
+
+/**
+ * 作用：
+ * 根据一手合法末手牌型，返回扣底计分所需的倍数和说明标签。
+ *
+ * 为什么这样写：
+ * 扣底结算、日志文案和测试都需要共用同一套倍率口径；把倍率规则集中在这里可以避免不同入口各自维护一套分支逻辑。
+ *
+ * 输入：
+ * @param {{ok?: boolean, type?: string, chainLength?: number, components?: Array<object>}} pattern - 已识别出的出牌牌型
+ *
+ * 输出：
+ * @returns {{multiplier: number, label: string}} 当前牌型对应的扣底倍数和展示标签
+ *
+ * 注意：
+ * - 非法牌型或缺失牌型一律按单扣 `x2` 兜底
+ * - 甩牌按组件中“倍率最大的合法组合”计分；如果倍率相同，优先保留更强的大组件标签
+ */
+function getBottomScoreInfoFromPattern(pattern) {
+  if (!pattern?.ok) {
+    return {
+      multiplier: 2,
+      label: TEXT.rules.bottomScoreLabels.single,
+    };
+  }
+
+  if (pattern.type === "throw" && Array.isArray(pattern.components) && pattern.components.length > 0) {
+    const bestComponent = pattern.components
+      .map((component) => getBottomScoreInfoFromPattern(component))
+      .reduce((best, current) => {
+        if (!best || current.multiplier > best.multiplier) return current;
+        return best;
+      }, null);
+    if (bestComponent) {
+      return {
+        multiplier: bestComponent.multiplier,
+        label: `${TEXT.rules.bottomScoreLabels.throw}（按${bestComponent.label}）`,
+      };
+    }
+  }
+
+  if (pattern.type === "pair") {
+    return {
+      multiplier: 4,
+      label: TEXT.rules.bottomScoreLabels.pair,
+    };
+  }
+  if (pattern.type === "triple") {
+    return {
+      multiplier: 6,
+      label: TEXT.rules.bottomScoreLabels.triple,
+    };
+  }
+  if (pattern.type === "tractor") {
+    return {
+      multiplier: 2 * (2 ** Math.max(1, pattern.chainLength || 0)),
+      label: TEXT.rules.bottomScoreLabels.tractor,
+    };
+  }
+  if (pattern.type === "train") {
+    return {
+      multiplier: 2 * (2 ** Math.max(1, pattern.chainLength || 0)),
+      label: TEXT.rules.bottomScoreLabels.train,
+    };
+  }
+  if (pattern.type === "bulldozer") {
+    return {
+      multiplier: 2 * (3 ** Math.max(1, pattern.chainLength || 0)),
+      label: TEXT.rules.bottomScoreLabels.bulldozer,
+    };
+  }
+  return {
+    multiplier: 2,
+    label: TEXT.rules.bottomScoreLabels.single,
+  };
+}
+
+/**
+ * 作用：
+ * 直接根据实际出的牌，返回扣底计分用的倍数信息。
+ *
+ * 为什么这样写：
+ * 结算阶段通常拿到的是最后获胜那手的牌本身，而不是预先缓存好的牌型对象；这里做一层轻包装，可以让调用方不用重复 `classifyPlay`。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 最后一手获胜牌型的实际牌列表
+ *
+ * 输出：
+ * @returns {{multiplier: number, label: string}} 这手牌用于扣底计分的倍率信息
+ *
+ * 注意：
+ * - 仅用于“最后一手已确认合法”的场景
+ * - 甩牌内部会自动递归分析其组成部分
+ */
+function getBottomScoreInfo(cards) {
+  return getBottomScoreInfoFromPattern(classifyPlay(cards));
 }
 
 // 返回甩牌组件的形状描述。

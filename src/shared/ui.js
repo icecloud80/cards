@@ -569,9 +569,17 @@ function updateActionHint() {
       dom.actionHint.textContent = TEXT.actionHint.buryingWait;
       return;
     }
-    dom.actionHint.textContent = state.selectedCardIds.length === 7
+    if (state.selectedCardIds.length !== 7) {
+      dom.actionHint.textContent = TEXT.actionHint.buryingPicking(state.selectedCardIds.length);
+      return;
+    }
+    const selected = state.selectedCardIds
+      .map((id) => getPlayer(1).hand.find((card) => card.id === id))
+      .filter(Boolean);
+    const buryValidation = validateBurySelection(selected);
+    dom.actionHint.textContent = buryValidation.ok
       ? TEXT.actionHint.buryingReady
-      : TEXT.actionHint.buryingPicking(state.selectedCardIds.length);
+      : buryValidation.reason;
     return;
   }
 
@@ -925,7 +933,7 @@ function renderCenterPanel() {
     .map((id) => getPlayer(1).hand.find((card) => card.id === id))
     .filter(Boolean);
   const selectionValid = state.phase === "burying"
-    ? selected.length === 7
+    ? validateBurySelection(selected).ok
     : selected.length > 0 && validateSelection(1, selected).ok;
   const selectedBeat = state.phase === "playing" && selectionValid && doesSelectionBeatCurrent(1, selected);
   const humanCanBury = state.phase === "burying" && state.bankerId === 1;

@@ -31,6 +31,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-bury-strategy.js"),
   },
   {
+    name: "Bottom scoring regression",
+    file: path.join(__dirname, "check-bottom-scoring.js"),
+  },
+  {
     name: "AI intermediate foundation regression",
     file: path.join(__dirname, "check-ai-intermediate-foundation.js"),
   },

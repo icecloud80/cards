@@ -259,6 +259,7 @@ const TEXT = {
     validation: {
       selectCards: "请选择要出的牌。",
       leadSupported: "首家只能出同一门的合法牌型，支持单张、对子、拖拉机、火车、4 对及以上的宇宙飞船、刻子、推土机和基础甩牌；末手也不能混花色出牌。",
+      buryPointLimit: (points, limit) => `当前所选底牌共 ${points} 分，超过 ${limit} 分上限；请改扣不超过 ${limit} 分。`,
       followCount: (count) => `这一轮需要跟 ${count} 张牌。`,
       sameSuitFirst: "有足够同门牌时，必须先跟同门。",
       pairMustFollow: "对家出对时，你有对子就必须跟对子；三张刻子不用强拆成对。",
@@ -279,6 +280,15 @@ const TEXT = {
       tractor: "含主级牌拖拉机扣底",
       train: "含主级牌火车 / 宇宙飞船扣底",
       bulldozer: "含主级牌推土机扣底",
+    },
+    bottomScoreLabels: {
+      single: "单扣",
+      pair: "对扣",
+      triple: "刻子扣",
+      tractor: "拖拉机扣",
+      train: "火车扣",
+      bulldozer: "推土机扣",
+      throw: "甩牌扣",
     },
   },
   log: {
@@ -307,7 +317,7 @@ const TEXT = {
     friendRevealed: (name, target) => `${name} 打出了${target}，朋友身份揭晓。`,
     teamsRevealed: (points) => `阵营已揭晓，非打家当前累计 ${points} 分。`,
     trickWon: (name, trickNumber, points) => `${name} 赢下第 ${trickNumber} 轮，获得 ${points} 分。`,
-    finalBottomScore: (bottomPoints) => `最后一轮由非打家方获胜，底牌分按最多 25 分封顶后双倍计入，再加 ${bottomPoints} 分。`,
+    finalBottomScore: (basePoints, multiplier, bottomPoints, label) => `最后一轮由非打家方获胜，底牌分按最多 25 分封顶后以${label} x${multiplier}计入（封顶后 ${basePoints} 分），共加 ${bottomPoints} 分。`,
     finalBottomPenalty: (label, levels) => `非打家以${label}完成扣底，打家额外降 ${levels} 级。`,
     unrevealedFriendFinish: "本局朋友牌始终未被他人打出，按 1 打 4 结算。",
   },
@@ -438,23 +448,32 @@ function getTrickOutcomeAnnouncement(winnerId) {
   return `上轮${getPlayer(winnerId).name}大`;
 }
 
-// 获取胜负结果。
+/**
+ * 作用：
+ * 根据非打家最终总分与扣底结果，生成本局胜负和升级结论。
+ *
+ * 为什么这样写：
+ * 扣底只会影响“额外降级”和“最终总分”，不会单独越过 120 分门槛直接改判胜负；这样可以把“成功扣底”和“真正翻盘”区分开，和当前规则保持一致。
+ *
+ * 输入：
+ * @param {number} points - 已经包含底牌加分后的非打家最终总分
+ * @param {{bottomPenalty?: {levels: number, label: string} | null}} options - 扣底惩罚信息
+ *
+ * 输出：
+ * @returns {{title: string, body: string, bankerLevels: number, defenderLevels: number, winner: string}} 本局结算摘要
+ *
+ * 注意：
+ * - `points` 必须传最终分数，不能传扣底前分数
+ * - 成功扣底但总分仍不到 120 时，只触发额外降级，不直接改判非打家获胜
+ */
 function getOutcome(points, options = {}) {
-  const defendersWin = points >= 120 || options.bottomPenalty?.levels > 0;
-  if (options.bottomPenalty?.levels > 0 && points < 120) {
-    return {
-      title: TEXT.outcome.defenderWinTitle,
-      body: `非打家总分为 ${points} 分，虽然还没到 120 分，但最后一轮完成了${options.bottomPenalty.label}，本局改判非打家方获胜且不升级。`,
-      bankerLevels: 0,
-      defenderLevels: 0,
-      winner: "defender",
-      forcedByBottom: true,
-    };
-  }
+  const defendersWin = points >= 120;
   if (!defendersWin && points === 0) {
     return {
       title: TEXT.outcome.bankerBigWinTitle,
-      body: "非打家总分为 0 分，且未形成主级牌成功扣底，打家方升 3 级。",
+      body: options.bottomPenalty?.levels > 0
+        ? `非打家总分为 0 分，虽然最后一轮完成了${options.bottomPenalty.label}，但仍未翻盘；打家方大光，升 3 级。`
+        : "非打家总分为 0 分，且未形成主级牌成功扣底，打家方升 3 级。",
       bankerLevels: 3,
       defenderLevels: 0,
       winner: "banker",
@@ -463,7 +482,9 @@ function getOutcome(points, options = {}) {
   if (!defendersWin && points < 60) {
     return {
       title: TEXT.outcome.bankerSmallWinTitle,
-      body: `非打家总分为 ${points} 分，未到 60 分，且未形成主级牌成功扣底，打家方升 2 级。`,
+      body: options.bottomPenalty?.levels > 0
+        ? `非打家总分为 ${points} 分，虽然最后一轮完成了${options.bottomPenalty.label}，但仍未翻盘；打家方升 2 级。`
+        : `非打家总分为 ${points} 分，未到 60 分，且未形成主级牌成功扣底，打家方升 2 级。`,
       bankerLevels: 2,
       defenderLevels: 0,
       winner: "banker",
@@ -472,7 +493,9 @@ function getOutcome(points, options = {}) {
   if (!defendersWin && points < 120) {
     return {
       title: TEXT.outcome.bankerWinTitle,
-      body: `非打家总分为 ${points} 分，未到 120 分，且未形成主级牌成功扣底，打家方正常获胜，升 1 级。`,
+      body: options.bottomPenalty?.levels > 0
+        ? `非打家总分为 ${points} 分，虽然最后一轮完成了${options.bottomPenalty.label}，但仍未翻盘；打家方正常获胜，升 1 级。`
+        : `非打家总分为 ${points} 分，未到 120 分，且未形成主级牌成功扣底，打家方正常获胜，升 1 级。`,
       bankerLevels: 1,
       defenderLevels: 0,
       winner: "banker",

@@ -81,6 +81,7 @@ const CARD_FACE_STORAGE_KEY = `five-friends-card-face-${APP_PLATFORM}-v1`;
 const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const MAX_BURY_POINT_TOTAL = 25;
 
 // 获取牌面配置。
 function getCardFaceOption(key = DEFAULT_CARD_FACE_KEY) {

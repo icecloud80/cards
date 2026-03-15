@@ -209,6 +209,59 @@ function runBuryStrategySuite(context) {
       state.declaration = { playerId: 1, suit: "clubs", rank: "2", count: 2, cards: [] };
     }
 
+    function setupPointCapScenario(difficulty) {
+      resetBuryState(difficulty);
+      state.players = [
+        basePlayer(1, [
+          makeCard("c3", "clubs", "3"),
+          makeCard("c4", "clubs", "4"),
+          makeCard("c5", "clubs", "5"),
+          makeCard("c10", "clubs", "10"),
+          makeCard("ck", "clubs", "K"),
+          makeCard("d3", "diamonds", "3"),
+          makeCard("d4", "diamonds", "4"),
+          makeCard("d5", "diamonds", "5"),
+          makeCard("d10", "diamonds", "10"),
+          makeCard("dk", "diamonds", "K"),
+          makeCard("h3", "hearts", "3"),
+          makeCard("h4", "hearts", "4"),
+          makeCard("h5", "hearts", "5"),
+          makeCard("s2-1", "spades", "2"),
+        ], true),
+        basePlayer(2, []),
+        basePlayer(3, []),
+        basePlayer(4, []),
+        basePlayer(5, []),
+      ];
+    }
+
+    function setupManualPointCapValidationScenario() {
+      resetBuryState("beginner");
+      state.players = [
+        basePlayer(1, [
+          makeCard("c5-1", "clubs", "5"),
+          makeCard("c10-1", "clubs", "10"),
+          makeCard("ck-1", "clubs", "K"),
+          makeCard("d5-1", "diamonds", "5"),
+          makeCard("d10-1", "diamonds", "10"),
+          makeCard("h3-1", "hearts", "3"),
+          makeCard("h4-1", "hearts", "4"),
+          makeCard("s3-1", "spades", "3"),
+          makeCard("s4-1", "spades", "4"),
+          makeCard("s6-1", "spades", "6"),
+          makeCard("h6-1", "hearts", "6"),
+          makeCard("d3-1", "diamonds", "3"),
+          makeCard("c3-1", "clubs", "3"),
+          makeCard("c4-1", "clubs", "4"),
+        ], true),
+        basePlayer(2, []),
+        basePlayer(3, []),
+        basePlayer(4, []),
+        basePlayer(5, []),
+      ];
+      state.bottomCards = [];
+    }
+
     const results = [];
 
     for (const difficulty of ["beginner", "intermediate"]) {
@@ -239,6 +292,30 @@ function runBuryStrategySuite(context) {
       assert(bury.every((card) => !isTrump(card)), difficulty + ": should avoid burying trump when side suits are enough");
       results.push(difficulty + " bury-prefer side suits ok");
     }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupPointCapScenario(difficulty);
+      const bury = getBuryHintForPlayer(1);
+      assert(bury.length === 7, difficulty + ": point-cap bury hint should return 7 cards");
+      assert(getCardsPointTotal(bury) <= MAX_BURY_POINT_TOTAL, difficulty + ": bury hint should respect the 25-point cap");
+      results.push(difficulty + " bury-point-cap ok");
+    }
+
+    setupManualPointCapValidationScenario();
+    const invalidBuryIds = ["c5-1", "c10-1", "ck-1", "d5-1", "d10-1", "h3-1", "h4-1"];
+    const invalidBuryCards = invalidBuryIds.map((id) => state.players[0].hand.find((card) => card.id === id));
+    assert(getCardsPointTotal(invalidBuryCards) > MAX_BURY_POINT_TOTAL, "manual scenario should exceed the point cap");
+    const invalidValidation = validateBurySelection(invalidBuryCards);
+    assert(!invalidValidation.ok, "bury validation should reject selections over 25 points");
+    completeBurying(1, invalidBuryIds);
+    assert(state.phase === "burying", "invalid bury selection should not finish burying");
+    assert(state.bottomCards.length === 0, "invalid bury selection should not write bottom cards");
+
+    const validBuryIds = ["s3-1", "s4-1", "s6-1", "h6-1", "d3-1", "c3-1", "c4-1"];
+    completeBurying(1, validBuryIds);
+    assert(state.phase !== "burying", "valid bury selection should finish burying");
+    assert(getCardsPointTotal(state.bottomCards) <= MAX_BURY_POINT_TOTAL, "completed bottom cards should respect the point cap");
+    results.push("manual bury point-cap validation ok");
 
     globalThis.__buryStrategyResults = { results };
   `;

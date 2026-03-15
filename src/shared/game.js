@@ -1088,18 +1088,102 @@ function getBuryHintForPlayer(playerId) {
     }
     return score;
   };
-  const sortByBuryScore = (cards) => [...cards].sort((a, b) => getScore(a) - getScore(b));
-  const sideCards = player.hand.filter((card) => !isTrump(card));
+  const sortedHand = [...player.hand].sort((a, b) => getScore(a) - getScore(b));
+  return getBestBurySelectionWithinPointLimit(sortedHand, getScore) || sortedHand.slice(0, 7);
+}
 
-  // 只要副牌足够凑满 7 张，就不要主动扣主。
-  if (sideCards.length >= 7) {
-    return sortByBuryScore(sideCards).slice(0, 7);
+/**
+ * 作用：
+ * 在“必须选 7 张且总分不超过上限”的约束下，找到最适合埋底的一组牌。
+ *
+ * 为什么这样写：
+ * 纯贪心会因为几张低价值分牌而把底牌分堆到 25 分以上。这里用小规模动态规划同时考虑“埋底代价”和“总分上限”，让 AI 与超时自动扣底都稳定遵守新规则。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 当前可供埋底的候选手牌，通常已按埋底代价从低到高排序
+ * @param {(card: object) => number} getScore - 评估某张牌更适合埋底还是保留的代价函数
+ *
+ * 输出：
+ * @returns {Array<object>} 一组合法的 7 张底牌；若找不到则返回空数组
+ *
+ * 注意：
+ * - 只控制“原始分牌总分不超过上限”，不处理末手翻倍结算
+ * - 同等代价下优先保留总分更低的组合，给后续扣底空间留余量
+ */
+function getBestBurySelectionWithinPointLimit(cards, getScore) {
+  const targetCount = 7;
+  const dp = Array.from({ length: targetCount + 1 }, () => Array(MAX_BURY_POINT_TOTAL + 1).fill(null));
+  dp[0][0] = { score: 0, cards: [] };
+
+  for (const card of cards) {
+    const pointValue = scoreValue(card);
+    const buryScore = getScore(card);
+    for (let count = targetCount - 1; count >= 0; count -= 1) {
+      for (let points = MAX_BURY_POINT_TOTAL - pointValue; points >= 0; points -= 1) {
+        const previous = dp[count][points];
+        if (!previous) continue;
+        const nextPoints = points + pointValue;
+        const nextScore = previous.score + buryScore;
+        const currentBest = dp[count + 1][nextPoints];
+        if (
+          !currentBest
+          || nextScore < currentBest.score
+          || (nextScore === currentBest.score && nextPoints < getCardsPointTotal(currentBest.cards))
+        ) {
+          dp[count + 1][nextPoints] = {
+            score: nextScore,
+            cards: [...previous.cards, card],
+          };
+        }
+      }
+    }
   }
 
-  const sortedSideCards = sortByBuryScore(sideCards);
-  const neededTrumpCount = Math.max(0, 7 - sortedSideCards.length);
-  const sortedTrumpCards = sortByBuryScore(player.hand.filter((card) => isTrump(card)));
-  return [...sortedSideCards, ...sortedTrumpCards.slice(0, neededTrumpCount)].slice(0, 7);
+  let best = null;
+  for (let points = 0; points <= MAX_BURY_POINT_TOTAL; points += 1) {
+    const candidate = dp[targetCount][points];
+    if (!candidate) continue;
+    if (
+      !best
+      || candidate.score < best.score
+      || (candidate.score === best.score && points < getCardsPointTotal(best.cards))
+    ) {
+      best = candidate;
+    }
+  }
+  return best ? best.cards : [];
+}
+
+/**
+ * 作用：
+ * 校验当前所选埋底牌是否满足数量和总分上限规则。
+ *
+ * 为什么这样写：
+ * 玩家手动扣底、AI 自动扣底和超时自动扣底都需要共用同一份规则，集中校验可以避免不同入口出现不一致行为。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 当前准备埋到底牌区的 7 张牌
+ *
+ * 输出：
+ * @returns {{ok: boolean, reason: string, points: number}} 校验结果、失败原因和当前总分
+ *
+ * 注意：
+ * - 这里只校验埋底专属规则，不负责检查是否来自当前玩家手牌
+ * - 数量不足时直接复用“继续选牌”的交互，不在这里返回额外文案
+ */
+function validateBurySelection(cards) {
+  const points = getCardsPointTotal(cards);
+  if (!Array.isArray(cards) || cards.length !== 7) {
+    return { ok: false, reason: TEXT.buttons.buryPickSeven, points };
+  }
+  if (points > MAX_BURY_POINT_TOTAL) {
+    return {
+      ok: false,
+      reason: TEXT.rules.validation.buryPointLimit(points, MAX_BURY_POINT_TOTAL),
+      points,
+    };
+  }
+  return { ok: true, reason: "", points };
 }
 
 // 完成埋底并进入下一阶段。
@@ -1109,7 +1193,8 @@ function completeBurying(playerId, cardIds) {
   const cards = cardIds
     .map((id) => player.hand.find((card) => card.id === id))
     .filter(Boolean);
-  if (cards.length !== 7) return;
+  const validation = validateBurySelection(cards);
+  if (!validation.ok) return;
 
   for (const cardId of cardIds) {
     const index = player.hand.findIndex((card) => card.id === cardId);
@@ -1577,11 +1662,13 @@ function resolveTrick(options = {}) {
   if (everyoneEmpty) {
     const defenderWinningFinal = isFriendTeamResolved() ? isDefenderTeam(winnerId) : winnerId !== state.bankerId;
     if (defenderWinningFinal) {
+      const winningPlay = state.lastTrick.plays.find((play) => play.playerId === winnerId);
+      const bottomScoreInfo = getBottomScoreInfo(winningPlay?.cards || []);
       const bottomBasePoints = Math.min(
-        state.bottomCards.reduce((sum, card) => sum + scoreValue(card), 0),
+        getCardsPointTotal(state.bottomCards),
         25
       );
-      const bottomPoints = bottomBasePoints * 2;
+      const bottomPoints = bottomBasePoints * bottomScoreInfo.multiplier;
       if (bottomPoints > 0) {
         winner.roundPoints += bottomPoints;
         if (!isFriendTeamResolved()) {
@@ -1590,7 +1677,12 @@ function resolveTrick(options = {}) {
         if (isFriendTeamResolved()) {
           state.defenderPoints += bottomPoints;
         }
-        appendLog(TEXT.log.finalBottomScore(bottomPoints));
+        appendLog(TEXT.log.finalBottomScore(
+          bottomBasePoints,
+          bottomScoreInfo.multiplier,
+          bottomPoints,
+          bottomScoreInfo.label
+        ));
       }
       const bottomPenalty = getBottomPenalty();
       if (bottomPenalty) {

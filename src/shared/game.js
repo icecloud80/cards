@@ -3021,8 +3021,8 @@ function getResultCampTone(playerId) {
  * 生成结果页单个玩家的等级结算行 HTML。
  *
  * 为什么这样写：
- * 这一块已经从“纯文本列表”升级成带阵营胶囊、等级箭头和结果状态的卡片行；
- * 用单独 helper 生成每一行，可以避免主模板里堆大量字符串分支。
+ * 结果页现在要把每位玩家压成真正的一行，避免五人局时结算弹窗被拉得过高；
+ * 用单独 helper 生成每一行，可以同时控制字段顺序和紧凑结构，不让 PC / mobile 再各自发散。
  *
  * 输入：
  * @param {object} player - 当前玩家对象。
@@ -3035,7 +3035,7 @@ function getResultCampTone(playerId) {
  *
  * 注意：
  * - 玩家名、阵营和等级变化必须全部保留，不能为了视觉压缩而省字段。
- * - `result-level-tag` 允许为空，此时整行只保留等级箭头，不强行塞“平级”。
+ * - `result-level-tag` 允许为空，此时整行只保留阵营胶囊和等级变化，不强行塞“平级”。
  */
 function buildResultLevelRowHtml(player, outcome, levelsBefore, levelsAfter) {
   const campLabel = getResultCampLabel(player.id);
@@ -3046,11 +3046,9 @@ function buildResultLevelRowHtml(player, outcome, levelsBefore, levelsAfter) {
   return `
     <li class="result-level-item ${rowTone}">
       <div class="result-level-main">
-        <div class="result-level-player">${player.name}</div>
-        <div class="result-level-chips">
-          <span class="result-camp-chip ${campTone}">${campLabel}</span>
-          ${resultTag}
-        </div>
+        <span class="result-level-player">${player.name}</span>
+        <span class="result-camp-chip ${campTone}">${campLabel}</span>
+        ${resultTag}
       </div>
       <div class="result-level-change">
         <span class="result-level-value before">Lv${levelsBefore[player.id]}</span>

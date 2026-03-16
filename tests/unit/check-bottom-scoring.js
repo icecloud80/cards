@@ -149,10 +149,28 @@ function runSuite(context) {
       state.trumpSuit = options.trumpSuit || "spades";
       state.levelRank = options.levelRank || "2";
       state.declaration = null;
-      state.playerLevels = { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
+      state.playerLevels = options.playerLevels || { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
       state.players = [1, 2, 3, 4, 5].map((id) => makePlayer(id, []));
       render = function render() {};
       startResultCountdown = function startResultCountdown() {};
+    }
+
+    // 在不跑完整结算的前提下，直接检查当前末手是否会触发级牌扣底。
+    function inspectBottomPenalty(cards, options = {}) {
+      const bottomCards = [
+        makeCard("inspect-bottom-5", "clubs", "5"),
+        makeCard("inspect-bottom-10", "diamonds", "10"),
+      ];
+      resetSettlementState(bottomCards, options);
+      state.lastTrick = {
+        trickNumber: state.trickNumber,
+        winnerId: 2,
+        points: 0,
+        plays: [
+          { playerId: 2, cards: cards },
+        ],
+      };
+      return getBottomPenalty();
     }
 
     // 构造一轮末手并直接触发结算，返回底牌加分。
@@ -162,7 +180,7 @@ function runSuite(context) {
         makeCard("bottom-10", "diamonds", "10"),
       ];
       resetSettlementState(bottomCards, options);
-      state.currentTrick = [
+      state.currentTrick = options.currentTrick || [
         { playerId: 2, cards: cards },
         { playerId: 3, cards: cards.map((card, index) => makeCard("follower-a-" + index, "hearts", "3")) },
         { playerId: 4, cards: cards.map((card, index) => makeCard("follower-b-" + index, "hearts", "4")) },
@@ -175,7 +193,8 @@ function runSuite(context) {
         defenderPoints: state.defenderPoints,
         logs: [...state.allLogs],
         bottomPenalty: getBottomPenalty(),
-        outcome: getOutcome(state.defenderPoints, { bottomPenalty: getBottomPenalty() }),
+        resultTitle: dom.resultTitle.textContent,
+        resultBody: dom.resultBody.textContent,
       };
     }
 
@@ -240,19 +259,34 @@ function runSuite(context) {
     assert(throwSettlement.defenderPoints === 120, "throw settlement should follow the best component multiplier");
     assert(throwSettlement.logs.some((item) => item.includes("甩牌扣（按拖拉机扣） x8")), "throw settlement log should mention the derived throw multiplier");
 
-    const viceLevelSettlement = resolveFinalBottomWith(
+    const ordinaryViceLevelSettlement = resolveFinalBottomWith(
       [makeCard("vice-level-4", "diamonds", "4")],
       { trumpSuit: "spades", levelRank: "4", initialDefenderPoints: 80 }
     );
-    assert(viceLevelSettlement.defenderPoints === 110, "vice-level bottom should still add ordinary bottom points");
-    assert(viceLevelSettlement.bottomPenalty === null, "vice-level bottom should not trigger an extra downgrade penalty");
-    assert(viceLevelSettlement.outcome.winner === "banker", "vice-level bottom under 120 should still keep banker win");
-    assert(!viceLevelSettlement.logs.some((item) => item.includes("额外降")), "vice-level bottom log should not claim an extra downgrade");
+    assert(ordinaryViceLevelSettlement.defenderPoints === 110, "ordinary vice-level bottom should still add ordinary bottom points");
+    assert(ordinaryViceLevelSettlement.bottomPenalty === null, "ordinary vice-level bottom should not trigger grade-bottom downgrade");
+    assert(ordinaryViceLevelSettlement.resultBody.includes("打家方正常获胜"), "ordinary vice-level bottom under 120 should still keep banker win");
+    assert(!ordinaryViceLevelSettlement.logs.some((item) => item.includes("级牌扣底")), "ordinary vice-level bottom log should not claim a grade bottom");
+
+    const noTrumpVicePenalty = inspectBottomPenalty(
+      [makeCard("notrump-inspect-4", "diamonds", "4")],
+      { trumpSuit: "notrump", levelRank: "4" }
+    );
+    assert(noTrumpVicePenalty && noTrumpVicePenalty.mode === "vice", "no-trump vice-level bottom should trigger vice-mode grade bottom");
+
+    const noTrumpViceLevelSettlement = resolveFinalBottomWith(
+      [makeCard("notrump-level-4", "diamonds", "4")],
+      { trumpSuit: "notrump", levelRank: "4", initialDefenderPoints: 80 }
+    );
+    assert(noTrumpViceLevelSettlement.defenderPoints === 110, "no-trump vice-level bottom should still add ordinary bottom points");
+    assert(noTrumpViceLevelSettlement.resultBody.includes("按级牌扣底直接获胜"), "no-trump vice-level bottom under 120 should now directly award defenders");
+    assert(noTrumpViceLevelSettlement.logs.some((item) => item.includes("副级牌扣底")), "no-trump vice-level log should mention vice-level grade bottom");
 
     globalThis.__bottomScoringResults = {
       tractorSettlementPoints: tractorSettlement.defenderPoints,
       throwSettlementPoints: throwSettlement.defenderPoints,
-      viceLevelSettlementPoints: viceLevelSettlement.defenderPoints,
+      ordinaryViceLevelSettlementPoints: ordinaryViceLevelSettlement.defenderPoints,
+      noTrumpViceLevelSettlementPoints: noTrumpViceLevelSettlement.defenderPoints,
     };
   `;
 
@@ -266,4 +300,5 @@ const output = runSuite(context);
 console.log("Bottom scoring regression passed:");
 console.log(`- tractor settlement points: ${output.tractorSettlementPoints}`);
 console.log(`- throw settlement points: ${output.throwSettlementPoints}`);
-console.log(`- vice-level settlement points: ${output.viceLevelSettlementPoints}`);
+console.log(`- ordinary vice-level settlement points: ${output.ordinaryViceLevelSettlementPoints}`);
+console.log(`- no-trump vice-level settlement points: ${output.noTrumpViceLevelSettlementPoints}`);

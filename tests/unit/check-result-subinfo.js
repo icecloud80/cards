@@ -183,6 +183,7 @@ function runSuite(context) {
     assert(settlementListHtml.includes("<svg"), "result list should include level arrow icon markup");
     assert(settlementListHtml.includes(">升级<"), "result list should mark upgrade-style outcomes");
     assert(settlementListHtml.includes(">降级<"), "result list should mark level drops");
+    assert(!settlementListHtml.includes("result-level-chips"), "result list should keep chips inline instead of creating a second row");
 
     // 回归对局日志导出，确认末尾会补入最终胜负界面的完整摘要。
     state.allLogs = ["玩家1 吊主", "玩家2 甩牌失败"];
@@ -211,14 +212,34 @@ function runSuite(context) {
     const underThresholdBottomPenaltyOutcome = getOutcome(110, {
       bottomPenalty: { levels: 2, label: "两张主级牌扣底" },
     });
-    assert(underThresholdBottomPenaltyOutcome.winner === "banker", "successful bottom penalty under 120 should not auto-award defenders");
-    assert(underThresholdBottomPenaltyOutcome.bankerLevels === 1, "successful bottom penalty under 120 should keep the normal banker level gain tier");
+    assert(underThresholdBottomPenaltyOutcome.winner === "defender", "grade bottom under 120 should now directly award defenders");
+    assert(underThresholdBottomPenaltyOutcome.defenderLevels === 0, "grade bottom under 120 should still be a non-level-up defender win");
 
     const thresholdBottomPenaltyOutcome = getOutcome(120, {
       bottomPenalty: { levels: 2, label: "两张主级牌扣底" },
     });
     assert(thresholdBottomPenaltyOutcome.winner === "defender", "bottoming to 120 or above should still let defenders win");
     assert(thresholdBottomPenaltyOutcome.defenderLevels === 0, "120-164 points should still be a non-level-up defender win");
+
+    const ordinaryUnderThresholdOutcome = getOutcome(110, { bottomPenalty: null });
+    assert(ordinaryUnderThresholdOutcome.winner === "banker", "ordinary bottom under 120 should still keep banker win");
+
+    state.players = [
+      { id: 1, name: "玩家1", level: "J" },
+      { id: 2, name: "玩家2", level: "10" },
+      { id: 3, name: "玩家3", level: "3" },
+    ];
+    state.bankerId = 1;
+    state.hiddenFriendId = 2;
+    state.friendTarget = { failed: false };
+    state.playerLevels = { 1: "J", 2: "10", 3: "3" };
+    applyLevelSettlement(
+      { winner: "defender", bankerLevels: 0, defenderLevels: 0 },
+      { levels: 1, label: "单张副级牌扣底", mode: "vice" }
+    );
+    assert(state.playerLevels[1] === "9", "face-card banker should fall back by vice-mode downgrade on grade bottom");
+    assert(state.playerLevels[2] === "9", "revealed friend should be dragged down by one vice-mode level on face-card grade bottom");
+    assert(state.playerLevels[3] === "3", "defender without level-up should keep the same level");
 
     globalThis.__resultSubinfoResults = { results };
   `;

@@ -343,8 +343,12 @@ function main() {
   assert.equal(handSummary.textContent.includes("黑桃 2 x2"), true, "手牌摘要应列出同花色级牌的 2 张亮主选项");
   assert.equal(handSummary.textContent.includes("2张小王"), true, "手牌摘要应列出小王无主选项");
   assert.equal(setupOptions.hidden, false, "有可亮方案时应显示候选列表");
-  assert.equal(setupOptions.innerHTML.includes("亮黑桃 2 x2"), true, "候选按钮应直接写出可点击的亮主动作");
-  assert.equal(setupOptions.innerHTML.includes("亮2张小王无主"), true, "候选按钮应直接写出小王无主动作");
+  assert.equal(setupOptions.innerHTML.includes("setup-option-card-stack"), true, "候选按钮应把声明方案压成叠牌预览");
+  assert.equal(setupOptions.innerHTML.includes("setup-option-card"), true, "候选按钮应渲染缩略牌堆");
+  assert.equal(setupOptions.innerHTML.includes("card-face-sprite") || setupOptions.innerHTML.includes("setup-option-card-face"), true, "候选按钮应显示真实牌面而不是纯文本");
+  assert.equal(setupOptions.innerHTML.includes("2张小王"), false, "候选按钮不应再保留无主方案长文案");
+  assert.equal(setupOptions.innerHTML.includes(">无<"), true, "候选按钮应用短标签表达无主");
+  assert.equal(setupOptions.innerHTML.includes("亮黑桃 2 x2"), false, "候选按钮不应再使用长句式亮主文案");
   assert.equal(setupOptions.innerHTML.includes("可亮选项"), false, "亮主阶段不应再额外显示“可亮选项”标题");
   assert.equal(declareBtn.hidden, true, "亮主阶段不应再保留单独的确认亮主按钮");
 

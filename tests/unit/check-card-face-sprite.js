@@ -121,7 +121,7 @@ function createElementStub(identifier) {
  * @param {"pc"|"mobile"} platform - 当前要模拟的平台。
  *
  * 输出：
- * @returns {{setupGame: Function, buildCardNode: Function, getCardFaceOption: Function, getCardFaceSpriteSheet: Function, getCardSpriteSheetPosition: Function, state: object, APP_PLATFORM: string, CARD_FACE_OPTIONS: object[]}} 当前测试需要的真实接口集合。
+ * @returns {{setupGame: Function, buildCardNode: Function, buildFaceDownDisplayCardNode: Function, getCardFaceOption: Function, getCardFaceSpriteSheet: Function, getCardSpriteSheetPosition: Function, state: object, APP_PLATFORM: string, CARD_FACE_OPTIONS: object[]}} 当前测试需要的真实接口集合。
  *
  * 注意：
  * - `document.querySelector(".table")` 必须返回元素桩，避免布局相关脚本取空报错。
@@ -221,7 +221,7 @@ function loadCardFaceContext(platform) {
     }
   `, context);
 
-  return vm.runInContext("({ setupGame, buildCardNode, getCardFaceOption, getCardFaceSpriteSheet, getCardSpriteSheetPosition, state, APP_PLATFORM, CARD_FACE_OPTIONS })", context);
+  return vm.runInContext("({ setupGame, buildCardNode, buildFaceDownDisplayCardNode, getCardFaceOption, getCardFaceSpriteSheet, getCardSpriteSheetPosition, state, APP_PLATFORM, CARD_FACE_OPTIONS })", context);
 }
 
 /**
@@ -300,6 +300,10 @@ function main() {
   const mobileModernNode = mobile.buildCardNode({ id: "m2", suit: "spades", rank: "10" }, "card-btn");
   assert.equal(mobileModernNode.children[0].tagName, "IMG", "mobile 切回普通牌面后应回退到逐张图片");
   assert.equal(mobileModernNode.children[0].src, "./m_cards/10_of_spades.svg", "mobile 默认牌面应继续使用原有 m_cards 资源");
+
+  const mobileFaceDownNode = mobile.buildFaceDownDisplayCardNode("played-card face-down", "未翻开底牌");
+  assert.equal(mobileFaceDownNode.children[0].className, "card-face-sprite", "翻底定主的未翻开底牌即使在 mobile 普通牌面下也应复用 sprite 牌背");
+  assert.equal(mobileFaceDownNode.children[0].style.backgroundImage, 'url("./poker.png")', "翻底定主的 sprite 牌背应继续指向 poker.png");
 }
 
 main();

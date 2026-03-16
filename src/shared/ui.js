@@ -343,9 +343,9 @@ function buildDisplayCardNode(card, className) {
  * 为当前牌面主题创建一张只读的牌背内容节点。
  *
  * 为什么这样写：
- * 用户要求翻底定主阶段的未翻开底牌也走 `poker.png` 里的统一牌背，
- * 这样翻底公示区就不会再和正面牌风格脱节；同时保留回退逻辑，
- * 可以保证将来换回逐张资源目录时仍有稳定的牌背表现。
+ * 用户要求翻底定主阶段的未翻开底牌固定走 `poker.png` 里的统一牌背，
+ * 不能因为当前牌面主题切回 `modern / classic` 就退回几何牌背；
+ * 同时保留最终回退逻辑，避免未来彻底移除 sprite 资源时直接缺图。
  *
  * 输入：
  * @param {void} - 直接读取当前牌面配置。
@@ -354,11 +354,13 @@ function buildDisplayCardNode(card, className) {
  * @returns {{content: HTMLElement, usesSprite: boolean}} 当前牌背节点和是否使用 sprite 的标记。
  *
  * 注意：
+ * - 优先复用当前主题的 sprite；若当前主题不是 sprite，则回退到仓库里任意可用的 sprite 配置。
  * - 当前默认取 sprite 最后一行第 3 列的牌背样式。
- * - 若当前牌面不支持 sprite，则回退到旧的几何牌背。
+ * - 若项目里完全没有可用 sprite，则回退到旧的几何牌背。
  */
 function createCardBackContent() {
-  const spriteSheet = getCardFaceSpriteSheet();
+  const spriteSheet = getCardFaceSpriteSheet()
+    || getCardFaceSpriteSheet(CARD_FACE_OPTIONS.find((option) => option?.spriteSheet?.src));
   if (spriteSheet?.columns >= 3 && spriteSheet?.rows >= 1) {
     const sprite = document.createElement("span");
     sprite.className = "card-face-sprite";
@@ -1889,6 +1891,120 @@ function renderDebugDecisionPanel(player) {
 
 /**
  * 作用：
+ * 生成亮主阶段候选项使用的紧凑标签 HTML。
+ *
+ * 为什么这样写：
+ * 手游发牌阶段的可亮选项需要在很窄的纵向空间里一次展示多个候选，
+ * 继续直接输出“亮黑桃 2 x2”这类长句会把操作区撑高；
+ * 这里把花色压成图标、把数量压成短记号，才能把声明区收成一排紧凑 chips。
+ *
+ * 输入：
+ * @param {object} entry - 当前候选亮主或反主方案。
+ * @param {boolean} isDealingPhase - 当前是否处于发牌亮主阶段。
+ *
+ * 输出：
+ * @returns {string} 可直接塞进候选按钮的 HTML 字符串。
+ *
+ * 注意：
+ * - 这里只影响候选按钮展示，不改 `formatDeclaration` 的日志和摘要文本格式。
+ * - 无主方案仍需保留“大小王”和“无”两个关键信息，避免只剩图标后看不懂。
+ */
+function buildCompactSetupOptionLabelHtml(entry, isDealingPhase) {
+  if (!entry) return "";
+  const prefix = isDealingPhase ? "" : `<span class="setup-option-prefix">${state.declaration ? "反" : "亮"}</span>`;
+  const previewCards = Array.isArray(entry.cards) && entry.cards.length > 0
+    ? entry.cards
+    : getDeclarationCards(entry);
+  const cardMarkup = buildSetupOptionCardStackHtml(previewCards);
+  if (entry.suit === "notrump") {
+    return `
+      ${prefix}
+      ${cardMarkup}
+      <span class="setup-option-mode">无</span>
+    `;
+  }
+  return `
+    ${prefix}
+    ${cardMarkup}
+  `;
+}
+
+/**
+ * 作用：
+ * 把声明候选里的展示牌组渲染成紧凑叠牌 HTML。
+ *
+ * 为什么这样写：
+ * 用户希望在手游亮主阶段直接看到“2 张大王”“2 张方片 2”对应的牌面本身，
+ * 而不是继续读文字；把缩略牌面收成这里后，声明候选按钮就能统一复用同一套小牌堆。
+ *
+ * 输入：
+ * @param {object[]} cards - 当前声明候选对应的展示牌列表。
+ *
+ * 输出：
+ * @returns {string} 可直接塞进候选按钮内部的叠牌 HTML。
+ *
+ * 注意：
+ * - 这里使用约 75% 重叠，等价于每张牌只额外露出约 25% 宽度。
+ * - 若传入空数组，返回一个兜底占位，避免候选按钮塌掉。
+ */
+function buildSetupOptionCardStackHtml(cards) {
+  if (!Array.isArray(cards) || cards.length === 0) {
+    return '<span class="setup-option-card-stack empty"><span class="setup-option-card-slot"></span></span>';
+  }
+  const overlapStep = 26;
+  const cardWidth = 26;
+  const stackWidth = cardWidth + Math.max(0, cards.length - 1) * Math.round(cardWidth * 0.25);
+  const items = cards.map((card, index) => {
+    const left = index * Math.round(cardWidth * 0.25);
+    return `
+      <span class="setup-option-card" style="left:${left}px;z-index:${index + 1};">
+        ${buildSetupOptionCardFaceHtml(card)}
+      </span>
+    `;
+  }).join("");
+  return `<span class="setup-option-card-stack" style="width:${stackWidth}px;--setup-card-width:${cardWidth}px;--setup-card-step:${overlapStep}px;">${items}</span>`;
+}
+
+/**
+ * 作用：
+ * 生成声明候选缩略牌面使用的纯 HTML 内容。
+ *
+ * 为什么这样写：
+ * 候选按钮内部需要直接输出 HTML 字符串，不能依赖真实 DOM 节点的 `outerHTML`；
+ * 单独做成字符串 helper 后，测试桩环境和正式页面都能稳定复用。
+ *
+ * 输入：
+ * @param {{suit?: string, rank?: string}} card - 当前要展示的牌对象。
+ *
+ * 输出：
+ * @returns {string} 当前牌面的 HTML 字符串。
+ *
+ * 注意：
+ * - 优先复用当前牌面主题的 sprite；拿不到 sprite 时回退到单张图片。
+ * - 这里只负责视觉，不单独输出额外说明文本。
+ */
+function buildSetupOptionCardFaceHtml(card) {
+  const spriteSheet = getCardFaceSpriteSheet();
+  const spritePosition = getCardSpriteSheetPosition(card, spriteSheet);
+  if (spriteSheet && spritePosition) {
+    return `
+      <span
+        class="setup-option-card-face card-face-sprite"
+        aria-hidden="true"
+        style="
+          background-image:url('${spriteSheet.src}');
+          background-repeat:no-repeat;
+          background-size:${spriteSheet.columns * 100}% ${spriteSheet.rows * 100}%;
+          background-position:${spritePosition.xPercent}% ${spritePosition.yPercent}%;
+        "
+      ></span>
+    `;
+  }
+  return `<img class="setup-option-card-face" src="${resolveCardImage(card)}" alt="" aria-hidden="true" />`;
+}
+
+/**
+ * 作用：
  * 把当前亮主 / 反主候选项渲染到中央操作区的可选列表里。
  *
  * 为什么这样写：
@@ -1923,10 +2039,8 @@ function renderSetupOptions(options, selectedOption) {
     ${options.map((entry) => {
       const optionKey = getSetupOptionKey(entry);
       const actionLabel = isDealingPhase
-        ? (entry.suit === "notrump"
-          ? `${state.declaration ? "抢亮" : "亮"}${getNoTrumpDeclarationLabel(entry)}无主`
-          : `${state.declaration ? "抢亮" : "亮"}${formatDeclaration(entry)}`)
-        : formatDeclaration(entry);
+        ? buildCompactSetupOptionLabelHtml(entry, true)
+        : buildCompactSetupOptionLabelHtml(entry, false);
       return `
         <button
           type="button"
@@ -1944,6 +2058,7 @@ function renderCenterPanel() {
   const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
   const humanSetupOptions = isOpeningPhase ? getAvailableSetupOptionsForPlayer(1, state.phase) : [];
   const selectedSetupOption = state.phase === "countering" ? getSelectedSetupOptionForPlayer(1, state.phase) : null;
+  const directSetupChoiceMode = APP_PLATFORM === "mobile" && state.phase === "dealing" && humanSetupOptions.length > 0;
   const canDeclareNow = state.phase === "countering"
       ? state.currentTurnId === 1 && !!selectedSetupOption
       : false;
@@ -2026,6 +2141,13 @@ function renderCenterPanel() {
   dom.passCounterBtn.disabled = state.gameOver || !showPassCounterBtn;
   dom.passCounterBtn.hidden = !showPassCounterBtn;
   renderSetupOptions(humanSetupOptions, selectedSetupOption);
+  if (dom.centerPanel) {
+    dom.centerPanel.classList.toggle("setup-choice-mode", directSetupChoiceMode);
+    const actionRow = dom.centerPanel.querySelector(".action-row");
+    if (actionRow) {
+      actionRow.hidden = directSetupChoiceMode;
+    }
+  }
   if (dom.aiDifficultySelect) {
     dom.aiDifficultySelect.value = AI_DIFFICULTY_OPTIONS.some((option) => option.value === state.aiDifficulty)
       ? state.aiDifficulty

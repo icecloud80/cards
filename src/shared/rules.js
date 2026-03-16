@@ -1103,45 +1103,110 @@ function compareSingle(candidate, current, leadSuit) {
 
 /**
  * 作用：
- * 判断一张牌在当前主牌环境下，是否能触发成功扣底降级，并返回对应的扣底模式。
+ * 判断一张级牌在当前局面下，是否属于“级牌扣底”的有效级牌，并返回对应的降级模式。
  *
  * 为什么这样写：
- * 当前规则要求“非无主只认主级牌，无主才认任意级牌”；
- * 因此这里必须把副级牌直接挡掉，避免末手只是副级牌时也误触发成功扣底降级。
+ * 现在规则已经拆成“普通扣底 / 级牌扣底”两套口径：
+ * 普通级别下，花色主只认主级牌、无主时所有副级牌都可扣；
+ * 特殊级 `J / Q / K / A` 下，主级牌和副级牌都能触发级牌扣底。
+ * 这层判断集中在一起后，结算、日志和测试都能复用同一套业务口径。
  *
  * 输入：
  * @param {{suit: string, rank: string} | null} card - 末手制胜牌型里的一张牌
  *
  * 输出：
- * @returns {"trump" | null} 该牌命中的扣底模式；不命中时返回 `null`
+ * @returns {"trump" | "vice" | null} 该牌命中的级牌扣底模式；不命中时返回 `null`
  *
  * 注意：
- * - 无主时任意级牌都按主扣处理
- * - 非无主时只有主级牌能触发成功扣底降级
- * - 王可以赢下末手扣底，但王本身不是有效级牌，不能单独触发降级判定
+ * - 大小王不是有效级牌，这里一律返回 `null`
+ * - 普通级别花色主下只认主级牌
+ * - 无主时没有主级牌，所有级牌都按副级牌扣底处理
  */
 function getBottomPenaltyModeForCard(card) {
   const currentLevelRank = getCurrentLevelRank();
   if (!card || !currentLevelRank || card.suit === "joker") return null;
   if (card.rank !== currentLevelRank) return null;
-  if (state.trumpSuit === "notrump") return "trump";
+  if (state.trumpSuit === "notrump") return "vice";
+  if (FACE_CARD_LEVELS.has(currentLevelRank)) {
+    return card.suit === state.trumpSuit ? "trump" : "vice";
+  }
   return card.suit === state.trumpSuit ? "trump" : null;
 }
 
 /**
  * 作用：
- * 根据扣底模式和牌型类型，生成结算与日志使用的成功扣底标签。
+ * 取出一手末手牌型里真正决定“本轮最大牌”的那一组牌。
  *
  * 为什么这样写：
- * 日志和结算文案都要复用同一套成功扣底标签；
+ * 新规则要求只有当大小王进入“本轮决定大小的最大同型牌组”时，
+ * 才把这次扣底按普通扣底处理；散王或未参与最终比大小的王不应该挡掉级牌扣底。
+ * 因此这里要先从实际牌型里提取“最后比大小看的是哪一组牌”。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 末手赢家实际打出的牌
+ * @param {{ok?: boolean, type?: string}|null} pattern - 这手牌对应的已识别牌型
+ *
+ * 输出：
+ * @returns {Array<object>} 真正决定本轮大小的最大同型牌组；无法识别时返回空数组
+ *
+ * 注意：
+ * - 单张 / 对子 / 刻子本身就是决定大小的整组牌
+ * - 连组牌型只看最高那一组对子/刻子
+ * - 甩牌不参与级牌扣底判定，因此这里返回空数组
+ */
+function getBottomWinningGroup(cards, pattern) {
+  if (!pattern?.ok) return [];
+  if (pattern.type === "single" || pattern.type === "pair" || pattern.type === "triple") {
+    return [...cards];
+  }
+  if (pattern.type === "tractor" || pattern.type === "train") {
+    const pairs = findPairs(cards);
+    return pairs.length > 0 ? pairs[pairs.length - 1] : [];
+  }
+  if (pattern.type === "bulldozer") {
+    const triples = findTriples(cards);
+    return triples.length > 0 ? triples[triples.length - 1] : [];
+  }
+  return [];
+}
+
+/**
+ * 作用：
+ * 判断这次末手牌型是否因为“最大同型牌组里含王”而只能算普通扣底。
+ *
+ * 为什么这样写：
+ * 规则里真正会挡掉级牌扣底的，不是“这手牌里出现过王”，
+ * 而是“决定本轮大小的那组最大牌本身就是王张”；
+ * 把这个判断单独抽出来后，像“对主2大过散王”这种边界场景就能稳定表达。
+ *
+ * 输入：
+ * @param {Array<object>} winningGroup - `getBottomWinningGroup` 返回的最大同型牌组
+ *
+ * 输出：
+ * @returns {boolean} 若该最大牌组里含王，则返回 `true`
+ *
+ * 注意：
+ * - 空数组按 `false` 处理，交由上层继续按其它条件兜底
+ * - 这里只看最大同型牌组，不扫描整手其它非决定性组件
+ */
+function isBottomPenaltyBlockedByJokers(winningGroup) {
+  return Array.isArray(winningGroup) && winningGroup.some((card) => card?.suit === "joker");
+}
+
+/**
+ * 作用：
+ * 根据扣底模式和牌型类型，生成结算与日志使用的级牌扣底标签。
+ *
+ * 为什么这样写：
+ * 日志和结算文案都要复用同一套级牌扣底标签；
  * 这里统一收口后，即使未来规则调整，也不用在多个入口分别改字符串。
  *
  * 输入：
- * @param {"trump" | "vice"} mode - 当前成功扣底对应的模式；当前运行态只会命中 `trump`
+ * @param {"trump" | "vice"} mode - 当前级牌扣底对应的模式
  * @param {string} type - 当前末手牌型类型
  *
  * 输出：
- * @returns {string} 对应的成功扣底说明文案
+ * @returns {string} 对应的级牌扣底说明文案
  *
  * 注意：
  * - 传入未知模式或未知牌型时会回退为空字符串，调用方应自行兜底
@@ -1153,22 +1218,22 @@ function getBottomPenaltyLabel(mode, type) {
 
 /**
  * 作用：
- * 计算某个当前等级在成功扣底时，真正需要执行的降级步数。
+ * 计算某个当前等级在级牌扣底时，真正需要执行的降级步数。
  *
  * 为什么这样写：
- * 对 `J / Q / K / A` 这类有特殊回退锚点的等级，多张成功扣底需要先回退到锚点，再继续按牌型级数向下扣；
+ * 对 `J / Q / K / A` 这类有特殊回退锚点的等级，多张级牌扣底需要先回退到锚点，再继续按牌型级数向下扣；
  * 否则高等级在多张成功扣底时会少算一步，导致结算结果与当前等级回退规则不一致。
  *
  * 输入：
  * @param {string} rank - 打家当前等级
- * @param {{levels?: number, mode?: string} | null} penalty - 当前成功扣底信息
+ * @param {{levels?: number, mode?: string} | null} penalty - 当前级牌扣底信息
  *
  * 输出：
  * @returns {number} 最终应传给降级函数的总步数
  *
  * 注意：
  * - 只在存在特殊回退锚点且牌型不是单张时额外补 1 步
- * - 普通等级或单张成功扣底保持现有降级步数不变
+ * - 普通等级或单张级牌扣底保持现有降级步数不变
  */
 function getBottomPenaltyDropSteps(rank, penalty) {
   const baseLevels = Math.max(0, penalty?.levels || 0);
@@ -1177,20 +1242,22 @@ function getBottomPenaltyDropSteps(rank, penalty) {
   return fallbackMap[rank] ? baseLevels + 1 : baseLevels;
 }
 
-// 获取扣底惩罚。
+// 获取级牌扣底惩罚。
 function getBottomPenalty() {
   if (!state.lastTrick || !isDefenderTeam(state.lastTrick.winnerId)) return null;
 
   const winningPlay = state.lastTrick.plays.find((play) => play.playerId === state.lastTrick.winnerId);
   if (!winningPlay || winningPlay.cards.length === 0) return null;
+  const pattern = classifyPlay(winningPlay.cards);
+  if (!pattern.ok) return null;
+  const winningGroup = getBottomWinningGroup(winningPlay.cards, pattern);
+  if (isBottomPenaltyBlockedByJokers(winningGroup)) return null;
+
   const penaltyModes = winningPlay.cards
     .map((card) => getBottomPenaltyModeForCard(card))
     .filter(Boolean);
   if (penaltyModes.length === 0) return null;
   const mode = penaltyModes.includes("trump") ? "trump" : "vice";
-
-  const pattern = classifyPlay(winningPlay.cards);
-  if (!pattern.ok) return null;
 
   const penaltyByType = {
     single: { levels: 1 },
@@ -1208,6 +1275,7 @@ function getBottomPenalty() {
     label: getBottomPenaltyLabel(mode, pattern.type),
     winnerId: state.lastTrick.winnerId,
     mode,
+    kind: "grade",
   };
 }
 

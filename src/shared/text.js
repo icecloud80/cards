@@ -337,7 +337,7 @@ const TEXT = {
     teamsRevealed: (points) => `阵营已明，闲家当前累计 ${points} 分。`,
     trickWon: (name, trickNumber, points) => `${name} 赢下第 ${trickNumber} 轮，获得 ${points} 分。`,
     finalBottomScore: (basePoints, multiplier, bottomPoints, label) => `最后一轮由闲家方获胜，底牌分按最多 25 分封顶后以${label} x${multiplier}计入（封顶后 ${basePoints} 分），共加 ${bottomPoints} 分。`,
-    finalBottomPenalty: (label, levels) => `闲家以${label}完成扣底，打家额外降 ${levels} 级。`,
+    finalBottomPenalty: (label, levels) => `闲家以${label}完成级牌扣底，直接获胜，打家降 ${levels} 级。`,
     unrevealedFriendFinish: "本局朋友牌始终未被他人打出，按 1 打 4 结算。",
   },
   result: {
@@ -472,27 +472,40 @@ function getTrickOutcomeAnnouncement(winnerId) {
  * 根据闲家最终总分与扣底结果，生成本局胜负和升级结论。
  *
  * 为什么这样写：
- * 扣底只会影响“额外降级”和“最终总分”，不会单独越过 120 分门槛直接改判胜负；这样可以把“成功扣底”和“真正翻盘”区分开，和当前规则保持一致。
+ * 现在扣底已经拆成“普通扣底 / 级牌扣底”两条规则：
+ * 普通扣底继续只看总分是否到 120，级牌扣底则会直接判闲家获胜。
+ * 把整局结算统一收口在这里，能避免规则层、结果页和日志各自维护一套分支。
  *
  * 输入：
  * @param {number} points - 已经包含底牌加分后的闲家最终总分
- * @param {{bottomPenalty?: {levels: number, label: string} | null}} options - 扣底惩罚信息
+ * @param {{bottomPenalty?: {levels: number, label: string, mode?: string, kind?: string} | null}} options - 级牌扣底惩罚信息
  *
  * 输出：
  * @returns {{title: string, body: string, bankerLevels: number, defenderLevels: number, winner: string}} 本局结算摘要
  *
  * 注意：
  * - `points` 必须传最终分数，不能传扣底前分数
- * - 成功扣底但总分仍不到 120 时，只触发额外降级，不直接改判闲家获胜
+ * - 普通扣底下，闲家仍需达到 120 分才算赢
+ * - 级牌扣底下，闲家即使不到 120 分也会直接获胜
  */
 function getOutcome(points, options = {}) {
-  const defendersWin = points >= 120;
+  const gradeBottomWin = options.bottomPenalty?.levels > 0;
+  const defendersWin = gradeBottomWin || points >= 120;
+  if (gradeBottomWin && points < 165) {
+    return {
+      title: TEXT.outcome.defenderWinTitle,
+      body: points < 120
+        ? `闲家总分为 ${points} 分，虽未到 120 分，但已完成${options.bottomPenalty.label}；按级牌扣底直接获胜，本局不升级。`
+        : `闲家总分为 ${points} 分，并已完成${options.bottomPenalty.label}。闲家方获胜，但本局不升级。`,
+      bankerLevels: 0,
+      defenderLevels: 0,
+      winner: "defender",
+    };
+  }
   if (!defendersWin && points === 0) {
     return {
       title: TEXT.outcome.bankerBigWinTitle,
-      body: options.bottomPenalty?.levels > 0
-        ? `闲家总分为 0 分，虽然最后一轮完成了${options.bottomPenalty.label}，但仍未翻盘；打家方大光，升 3 级。`
-        : "闲家总分为 0 分，且未形成主级牌成功扣底，打家方升 3 级。",
+      body: "闲家总分为 0 分，且未形成级牌扣底，打家方升 3 级。",
       bankerLevels: 3,
       defenderLevels: 0,
       winner: "banker",
@@ -501,9 +514,7 @@ function getOutcome(points, options = {}) {
   if (!defendersWin && points < 60) {
     return {
       title: TEXT.outcome.bankerSmallWinTitle,
-      body: options.bottomPenalty?.levels > 0
-        ? `闲家总分为 ${points} 分，虽然最后一轮完成了${options.bottomPenalty.label}，但仍未翻盘；打家方升 2 级。`
-        : `闲家总分为 ${points} 分，未到 60 分，且未形成主级牌成功扣底，打家方升 2 级。`,
+      body: `闲家总分为 ${points} 分，未到 60 分，且未形成级牌扣底，打家方升 2 级。`,
       bankerLevels: 2,
       defenderLevels: 0,
       winner: "banker",
@@ -512,9 +523,7 @@ function getOutcome(points, options = {}) {
   if (!defendersWin && points < 120) {
     return {
       title: TEXT.outcome.bankerWinTitle,
-      body: options.bottomPenalty?.levels > 0
-        ? `闲家总分为 ${points} 分，虽然最后一轮完成了${options.bottomPenalty.label}，但仍未翻盘；打家方正常获胜，升 1 级。`
-        : `闲家总分为 ${points} 分，未到 120 分，且未形成主级牌成功扣底，打家方正常获胜，升 1 级。`,
+      body: `闲家总分为 ${points} 分，未到 120 分，且未形成级牌扣底，打家方正常获胜，升 1 级。`,
       bankerLevels: 1,
       defenderLevels: 0,
       winner: "banker",
@@ -534,7 +543,9 @@ function getOutcome(points, options = {}) {
   const levels = 1 + Math.floor((points - 165) / 60);
   return {
     title: TEXT.outcome.defenderLevelUpTitle,
-    body: `闲家总分为 ${points} 分，按你当前规则从 165 分开始升级，本局闲家方升 ${levels} 级。`,
+    body: gradeBottomWin
+      ? `闲家总分为 ${points} 分，并以${options.bottomPenalty.label}完成级牌扣底。本局闲家方升 ${levels} 级。`
+      : `闲家总分为 ${points} 分，按你当前规则从 165 分开始升级，本局闲家方升 ${levels} 级。`,
     bankerLevels: 0,
     defenderLevels: levels,
     winner: "defender",
@@ -571,9 +582,9 @@ function getBottomResultText(bottomResult) {
     return ` 最后一轮由${bottomResult.playerName}保底成功，未发生闲家扣底；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
   }
   if (bottomResult.penalty) {
-    return ` ${bottomResult.playerName}完成扣底，并以${bottomResult.penalty.label}成功扣底，打家额外降 ${bottomResult.penalty.levels} 级；下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+    return ` ${bottomResult.playerName}完成扣底，并以${bottomResult.penalty.label}触发级牌扣底；本局直接判闲家获胜，打家降 ${bottomResult.penalty.levels} 级。下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
   }
-  return ` ${bottomResult.playerName}完成扣底，但未形成主级牌成功扣底；本次只计底牌分，不触发翻盘降级。下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
+  return ` ${bottomResult.playerName}完成普通扣底；本次只计底牌分，是否获胜仍看闲家最终总分。下一局由玩家${bottomResult.nextLeadPlayerId}先抓牌。`;
 }
 
 // 生成牌文案的简短表示。

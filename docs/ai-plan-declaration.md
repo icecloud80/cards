@@ -45,7 +45,7 @@
 
 当前代码的主流程主要在：
 
-- [src/shared/game.js](src/shared/game.js)
+- [src/shared/game.js](../src/shared/game.js)
 
 其中与亮主 / 反主最直接相关的入口为：
 
@@ -326,7 +326,7 @@ updateDeclarationReadFromAction(playerId, action)
 
 优先建议修改这些函数附近的逻辑：
 
-- [src/shared/game.js](src/shared/game.js)
+- [src/shared/game.js](../src/shared/game.js)
 
 具体建议：
 

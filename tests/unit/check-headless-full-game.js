@@ -1,4 +1,8 @@
-const { parseHeadlessRegressionArgs, runHeadlessRegression } = require("../support/headless-full-game-runner");
+const {
+  parseHeadlessRegressionArgs,
+  runHeadlessRegression,
+  runMixedHeadlessRegression,
+} = require("../support/headless-full-game-runner");
 
 /**
  * 作用：
@@ -67,6 +71,54 @@ function validateHeadlessDecisionSignals(summary) {
 
 /**
  * 作用：
+ * 校验混编 headless 回归已经把座位难度和阵容统计落到摘要里。
+ *
+ * 为什么这样写：
+ * 这轮新增能力的重点不是“再多跑几局”，而是让 `2-3 中级 + 2-3 初级` 的随机混编可复盘；
+ * 如果 summary 里拿不到阵容标签和玩家难度映射，后续分析就没法真正定位中级 AI 的问题。
+ *
+ * 输入：
+ * @param {object} result - `runMixedHeadlessRegression` 的返回值。
+ *
+ * 输出：
+ * @returns {void} 校验失败时直接抛错。
+ *
+ * 注意：
+ * - 这里只校验结构和约束，不要求某一轮样本一定出现某种胜负比例。
+ * - 每局必须恰好是 `2/3` 或 `3/2` 的初中级分布。
+ */
+function validateMixedHeadlessSummary(result) {
+  const summary = result?.summary;
+  if (!summary || summary.mode !== "mixed_lineup") {
+    throw new Error("混编 headless 回归缺少 mode=mixed_lineup 标记");
+  }
+  if (!Array.isArray(summary.lineupBreakdown) || summary.lineupBreakdown.length === 0) {
+    throw new Error("混编 headless 回归缺少 lineupBreakdown");
+  }
+  if (!summary.playerDifficultyBreakdown?.beginner || !summary.playerDifficultyBreakdown?.intermediate) {
+    throw new Error("混编 headless 回归缺少初级 / 中级 playerDifficultyBreakdown");
+  }
+  for (const game of result.games || []) {
+    if (!game.summary.completed) {
+      continue;
+    }
+    const entries = Object.values(game.summary.playerDifficulties || {});
+    if (entries.length !== 5) {
+      throw new Error(`混编对局 ${game.summary.seed} 的 playerDifficulties 数量不是 5`);
+    }
+    const intermediateCount = entries.filter((difficulty) => difficulty === "intermediate").length;
+    const beginnerCount = entries.filter((difficulty) => difficulty === "beginner").length;
+    if (!((intermediateCount === 2 && beginnerCount === 3) || (intermediateCount === 3 && beginnerCount === 2))) {
+      throw new Error(`混编对局 ${game.summary.seed} 的阵容不是 2/3 或 3/2：${JSON.stringify(game.summary.playerDifficulties)}`);
+    }
+    if (typeof game.summary.lineupLabel !== "string" || !game.summary.lineupLabel.startsWith("mixed-")) {
+      throw new Error(`混编对局 ${game.summary.seed} 缺少 mixed 阵容标签`);
+    }
+  }
+}
+
+/**
+ * 作用：
  * 以脚本方式执行 headless 全游戏回归，并向测试框架输出简要结果。
  *
  * 为什么这样写：
@@ -86,6 +138,14 @@ function main() {
   const options = parseHeadlessRegressionArgs();
   const result = runHeadlessRegression(options);
   validateHeadlessDecisionSignals(result.summary);
+  const mixedResult = runMixedHeadlessRegression({
+    games: 2,
+    baseSeed: `${options.baseSeed}:mixed-validation`,
+    outputDir: `${options.outputDir}/mixed-validation`,
+    maxSteps: options.maxSteps,
+  });
+  validateHeadlessDecisionSignals(mixedResult.summary);
+  validateMixedHeadlessSummary(mixedResult);
 
   console.log("Headless full-game regression passed:");
   console.log(`- completion rate: ${result.summary.totals.completionRate}%`);
@@ -96,6 +156,10 @@ function main() {
   console.log(`- selected point_run_risk: ${result.summary.decisionSignals.selectedSignals.pointRunRisk}`);
   console.log(`- summary: ${result.files.summaryFile}`);
   console.log(`- analysis: ${result.files.analysisFile}`);
+  console.log("Headless mixed-lineup validation passed:");
+  console.log(`- lineups: ${mixedResult.summary.lineupBreakdown.map((entry) => `${entry.label}=${entry.count}`).join(", ")}`);
+  console.log(`- mixed summary: ${mixedResult.files.summaryFile}`);
+  console.log(`- mixed analysis: ${mixedResult.files.analysisFile}`);
 }
 
 main();

@@ -821,11 +821,38 @@
         min-height: 186px;
         padding: 16px 18px;
         z-index: 4;
+        border: 1px solid rgba(166, 121, 62, 0.2);
+        border-radius: 28px;
+        overflow: hidden;
         background:
-          linear-gradient(180deg, rgba(255, 251, 242, 0.96), rgba(238, 228, 206, 0.92));
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.82), transparent 36%),
+          linear-gradient(180deg, rgba(255, 251, 242, 0.97), rgba(238, 228, 206, 0.93));
         box-shadow:
           inset 0 1px 0 rgba(255, 255, 255, 0.75),
           0 20px 36px rgba(0, 0, 0, 0.16);
+      }
+
+      /* 翻底公示层补一层柔和高光和桌布底纹，让它在手机上也更像独立浮层。 */
+      .bottom-reveal-center::before,
+      .bottom-reveal-center::after {
+        content: "";
+        position: absolute;
+        pointer-events: none;
+      }
+
+      .bottom-reveal-center::before {
+        inset: 0 0 auto;
+        height: 96px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent);
+      }
+
+      .bottom-reveal-center::after {
+        right: -22px;
+        bottom: -30px;
+        width: 150px;
+        height: 150px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(198, 155, 96, 0.16), transparent 72%);
       }
 
       .bottom-reveal-center.hidden {
@@ -833,20 +860,42 @@
       }
 
       .bottom-reveal-head {
+        position: relative;
+        z-index: 1;
         display: flex;
         align-items: start;
         justify-content: space-between;
         gap: 16px;
       }
 
+      .bottom-reveal-copy {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .bottom-reveal-kicker {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(143, 98, 40, 0.09);
+        color: #9a6a2f;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+      }
+
       .bottom-reveal-side {
         display: flex;
         align-items: start;
+        justify-content: flex-end;
         gap: 8px;
+        flex: 0 0 auto;
       }
 
       .bottom-reveal-head .title {
         display: block;
+        margin-top: 8px;
         margin-bottom: 6px;
         color: #6f4d22;
       }
@@ -855,48 +904,70 @@
         line-height: 1.5;
       }
 
-      .bottom-reveal-timer {
-        min-width: 64px;
-        padding: 8px 10px;
-        border-radius: 10px;
-        background: rgba(120, 74, 24, 0.08);
-        color: #87561f;
-        text-align: center;
-      }
-
-      .bottom-reveal-timer strong {
-        display: block;
-        font-size: 22px;
-        line-height: 1;
-      }
-
-      .bottom-reveal-timer span {
-        display: block;
-        margin-top: 4px;
-        font-size: 11px;
-        font-weight: 700;
-      }
-
+      /* 把关闭和倒计时合成一个胶囊按钮，减少手机弹层里分散的视觉锚点。 */
       .bottom-reveal-close {
-        width: 32px;
-        height: 32px;
-        border: 0;
-        border-radius: 10px;
-        background: rgba(120, 74, 24, 0.1);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 40px;
+        padding: 0 14px;
+        border: 1px solid rgba(165, 111, 49, 0.18);
+        border-radius: 999px;
+        background: linear-gradient(180deg, rgba(252, 243, 223, 0.96), rgba(234, 216, 183, 0.92));
         color: #87561f;
         font: inherit;
-        font-size: 18px;
-        font-weight: 700;
-        line-height: 1;
+        text-align: center;
+        box-shadow: 0 10px 18px rgba(89, 57, 23, 0.12);
+        transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+        white-space: nowrap;
         cursor: pointer;
+      }
+
+      .bottom-reveal-close:hover,
+      .bottom-reveal-close:active {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 22px rgba(89, 57, 23, 0.16);
+      }
+
+      .bottom-reveal-close-label,
+      .bottom-reveal-close-timer {
+        display: inline-flex;
+        align-items: baseline;
+        line-height: 1;
+      }
+
+      .bottom-reveal-close-label {
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .bottom-reveal-close-timer {
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .bottom-reveal-close-timer strong {
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .bottom-reveal-close.is-urgent {
+        background: linear-gradient(180deg, rgba(255, 237, 219, 0.98), rgba(247, 206, 168, 0.95));
+        box-shadow: 0 12px 22px rgba(158, 76, 18, 0.18);
       }
 
       .bottom-reveal-cards {
         display: flex;
         justify-content: center;
         align-items: end;
-        margin-top: 16px;
-        min-height: 128px;
+        position: relative;
+        z-index: 1;
+        margin-top: 18px;
+        min-height: 136px;
+        padding: 18px 10px 6px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(255, 248, 233, 0.58), rgba(236, 224, 199, 0.34));
       }
 
       /* 翻底公示需要保留 7 个固定卡位，顺序号和牌背都挂在 slot 容器里。 */
@@ -1096,6 +1167,15 @@
         color: var(--muted);
         font-size: 12px;
         font-weight: 700;
+      }
+
+      .setup-options-inline-label {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
       }
 
       button.setup-option-btn {
@@ -3282,6 +3362,69 @@
         line-height: 16px;
       }
 
+      /* 手游翻底公示层额外收口：整体上提，牌轨更靠近正文，读秒做成单个关闭胶囊。 */
+      body.mobile-index2 .bottom-reveal-center {
+        top: 43% !important;
+        width: min(calc(100vw - 20px), 396px) !important;
+        padding: 14px 14px 10px;
+        border-radius: 22px;
+      }
+
+      body.mobile-index2 .bottom-reveal-head {
+        gap: 10px;
+      }
+
+      body.mobile-index2 .bottom-reveal-copy {
+        width: 100%;
+      }
+
+      body.mobile-index2 .bottom-reveal-kicker {
+        padding: 4px 8px;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+      }
+
+      body.mobile-index2 .bottom-reveal-head .title {
+        margin-top: 6px;
+        margin-bottom: 4px;
+        font-size: 20px;
+      }
+
+      body.mobile-index2 .bottom-reveal-head .subtle {
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      body.mobile-index2 .bottom-reveal-side {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      body.mobile-index2 .bottom-reveal-close {
+        gap: 5px;
+        min-height: 38px;
+        padding: 0 12px;
+      }
+
+      body.mobile-index2 .bottom-reveal-close-label {
+        font-size: 13px;
+      }
+
+      body.mobile-index2 .bottom-reveal-close-timer {
+        font-size: 12px;
+      }
+
+      body.mobile-index2 .bottom-reveal-close-timer strong {
+        font-size: 14px;
+      }
+
+      body.mobile-index2 .bottom-reveal-cards {
+        margin-top: 10px;
+        min-height: 72px;
+        padding: 10px 6px 0;
+        transform: translateY(-10px);
+      }
+
       body.mobile-index2 .cards-row .card-btn {
         margin-left: calc(-1px * var(--mobile-card-overlap, 7));
       }
@@ -4001,16 +4144,18 @@
 
         <section id="bottomRevealCenter" class="panel bottom-reveal-center hidden">
           <div class="bottom-reveal-head">
-            <div>
+            <div class="bottom-reveal-copy">
+              <!-- 翻底公示增加短标签，方便在手机上先扫到阶段属性，再读正文。 -->
+              <span class="bottom-reveal-kicker">翻底公示</span>
               <strong class="title">翻底定主</strong>
               <div id="bottomRevealText" class="subtle"></div>
             </div>
             <div class="bottom-reveal-side">
-              <div class="bottom-reveal-timer">
-                <strong id="bottomRevealTimer">30</strong>
-                <span>秒后扣底</span>
-              </div>
-              <button id="closeBottomRevealBtn" class="bottom-reveal-close" type="button" aria-label="提前结束翻底展示">×</button>
+              <!-- 关闭按钮同时承担自动读秒提示，避免手机端再拆成两个分散控件。 -->
+              <button id="closeBottomRevealBtn" class="bottom-reveal-close" type="button" aria-label="提前结束翻底展示">
+                <span class="bottom-reveal-close-label">关闭</span>
+                <span class="bottom-reveal-close-timer">(<strong id="bottomRevealTimer">30</strong>s)</span>
+              </button>
             </div>
           </div>
           <div id="bottomRevealCards" class="bottom-reveal-cards"></div>

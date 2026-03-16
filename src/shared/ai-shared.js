@@ -446,6 +446,43 @@ function chooseAiBankerFriendSetupLead(playerId, player) {
   return [targetCopies.sort((left, right) => cardStrength(left) - cardStrength(right))[0]];
 }
 
+/**
+ * 作用：
+ * 把“直接匹配首家牌型”的结构候选优先加入合法跟牌列表。
+ *
+ * 为什么这样写：
+ * 跟主拖拉机、跟火车这类场景，本来就应该先尝试完整匹配牌型；
+ * 如果一上来就暴力枚举 `n 选 k`，在主牌很多时容易被组合上限截断，合法结构反而排不到前面。
+ *
+ * 输入：
+ * @param {Array<Array<object>>} results - 当前已收集到的合法候选列表。
+ * @param {Set<string>} seen - 已去重的候选 key 集合。
+ * @param {number} playerId - 当前出牌玩家 ID。
+ * @param {Array<object>} suitedCards - 当前与首家同门的牌池。
+ * @param {number} limit - 允许保留的最大合法候选数。
+ *
+ * 输出：
+ * @returns {boolean} 若已达到 `limit` 并可提前结束，则返回 `true`。
+ *
+ * 注意：
+ * - 这里只负责“优先塞入结构候选”，不替代后续组合枚举。
+ * - 仍会用 `validateSelection` 复验，避免 helper 与规则层口径漂移。
+ */
+function seedDirectPatternSelections(results, seen, playerId, suitedCards, limit) {
+  if (!state.leadSpec || !Array.isArray(suitedCards) || suitedCards.length < state.leadSpec.count) return false;
+
+  const directPatternCombos = getPatternCombos(suitedCards, state.leadSpec);
+  for (const combo of directPatternCombos) {
+    if (!validateSelection(playerId, combo).ok) continue;
+    const key = combo.map((card) => card.id).sort().join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(combo);
+    if (results.length >= limit) return true;
+  }
+  return false;
+}
+
 // 枚举玩家当前所有合法跟牌选择。
 function getLegalSelectionsForPlayer(playerId, limit = 72) {
   const player = getPlayer(playerId);
@@ -463,9 +500,13 @@ function getLegalSelectionsForPlayer(playerId, limit = 72) {
 
   const seen = new Set();
   const results = [];
+  if (seedDirectPatternSelections(results, seen, playerId, suited, limit)) {
+    return results;
+  }
   for (const pool of pools) {
     if (pool.length < targetCount) continue;
-    for (const combo of enumerateCombinations(pool, targetCount)) {
+    const combinationLimit = getCombinationEnumerationLimit(pool.length, targetCount, limit * 16);
+    for (const combo of enumerateCombinations(pool, targetCount, combinationLimit)) {
       if (!validateSelection(playerId, combo).ok) continue;
       const key = combo.map((card) => card.id).sort().join("|");
       if (seen.has(key)) continue;

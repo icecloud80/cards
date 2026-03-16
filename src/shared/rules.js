@@ -880,11 +880,94 @@ function getPatternCombos(cards, leadSpec) {
   return [];
 }
 
-// 枚举组合。
-function enumerateCombinations(cards, count) {
+/**
+ * 作用：
+ * 估算 `n 选 k` 的组合数量，供 AI 跟牌枚举决定是否值得完整扫描。
+ *
+ * 为什么这样写：
+ * 旧实现只用固定上限截断组合搜索，导致像“12 张主牌里找 4 张合法主拖拉机”这类
+ * 实际规模不大、但合法解排位偏后的场景被误判成“没有合法候选”。
+ * 先把组合规模估算集中成 helper，候选层才能统一判断该全扫还是保守截断。
+ *
+ * 输入：
+ * @param {number} cardCount - 当前待选牌池总张数。
+ * @param {number} pickCount - 本次需要从牌池里取出的张数。
+ *
+ * 输出：
+ * @returns {number} 估算得到的组合数；无效输入时返回 `0`。
+ *
+ * 注意：
+ * - 这里只用于决定搜索预算，不要求支持极大整数精度。
+ * - 当 `pickCount` 超过 `cardCount` 时，必须返回 `0`。
+ */
+function estimateCombinationCount(cardCount, pickCount) {
+  if (!Number.isInteger(cardCount) || !Number.isInteger(pickCount) || cardCount < 0 || pickCount < 0) return 0;
+  if (pickCount > cardCount) return 0;
+  if (pickCount === 0 || pickCount === cardCount) return 1;
+
+  const normalizedPickCount = Math.min(pickCount, cardCount - pickCount);
+  let result = 1;
+  for (let index = 1; index <= normalizedPickCount; index += 1) {
+    result = (result * (cardCount - normalizedPickCount + index)) / index;
+  }
+  return Math.round(result);
+}
+
+/**
+ * 作用：
+ * 为组合枚举计算一个按牌池规模动态放宽的扫描上限。
+ *
+ * 为什么这样写：
+ * 固定 `240 / 360 / 520` 的组合上限对大多数局面够快，但会把部分“规模并不大”的合法跟牌漏掉。
+ * 这里把“小空间直接全扫，大空间保留上限保护”的策略统一起来，避免 AI 因为搜索预算过紧而卡回合。
+ *
+ * 输入：
+ * @param {number} cardCount - 当前待选牌池总张数。
+ * @param {number} pickCount - 本次需要取出的张数。
+ * @param {number} [minimumLimit=0] - 调用方要求的最低扫描预算。
+ *
+ * 输出：
+ * @returns {number} 本次组合枚举允许返回的最大组合数。
+ *
+ * 注意：
+ * - 小规模空间优先完整扫描，保证合法候选不会被过早截断。
+ * - 大规模空间仍保留保护上限，避免跟牌搜索拖慢整局节奏。
+ */
+function getCombinationEnumerationLimit(cardCount, pickCount, minimumLimit = 0) {
+  const fallbackLimit = pickCount <= 4 ? 240 : pickCount <= 6 ? 360 : 520;
+  const guaranteedLimit = pickCount <= 4 ? 1200 : pickCount <= 6 ? 1800 : 2400;
+  const estimatedCount = estimateCombinationCount(cardCount, pickCount);
+  const requestedLimit = Math.max(fallbackLimit, minimumLimit || 0);
+  if (estimatedCount <= 0) return requestedLimit;
+  return Math.min(estimatedCount, Math.max(requestedLimit, guaranteedLimit));
+}
+
+/**
+ * 作用：
+ * 枚举指定牌池里的所有候选组合，并支持调用方覆盖默认上限。
+ *
+ * 为什么这样写：
+ * 规则层、候选层和紧急兜底都要复用同一套组合搜索；
+ * 给它增加可配置上限后，调用方就能按局面规模决定“扫多少”而不必各自复制递归逻辑。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 当前参与组合搜索的牌池。
+ * @param {number} count - 每个候选组合需要包含的张数。
+ * @param {number|null} [limitOverride=null] - 可选的搜索上限；未传时沿用默认保护上限。
+ *
+ * 输出：
+ * @returns {Array<Array<object>>} 返回按搜索顺序收集到的候选组合列表。
+ *
+ * 注意：
+ * - 该函数只负责组合枚举，不负责合法性校验。
+ * - `limitOverride` 只影响“最多保留多少个组合”，不会改变枚举顺序。
+ */
+function enumerateCombinations(cards, count, limitOverride = null) {
   const results = [];
   const current = [];
-  const limit = count <= 4 ? 240 : count <= 6 ? 360 : 520;
+  const limit = Number.isFinite(limitOverride) && limitOverride > 0
+    ? Math.floor(limitOverride)
+    : getCombinationEnumerationLimit(cards.length, count);
 
   // 递归遍历组合搜索的下一层分支。
   function walk(start) {

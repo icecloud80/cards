@@ -30,13 +30,21 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   const defenderSide = isSimulationDefenderTeam(simState, playerId);
   const cardsLeft = simState.players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
   const lateRound = cardsLeft <= 20;
+  const unresolvedFriendBeliefLean = unresolvedFriend && playerId !== simState.bankerId && typeof getSimulationFriendBeliefLean === "function"
+    ? getSimulationFriendBeliefLean(simState, playerId)
+    : 0;
 
   let primary = "keep_control";
   let secondary = defenderSide ? "pressure_void" : "run_points";
 
   if (unresolvedFriend) {
-    primary = "find_friend";
-    secondary = mode === "follow" ? "keep_control" : "run_points";
+    if (unresolvedFriendBeliefLean <= -16) {
+      primary = mode === "follow" ? "keep_control" : "pressure_void";
+      secondary = mode === "follow" ? "pressure_void" : "keep_control";
+    } else {
+      primary = "find_friend";
+      secondary = mode === "follow" || unresolvedFriendBeliefLean >= 16 ? "keep_control" : "run_points";
+    }
   } else if (lateRound && defenderSide) {
     primary = "protect_bottom";
     secondary = "keep_control";
@@ -62,6 +70,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     control: 1.0,
     points: defenderSide ? 0.8 : 1.0,
     friend: unresolvedFriend ? 1.15 : resolvedFriend ? 0.1 : 0.45,
+    friendBelief: unresolvedFriend ? 0.75 : 0.05,
     allySupport: resolvedFriend ? 0.95 : 0.05,
     bottom: lateRound ? 1.0 : 0.3,
     voidPressure: defenderSide ? 0.95 : 0.45,
@@ -90,6 +99,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
 
   if (primary === "find_friend") weights.friendRisk += 0.35;
   if (secondary === "find_friend") weights.friendRisk += 0.15;
+  if (unresolvedFriend) weights.friendBelief += 0.2;
   if (primary === "keep_control" || primary === "clear_trump") weights.tempo += 0.35;
   if (secondary === "keep_control" || secondary === "clear_trump") weights.tempo += 0.15;
   if (primary === "keep_control" || primary === "clear_trump") weights.turnAccess += 0.45;
@@ -109,6 +119,14 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "protect_bottom") weights.turnAccess += 0.1;
   if (primary === "protect_bottom") weights.pointRunRisk += 0.25;
   if (secondary === "protect_bottom") weights.pointRunRisk += 0.1;
+  if (unresolvedFriendBeliefLean >= 16) {
+    weights.friend += 0.2;
+    weights.turnAccess += 0.1;
+  }
+  if (unresolvedFriendBeliefLean <= -16) {
+    weights.voidPressure += 0.2;
+    weights.controlRisk += 0.1;
+  }
 
   return {
     primary,

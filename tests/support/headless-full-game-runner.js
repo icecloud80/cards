@@ -4,6 +4,9 @@ const path = require("path");
 const { loadHeadlessGameContext } = require("./headless-game-context");
 
 const DEFAULT_DIFFICULTIES = ["beginner", "intermediate", "advanced"];
+const DEFAULT_MIXED_TOTAL_GAMES = 20;
+const DEFAULT_MIXED_DIFFICULTY = "mixed";
+const HEADLESS_PLAYER_IDS = [1, 2, 3, 4, 5];
 const DECISION_SIGNAL_SAMPLE_LIMIT = 5;
 const CONTROL_SHIFT_OBJECTIVES = new Set(["clear_trump", "keep_control", "pressure_void"]);
 
@@ -94,6 +97,178 @@ function parseHeadlessRegressionArgs(argv = process.argv.slice(2)) {
  */
 function buildGameSeed(baseSeed, difficulty, gameIndex) {
   return `${baseSeed}:${difficulty}:game-${String(gameIndex).padStart(2, "0")}`;
+}
+
+/**
+ * 作用：
+ * 把任意 seed 文本稳定映射成 32 位无符号整数。
+ *
+ * 为什么这样写：
+ * 混编对局需要“随机但可复现”的座位分配；这里复用轻量哈希，
+ * 让同一个 seed 始终产出同一套初级 / 中级分布，方便复跑异常样本。
+ *
+ * 输入：
+ * @param {string|number} seedInput - 当前对局或批次的原始种子。
+ *
+ * 输出：
+ * @returns {number} 可供伪随机数初始化的 32 位正整数。
+ *
+ * 注意：
+ * - 返回值不能为 `0`，避免后续 PRNG 退化。
+ * - 这里只追求稳定复现，不追求密码学随机性。
+ */
+function hashHeadlessSeed(seedInput) {
+  const raw = String(seedInput ?? "headless-regression");
+  let hash = 2166136261;
+  for (let index = 0; index < raw.length; index += 1) {
+    hash ^= raw.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) || 1;
+}
+
+/**
+ * 作用：
+ * 创建一个用于混编座位分配的可复现伪随机数函数。
+ *
+ * 为什么这样写：
+ * 混编实验要求“每局随机选 2-3 个中级和 2-3 个初级”，
+ * 但同时又必须支持用 seed 精确重放同一局。
+ *
+ * 输入：
+ * @param {string|number} seedInput - 当前对局使用的种子。
+ *
+ * 输出：
+ * @returns {() => number} 返回 `[0, 1)` 区间浮点数的随机函数。
+ *
+ * 注意：
+ * - 这套随机只用于座位分配，不参与真实牌局洗牌。
+ * - 同一 seed 必须稳定得到同一串结果。
+ */
+function createHeadlessSelectionRandom(seedInput) {
+  let state = hashHeadlessSeed(seedInput);
+  return function nextRandom() {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 作用：
+ * 用可复现随机源打乱玩家座位顺序。
+ *
+ * 为什么这样写：
+ * 混编实验需要随机决定哪些座位落到中级 / 初级，
+ * 但又不能依赖系统随机，否则异常样本没法按 seed 直接回放。
+ *
+ * 输入：
+ * @param {number[]} playerIds - 待打乱的玩家 ID 列表。
+ * @param {() => number} random - 预先构造好的可复现随机函数。
+ *
+ * 输出：
+ * @returns {number[]} 打乱后的玩家 ID 新数组。
+ *
+ * 注意：
+ * - 返回新数组，不要原地修改传入列表，避免调用方复用时被污染。
+ * - Fisher-Yates 足够满足这里的小规模随机分座需求。
+ */
+function shufflePlayerIds(playerIds, random) {
+  const entries = Array.isArray(playerIds) ? [...playerIds] : [];
+  for (let index = entries.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [entries[index], entries[swapIndex]] = [entries[swapIndex], entries[index]];
+  }
+  return entries;
+}
+
+/**
+ * 作用：
+ * 规范化单局里的“按玩家指定 AI 难度”映射。
+ *
+ * 为什么这样写：
+ * 线上逻辑只有全局难度，这里需要 runner 自己保留一份按座位的难度表，
+ * 同时保证非法值会自动回退，避免混编脚本把局面推到未知状态。
+ *
+ * 输入：
+ * @param {Record<string, string>|null|undefined} playerDifficulties - 外部传入的玩家难度映射。
+ * @param {string} fallbackDifficulty - 缺省时回退到的难度值。
+ *
+ * 输出：
+ * @returns {Record<string, string>} 归一化后的 `playerId -> difficulty` 映射。
+ *
+ * 注意：
+ * - 只接受 `beginner / intermediate / advanced` 三档合法值。
+ * - 所有 5 个座位都会被补齐，避免出现读取不到当前行动玩家难度的情况。
+ */
+function normalizeHeadlessPlayerDifficulties(playerDifficulties, fallbackDifficulty) {
+  const fallback = DEFAULT_DIFFICULTIES.includes(fallbackDifficulty) ? fallbackDifficulty : DEFAULT_DIFFICULTIES[0];
+  return Object.fromEntries(HEADLESS_PLAYER_IDS.map((playerId) => {
+    const raw = playerDifficulties?.[playerId] || playerDifficulties?.[String(playerId)] || fallback;
+    const normalized = DEFAULT_DIFFICULTIES.includes(raw) ? raw : fallback;
+    return [playerId, normalized];
+  }));
+}
+
+/**
+ * 作用：
+ * 按 seed 构造一局“2-3 中级 + 2-3 初级”的随机混编阵容。
+ *
+ * 为什么这样写：
+ * 用户要看的不是固定镜像桌，而是更接近真实联机的混桌表现；
+ * 这里把人数约束固定下来，同时保证 seat 分配仍然可复现。
+ *
+ * 输入：
+ * @param {string|number} seedInput - 当前对局的种子。
+ *
+ * 输出：
+ * @returns {Record<string, string>} 本局的玩家难度映射。
+ *
+ * 注意：
+ * - 当前混编只在 `初级 / 中级` 两档之间分配，不引入高级干扰样本。
+ * - 中级人数只会是 `2` 或 `3`，其余座位自动补成初级。
+ */
+function buildMixedPlayerDifficulties(seedInput) {
+  const random = createHeadlessSelectionRandom(`${seedInput}:mixed-lineup`);
+  const intermediateCount = random() < 0.5 ? 2 : 3;
+  const shuffledPlayerIds = shufflePlayerIds(HEADLESS_PLAYER_IDS, random);
+  const intermediateSeatSet = new Set(shuffledPlayerIds.slice(0, intermediateCount));
+  return Object.fromEntries(HEADLESS_PLAYER_IDS.map((playerId) => [
+    playerId,
+    intermediateSeatSet.has(playerId) ? "intermediate" : "beginner",
+  ]));
+}
+
+/**
+ * 作用：
+ * 将单局的玩家难度映射压缩成人可读的混编标签。
+ *
+ * 为什么这样写：
+ * 文本日志、文件名和 summary 都需要一个短标签来快速区分 `2 中 3 初` 与 `3 中 2 初` 两类样本。
+ *
+ * 输入：
+ * @param {Record<string, string>|null|undefined} playerDifficulties - 当前局的玩家难度映射。
+ * @param {string} fallbackDifficulty - 缺失时回退使用的默认难度。
+ *
+ * 输出：
+ * @returns {string} 类似 `mixed-2i-3b` 或 `intermediate` 的简短标签。
+ *
+ * 注意：
+ * - 如果所有座位都同一难度，直接返回该难度名，保持旧日志兼容。
+ * - 这里的 `i / b / a` 只用于内部标签，不作为对外文案。
+ */
+function buildHeadlessLineupLabel(playerDifficulties, fallbackDifficulty) {
+  const normalized = normalizeHeadlessPlayerDifficulties(playerDifficulties, fallbackDifficulty);
+  const counts = Object.values(normalized).reduce((accumulator, difficulty) => {
+    accumulator[difficulty] = (accumulator[difficulty] || 0) + 1;
+    return accumulator;
+  }, {});
+  const distinctDifficulties = Object.keys(counts).filter((difficulty) => counts[difficulty] > 0);
+  if (distinctDifficulties.length === 1) {
+    return distinctDifficulties[0];
+  }
+  return `mixed-${counts.intermediate || 0}i-${counts.beginner || 0}b-${counts.advanced || 0}a`;
 }
 
 /**
@@ -568,6 +743,118 @@ function summarizeDecisionSignalsForGames(games) {
 
 /**
  * 作用：
+ * 返回当前对局里某个玩家应使用的 AI 难度。
+ *
+ * 为什么这样写：
+ * 正式实现仍以全局 `state.aiDifficulty` 为准；headless 混编只能在 runner 侧按行动玩家临时切档，
+ * 所以需要一处稳定入口统一读取 `playerDifficulties` 映射。
+ *
+ * 输入：
+ * @param {object} options - 当前单局 runner 配置。
+ * @param {number} playerId - 即将行动的玩家 ID。
+ *
+ * 输出：
+ * @returns {string} 当前玩家应采用的合法难度值。
+ *
+ * 注意：
+ * - 如果当前局没有显式 `playerDifficulties`，就回退到单局默认 `difficulty`。
+ * - 返回值始终只会是三档合法难度之一。
+ */
+function getHeadlessPlayerDifficulty(options, playerId) {
+  const normalized = normalizeHeadlessPlayerDifficulties(options?.playerDifficulties, options?.difficulty);
+  return normalized[playerId] || normalized[String(playerId)] || DEFAULT_DIFFICULTIES[0];
+}
+
+/**
+ * 作用：
+ * 在执行某位玩家动作前，临时切换全局 AI 难度到该玩家自己的档位。
+ *
+ * 为什么这样写：
+ * 现有共享 AI 逻辑大量读取全局 `state.aiDifficulty`；
+ * 为了不侵入正式产品代码，这里只在 headless runner 里做一层“按行动玩家切档”的薄适配。
+ *
+ * 输入：
+ * @param {object} context - 当前 VM 游戏上下文。
+ * @param {object} options - 当前单局 runner 配置。
+ * @param {number} playerId - 本次动作归属的玩家 ID。
+ * @param {Function} action - 需要在该难度档位下执行的同步动作。
+ *
+ * 输出：
+ * @returns {unknown} 直接返回 `action` 的执行结果。
+ *
+ * 注意：
+ * - 这里只包同步逻辑；如果以后引入异步流程，需要重新审视恢复时机。
+ * - 无论动作成功还是抛错，都必须恢复原来的全局难度，避免污染后续步骤。
+ */
+function withHeadlessPlayerDifficulty(context, options, playerId, action) {
+  if (!context?.state || typeof action !== "function") {
+    return action?.();
+  }
+  const previousDifficulty = context.state.aiDifficulty;
+  context.state.aiDifficulty = getHeadlessPlayerDifficulty(options, playerId);
+  try {
+    return action();
+  } finally {
+    context.state.aiDifficulty = previousDifficulty;
+  }
+}
+
+/**
+ * 作用：
+ * 根据当前发牌状态推导下一张牌会落到哪个玩家手里。
+ *
+ * 为什么这样写：
+ * `dealOneCard` 内部会按当前收到牌的玩家立刻尝试自动亮主，
+ * 混编模式下必须在发牌前就知道“这一张是给谁”，才能切到正确难度。
+ *
+ * 输入：
+ * @param {object} state - 当前 live state。
+ *
+ * 输出：
+ * @returns {number} 下一张牌对应的玩家 ID。
+ *
+ * 注意：
+ * - 这里复用了正式发牌的座位推进公式，避免 runner 侧再造一份不一致逻辑。
+ * - 只在发牌阶段调用；如果状态字段不完整，会回退到 1 号位。
+ */
+function getHeadlessCurrentDealPlayerId(state) {
+  const startIndex = HEADLESS_PLAYER_IDS.indexOf(state?.nextFirstDealPlayerId || 1);
+  const safeStartIndex = startIndex >= 0 ? startIndex : 0;
+  return HEADLESS_PLAYER_IDS[(safeStartIndex + (state?.dealIndex || 0)) % HEADLESS_PLAYER_IDS.length];
+}
+
+/**
+ * 作用：
+ * 给 headless 文本日志补一行当前混编阵容说明。
+ *
+ * 为什么这样写：
+ * `setupGame` 里的原始日志只知道全局难度，混编实验如果不补这行，
+ * 单看单局 `.log` 会看不出每个座位到底是初级还是中级。
+ *
+ * 输入：
+ * @param {object} context - 当前 VM 游戏上下文。
+ * @param {Record<string, string>} playerDifficulties - 当前局的玩家难度映射。
+ * @param {string} lineupLabel - 当前局的简短阵容标签。
+ *
+ * 输出：
+ * @returns {void} 直接向日志末尾追加说明文本。
+ *
+ * 注意：
+ * - 这里只是 headless 辅助日志，不影响正式 UI 展示。
+ * - 如果 VM 环境没有暴露 `appendLog`，则静默跳过。
+ */
+function appendHeadlessLineupLog(context, playerDifficulties, lineupLabel) {
+  if (typeof context?.appendLog !== "function") {
+    return;
+  }
+  const seatSummary = HEADLESS_PLAYER_IDS
+    .map((playerId) => `P${playerId}:${playerDifficulties[playerId]}`)
+    .join(" / ");
+  context.appendLog(`Headless阵容：${lineupLabel}（${seatSummary}）`);
+}
+
+/**
+ * 作用：
  * 将所有座位切成托管 AI。
  *
  * 为什么这样写：
@@ -575,6 +862,7 @@ function summarizeDecisionSignalsForGames(games) {
  *
  * 输入：
  * @param {object} context - 当前 VM 游戏上下文。
+ * @param {Record<string, string>} playerDifficulties - 当前局的玩家难度映射。
  *
  * 输出：
  * @returns {void} 直接原地修改上下文内玩家对象。
@@ -583,9 +871,10 @@ function summarizeDecisionSignalsForGames(games) {
  * - 需要在 `setupGame` 后调用，因为 `setupGame` 会重建玩家数组。
  * - 不要只改 `state.phase` 或按钮状态，真正影响流程的是 `player.isHuman`。
  */
-function setAllPlayersToManagedAi(context) {
+function setAllPlayersToManagedAi(context, playerDifficulties) {
   for (const player of context.state.players) {
     player.isHuman = false;
+    player.aiDifficulty = playerDifficulties[player.id] || DEFAULT_DIFFICULTIES[0];
   }
 }
 
@@ -676,6 +965,51 @@ function resolveManagedCounterAction(context) {
 
 /**
  * 作用：
+ * 在 headless 模式下稳定推进翻底展示阶段到埋底阶段。
+ *
+ * 为什么这样写：
+ * 正常情况下 runner 会直接调用 `finishBottomRevealPhase`；
+ * 但混编批跑里暴露出个别 seed 的 VM 上下文没有挂出这个函数，因此这里补一层兼容回退，
+ * 避免因为测试壳层暴露差异而误报成玩法逻辑故障。
+ *
+ * 输入：
+ * @param {object} context - 当前 VM 游戏上下文。
+ *
+ * 输出：
+ * @returns {void} 成功时把阶段推进到埋底或后续流程；失败时抛错。
+ *
+ * 注意：
+ * - 优先走正式 `finishBottomRevealPhase`，保证和产品逻辑一致。
+ * - 回退只在该函数缺失时触发，并且要求 `startBuryingPhase` 确实存在。
+ */
+function advanceHeadlessBottomReveal(context) {
+  if (typeof context.finishBottomRevealPhase === "function") {
+    context.finishBottomRevealPhase();
+    return;
+  }
+  if (typeof context.startBuryingPhase === "function") {
+    context.startBuryingPhase();
+    return;
+  }
+  if (typeof context.clearTimers === "function") {
+    context.clearTimers();
+  }
+  const banker = typeof context.getPlayer === "function" ? context.getPlayer(context.state.bankerId) : null;
+  if (!banker) {
+    throw new Error("bottomReveal 阶段无法找到打家，无法手动推进到埋底");
+  }
+  banker.hand.push(...(Array.isArray(context.state.bottomCards) ? context.state.bottomCards : []));
+  if (typeof context.sortHand === "function") {
+    banker.hand = context.sortHand(banker.hand);
+  }
+  context.state.selectedCardIds = [];
+  context.state.showBottomPanel = false;
+  context.state.phase = "burying";
+  context.state.countdown = 60;
+}
+
+/**
+ * 作用：
  * 给单局回归记录追加一条结构化事件。
  *
  * 为什么这样写：
@@ -725,10 +1059,13 @@ function pushEvent(events, step, type, payload) {
  */
 function runSingleHeadlessGame(options) {
   const { context, capture, timers } = loadHeadlessGameContext({ seed: options.seed });
+  const playerDifficulties = normalizeHeadlessPlayerDifficulties(options.playerDifficulties, options.difficulty);
+  const lineupLabel = options.lineupLabel || buildHeadlessLineupLabel(playerDifficulties, options.difficulty);
   context.state.aiDifficulty = options.difficulty;
   context.setupGame();
   enableHeadlessAiDecisionDebug(context);
-  setAllPlayersToManagedAi(context);
+  setAllPlayersToManagedAi(context, playerDifficulties);
+  appendHeadlessLineupLog(context, playerDifficulties, lineupLabel);
 
   const events = [];
   let steps = 0;
@@ -739,6 +1076,8 @@ function runSingleHeadlessGame(options) {
 
   pushEvent(events, steps, "game_initialized", {
     difficulty: options.difficulty,
+    lineupLabel,
+    playerDifficulties: { ...playerDifficulties },
     seed: options.seed,
     bankerId: context.state.bankerId,
     nextFirstDealPlayerId: context.state.nextFirstDealPlayerId,
@@ -758,11 +1097,12 @@ function runSingleHeadlessGame(options) {
 
     if (context.state.phase === "dealing") {
       if (context.state.awaitingHumanDeclaration) {
-        const bestDeclaration = context.getBestDeclarationForPlayer(1);
+        const bestDeclaration = withHeadlessPlayerDifficulty(context, options, 1, () => context.getBestDeclarationForPlayer(1));
         if (bestDeclaration && context.canOverrideDeclaration(bestDeclaration)) {
-          context.declareTrump(1, bestDeclaration, "auto");
+          withHeadlessPlayerDifficulty(context, options, 1, () => context.declareTrump(1, bestDeclaration, "auto"));
           pushEvent(events, steps, "auto_declare", {
             playerId: 1,
+            playerDifficulty: playerDifficulties[1],
             declaration: summarizeDeclaration(context.state.declaration),
           });
         }
@@ -770,12 +1110,15 @@ function runSingleHeadlessGame(options) {
         continue;
       }
 
+      const dealingPlayerId = getHeadlessCurrentDealPlayerId(context.state);
       const previousIndex = context.state.dealIndex;
       const previousDeclarationKey = JSON.stringify(summarizeDeclaration(context.state.declaration));
-      context.dealOneCard();
+      withHeadlessPlayerDifficulty(context, options, dealingPlayerId, () => context.dealOneCard());
       const nextDeclarationKey = JSON.stringify(summarizeDeclaration(context.state.declaration));
       if (previousDeclarationKey !== nextDeclarationKey && context.state.declaration) {
         pushEvent(events, steps, "declaration_changed", {
+          playerId: dealingPlayerId,
+          playerDifficulty: playerDifficulties[dealingPlayerId],
           declaration: summarizeDeclaration(context.state.declaration),
           dealIndex: context.state.dealIndex,
         });
@@ -792,15 +1135,16 @@ function runSingleHeadlessGame(options) {
         trumpSuit: context.state.trumpSuit,
         message: context.state.bottomRevealMessage,
       });
-      context.finishBottomRevealPhase();
+      advanceHeadlessBottomReveal(context);
       continue;
     }
 
     if (context.state.phase === "countering") {
       const playerId = context.state.currentTurnId;
-      const counterAction = resolveManagedCounterAction(context);
+      const counterAction = withHeadlessPlayerDifficulty(context, options, playerId, () => resolveManagedCounterAction(context));
       pushEvent(events, steps, "counter_action", {
         playerId,
+        playerDifficulty: playerDifficulties[playerId],
         action: counterAction.action,
         declaration: counterAction.declaration,
         currentDeclaration: summarizeDeclaration(context.state.declaration),
@@ -810,12 +1154,13 @@ function runSingleHeadlessGame(options) {
 
     if (context.state.phase === "burying") {
       const bankerId = context.state.bankerId;
-      const buryCards = context.getBuryHintForPlayer(bankerId);
+      const buryCards = withHeadlessPlayerDifficulty(context, options, bankerId, () => context.getBuryHintForPlayer(bankerId));
       if (!Array.isArray(buryCards) || buryCards.length !== 7) {
         throw new Error(`玩家${bankerId} 扣底建议数量异常：${buryCards.length}`);
       }
       pushEvent(events, steps, "bury_bottom", {
         bankerId,
+        playerDifficulty: playerDifficulties[bankerId],
         cards: summarizeCards(buryCards),
       });
       context.completeBurying(bankerId, buryCards.map((card) => card.id));
@@ -823,15 +1168,19 @@ function runSingleHeadlessGame(options) {
     }
 
     if (context.state.phase === "callingFriend") {
-      const recommendation = context.state.bankerId === 1
-        ? context.getFriendPickerRecommendation()?.target
-        : context.chooseFriendTarget()?.target;
+      const bankerId = context.state.bankerId;
+      const recommendation = withHeadlessPlayerDifficulty(context, options, bankerId, () => (
+        bankerId === 1
+          ? context.getFriendPickerRecommendation()?.target
+          : context.chooseFriendTarget()?.target
+      ));
       if (!recommendation) {
         throw new Error(`玩家${context.state.bankerId} 未能生成找朋友方案`);
       }
       context.confirmFriendTargetSelection(recommendation);
       pushEvent(events, steps, "friend_called", {
-        bankerId: context.state.bankerId,
+        bankerId,
+        playerDifficulty: playerDifficulties[bankerId],
         target: summarizeFriendTarget(context.state.friendTarget),
       });
       continue;
@@ -842,7 +1191,7 @@ function runSingleHeadlessGame(options) {
       const mode = context.state.currentTrick.length === 0 ? "lead" : "follow";
       const handCountBefore = context.getPlayer(playerId)?.hand?.length || 0;
       const lastResolvedTrick = context.state.lastTrick?.trickNumber || 0;
-      const choice = pickManagedPlay(context, playerId);
+      const choice = withHeadlessPlayerDifficulty(context, options, playerId, () => pickManagedPlay(context, playerId));
       const played = context.playCards(playerId, choice.cards.map((card) => card.id), {
         skipStartTurn: true,
         skipResolveDelay: true,
@@ -859,6 +1208,7 @@ function runSingleHeadlessGame(options) {
 
       pushEvent(events, steps, "play", {
         playerId,
+        playerDifficulty: playerDifficulties[playerId],
         mode,
         source: choice.source,
         cards: summarizeCards(choice.cards),
@@ -898,6 +1248,8 @@ function runSingleHeadlessGame(options) {
   const gameSummary = {
     gameIndex: options.gameIndex,
     difficulty: options.difficulty,
+    lineupLabel,
+    playerDifficulties: { ...playerDifficulties },
     seed: options.seed,
     completed: true,
     steps,
@@ -995,9 +1347,27 @@ function summarizeRegressionBatch(games, options) {
   }));
 
   const warningCounts = new Map();
+  const lineupCounts = new Map();
+  const playerDifficultyCounts = new Map();
+  const playerDifficultyDecisionCounts = new Map();
   for (const game of completedGames) {
+    if (game.summary.lineupLabel) {
+      lineupCounts.set(game.summary.lineupLabel, (lineupCounts.get(game.summary.lineupLabel) || 0) + 1);
+    }
+    for (const difficulty of Object.values(game.summary.playerDifficulties || {})) {
+      playerDifficultyCounts.set(difficulty, (playerDifficultyCounts.get(difficulty) || 0) + 1);
+    }
     for (const warning of game.summary.warnings) {
       warningCounts.set(warning, (warningCounts.get(warning) || 0) + 1);
+    }
+    for (const event of Array.isArray(game.events) ? game.events : []) {
+      if (event.type !== "play" || !event.decision || !event.playerDifficulty) {
+        continue;
+      }
+      playerDifficultyDecisionCounts.set(
+        event.playerDifficulty,
+        (playerDifficultyDecisionCounts.get(event.playerDifficulty) || 0) + 1
+      );
     }
   }
 
@@ -1017,6 +1387,16 @@ function summarizeRegressionBatch(games, options) {
       averageWarnings: Math.round((completedGames.reduce((sum, game) => sum + game.summary.warnings.length, 0) / Math.max(completedGames.length, 1)) * 100) / 100,
       averageDecisionTimeMs: averageOf(completedGames, "averageDecisionTimeMs"),
     },
+    lineupBreakdown: [...lineupCounts.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .map(([label, count]) => ({ label, count })),
+    playerDifficultyBreakdown: Object.fromEntries(DEFAULT_DIFFICULTIES.map((difficulty) => [
+      difficulty,
+      {
+        seats: playerDifficultyCounts.get(difficulty) || 0,
+        decisions: playerDifficultyDecisionCounts.get(difficulty) || 0,
+      },
+    ])),
     winnerBreakdown: completedGames.reduce((accumulator, game) => {
       accumulator[game.summary.winner] = (accumulator[game.summary.winner] || 0) + 1;
       return accumulator;
@@ -1079,27 +1459,48 @@ function buildAnalysisMarkdown(summary) {
     `- 平均告警数：${summary.totals.averageWarnings}`,
     `- 平均 AI 决策耗时：${summary.totals.averageDecisionTimeMs} ms`,
     "",
-    "## 胜负与朋友揭示",
-    "",
-    `- 打家方胜局：${summary.winnerBreakdown.banker}`,
-    `- 闲家方胜局：${summary.winnerBreakdown.defender}`,
-    `- 朋友已站队：${summary.friendBreakdown.revealed}`,
-    `- 朋友牌误出 / 1 打 4：${summary.friendBreakdown.failed}`,
-    `- 直到结算仍未站队：${summary.friendBreakdown.unrevealed}`,
-    "",
-    "## 决策信号摘要",
-    "",
-    `- 触发 turn_access_risk 的已选动作：${overallSignals.selectedSignals.turnAccessRisk}`,
-    `- 触发 point_run_risk 的已选动作：${overallSignals.selectedSignals.pointRunRisk}`,
-    `- 仍被选中的危险带分领牌：${overallSignals.selectedSignals.dangerousPointLead}`,
-    `- 朋友已站队后的控制型策略切换：${overallSignals.selectedSignals.revealedFriendControlShift}`,
-    `- 候选池内 turn_access_risk 总数：${overallSignals.candidateAudit.turnAccessRiskCandidates}`,
-    `- 候选池内 point_run_risk 总数：${overallSignals.candidateAudit.pointRunRiskCandidates}`,
-    `- 被过滤候选总数：${overallSignals.candidateAudit.filteredCandidates}`,
-    "",
-    "## 各难度表现",
+    "## 阵容分布",
     "",
   ];
+
+  if (Array.isArray(summary.lineupBreakdown) && summary.lineupBreakdown.length > 0) {
+    for (const entry of summary.lineupBreakdown) {
+      lines.push(`- ${entry.label}：${entry.count} 局`);
+    }
+  } else {
+    lines.push("- 本轮没有额外的混编阵容标签。");
+  }
+
+  lines.push("");
+  lines.push("## 玩家难度曝光");
+  lines.push("");
+  for (const difficulty of DEFAULT_DIFFICULTIES) {
+    const detail = summary.playerDifficultyBreakdown?.[difficulty] || { seats: 0, decisions: 0 };
+    lines.push(`- ${difficulty}：座位样本 ${detail.seats}，采到决策 ${detail.decisions}`);
+  }
+
+  lines.push("");
+  lines.push("## 胜负与朋友揭示");
+  lines.push("");
+  lines.push(`- 打家方胜局：${summary.winnerBreakdown.banker}`);
+  lines.push(`- 闲家方胜局：${summary.winnerBreakdown.defender}`);
+  lines.push(`- 朋友已站队：${summary.friendBreakdown.revealed}`);
+  lines.push(`- 朋友牌误出 / 1 打 4：${summary.friendBreakdown.failed}`);
+  lines.push(`- 直到结算仍未站队：${summary.friendBreakdown.unrevealed}`);
+  lines.push("");
+  lines.push("## 决策信号摘要");
+  lines.push("");
+  lines.push(`- 触发 turn_access_risk 的已选动作：${overallSignals.selectedSignals.turnAccessRisk}`);
+  lines.push(`- 触发 point_run_risk 的已选动作：${overallSignals.selectedSignals.pointRunRisk}`);
+  lines.push(`- 仍被选中的危险带分领牌：${overallSignals.selectedSignals.dangerousPointLead}`);
+  lines.push(`- 朋友已站队后的控制型策略切换：${overallSignals.selectedSignals.revealedFriendControlShift}`);
+  lines.push(`- 候选池内 turn_access_risk 总数：${overallSignals.candidateAudit.turnAccessRiskCandidates}`);
+  lines.push(`- 候选池内 point_run_risk 总数：${overallSignals.candidateAudit.pointRunRiskCandidates}`);
+  lines.push(`- 被过滤候选总数：${overallSignals.candidateAudit.filteredCandidates}`);
+  lines.push("");
+  lines.push("## 各难度表现");
+  lines.push("");
+  
 
   for (const difficulty of summary.difficulties) {
     const detail = summary.byDifficulty[difficulty];
@@ -1232,9 +1633,10 @@ function writeRegressionArtifacts(games, summary, outputDir) {
   const allEvents = [];
   for (const game of games) {
     const safeSeed = game.summary.seed.replace(/[^a-zA-Z0-9._-]+/g, "_");
+    const safeLineupLabel = (game.summary.lineupLabel || game.summary.difficulty || "uniform").replace(/[^a-zA-Z0-9._-]+/g, "_");
     const logFile = path.join(
       logsDir,
-      `game-${String(game.summary.gameIndex).padStart(2, "0")}-${game.summary.difficulty}-${safeSeed}.log`
+      `game-${String(game.summary.gameIndex).padStart(2, "0")}-${game.summary.difficulty}-${safeLineupLabel}-${safeSeed}.log`
     );
     fs.writeFileSync(logFile, game.textLog || (game.summary.error || ""), "utf8");
     game.summary.logFile = logFile;
@@ -1340,7 +1742,94 @@ function runHeadlessRegression(options) {
   };
 }
 
+/**
+ * 作用：
+ * 运行一批“2-3 中级 + 2-3 初级”的随机混编 headless 回归。
+ *
+ * 为什么这样写：
+ * 现有默认 runner 只支持全桌同难度，而混桌实验更适合观察中级 AI 在真实干扰下的决策问题；
+ * 这里复用同一套单局执行、日志写盘和摘要汇总逻辑，只新增阵容生成层。
+ *
+ * 输入：
+ * @param {object} options - 混编回归配置。
+ * @param {number} [options.games=20] - 要执行的总局数。
+ * @param {string} [options.baseSeed="headless-mixed-regression"] - 本轮混编实验的基础种子。
+ * @param {string} [options.outputDir="artifacts/headless-regression/mixed-latest"] - 产物输出目录。
+ * @param {number} [options.maxSteps=4000] - 单局最大推进步数。
+ *
+ * 输出：
+ * @returns {{games: object[], summary: object, files: object}} 本次混编回归的完整结果与产物路径。
+ *
+ * 注意：
+ * - 每局都会基于派生 seed 重新随机一套混编座位，但同一 seed 始终可复现。
+ * - 失败时同样会先落盘产物，再抛出聚合错误，方便直接复跑异常样本。
+ */
+function runMixedHeadlessRegression(options = {}) {
+  const normalizedGames = Number.isInteger(options.games) && options.games > 0
+    ? options.games
+    : DEFAULT_MIXED_TOTAL_GAMES;
+  const normalizedOptions = {
+    baseSeed: options.baseSeed || "headless-mixed-regression",
+    outputDir: path.resolve(process.cwd(), options.outputDir || "artifacts/headless-regression/mixed-latest"),
+    maxSteps: Number.isInteger(options.maxSteps) && options.maxSteps > 0 ? options.maxSteps : 4000,
+    difficulties: [DEFAULT_MIXED_DIFFICULTY],
+    gamesPerDifficulty: normalizedGames,
+  };
+
+  const games = [];
+  for (let gameIndex = 1; gameIndex <= normalizedGames; gameIndex += 1) {
+    const seed = buildGameSeed(normalizedOptions.baseSeed, DEFAULT_MIXED_DIFFICULTY, gameIndex);
+    const playerDifficulties = buildMixedPlayerDifficulties(seed);
+    const lineupLabel = buildHeadlessLineupLabel(playerDifficulties, DEFAULT_MIXED_DIFFICULTY);
+    try {
+      games.push(runSingleHeadlessGame({
+        difficulty: DEFAULT_MIXED_DIFFICULTY,
+        seed,
+        gameIndex,
+        maxSteps: normalizedOptions.maxSteps,
+        playerDifficulties,
+        lineupLabel,
+      }));
+    } catch (error) {
+      games.push({
+        summary: {
+          gameIndex,
+          difficulty: DEFAULT_MIXED_DIFFICULTY,
+          lineupLabel,
+          playerDifficulties,
+          seed,
+          completed: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        events: [],
+        textLog: error instanceof Error && error.stack ? error.stack : String(error),
+      });
+    }
+  }
+
+  const summary = summarizeRegressionBatch(games, normalizedOptions);
+  summary.mode = "mixed_lineup";
+  const files = writeRegressionArtifacts(games, summary, normalizedOptions.outputDir);
+
+  if (summary.failures.length > 0) {
+    const details = summary.failures
+      .map((failure) => `[${failure.difficulty}] ${failure.seed}: ${failure.error}`)
+      .join("\n");
+    const error = new Error(`Headless 混编回归失败：\n${details}`);
+    error.summary = summary;
+    error.files = files;
+    throw error;
+  }
+
+  return {
+    games,
+    summary,
+    files,
+  };
+}
+
 module.exports = {
   parseHeadlessRegressionArgs,
   runHeadlessRegression,
+  runMixedHeadlessRegression,
 };

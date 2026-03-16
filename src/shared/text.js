@@ -259,6 +259,7 @@ const TEXT = {
     ],
   },
   setupOptions: {
+    declareInline: "亮主：",
     declare: "可亮选项",
     counter: "可反选项",
   },

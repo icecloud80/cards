@@ -452,6 +452,36 @@ function buildBottomRevealSlotNode(card, index, revealedCount) {
 
 /**
  * 作用：
+ * 同步翻底公示右上角“关闭 + 读秒”胶囊按钮的状态。
+ *
+ * 为什么这样写：
+ * mobile 端现在不再把倒计时和关闭拆成两个控件；
+ * 统一在这里更新按钮文本、紧急态和无障碍说明，能避免后续渲染入口分叉。
+ *
+ * 输入：
+ * @param {number} countdown - 当前翻底公示剩余秒数。
+ *
+ * 输出：
+ * @returns {void} 只更新按钮相关 DOM 状态，不返回额外结果。
+ *
+ * 注意：
+ * - 倒计时必须做非负兜底，避免阶段切换瞬间出现负数。
+ * - `is-urgent` 只在剩余 5 秒及以下时出现，方便手机端给出更强提示。
+ */
+function syncBottomRevealCloseButton(countdown) {
+  const safeCountdown = Math.max(0, Number(countdown) || 0);
+  dom.bottomRevealTimer.textContent = String(safeCountdown);
+  dom.closeBottomRevealBtn.dataset.countdown = String(safeCountdown);
+  dom.closeBottomRevealBtn.classList.toggle("is-urgent", safeCountdown <= 5);
+  const closeLabel = safeCountdown > 0
+    ? `提前结束翻底展示；${safeCountdown} 秒后会自动进入扣底`
+    : "提前结束翻底展示";
+  dom.closeBottomRevealBtn.setAttribute("aria-label", closeLabel);
+  dom.closeBottomRevealBtn.setAttribute("title", closeLabel);
+}
+
+/**
+ * 作用：
  * 渲染翻底定主阶段的中央提示区。
  *
  * 为什么这样写：
@@ -473,7 +503,7 @@ function renderBottomRevealCenter() {
   if (!showBottomReveal) return;
 
   dom.bottomRevealText.textContent = state.bottomRevealMessage || TEXT.bottom.revealFallback;
-  dom.bottomRevealTimer.textContent = String(Math.max(0, state.countdown || 0));
+  syncBottomRevealCloseButton(state.countdown || 0);
   dom.bottomRevealCards.innerHTML = "";
   const revealedCount = getBottomRevealVisibleCount();
   for (let index = 0; index < state.bottomCards.length; index += 1) {
@@ -2035,7 +2065,9 @@ function renderSetupOptions(options, selectedOption) {
   const selectedKey = getSetupOptionKey(selectedOption);
   dom.setupOptions.hidden = false;
   dom.setupOptions.innerHTML = `
-    ${isDealingPhase ? "" : `<div class="setup-options-label">${TEXT.setupOptions.counter}</div>`}
+    ${isDealingPhase
+      ? `<div class="setup-options-inline-label">${TEXT.setupOptions.declareInline}</div>`
+      : `<div class="setup-options-label">${TEXT.setupOptions.counter}</div>`}
     ${options.map((entry) => {
       const optionKey = getSetupOptionKey(entry);
       const actionLabel = isDealingPhase

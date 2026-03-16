@@ -1105,6 +1105,16 @@
         letter-spacing: 0.4px;
       }
 
+      .setup-options-inline-label {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+      }
+
       button.setup-option-btn {
         min-height: 34px;
         padding: 7px 12px;
@@ -2473,15 +2483,18 @@
       }
 
       .seat.seat-role-banker {
-        background: linear-gradient(180deg, rgba(236, 211, 156, 0.22), rgba(241, 240, 229, 0.1));
+        background: linear-gradient(180deg, rgba(197, 144, 64, 0.34), rgba(94, 63, 22, 0.18));
+        border-color: rgba(226, 189, 117, 0.22);
       }
 
       .seat.seat-role-friend {
-        background: linear-gradient(180deg, rgba(119, 184, 155, 0.22), rgba(231, 245, 240, 0.1));
+        background: linear-gradient(180deg, rgba(56, 148, 111, 0.34), rgba(21, 75, 56, 0.18));
+        border-color: rgba(121, 222, 183, 0.2);
       }
 
       .seat.seat-role-defender {
-        background: linear-gradient(180deg, rgba(120, 166, 197, 0.22), rgba(230, 241, 247, 0.1));
+        background: linear-gradient(180deg, rgba(79, 132, 196, 0.34), rgba(27, 59, 96, 0.18));
+        border-color: rgba(148, 195, 245, 0.2);
       }
 
       .seat.player-2,
@@ -2563,31 +2576,37 @@
         font-size: 10px;
       }
 
+      /* 提高左侧玩家面板身份短签对比度，避免在冷色桌面上发灰难读。 */
       .seat-role-icon {
         width: 22px;
         height: 22px;
         display: inline-grid;
         place-items: center;
         border-radius: 999px;
-        background: rgba(16, 44, 54, 0.08);
-        color: var(--muted);
+        background: rgba(15, 34, 43, 0.34);
+        color: rgba(248, 244, 236, 0.92);
         font-size: 11px;
         font-weight: 900;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
       }
 
       .seat-role-icon.banker {
-        background: rgba(225, 185, 111, 0.18);
-        color: #85541d;
+        background: linear-gradient(180deg, rgba(231, 191, 108, 0.92), rgba(181, 123, 41, 0.84));
+        color: #fff4da;
+        border-color: rgba(255, 226, 166, 0.28);
       }
 
       .seat-role-icon.friend {
-        background: rgba(47, 143, 106, 0.18);
-        color: #206e52;
+        background: linear-gradient(180deg, rgba(80, 187, 143, 0.94), rgba(31, 125, 93, 0.88));
+        color: #effff7;
+        border-color: rgba(180, 255, 223, 0.22);
       }
 
       .seat-role-icon.defender {
-        background: rgba(74, 132, 207, 0.16);
-        color: #2f609c;
+        background: linear-gradient(180deg, rgba(106, 168, 242, 0.94), rgba(58, 111, 188, 0.88));
+        color: #f2f8ff;
+        border-color: rgba(201, 225, 255, 0.24);
       }
 
       .seat.player-1 .avatar {

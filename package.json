@@ -6,6 +6,7 @@
     "test:unit": "node --test --test-reporter=spec tests/unit/regressions.test.js",
     "test:unit:fast": "SKIP_HEADLESS_FULL_GAME=1 node --test --test-reporter=spec tests/unit/regressions.test.js",
     "test:headless": "node tests/unit/check-headless-full-game.js",
+    "analyze:headless:mixed": "node scripts/run-mixed-headless-analysis.js",
     "test:ui-smoke": "node tests/ui/check-ui-smoke.js"
   },
   "devDependencies": {

@@ -343,6 +343,7 @@ function main() {
   assert.equal(handSummary.textContent.includes("黑桃 2 x2"), true, "手牌摘要应列出同花色级牌的 2 张亮主选项");
   assert.equal(handSummary.textContent.includes("2张小王"), true, "手牌摘要应列出小王无主选项");
   assert.equal(setupOptions.hidden, false, "有可亮方案时应显示候选列表");
+  assert.equal(setupOptions.innerHTML.includes("亮主："), true, "亮主候选区左侧应带上清晰的“亮主：”前缀");
   assert.equal(setupOptions.innerHTML.includes("setup-option-card-stack"), true, "候选按钮应把声明方案压成叠牌预览");
   assert.equal(setupOptions.innerHTML.includes("setup-option-card"), true, "候选按钮应渲染缩略牌堆");
   assert.equal(setupOptions.innerHTML.includes("card-face-sprite") || setupOptions.innerHTML.includes("setup-option-card-face"), true, "候选按钮应显示真实牌面而不是纯文本");

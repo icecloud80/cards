@@ -736,6 +736,45 @@ function validateCandidateForState(sourceState, playerId, cards, mode = "lead") 
 
 /**
  * 作用：
+ * 在显式 `sourceState` 候选链路里，优先补入与首家牌型完全匹配的结构候选。
+ *
+ * 为什么这样写：
+ * 中级 AI、模拟层和调试候选都共用 `getLegalSelectionsForState`；
+ * 如果这里只靠固定上限的组合枚举，仍会出现“真实有合法主拖拉机，但候选层没扫到”的假空集问题。
+ *
+ * 输入：
+ * @param {object|null} sourceState - 当前候选评估使用的真实或模拟牌局状态。
+ * @param {Array<Array<object>>} results - 已收集到的合法候选列表。
+ * @param {Set<string>} seen - 已去重候选键集合。
+ * @param {number} playerId - 当前出牌玩家 ID。
+ * @param {Array<object>} suitedCards - 当前与首家同门的牌池。
+ * @param {number} limit - 最多允许保留的合法候选数。
+ *
+ * 输出：
+ * @returns {boolean} 若已达到 `limit` 并可提前结束，则返回 `true`。
+ *
+ * 注意：
+ * - 这里只做“精确牌型优先注入”，后续仍会继续做组合枚举补齐散牌候选。
+ * - 合法性继续走 `validateFollowSelectionForState`，避免 sourceState 与 live state 规则漂移。
+ */
+function seedDirectPatternSelectionsForState(sourceState, results, seen, playerId, suitedCards, limit) {
+  const leadSpec = sourceState?.leadSpec || null;
+  if (!leadSpec || !Array.isArray(suitedCards) || suitedCards.length < leadSpec.count) return false;
+
+  const directPatternCombos = getPatternCombos(suitedCards, leadSpec);
+  for (const combo of directPatternCombos) {
+    if (!validateFollowSelectionForState(sourceState, playerId, combo).ok) continue;
+    const key = combo.map((card) => card.id).sort().join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    results.push(combo);
+    if (results.length >= limit) return true;
+  }
+  return false;
+}
+
+/**
+ * 作用：
  * 从指定状态读取所有合法跟牌候选，作为 follow 模式的候选基础集。
  *
  * 为什么这样写：
@@ -772,9 +811,13 @@ function getLegalSelectionsForState(sourceState, playerId) {
 
   const seen = new Set();
   const results = [];
+  if (seedDirectPatternSelectionsForState(sourceState, results, seen, playerId, suited, 72)) {
+    return results;
+  }
   for (const pool of pools) {
     if (pool.length < targetCount) continue;
-    for (const combo of enumerateCombinations(pool, targetCount)) {
+    const combinationLimit = getCombinationEnumerationLimit(pool.length, targetCount, 72 * 16);
+    for (const combo of enumerateCombinations(pool, targetCount, combinationLimit)) {
       if (!validateFollowSelectionForState(sourceState, playerId, combo).ok) continue;
       const key = combo.map((card) => card.id).sort().join("|");
       if (seen.has(key)) continue;

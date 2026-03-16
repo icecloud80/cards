@@ -59,6 +59,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-memory-strategy.js"),
   },
   {
+    name: "AI follow candidate limit regression",
+    file: path.join(__dirname, "check-ai-follow-candidate-limit.js"),
+  },
+  {
     name: "Play announcement regression",
     file: path.join(__dirname, "check-play-announcements.js"),
   },
@@ -81,6 +85,11 @@ const UNIT_TEST_SUITES = [
   {
     name: "Mobile UI isolation regression",
     file: path.join(__dirname, "check-mobile-ui-isolation.js"),
+  },
+  // 锁住手游翻底公示层的读秒关闭胶囊和卡位渲染结构。
+  {
+    name: "Mobile bottom reveal UI regression",
+    file: path.join(__dirname, "check-mobile-bottom-reveal-ui.js"),
   },
   {
     name: "Mobile start entry regression",

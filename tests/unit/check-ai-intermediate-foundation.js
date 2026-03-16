@@ -288,15 +288,56 @@ function runIntermediateFoundationSuite(context) {
     assert(objective.weights.friend > objective.weights.bottom, "getIntermediateObjective: friend weight should dominate bottom weight in unresolved phase");
 
     resetCommonState();
+    state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false, matchesSeen: 0 };
+    state.players = [
+      basePlayer(1, [makeCard("belief-banker-c-9", "clubs", "9")], true),
+      basePlayer(2, [makeCard("belief-p2-d-9", "diamonds", "9")]),
+      basePlayer(3, [
+        makeCard("belief-p3-h-a", "hearts", "A"),
+        makeCard("belief-p3-c-7", "clubs", "7"),
+      ]),
+      basePlayer(4, [makeCard("belief-p4-s-8", "spades", "8")]),
+      basePlayer(5, [makeCard("belief-p5-s-9", "spades", "9")]),
+    ];
+    state.exposedSuitVoid[4].hearts = true;
+    const friendBeliefState = cloneSimulationState(state);
+    const likelyFriendBelief = buildSimulationFriendBeliefProfile(friendBeliefState, 3);
+    assert(likelyFriendBelief.likelyFriendId === 3, "buildSimulationFriendBeliefProfile: self target holder should become the most likely friend");
+    assert(getSimulationFriendBeliefLean(friendBeliefState, 3) > 0, "getSimulationFriendBeliefLean: target holder should have positive friend lean");
+    assert(getSimulationFriendBeliefLean(friendBeliefState, 4) < 0, "getSimulationFriendBeliefLean: target-suit void player should lean defender");
+    const defenderLeanObjective = getIntermediateObjective(4, "lead", friendBeliefState);
+    assert(defenderLeanObjective.primary === "pressure_void", "getIntermediateObjective: unresolved defender-lean seat should shift toward pressure_void");
+
+    resetCommonState();
     const evaluation = evaluateState(cloneSimulationState(state), 3, getIntermediateObjective(3, "lead", cloneSimulationState(state)));
     assert(typeof evaluation.total === "number", "evaluateState: should return numeric total");
     assert(typeof evaluation.breakdown.structure === "number", "evaluateState: should expose structure breakdown");
     assert(typeof evaluation.breakdown.allySupport === "number", "evaluateState: should expose ally-support breakdown");
     assert(typeof evaluation.breakdown.tempo === "number", "evaluateState: should expose tempo breakdown");
+    assert(typeof evaluation.breakdown.friendBelief === "number", "evaluateState: should expose friend-belief breakdown");
     assert(typeof evaluation.breakdown.friendRisk === "number", "evaluateState: should expose friend-risk breakdown");
     assert(typeof evaluation.breakdown.bottomRisk === "number", "evaluateState: should expose bottom-risk breakdown");
     assert(typeof evaluation.breakdown.pointRunRisk === "number", "evaluateState: should expose point-run-risk breakdown");
     assert(evaluation.objective.primary.length > 0, "evaluateState: should include objective");
+
+    resetCommonState();
+    state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false, matchesSeen: 0 };
+    state.players = [
+      basePlayer(1, [makeCard("beliefeval-banker-c-9", "clubs", "9")], true),
+      basePlayer(2, [makeCard("beliefeval-p2-d-9", "diamonds", "9")]),
+      basePlayer(3, [
+        makeCard("beliefeval-p3-h-a", "hearts", "A"),
+        makeCard("beliefeval-p3-c-7", "clubs", "7"),
+      ]),
+      basePlayer(4, [makeCard("beliefeval-p4-s-8", "spades", "8")]),
+      basePlayer(5, [makeCard("beliefeval-p5-s-9", "spades", "9")]),
+    ];
+    state.exposedSuitVoid[4].hearts = true;
+    const friendBeliefEvalState = cloneSimulationState(state);
+    const likelyFriendEval = evaluateState(friendBeliefEvalState, 3, getIntermediateObjective(3, "lead", friendBeliefEvalState));
+    const likelyDefenderEval = evaluateState(friendBeliefEvalState, 4, getIntermediateObjective(4, "lead", friendBeliefEvalState));
+    assert(likelyFriendEval.breakdown.friendBelief > likelyDefenderEval.breakdown.friendBelief, "evaluateState: target holder should get stronger friendBelief than target-suit void seat");
+    assert(likelyFriendEval.breakdown.friendRisk > likelyDefenderEval.breakdown.friendRisk, "evaluateState: likely friend should get better friendRisk than likely defender");
 
     resetCommonState();
     state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
@@ -556,10 +597,12 @@ function runIntermediateFoundationSuite(context) {
         "candidate generation scaffold ok",
         "simulation-state candidate generation ok",
         "objective weighting scaffold ok",
+        "friend belief lite scaffold ok",
         "state evaluation scaffold ok",
         "revealed-friend objective switch ok",
         "ally-support evaluation scaffold ok",
         "tempo evaluation scaffold ok",
+        "friend belief evaluation scaffold ok",
         "friend-risk evaluation scaffold ok",
         "bottom-risk evaluation scaffold ok",
         "point-run-risk evaluation scaffold ok",

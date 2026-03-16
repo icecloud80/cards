@@ -243,11 +243,19 @@ function loadUiContext() {
 function main() {
   const indexHtml = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
   const uiSource = fs.readFileSync(path.join(__dirname, "../../src/shared/ui.js"), "utf8");
+  const actionRowMatch = indexHtml.match(/<div class="bottom-action-row">([\s\S]*?)<\/div>/);
   assert.match(indexHtml, /playerSeat-2[\s\S]*playerSeat-3[\s\S]*playerSeat-4[\s\S]*playerSeat-5[\s\S]*playerSeat-1/, "PC 左侧玩家面板 DOM 顺序应为 2, 3, 4, 5, 1");
+  assert.notEqual(actionRowMatch, null, "PC 页面应保留底部可见操作区容器");
+  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="declareBtn"[\s\S]*id="passCounterBtn"/, "PC 可见操作区应只保留当前仍在使用的按钮");
+  assert.equal(actionRowMatch[1].includes('id="beatBtn"'), false, "PC 可见操作区不应再放入毙牌按钮");
+  assert.equal(actionRowMatch[1].includes('id="newProgressBtn"'), false, "PC 可见操作区不应再放入新的游戏按钮");
+  assert.equal(actionRowMatch[1].includes('id="continueGameBtn"'), false, "PC 可见操作区不应再放入继续游戏按钮");
+  assert.equal(actionRowMatch[1].includes('id="startGameBtn"'), false, "PC 可见操作区不应再放入开始发牌按钮");
   assert.equal(indexHtml.includes("right: calc(50% - (var(--hand-panel-width) / 2) + 26px);"), false, "PC 操作区不应继续锚到右侧战场边缘");
   assert.equal(uiSource.includes("function syncIconButtonLabel"), true, "PC 顶部图标按钮应通过专用 helper 同步文案，避免删掉图标节点");
   assert.equal(uiSource.includes("toggleLastTrickBtn.textContent"), false, "顶部回看按钮不应再用 textContent 覆盖图标");
   assert.equal(uiSource.includes("autoManagedBtn.textContent"), false, "顶部托管按钮不应再用 textContent 覆盖图标");
+  assert.equal(uiSource.includes('data-setup-pass="true"'), true, "PC 最后反主应把“不反主”并到下方直选候选里");
 
   const context = loadUiContext();
   context.setupGame();
@@ -308,6 +316,30 @@ function main() {
   assert.equal(context.document.getElementById("handStatsRail").children.length > 0, true, "桌面端手牌区应渲染左侧统计列");
   assert.equal(context.document.getElementById("handGroups").children.length, 1, "桌面端手牌区应压成单条连续牌轨");
   assert.equal(typeof context.document.getElementById("handStatsRail").children[0]?.style.left, "string", "桌面端手牌统计应按对应牌段的首张牌位置精确定位");
+
+  human.hand = [
+    { id: "rj-1", suit: "joker", rank: "RJ" },
+    { id: "rj-2", suit: "joker", rank: "RJ" },
+    { id: "rj-3", suit: "joker", rank: "RJ" },
+  ];
+  context.state.phase = "countering";
+  context.state.currentTurnId = 1;
+  context.state.declaration = {
+    playerId: 2,
+    suit: "clubs",
+    rank: "2",
+    count: 2,
+    cards: [
+      { id: "decl-1", suit: "clubs", rank: "2" },
+      { id: "decl-2", suit: "clubs", rank: "2" },
+    ],
+  };
+  context.state.selectedSetupOptionKey = null;
+  context.render();
+  assert.equal(context.document.getElementById("declareBtn").hidden, true, "PC 最后反主不应继续显示上方确认反主按钮");
+  assert.equal(context.document.getElementById("passCounterBtn").hidden, true, "PC 最后反主不应继续显示上方不反主按钮");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes('data-setup-pass="true"'), true, "PC 最后反主应在下方候选区直接提供不反主按钮");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("反无主"), false, "PC 最后反主下方直选项不应再回退成整句文案");
 
   const chips = context.buildTrickSpotMetricChips(
     { id: 3, level: 4, hand: [{ id: "c1" }], capturedPoints: 40, isHuman: false },

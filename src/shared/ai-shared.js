@@ -23,6 +23,28 @@ function getAiRevealPatternPressure(player) {
   return 0;
 }
 
+/**
+ * 作用：
+ * 判断当前级别是否属于“级牌扣底优先级应明显提高”的特殊级。
+ *
+ * 为什么这样写：
+ * 用户补充了 `J / Q / K / A` 这些特殊级里，级牌扣底往往比普通升级更关键；
+ * 把这层口径收成统一 helper 后，初级 heuristic、中级 objective 和文档都能共用同一套判断。
+ *
+ * 输入：
+ * @param {string} levelRank - 当前局面的级牌点数。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前属于级牌扣底优先级更高的特殊级。
+ *
+ * 注意：
+ * - 这里只负责判断“是不是特殊级”，不直接决定具体出牌。
+ * - 当前口径只覆盖 `J / Q / K / A`，后续若扩到 `+2 / +A` 再统一补充。
+ */
+function isGradeBottomPriorityLevel(levelRank) {
+  return FACE_CARD_LEVELS.has(levelRank);
+}
+
 // 返回庄家前一位的守门位玩家 ID。
 function getGoalkeeperId() {
   return getPreviousPlayerId(state.nextFirstDealPlayerId || PLAYER_ORDER[0]);
@@ -64,6 +86,7 @@ function shouldAiRevealFriend(playerId) {
   if (!canAiRevealFriendNow(playerId)) return false;
   if (isAiCertainFriend(playerId)) return true;
   if (shouldAiDelayRevealOnOpeningLead(playerId)) return false;
+  if (shouldAiDelayRevealForGradeBottom(playerId)) return false;
   return getAiRevealIntentScore(playerId) >= 2;
 }
 
@@ -259,6 +282,254 @@ function chooseStrongLeadFromCards(cards) {
   return [...cards].sort((a, b) => cardStrength(b) - cardStrength(a)).slice(0, 1);
 }
 
+/**
+ * 作用：
+ * 为初级非打家生成一份“我有没有级牌扣底潜力”的轻量画像。
+ *
+ * 为什么这样写：
+ * 这一轮要把“开局先判断自己是否值得走级牌扣底路线”落成可执行 heuristic，
+ * 但初级 AI 不能引入复杂搜索；因此这里只基于自手的级牌、主长度和大主控制力做粗粒度分层。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ *
+ * 输出：
+ * @returns {{
+ *   eligible: boolean,
+ *   potential: "none" | "possible" | "strong",
+ *   gradeCardCount: number,
+ *   gradeStructureCount: number,
+ *   trumpCount: number,
+ *   highControlTrumpCount: number,
+ *   specialPriority: boolean
+ * }} 当前玩家是否适合把级牌扣底当作轻量副目标。
+ *
+ * 注意：
+ * - 当前只对 `beginner / intermediate` 启用，避免把这套轻量画像直接扩散到高级的完整记牌逻辑里。
+ * - 这里只判断“有无路线”，不代表 AI 已经保证能把这条路线完整执行到底。
+ */
+function getAiGradeBottomProfile(playerId) {
+  const player = getPlayer(playerId);
+  const difficulty = getAiDifficulty();
+  if (!player || playerId === state.bankerId || !["beginner", "intermediate"].includes(difficulty)) {
+    return {
+      eligible: false,
+      potential: "none",
+      gradeCardCount: 0,
+      gradeStructureCount: 0,
+      trumpCount: 0,
+      highControlTrumpCount: 0,
+      specialPriority: false,
+    };
+  }
+
+  const levelRank = getCurrentLevelRank();
+  const specialPriority = isGradeBottomPriorityLevel(levelRank);
+  const trumpCards = player.hand.filter((card) => effectiveSuit(card) === "trump");
+  const gradeCards = player.hand.filter((card) => !!getBottomPenaltyModeForCard(card));
+  const gradeStructures = getStructureCombosFromHand(player.hand).filter((combo) =>
+    combo.some((card) => !!getBottomPenaltyModeForCard(card))
+  );
+  const highControlTrumpCards = trumpCards.filter((card) => {
+    if (card.suit === "joker") return true;
+    if (card.rank === levelRank) return false;
+    return ["A", "K"].includes(card.rank);
+  });
+
+  let potential = "none";
+  const canStrongGradeBottom = gradeCards.length >= 2 && trumpCards.length >= 6 && highControlTrumpCards.length >= 2;
+  const canStrongSpecialGradeBottom = specialPriority
+    && gradeCards.length >= 1
+    && gradeStructures.length > 0
+    && trumpCards.length >= 6
+    && highControlTrumpCards.length >= 2;
+  const canPossibleGradeBottom = (gradeCards.length >= 1 || gradeStructures.length > 0)
+    && trumpCards.length >= 5
+    && highControlTrumpCards.length >= 1;
+  const canPossibleSpecialGradeBottom = specialPriority
+    && (gradeCards.length >= 1 || gradeStructures.length > 0)
+    && trumpCards.length >= 4
+    && highControlTrumpCards.length >= 1;
+
+  if (canStrongGradeBottom || (difficulty === "intermediate" && canStrongSpecialGradeBottom)) {
+    potential = "strong";
+  } else if (canPossibleGradeBottom || (difficulty === "intermediate" && canPossibleSpecialGradeBottom)) {
+    potential = "possible";
+  }
+
+  return {
+    eligible: true,
+    potential,
+    gradeCardCount: gradeCards.length,
+    gradeStructureCount: gradeStructures.length,
+    trumpCount: trumpCards.length,
+    highControlTrumpCount: highControlTrumpCards.length,
+    specialPriority,
+  };
+}
+
+/**
+ * 作用：
+ * 判断初级 AI 当前是否值得把“级牌扣底”当成局内轻量目标。
+ *
+ * 为什么这样写：
+ * 用户希望“没被叫到朋友时可以更主动争取级牌扣底”，
+ * 同时“被叫到朋友但不是叫死时，也可以短暂犹豫是否立刻站队”；
+ * 因此这里把“适合走这条路线”的局面统一折成一个布尔判断，供首发和跟牌共用。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前局面值得保留级牌扣底路线。
+ *
+ * 注意：
+ * - 未站队时只对“暂定闲家”开放积极追求，避免持有朋友牌的人一开局就过度自信。
+ * - 如果已经被叫到朋友但并不是叫死，允许在前中盘短暂保留这条路线，避免过早站队把末手空间彻底打碎。
+ * - 已站队后只有确定闲家一侧才继续保留该目标。
+ */
+function shouldAiPursueGradeBottom(playerId) {
+  const profile = getAiGradeBottomProfile(playerId);
+  if (profile.potential === "none") return false;
+  if (isFriendTeamResolved()) return isDefenderTeam(playerId);
+  if (isAiTentativeDefender(playerId)) return true;
+  if (!canAiRevealFriendNow(playerId) || isAiCertainFriend(playerId)) return false;
+  if ((state.trickNumber || 1) > 6) return false;
+  return profile.potential === "strong" || profile.specialPriority;
+}
+
+/**
+ * 作用：
+ * 判断初级 AI 是否应因“保留级牌扣底路线”而暂缓立即站队。
+ *
+ * 为什么这样写：
+ * 这条规则不是要让朋友永远不站，而是在“不是叫死、且自己确实有级牌扣底潜力”时，
+ * 降低立刻翻牌明身份的意愿，给后续末手路线多留一点空间。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应短暂延迟站队。
+ *
+ * 注意：
+ * - 只在前中盘启用，避免残局还为了藏身份错过明显该站的时机。
+ * - 如果这一墩已经挂了较多公开分数，则不为了藏身份硬吃亏。
+ */
+function shouldAiDelayRevealForGradeBottom(playerId) {
+  const profile = getAiGradeBottomProfile(playerId);
+  if (profile.potential === "none") return false;
+  if (!canAiRevealFriendNow(playerId) || isAiCertainFriend(playerId)) return false;
+  if ((state.trickNumber || 1) > (profile.specialPriority ? 7 : 6)) return false;
+  if (getCurrentTrickPointValue() >= (profile.specialPriority ? 25 : 20)) return false;
+  return true;
+}
+
+/**
+ * 作用：
+ * 为初级闲家选择一手“更愿意先吊主、但尽量不拆大王和级牌”的首发。
+ *
+ * 为什么这样写：
+ * 当玩家自己判断“我可能有级牌扣底路线”时，开局到中盘更应该多给打家抽主压力，
+ * 但又不能把末手要保留的大小王和级牌先手打空，所以这里只优先使用可消耗的普通主牌去吊主。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中该启发式则返回建议的主牌首发，否则返回空数组。
+ *
+ * 注意：
+ * - 只在前中盘启用，避免末局为了机械吊主反而错过更关键的控轮次。
+ * - 若手里只剩王或级牌主，则宁可不触发，也不强迫拆掉关键末手资源。
+ */
+function chooseAiGradeBottomTrumpLead(playerId, player) {
+  if (!player || state.currentTrick.length !== 0 || !shouldAiPursueGradeBottom(playerId)) return [];
+  const profile = getAiGradeBottomProfile(playerId);
+  if ((state.trickNumber || 1) > (profile.specialPriority ? 10 : 8)) return [];
+  if (profile.trumpCount < (profile.specialPriority ? 4 : 5)) return [];
+
+  const levelRank = getCurrentLevelRank();
+  const expendableTrumpCards = player.hand.filter((card) =>
+    effectiveSuit(card) === "trump" && card.suit !== "joker" && card.rank !== levelRank
+  );
+  if (expendableTrumpCards.length === 0) return [];
+
+  const preservedControlTrumpCards = expendableTrumpCards.filter((card) => !["A", "K"].includes(card.rank));
+  return chooseStrongLeadFromCards(
+    preservedControlTrumpCards.length > 0 ? preservedControlTrumpCards : expendableTrumpCards
+  );
+}
+
+/**
+ * 作用：
+ * 评估一组跟牌在“保留级牌扣底资源”视角下的代价。
+ *
+ * 为什么这样写：
+ * 现有“抢扣底准备”逻辑会倾向提前甩王，让同侧更容易扣底；
+ * 但当玩家自己在走级牌扣底路线时，恰好需要相反的偏好，即尽量保住王、级牌和高主控制牌。
+ *
+ * 输入：
+ * @param {Array<object>} combo - 候选跟牌组合。
+ *
+ * 输出：
+ * @returns {number} 数值越低，表示越适合作为“保留级牌扣底资源”的垫牌。
+ *
+ * 注意：
+ * - 这里只处理“我要尽量留资源”的排序，不直接判断这一手是否合法。
+ * - 高分副牌同样会加代价，避免为了保结构去无脑丢大分。
+ */
+function scoreGradeBottomPreserveCombo(combo) {
+  const levelRank = getCurrentLevelRank();
+  return combo.reduce((sum, card) => {
+    let cost = scoreValue(card) * 4;
+    if (card.suit === "joker") cost += 140;
+    else if (card.rank === levelRank) cost += 110;
+    else if (isTrump(card) && ["A", "K"].includes(card.rank)) cost += 70;
+    else if (isTrump(card)) cost += 25;
+    cost += Math.max(0, cardStrength(card) - 10);
+    return sum + cost;
+  }, 0);
+}
+
+/**
+ * 作用：
+ * 在“我要保级牌扣底资源”时，为初级 AI 选择更克制的非压制跟牌。
+ *
+ * 为什么这样写：
+ * 这条 heuristic 主要覆盖两种情况：
+ * 一是确定在闲家侧、当前同侧已稳住时，尽量别把自己的王和级牌先垫掉；
+ * 二是被叫到朋友但决定暂缓站队时，优先用非朋友牌的小牌跟过去。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<Array<object>>} candidates - 当前所有合法候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次的领先出牌。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中该启发式则返回建议跟牌，否则返回空数组。
+ *
+ * 注意：
+ * - 若当前并不是同侧领先，只有在“为了延迟站队”时才允许走这条保守分支。
+ * - 这里只挑非压制候选；如果规则已经逼到必须压过，则由上层继续回退。
+ */
+function chooseAiGradeBottomPreserveDiscard(playerId, candidates, currentWinningPlay) {
+  const preserveForBottom = shouldAiPursueGradeBottom(playerId);
+  const preserveForDelayedReveal = shouldAiDelayRevealForGradeBottom(playerId);
+  if (!currentWinningPlay || (!preserveForBottom && !preserveForDelayedReveal)) return [];
+  if (!preserveForDelayedReveal && !areAiSameSide(playerId, currentWinningPlay.playerId)) return [];
+
+  const nonBeating = candidates.filter((combo) => !doesSelectionBeatCurrent(playerId, combo));
+  if (nonBeating.length === 0) return [];
+
+  return nonBeating.sort((a, b) => {
+    const scoreDiff = scoreGradeBottomPreserveCombo(a) - scoreGradeBottomPreserveCombo(b);
+    if (scoreDiff !== 0) return scoreDiff;
+    return classifyPlay(a).power - classifyPlay(b).power;
+  })[0];
+}
+
 // 返回当前出牌顺序中庄家之后的玩家列表。
 function getPlayersAfterBankerInLeadOrder(leaderId) {
   if (!PLAYER_ORDER.includes(leaderId) || leaderId === state.bankerId) return [];
@@ -306,6 +577,136 @@ function chooseAiSafeAntiRuffLead(playerId, player) {
   const validOptions = options.filter((combo) => combo.length > 0);
   if (validOptions.length === 0) return [];
   return validOptions.sort((a, b) => classifyPlay(b).power - classifyPlay(a).power)[0];
+}
+
+/**
+ * 作用：
+ * 返回当前玩家在公开信息下可以明确“递牌”给到的同伴目标列表。
+ *
+ * 为什么这样写：
+ * “递牌”不是单纯看谁和我是同侧，还要结合未站队阶段的已知信息。
+ * 对朋友未明阶段，只有“我自己已经确定/即将成友”时，才适合把牌递回给打家；
+ * 对阵营已明阶段，则优先返回已经确认同侧、且最值得优先接手的目标。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<number>} 返回按优先级排序的递牌目标玩家 ID 列表。
+ *
+ * 注意：
+ * - 未站队阶段不会把“猜测中的朋友”当成确定接手点，避免初级 AI 误递给错误目标。
+ * - 阵营已明且打家与自己同侧时，默认优先递回打家，兼容“朋友回打家绝门”的常见套路。
+ */
+function getAiKnownHandoffTargetIds(playerId) {
+  if (playerId === state.bankerId) {
+    if (!isFriendTeamResolved()) return [];
+  } else if (!state.friendTarget || !isFriendTeamResolved()) {
+    if (isAiCertainFriend(playerId) || canAiRevealFriendNow(playerId)) {
+      return [state.bankerId];
+    }
+    return [];
+  }
+
+  const allies = state.players
+    .map((player) => player.id)
+    .filter((otherId) => otherId !== playerId && areSameSide(playerId, otherId));
+  if (allies.length === 0) return [];
+  if (!isDefenderTeam(playerId) && allies.includes(state.bankerId)) {
+    return [state.bankerId, ...allies.filter((otherId) => otherId !== state.bankerId)];
+  }
+  const nonBankerAllies = allies.filter((otherId) => otherId !== state.bankerId);
+  return nonBankerAllies.length > 0 ? nonBankerAllies : allies;
+}
+
+/**
+ * 作用：
+ * 判断当前玩家是否仍握有足够明确的控牌资源，不必优先考虑“递牌”。
+ *
+ * 为什么这样写：
+ * 用户新增的“递牌”前提是“手里没有可以确切保证出牌权的牌”。
+ * 初级 AI 不能做复杂搜索，因此这里只用一组保守的公开可解释条件，
+ * 粗略识别“我现在更像该自己控牌，而不是把牌递出去”的局面。
+ *
+ * 输入：
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前更适合自己控牌，不应优先触发递牌。
+ *
+ * 注意：
+ * - 这里只做保守门槛，不代表这些资源一定 100% 保证拿回牌权。
+ * - 目的是避免初级 AI 一有同伴绝门信息就机械递牌，反而放掉明显的主控手。
+ */
+function hasAiDirectControlLead(player) {
+  if (!player || !Array.isArray(player.hand)) return false;
+  const trumpCards = player.hand.filter((card) => effectiveSuit(card) === "trump");
+  if (trumpCards.some((card) => card.suit === "joker")) return true;
+  if (trumpCards.length >= 5) return true;
+  if (findPairs(trumpCards).length > 0) return true;
+  if (findSerialTuples(trumpCards, 2).some((combo) => ["tractor", "train"].includes(classifyPlay(combo).type))) {
+    return true;
+  }
+  return findSerialTuples(trumpCards, 3).length > 0;
+}
+
+/**
+ * 作用：
+ * 为初级 AI 选择一手基于公开绝门信息的“递牌”首发。
+ *
+ * 为什么这样写：
+ * 这条 heuristic 用来表达“当我自己没有把握稳控时，把牌权递给同伴”。
+ * 它和 `Pressure Void` 相反：不是去打敌人的绝门，而是主动打同伴的绝门，
+ * 让同伴用毙牌或高张接手；同时只在敌方公开上尚未显示也绝门时启用，避免把接手权白送给对手。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中安全递牌条件则返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 初级只使用公开断门信息，不根据完整已出牌做高张分布推断。
+ * - 默认只递零分或低成本的小牌；孤张分牌不会为了递牌直接裸送。
+ */
+function chooseAiHandoffLead(playerId, player) {
+  if (!player || state.currentTrick.length !== 0) return [];
+  if (hasAiDirectControlLead(player)) return [];
+
+  const targetIds = getAiKnownHandoffTargetIds(playerId);
+  if (targetIds.length === 0) return [];
+  const enemyIds = state.players
+    .map((seat) => seat.id)
+    .filter((otherId) => otherId !== playerId && !targetIds.includes(otherId));
+
+  const options = SUITS
+    .map((suit) => {
+      const suitCards = player.hand.filter((card) => effectiveSuit(card) === suit);
+      if (suitCards.length === 0) return null;
+      const handoffCount = targetIds.filter((targetId) => state.exposedSuitVoid[targetId]?.[suit]).length;
+      if (handoffCount === 0) return null;
+
+      const enemyVoidCount = enemyIds.filter((enemyId) => state.exposedSuitVoid[enemyId]?.[suit]).length;
+      if (enemyVoidCount > 0) return null;
+
+      const lowestSuitCard = lowestCard(suitCards);
+      if (scoreValue(lowestSuitCard) > 0 && suitCards.length === 1) return null;
+
+      let score = handoffCount * 34;
+      if (targetIds[0] === state.bankerId) score += 10;
+      if (scoreValue(lowestSuitCard) === 0) score += 12;
+      if (suitCards.length === 1) score += 8;
+      score -= getPatternUnitPower(lowestSuitCard, suit) * 2;
+      return {
+        combo: [lowestSuitCard],
+        score,
+      };
+    })
+    .filter(Boolean);
+
+  if (options.length === 0) return [];
+  return options.sort((left, right) => right.score - left.score)[0].combo;
 }
 
 // 返回 AI 断门施压时优先针对的目标玩家 ID 列表。

@@ -1,158 +1,12 @@
-const fsp = require("node:fs/promises");
-const http = require("node:http");
-const path = require("node:path");
-
 const { chromium } = require("playwright");
 
 const { getUiSmokeScenarios, parseUiSmokeArgs } = require("../support/ui-smoke-config");
-
-const PROJECT_ROOT = path.resolve(__dirname, "../..");
-const MIME_TYPES = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".md": "text/markdown; charset=utf-8",
-};
-
-/**
- * 作用：
- * 把 URL 路径安全地映射到仓库里的静态文件路径。
- *
- * 为什么这样写：
- * UI smoke 需要通过本地 HTTP 打开真实页面；
- * 这里统一做路径归一化和越界保护，避免目录穿越或根路径解析不一致。
- *
- * 输入：
- * @param {string} requestPath - HTTP 请求里的 pathname。
- *
- * 输出：
- * @returns {string} 对应到项目根目录下的绝对文件路径。
- *
- * 注意：
- * - 根路径会回落到 `index.html`，方便本地手动访问。
- * - 只允许访问仓库根目录以内的文件，越界必须抛错。
- */
-function resolveStaticFilePath(requestPath) {
-  const normalizedPath = requestPath === "/" ? "/index.html" : requestPath;
-  const decodedPath = decodeURIComponent(normalizedPath);
-  const absolutePath = path.resolve(PROJECT_ROOT, `.${decodedPath}`);
-  if (absolutePath !== PROJECT_ROOT && !absolutePath.startsWith(`${PROJECT_ROOT}${path.sep}`)) {
-    throw new Error(`非法静态资源路径：${requestPath}`);
-  }
-  return absolutePath;
-}
-
-/**
- * 作用：
- * 根据文件扩展名返回 HTTP 响应应使用的 MIME 类型。
- *
- * 为什么这样写：
- * HTML、JS、SVG 和图片资源都要通过同一个轻量 server 提供；
- * 明确声明 MIME 后，浏览器加载静态页时不会因为类型错误而拦截脚本或素材。
- *
- * 输入：
- * @param {string} filePath - 当前要返回的静态文件绝对路径。
- *
- * 输出：
- * @returns {string} 对应的 MIME 类型字符串。
- *
- * 注意：
- * - 未列出的扩展名统一回退到 `application/octet-stream`。
- * - 这里只服务当前仓库需要的最小文件类型集合。
- */
-function getMimeType(filePath) {
-  return MIME_TYPES[path.extname(filePath).toLowerCase()] || "application/octet-stream";
-}
-
-/**
- * 作用：
- * 创建一个服务当前仓库静态文件的本地 HTTP server。
- *
- * 为什么这样写：
- * Playwright 直接打开 `file://` 时，cookie 和部分浏览器行为不够稳定；
- * 用一个超轻量本地 server 承载页面，可以更贴近真实浏览器环境且无需额外依赖。
- *
- * 输入：
- * @param {number} preferredPort - 优先尝试监听的端口。
- *
- * 输出：
- * @returns {Promise<{server: import("node:http").Server, origin: string}>} 已启动的 server 与访问 origin。
- *
- * 注意：
- * - 若优先端口被占用，会自动回退到系统分配端口。
- * - 调用方负责在结束后关闭 server。
- */
-async function startStaticServer(preferredPort) {
-  const server = http.createServer(async (request, response) => {
-    try {
-      const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
-      const filePath = resolveStaticFilePath(requestUrl.pathname);
-      const fileBuffer = await fsp.readFile(filePath);
-      response.writeHead(200, {
-        "Content-Type": getMimeType(filePath),
-        "Cache-Control": "no-store",
-      });
-      response.end(fileBuffer);
-    } catch (error) {
-      const statusCode = error.code === "ENOENT" ? 404 : 500;
-      response.writeHead(statusCode, { "Content-Type": "text/plain; charset=utf-8" });
-      response.end(statusCode === 404 ? "Not Found" : String(error.message || error));
-    }
-  });
-
-  /**
-   * 作用：
-   * 以指定端口启动 server，并在端口冲突时让调用方决定是否重试。
-   *
-   * 为什么这样写：
-   * 这样可以复用同一套监听逻辑处理“优先端口”与“系统随机端口”两条路径，
-   * 同时避免把 `server.on("error")` 分支散落到外层。
-   *
-   * 输入：
-   * @param {number} port - 当前尝试监听的端口；传 `0` 表示交给系统分配。
-   *
-   * 输出：
-   * @returns {Promise<number>} 实际监听到的端口号。
-   *
-   * 注意：
-   * - 这里只负责拿到监听端口，不拼接 origin。
-   * - 一旦监听成功，必须移除本次注册的错误监听，避免后续重复触发。
-   */
-  async function listenOnPort(port) {
-    return new Promise((resolve, reject) => {
-      const handleError = (error) => {
-        server.off("listening", handleListening);
-        reject(error);
-      };
-      const handleListening = () => {
-        server.off("error", handleError);
-        resolve(server.address().port);
-      };
-
-      server.once("error", handleError);
-      server.once("listening", handleListening);
-      server.listen(port, "127.0.0.1");
-    });
-  }
-
-  let actualPort;
-  try {
-    actualPort = await listenOnPort(preferredPort);
-  } catch (error) {
-    if (error.code !== "EADDRINUSE") {
-      throw error;
-    }
-    actualPort = await listenOnPort(0);
-  }
-
-  return {
-    server,
-    origin: `http://127.0.0.1:${actualPort}`,
-  };
-}
+const {
+  DEFAULT_PREVIEW_ROOT,
+  getMimeType,
+  resolveStaticFilePath,
+  startStaticServer,
+} = require("../../scripts/static-preview-server");
 
 /**
  * 作用：
@@ -300,7 +154,9 @@ async function runUiSmokeScenario(browser, origin, scenario, timeoutMs) {
 async function main(argv = process.argv.slice(2)) {
   const options = parseUiSmokeArgs(argv);
   const scenarios = getUiSmokeScenarios(options.scenarioNames);
-  const { server, origin } = await startStaticServer(options.port);
+  const { server, origin } = await startStaticServer({
+    preferredPort: options.port,
+  });
   const browser = await chromium.launch({
     headless: !options.headed,
   });
@@ -339,7 +195,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-  PROJECT_ROOT,
+  PROJECT_ROOT: DEFAULT_PREVIEW_ROOT,
   resolveStaticFilePath,
   getMimeType,
   startStaticServer,

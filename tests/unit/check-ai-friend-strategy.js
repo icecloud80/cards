@@ -313,6 +313,135 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
+    /**
+     * 作用：
+     * 搭建“中级应根据已公开高张出牌，主动用小牌递给同伴”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户新增的递牌概念不只包括“同伴已绝门”的硬信号，
+     * 还包括“敌方已经公开花掉这门高张、但仍有小牌”时，用小牌把牌权递给同伴的软信号。
+     * 这里固定一手公开可解释的心牌历史，验证中级会把这门当作递牌门。
+     *
+     * 输入：
+     * @param {void} - 场景固定给玩家 4 首发。
+     *
+     * 输出：
+     * @returns {void} 直接写入 playing 状态。
+     *
+     * 注意：
+     * - 这里不暴露任何暗手，只通过 played 记录提供公开历史。
+     * - 朋友已站队，玩家 4 与玩家 2 同为闲家侧，验证的是“递给同伴”，不是“回打家”。
+     */
+    function setupSoftHandoffLeadScenario() {
+      resetCommonState();
+      state.aiDifficulty = "intermediate";
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-s-9", "spades", "9")], true),
+        basePlayer(2, [makeCard("p2-c-8", "clubs", "8")]),
+        basePlayer(3, [makeCard("p3-d-9", "diamonds", "9")]),
+        basePlayer(4, [
+          makeCard("p4-h-9", "hearts", "9"),
+          makeCard("p4-h-3", "hearts", "3"),
+          makeCard("p4-c-a", "clubs", "A"),
+        ]),
+        basePlayer(5, [makeCard("p5-s-k", "spades", "K")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.hiddenFriendId = 3;
+      state.currentTurnId = 4;
+      state.leaderId = 4;
+      state.players[0].played = [
+        makeCard("hist-b-h-a", "hearts", "A"),
+        makeCard("hist-b-h-6", "hearts", "6"),
+      ];
+      state.players[2].played = [
+        makeCard("hist-p3-h-k", "hearts", "K"),
+      ];
+      state.playHistory = [
+        makeCard("hist-b-h-a", "hearts", "A"),
+        makeCard("hist-b-h-6", "hearts", "6"),
+        makeCard("hist-p3-h-k", "hearts", "K"),
+      ];
+    }
+
+    /**
+     * 作用：
+     * 搭建“中级接同伴递牌时，应考虑用更大的主/王稳接”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户明确补充：当同伴递牌给你，而后位敌人也可能断这门时，经常要用到大王来接。
+     * 这里让玩家 4 在断门后可选“小主”或“黑桃王”，验证中级会优先选择更稳的接法。
+     *
+     * 输入：
+     * @param {void} - 场景固定给玩家 4 跟牌。
+     *
+     * 输出：
+     * @returns {void} 直接写入 playing 状态。
+     *
+     * 注意：
+     * - 玩家 2 是同侧首家，先出一张低心牌，构成明显的递牌起手。
+     * - 玩家 5 已公开心绝门，用来表达“后位敌人也可能继续毙”的风险。
+     */
+    function setupHandoffReceiveScenario() {
+      resetCommonState();
+      state.aiDifficulty = "intermediate";
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-c-7", "clubs", "7"),
+          makeCard("b-d-6", "diamonds", "6"),
+          makeCard("b-d-7", "diamonds", "7"),
+          makeCard("b-c-8", "clubs", "8"),
+          makeCard("b-h-5", "hearts", "5"),
+          makeCard("b-s-8", "spades", "8"),
+        ], true),
+        basePlayer(2, [
+          makeCard("p2-h-3", "hearts", "3"),
+          makeCard("p2-c-6", "clubs", "6"),
+          makeCard("p2-c-9", "clubs", "9"),
+          makeCard("p2-d-8", "diamonds", "8"),
+          makeCard("p2-s-6", "spades", "6"),
+          makeCard("p2-d-7", "diamonds", "7"),
+        ]),
+        basePlayer(3, [
+          makeCard("p3-h-9", "hearts", "9"),
+          makeCard("p3-c-10", "clubs", "10"),
+          makeCard("p3-d-10", "diamonds", "10"),
+          makeCard("p3-s-7", "spades", "7"),
+          makeCard("p3-h-j", "hearts", "J"),
+          makeCard("p3-c-q", "clubs", "Q"),
+        ]),
+        basePlayer(4, [
+          makeCard("p4-s-5", "spades", "5"),
+          makeCard("p4-rj", "joker", "RJ"),
+        ]),
+        basePlayer(5, [
+          makeCard("p5-s-a", "spades", "A"),
+          makeCard("p5-c-j", "clubs", "J"),
+          makeCard("p5-d-j", "diamonds", "J"),
+          makeCard("p5-h-8", "hearts", "8"),
+          makeCard("p5-s-k", "spades", "K"),
+          makeCard("p5-c-k", "clubs", "K"),
+        ]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.hiddenFriendId = 3;
+      state.currentTrick = [
+        { playerId: 2, cards: [makeCard("lead-h-3-handoff", "hearts", "3")] },
+        { playerId: 3, cards: [makeCard("enemy-h-9-handoff", "hearts", "9")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.currentTurnId = 4;
+      state.leaderId = 2;
+      state.exposedSuitVoid[4].hearts = true;
+      state.exposedSuitVoid[5].hearts = true;
+    }
+
     // 搭建自动成友的测试场景。
     function setupAutoFriendScenario(difficulty) {
       resetCommonState();
@@ -719,17 +848,13 @@ function runFriendStrategySuite(context) {
     assert(!(intermediateAvoidKingWhileAceAlive.suit === "hearts" && intermediateAvoidKingWhileAceAlive.rank === "K"), "intermediate: should not call hearts K while hearts A is still outside banker");
     results.push("intermediate avoid-K-with-live-A ok -> " + intermediateAvoidKingWhileAceAlive.suit + "-" + intermediateAvoidKingWhileAceAlive.rank);
 
-    setupReturnToBankerScenario("beginner");
-    const beginnerReturnLead = getLegalHintForPlayer(3);
-    assert(beginnerReturnLead.length === 1, "beginner: return scenario should choose a single lead");
-    assert(!(beginnerReturnLead[0].suit === "hearts" && beginnerReturnLead[0].rank === "3"), "beginner: should not already prefer explicit return-to-banker lead");
-    results.push("beginner return-to-banker baseline -> " + beginnerReturnLead[0].suit + "-" + beginnerReturnLead[0].rank);
-
-    setupReturnToBankerScenario("intermediate");
-    const intermediateReturnLead = getLegalHintForPlayer(3);
-    assert(intermediateReturnLead.length === 1, "intermediate: return scenario should choose a single lead");
-    assert(intermediateReturnLead[0].suit === "hearts" && intermediateReturnLead[0].rank === "3", "intermediate: should prefer low heart to return control to banker");
-    results.push("intermediate return-to-banker lead ok");
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupReturnToBankerScenario(difficulty);
+      const returnLead = getLegalHintForPlayer(3);
+      assert(returnLead.length === 1, difficulty + ": return scenario should choose a single lead");
+      assert(returnLead[0].suit === "hearts" && returnLead[0].rank === "3", difficulty + ": should prefer low heart to hand off control back to banker");
+      results.push(difficulty + " return-to-banker handoff ok");
+    }
 
     setupReturnToBankerHiddenVoidScenario("beginner");
     const beginnerHiddenVoidLead = getLegalHintForPlayer(3);
@@ -755,6 +880,12 @@ function runFriendStrategySuite(context) {
     assert(!(intermediateDefenderReturnLead[0].suit === "hearts" && intermediateDefenderReturnLead[0].rank === "3"), "intermediate: should not hand control to an unrevealed tentative ally");
     results.push("intermediate defender-return stays public-info-only ok");
 
+    setupSoftHandoffLeadScenario();
+    const intermediateSoftHandoffLead = getLegalHintForPlayer(4);
+    assert(intermediateSoftHandoffLead.length === 1, "intermediate: soft handoff scenario should choose a single lead");
+    assert(intermediateSoftHandoffLead[0].suit === "hearts" && intermediateSoftHandoffLead[0].rank === "3", "intermediate: should use the publicly softened suit as a handoff lead");
+    results.push("intermediate soft handoff lead ok");
+
     setupDefenderFollowSupportScenario("intermediate");
     const intermediateDefenderFollowSupport = getLegalHintForPlayer(4);
     assert(intermediateDefenderFollowSupport.length === 1, "intermediate: defender follow-support scenario should choose a single card");
@@ -771,6 +902,12 @@ function runFriendStrategySuite(context) {
     assert(intermediateDefenderFollowBeat.length === 1, "intermediate: defender follow-beat scenario should choose a single card");
     assert(intermediateDefenderFollowBeat[0].suit === "hearts" && intermediateDefenderFollowBeat[0].rank === "A", "intermediate: should beat banker lead to reclaim control for defender side");
     results.push("intermediate defender-follow beat ok");
+
+    setupHandoffReceiveScenario();
+    const intermediateHandoffReceive = getLegalHintForPlayer(4);
+    assert(intermediateHandoffReceive.length === 1, "intermediate: handoff receive scenario should choose a single card");
+    assert(intermediateHandoffReceive[0].suit === "joker" && intermediateHandoffReceive[0].rank === "RJ", "intermediate: should use the bigger trump to secure a teammate handoff against a possible overruff");
+    results.push("intermediate handoff receive with big trump ok");
 
     setupTrumpClearControlScenario("beginner");
     const beginnerTrumpClearControl = getLegalHintForPlayer(3);

@@ -59,6 +59,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-memory-strategy.js"),
   },
   {
+    name: "AI grade-bottom strategy regression",
+    file: path.join(__dirname, "check-ai-grade-bottom-strategy.js"),
+  },
+  {
     name: "AI follow candidate limit regression",
     file: path.join(__dirname, "check-ai-follow-candidate-limit.js"),
   },
@@ -73,6 +77,10 @@ const UNIT_TEST_SUITES = [
   {
     name: "Staged change threshold regression",
     file: path.join(__dirname, "check-staged-change-lines.js"),
+  },
+  {
+    name: "Local preview server regression",
+    file: path.join(__dirname, "check-local-preview-server.js"),
   },
   {
     name: "Start lobby regression",

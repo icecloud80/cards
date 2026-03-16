@@ -6,6 +6,8 @@
 2. 它们和 [ai-roadmap.md](ai-roadmap.md) 的目标相比还差什么。
 3. 下一步最值得优先做的提升是什么。
 
+如果需要从设计视角理解“中级 AI 具体怎么想、各个 objective 分别是什么意思、像 `chooseAiVoidPressureLead` 这样的策略 helper 为什么存在”，可配合阅读 [intermediate-ai-design.md](intermediate-ai-design.md)。
+
 ## 一句话结论
 
 - `初级`：已经稳定，基本符合当前产品定义，短期不是主战场。
@@ -19,9 +21,17 @@
 
 ## 最近 Bug Fix
 
+- `级牌扣底` 路线现在已经从“beginner 专属 heuristic”扩成 `beginner + intermediate` 共用能力：
+  `beginner` 继续保留轻量画像、吊主和延迟站队；
+  `intermediate` 则新增了 `grade_bottom` objective，并把“保王 / 保级牌结构 / 特殊级升权”正式接进评分器与 rollout 扩展。
+- 对应回归已补到 [tests/unit/check-ai-grade-bottom-strategy.js](../tests/unit/check-ai-grade-bottom-strategy.js)。
 - 修复了一个会让 AI 在跟主拖拉机时卡回合的合法候选遗漏问题：
   当同门牌很多、合法结构组合在 `n 选 k` 顺序里排得比较靠后时，旧实现可能因为固定组合上限过早截断，导致 AI 误判自己“没有合法牌可出”。
 - 当前实现会先优先注入与首家牌型完全匹配的结构候选，再按组合规模动态放宽枚举预算；对应回归见 [tests/unit/check-ai-follow-candidate-limit.js](../tests/unit/check-ai-follow-candidate-limit.js)。
+- `递牌` 现在有了正式实现口径：
+  `beginner` 会在公开绝门已经明确、且自己没有明显主控手时，把小牌递给同伴接手；
+  `intermediate` 则额外支持“公开高张已经被敌方花掉后的软递牌”与“接同伴递牌时用更大的主/王稳接”。
+- 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 
 ## 本轮规则复核结论
 
@@ -56,6 +66,8 @@
 - `无主打家强主先行`：无主打家会先清自己可用的大主和高张，再转入找朋友，见 [src/shared/ai-shared.js](../src/shared/ai-shared.js) 与 [src/shared/ai-beginner.js](../src/shared/ai-beginner.js)。
 - `后程保扣底转向`：当前已经有 `protect_bottom / bottomRisk / chooseAiBottomPrepDiscard`，说明“后程转守底”和“同侧领先时优先腾出可扣底资源”已有第一版实现，见 [src/shared/ai-objectives.js](../src/shared/ai-objectives.js)、[src/shared/ai-evaluate.js](../src/shared/ai-evaluate.js) 与 [src/shared/ai-shared.js](../src/shared/ai-shared.js)。
 - `不透视甩牌`：甩牌风险已经改成公开信息评估，不再直接读对手暗手，见 [src/shared/ai-candidates.js](../src/shared/ai-candidates.js) 与 [tests/unit/check-ai-intermediate-foundation.js](../tests/unit/check-ai-intermediate-foundation.js)。
+- `递牌` 已有初级 / 中级分层：
+  初级只用公开绝门做保守递牌；中级则会在公开高张耗尽、敌方仍保有小牌的情况下，把这门视作更值得尝试的递牌门，并在接牌时考虑直接用更大的主或王稳接。
 
 仍未完全满足的部分：
 
@@ -67,8 +79,11 @@
   现在有 `chooseAiBottomPrepDiscard` 这类启发式，但还没有被拆成显式的“王张释放 / 扣底窗口让渡 / 末局主牌保留”评分项。
 - `朋友已站队后的策略切换` 已经存在，但仍部分依赖短路规则。
   headless 数据已经证明它会切，但实现里仍留有 `forced reveal / support-before-reveal` 这类直接返回逻辑，说明还没彻底下沉为评分器行为。
-- `非打家的级牌扣底潜力预判` 还没有落地。
-  目标中的轻量版本应该在开局先看“级牌 / 主长度 / 倒数第二手上手的大主”是否同时具备，再决定是否把级牌扣底当成局内副目标；如果后续被叫到朋友但不是叫死，还应允许短暂保留犹豫，不急着立刻强站队。
+- `非打家的级牌扣底潜力预判` 已经落了 beginner 第一版，但还不完整。
+  现在已完成到：
+  `beginner` 会在开局先看“级牌 / 主长度 / 倒数第二手上手的大主”是否同时具备，再决定是否把级牌扣底当成局内副目标；如果后续被叫到朋友但不是叫死，也会允许短暂保留犹豫，不急着立刻强站队。
+  `intermediate` 则已经能把这条路线接进 objective、breakdown 和跟牌/首发评分；在 `J / Q / K / A` 这类特殊级里，也会进一步提高这条路线的权重。
+  仍未完成的部分是：这条路线还没有完全沉到“更完整的末局兑现、多拍控轮和 sampled worlds”。
 
 ### 这轮复核后新增的开发主线
 
@@ -88,6 +103,9 @@
 
 - 把 `support-before-reveal / forced reveal / early friend tempo` 这类 legacy 规则继续下沉成可解释加权项。
 - 让“已站队后优先清主 / 回牌 / 续控 / 跑分”的行为尽量由 objective + breakdown 驱动，而不是散落在入口前后的直接 return。
+- `递牌` 也应归到这一类协同打法里：
+- 初级只保留“公开绝门递牌”的硬规则。
+- 中级已经开始把“软递牌首发”和“稳接递牌”的判断接进评分，但还没有完全沉到统一 objective。
 
 第四优先级：`把规则复盘场景补成专项回归`
 
@@ -95,11 +113,11 @@
 - 新增“保扣底阶段是否及时卸王”的固定样本。
 - 新增“甩牌风险进入 evaluateState 后，权重调整不回退”的单项回归。
 
-第五优先级：`补初级的级牌扣底预判与延迟站队`
+第五优先级：`把级牌扣底预判从 beginner 第一版推进到完整链路`
 
-- 非打家在开局基于自手做一次“我是否值得走级牌扣底”的轻量判定。
-- 若未被叫到朋友，则适度提高“吊主 + 保大主 + 保级牌结构”的目标权重。
-- 若被叫到朋友但不是叫死，则允许短暂延迟强站队，优先保住末手级牌扣底窗口。
+- 保留现有“非打家开局轻量判定”的入口，但把它继续接进更完整的末局控轮与扣底兑现。
+- 让“吊主 + 保大主 + 保级牌结构”不只存在于入口 heuristic，而是能进入统一评分项。
+- 让“被叫到朋友但不是叫死时允许短暂延迟强站队”拥有更清晰的回退时机，避免中后盘过度犹豫。
 
 ## 现状评估
 

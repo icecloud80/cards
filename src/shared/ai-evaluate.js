@@ -380,6 +380,172 @@ function getSimulationFriendScore(simState, playerId) {
   return score;
 }
 
+/**
+ * 作用：
+ * 返回模拟状态里当前局面的级牌点数。
+ *
+ * 为什么这样写：
+ * 中级 objective 和评估器现在都需要识别 `J / Q / K / A` 这类“级牌扣底优先级更高”的特殊级；
+ * 把级别读取集中到这里后，模拟态和真实态都能共用同一层口径。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ *
+ * 输出：
+ * @returns {string} 返回当前局面的级牌点数；缺失时回退到实时局面的级牌。
+ *
+ * 注意：
+ * - 这里只返回点数，不负责判断升级或降级。
+ * - 回退到 `getCurrentLevelRank()` 是为了兼容旧测试场景里没有单独复制 `levelRank` 的情况。
+ */
+function getSimulationCurrentLevelRank(simState) {
+  return simState?.levelRank || getCurrentLevelRank();
+}
+
+/**
+ * 作用：
+ * 为中级评估器生成一份“我有没有级牌扣底潜力”的模拟态画像。
+ *
+ * 为什么这样写：
+ * 之前级牌扣底画像只在 live heuristic 里存在，objective 和 rollout 评估器看不到这条路线；
+ * 这一版把画像搬进模拟态后，中级才能在搜索链路里正式识别“值不值得提早吊主、保王、保级牌结构”。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估的玩家 ID。
+ *
+ * 输出：
+ * @returns {{
+ *   eligible: boolean,
+ *   active: boolean,
+ *   potential: "none" | "possible" | "strong",
+ *   specialPriority: boolean,
+ *   tentativeDefender: boolean,
+ *   delayedRevealWindow: boolean,
+ *   gradeCardCount: number,
+ *   gradeStructureCount: number,
+ *   trumpCount: number,
+ *   highControlTrumpCount: number
+ * }} 返回当前玩家在模拟态下的级牌扣底画像。
+ *
+ * 注意：
+ * - 这里只使用当前玩家自己的手牌和公开状态，不读取任何其他玩家暗手。
+ * - `active` 代表“这条路线当前值得进入 objective / 评分器”，不代表一定会作为唯一目标。
+ */
+function getSimulationGradeBottomProfile(simState, playerId) {
+  const player = getSimulationPlayer(simState, playerId);
+  if (!player || playerId === simState?.bankerId) {
+    return {
+      eligible: false,
+      active: false,
+      potential: "none",
+      specialPriority: false,
+      tentativeDefender: false,
+      delayedRevealWindow: false,
+      gradeCardCount: 0,
+      gradeStructureCount: 0,
+      trumpCount: 0,
+      highControlTrumpCount: 0,
+    };
+  }
+
+  const levelRank = getSimulationCurrentLevelRank(simState);
+  const specialPriority = FACE_CARD_LEVELS.has(levelRank);
+  const trumpCards = player.hand.filter((card) => effectiveSuit(card) === "trump");
+  const gradeCards = player.hand.filter((card) => !!getBottomPenaltyModeForCard(card));
+  const gradeStructureCount = getStructureCombosFromHand(player.hand).filter((combo) =>
+    combo.some((card) => !!getBottomPenaltyModeForCard(card))
+  ).length;
+  const highControlTrumpCount = trumpCards.filter((card) => {
+    if (card.suit === "joker") return true;
+    if (card.rank === levelRank) return false;
+    return ["A", "K"].includes(card.rank);
+  }).length;
+  const unresolvedFriend = !!simState?.friendTarget && !isSimulationFriendTeamResolved(simState);
+  const ownTargetCopies = unresolvedFriend ? getSimulationTargetCopiesInHand(simState, playerId) : 0;
+  const seenCopies = simState?.friendTarget?.matchesSeen || 0;
+  const neededOccurrence = simState?.friendTarget?.occurrence || 1;
+  const remainingNeeded = Math.max(0, neededOccurrence - seenCopies);
+  const tentativeDefender = unresolvedFriend && ownTargetCopies === 0;
+  const delayedRevealWindow = unresolvedFriend
+    && ownTargetCopies > 0
+    && ownTargetCopies >= remainingNeeded
+    && ownTargetCopies < 3
+    && (simState?.trickNumber || 1) <= (specialPriority ? 7 : 6);
+  const beliefLean = unresolvedFriend && playerId !== simState.bankerId
+    ? getSimulationFriendBeliefLean(simState, playerId)
+    : 0;
+
+  let potential = "none";
+  if (
+    (gradeCards.length >= 2 && trumpCards.length >= 6 && highControlTrumpCount >= 2)
+    || (specialPriority && gradeCards.length >= 1 && gradeStructureCount > 0 && trumpCards.length >= 6 && highControlTrumpCount >= 2)
+  ) {
+    potential = "strong";
+  } else if (
+    ((gradeCards.length >= 1 || gradeStructureCount > 0) && trumpCards.length >= 5 && highControlTrumpCount >= 1)
+    || (specialPriority && (gradeCards.length >= 1 || gradeStructureCount > 0) && trumpCards.length >= 4 && highControlTrumpCount >= 1)
+  ) {
+    potential = "possible";
+  }
+
+  const resolvedDefender = isSimulationFriendTeamResolved(simState) && isSimulationDefenderTeam(simState, playerId);
+  const active = potential !== "none"
+    && (resolvedDefender || tentativeDefender || delayedRevealWindow || beliefLean <= -8);
+
+  return {
+    eligible: true,
+    active,
+    potential,
+    specialPriority,
+    tentativeDefender,
+    delayedRevealWindow,
+    gradeCardCount: gradeCards.length,
+    gradeStructureCount,
+    trumpCount: trumpCards.length,
+    highControlTrumpCount,
+  };
+}
+
+/**
+ * 作用：
+ * 为中级评估器提供一项“级牌扣底路线当前值不值得押”的专项分值。
+ *
+ * 为什么这样写：
+ * 用户希望中级不只是沿用初级的入口 heuristic，而是能把“级牌扣底”正式当成局内目标；
+ * 因此这里把手里级牌、主长度、大主控制和特殊级优先级合成独立 breakdown，供 objective 直接加权。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回级牌扣底专项分；越高表示这条路线越值得当前 AI 投入。
+ *
+ * 注意：
+ * - 这是一项“路线价值”分，不直接代表本轮能否立即完成扣底。
+ * - 特殊级 `J / Q / K / A` 会显著抬高这项分值，反映“降庄级别本身就很赚”的设计口径。
+ */
+function getSimulationGradeBottomScore(simState, playerId) {
+  const profile = getSimulationGradeBottomProfile(simState, playerId);
+  if (!profile.active) return 0;
+
+  const cardsLeft = getSimulationCardsLeft(simState);
+  const controllerId = getSimulationTurnAccessControllerId(simState);
+  const sameSideControl = controllerId != null && isSimulationSameSide(simState, playerId, controllerId);
+  let score = profile.potential === "strong" ? 28 : 16;
+  score += profile.gradeCardCount * 8;
+  score += Math.min(profile.gradeStructureCount, 2) * 10;
+  score += profile.highControlTrumpCount * 9;
+  if (profile.specialPriority) score += 20;
+  if (cardsLeft <= 20) score += 12;
+  if (sameSideControl) score += 8;
+  else score -= 6;
+  if (profile.tentativeDefender) score += 8;
+  if (profile.delayedRevealWindow) score += 6;
+  return score;
+}
+
 function getSimulationBottomScore(simState, playerId) {
   if (!isSimulationDefenderTeam(simState, playerId)) return 0;
   const cardsLeft = simState.players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
@@ -773,9 +939,15 @@ function getSimulationBottomRiskScore(simState, playerId) {
     : simState.currentTurnId;
   const sameSideControl = currentControllerId != null && isSimulationSameSide(simState, playerId, currentControllerId);
   const controlReserve = getSimulationControlScore(simState, playerId);
+  const gradeBottomProfile = getSimulationGradeBottomProfile(simState, playerId);
 
   let score = sameSideControl ? bottomPoints * 0.9 : -bottomPoints * 0.9;
   score += sameSideControl ? Math.min(controlReserve, 24) * 0.35 : Math.min(controlReserve, 24) * 0.15;
+  if (gradeBottomProfile.active) {
+    score += sameSideControl
+      ? (gradeBottomProfile.specialPriority ? 18 : 10)
+      : (gradeBottomProfile.specialPriority ? -18 : -10);
+  }
   return score;
 }
 
@@ -812,6 +984,7 @@ function getSimulationPointRunRiskScore(simState, playerId) {
   const bottomPoints = (simState.bottomCards || []).reduce((sum, card) => sum + scoreValue(card), 0);
   const reserveScore = Math.min(getSimulationTurnAccessReserveScore(simState, playerId), 28);
   const unresolvedFriend = !!simState.friendTarget && !isSimulationFriendTeamResolved(simState);
+  const gradeBottomProfile = getSimulationGradeBottomProfile(simState, playerId);
   const visibleRunPressure = trickPoints > 0 || (lateRound && bottomPoints > 0) || (simState.defenderPoints || 0) >= 40;
   let risk = 0;
 
@@ -825,6 +998,9 @@ function getSimulationPointRunRiskScore(simState, playerId) {
       risk += Math.min(simState.defenderPoints || 0, 80) * 0.18;
     }
     risk += Math.max(0, 18 - reserveScore) * 1.4;
+    if (gradeBottomProfile.active) {
+      risk += gradeBottomProfile.specialPriority ? 12 : 6;
+    }
     if (unresolvedFriend) risk *= 0.4;
     return -risk;
   }
@@ -864,6 +1040,7 @@ function evaluateState(simState, playerId, objective = getIntermediateObjective(
     friendBelief: getSimulationFriendBeliefScore(simState, playerId),
     allySupport: getSimulationAllySupportScore(simState, playerId),
     bottom: getSimulationBottomScore(simState, playerId),
+    gradeBottom: getSimulationGradeBottomScore(simState, playerId),
     voidPressure: getSimulationVoidPressureScore(simState, playerId),
     tempo: getSimulationTempoScore(simState, playerId),
     turnAccess: getSimulationTurnAccessScore(simState, playerId),

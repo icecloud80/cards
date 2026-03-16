@@ -33,11 +33,19 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   const unresolvedFriendBeliefLean = unresolvedFriend && playerId !== simState.bankerId && typeof getSimulationFriendBeliefLean === "function"
     ? getSimulationFriendBeliefLean(simState, playerId)
     : 0;
+  const gradeBottomProfile = typeof getSimulationGradeBottomProfile === "function"
+    ? getSimulationGradeBottomProfile(simState, playerId)
+    : { active: false, specialPriority: false };
+  const shouldForceGradeBottom = gradeBottomProfile.active
+    && (gradeBottomProfile.specialPriority || lateRound || unresolvedFriendBeliefLean <= -12);
 
   let primary = "keep_control";
   let secondary = defenderSide ? "pressure_void" : "run_points";
 
-  if (unresolvedFriend) {
+  if (shouldForceGradeBottom) {
+    primary = "grade_bottom";
+    secondary = mode === "lead" ? "pressure_void" : "keep_control";
+  } else if (unresolvedFriend) {
     if (unresolvedFriendBeliefLean <= -16) {
       primary = mode === "follow" ? "keep_control" : "pressure_void";
       secondary = mode === "follow" ? "pressure_void" : "keep_control";
@@ -65,6 +73,10 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     secondary = "keep_control";
   }
 
+  if (gradeBottomProfile.active && primary !== "grade_bottom") {
+    secondary = secondary === "run_points" || secondary === "find_friend" ? "grade_bottom" : secondary;
+  }
+
   const weights = buildIntermediateObjectiveWeights({
     structure: 1.15,
     control: 1.0,
@@ -73,6 +85,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     friendBelief: unresolvedFriend ? 0.75 : 0.05,
     allySupport: resolvedFriend ? 0.95 : 0.05,
     bottom: lateRound ? 1.0 : 0.3,
+    gradeBottom: gradeBottomProfile.active ? (gradeBottomProfile.specialPriority ? 1.25 : 0.95) : 0.15,
     voidPressure: defenderSide ? 0.95 : 0.45,
     tempo: 0.85,
     turnAccess: 0.95,
@@ -85,6 +98,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     find_friend: "friend",
     run_points: "points",
     protect_bottom: "bottom",
+    grade_bottom: "gradeBottom",
     clear_trump: "control",
     keep_control: "control",
     pressure_void: "voidPressure",
@@ -92,6 +106,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     find_friend: "friend",
     run_points: "points",
     protect_bottom: "bottom",
+    grade_bottom: "gradeBottom",
     clear_trump: "control",
     keep_control: "control",
     pressure_void: "voidPressure",
@@ -119,12 +134,32 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "protect_bottom") weights.turnAccess += 0.1;
   if (primary === "protect_bottom") weights.pointRunRisk += 0.25;
   if (secondary === "protect_bottom") weights.pointRunRisk += 0.1;
+  if (primary === "grade_bottom") weights.turnAccess += 0.45;
+  if (secondary === "grade_bottom") weights.turnAccess += 0.2;
+  if (primary === "grade_bottom") weights.controlRisk += 0.35;
+  if (secondary === "grade_bottom") weights.controlRisk += 0.15;
+  if (primary === "grade_bottom") weights.pointRunRisk += 0.3;
+  if (secondary === "grade_bottom") weights.pointRunRisk += 0.15;
+  if (primary === "grade_bottom") weights.bottomRisk += 0.35;
+  if (secondary === "grade_bottom") weights.bottomRisk += 0.15;
+  if (primary === "grade_bottom") weights.safeLead += 0.25;
+  if (secondary === "grade_bottom") weights.safeLead += 0.1;
+  if (primary === "grade_bottom") weights.voidPressure += 0.2;
+  if (secondary === "grade_bottom") weights.voidPressure += 0.1;
   if (unresolvedFriendBeliefLean >= 16) {
     weights.friend += 0.2;
     weights.turnAccess += 0.1;
   }
   if (unresolvedFriendBeliefLean <= -16) {
     weights.voidPressure += 0.2;
+    weights.controlRisk += 0.1;
+  }
+  if (gradeBottomProfile.active) {
+    weights.bottom += 0.15;
+  }
+  if (gradeBottomProfile.specialPriority) {
+    weights.gradeBottom += 0.35;
+    weights.turnAccess += 0.15;
     weights.controlRisk += 0.1;
   }
 

@@ -1,22 +1,6 @@
 // 返回中级 AI 回牌时优先照顾的目标玩家 ID 列表。
 function getIntermediateReturnTargetIds(playerId) {
-  if (playerId === state.bankerId) return [];
-  if (!state.friendTarget || !isFriendTeamResolved()) {
-    if (isAiCertainFriend(playerId) || canAiRevealFriendNow(playerId)) {
-      return [state.bankerId];
-    }
-    return [];
-  }
-
-  const allies = state.players
-    .map((player) => player.id)
-    .filter((otherId) => otherId !== playerId && areSameSide(playerId, otherId));
-  if (allies.length === 0) return [];
-  if (!isDefenderTeam(playerId) && allies.includes(state.bankerId)) {
-    return [state.bankerId, ...allies.filter((otherId) => otherId !== state.bankerId)];
-  }
-  const nonBankerAllies = allies.filter((otherId) => otherId !== state.bankerId);
-  return nonBankerAllies.length > 0 ? nonBankerAllies : allies;
+  return getAiKnownHandoffTargetIds(playerId);
 }
 
 // 评估某个花色对目标玩家的回牌信号强度。
@@ -26,6 +10,75 @@ function getIntermediateReturnSignal(targetId, leadSuit) {
   if (signal > 0 && targetId === state.bankerId) {
     signal += 1;
   }
+  return signal;
+}
+
+/**
+ * 作用：
+ * 读取某位玩家已经公开打出的某门牌，用于中级的递牌推断。
+ *
+ * 为什么这样写：
+ * 中级的“递牌”不只看断门，还会结合“某个敌人已经先打出过这门高张，但又仍有小牌”
+ * 这类公开行为，粗略判断剩余高张更可能分布在同伴或后位，而不是继续压在当前敌手手里。
+ *
+ * 输入：
+ * @param {number} playerId - 需要读取公开出牌记录的玩家 ID。
+ * @param {string} suit - 需要统计的有效花色。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回该玩家公开打出的该门牌列表；没有则返回空数组。
+ *
+ * 注意：
+ * - 这里只读取公开 `played` 记录，不读取任何暗手。
+ * - 仅供中级“递牌”软信号使用，不代表完整记牌。
+ */
+function getIntermediatePlayedSuitCards(playerId, suit) {
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.played) || !suit) return [];
+  return player.played.filter((card) => effectiveSuit(card) === suit);
+}
+
+/**
+ * 作用：
+ * 为中级 AI 估计某门牌的“软递牌”信号强度。
+ *
+ * 为什么这样写：
+ * 用户希望中级能理解一种比“同伴已公开绝门”更柔性的递牌：
+ * 当敌方已经公开花掉这门的部分高张、但又仍保有小牌时，说明其余高张未必继续压在这名敌人手里，
+ * 这时用小牌递过去，让同伴尝试以剩余高张接手，就是一种可解释的中级策略。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {string} leadSuit - 当前待评估的递牌花色。
+ *
+ * 输出：
+ * @returns {number} 返回软递牌信号强度；越高表示越值得把这门当作递牌门。
+ *
+ * 注意：
+ * - 这里只依赖公开出牌记录，不做暗手采样。
+ * - 这条信号只是加分项，不会覆盖“同伴已知绝门”的强递牌信号。
+ */
+function getIntermediateSoftHandoffSignal(playerId, leadSuit) {
+  if (!leadSuit || leadSuit === "trump") return 0;
+  const targetIds = getIntermediateReturnTargetIds(playerId);
+  if (targetIds.length === 0) return 0;
+
+  const enemyIds = state.players
+    .map((player) => player.id)
+    .filter((otherId) => otherId !== playerId && !targetIds.includes(otherId));
+  const enemySuitCards = enemyIds.flatMap((enemyId) => getIntermediatePlayedSuitCards(enemyId, leadSuit));
+  if (enemySuitCards.length === 0) return 0;
+
+  const enemyHighCount = enemySuitCards.filter((card) => ["10", "J", "Q", "K", "A"].includes(card.rank)).length;
+  const enemyLowCount = enemySuitCards.filter((card) => scoreValue(card) === 0 && !["10", "J", "Q", "K", "A"].includes(card.rank)).length;
+  const rememberedHighCount = getRememberedPlayedCardsForPlayer(playerId)
+    .filter((card) => effectiveSuit(card) === leadSuit && !isTrump(card))
+    .length;
+
+  let signal = 0;
+  if (enemyHighCount > 0) signal += 1;
+  if (enemyHighCount > 0 && enemyLowCount > 0) signal += 1;
+  if (rememberedHighCount > 0) signal += 1;
   return signal;
 }
 
@@ -42,13 +95,21 @@ function scoreIntermediateReturnLead(playerId, combo, player) {
   const returnSignals = targetIds
     .map((targetId) => ({ targetId, signal: getIntermediateReturnSignal(targetId, leadSuit) }))
     .filter((entry) => entry.signal > 0);
-  if (returnSignals.length === 0) return 0;
+  const softSignal = getIntermediateSoftHandoffSignal(playerId, leadSuit);
+  if (returnSignals.length === 0 && softSignal <= 0) return 0;
 
   const sameSuitCards = player.hand.filter((card) => effectiveSuit(card) === leadSuit);
   const lowestSuitCard = sameSuitCards.length > 0 ? lowestCard(sameSuitCards) : leadCard;
+  const enemyIds = state.players
+    .map((seat) => seat.id)
+    .filter((otherId) => otherId !== playerId && !targetIds.includes(otherId));
+  const enemyVoidCount = enemyIds.filter((enemyId) => state.exposedSuitVoid[enemyId]?.[leadSuit]).length;
   let score = returnSignals.reduce((sum, entry) => sum + entry.signal * 26, 0) - getComboPointValue(combo) * 3;
+  score += softSignal * 18;
   if (lowestSuitCard?.id === leadCard.id) score += 18;
   if (targetIds[0] === state.bankerId) score += 12;
+  if (enemyVoidCount === 0) score += 10;
+  else score -= enemyVoidCount * 18;
   score -= getPatternUnitPower(leadCard, leadSuit) * 2;
   return score;
 }
@@ -86,6 +147,249 @@ function scoreIntermediateFriendTempoLead(playerId, combo) {
   if (leadSuit === "trump" && pattern.type !== "single") score -= 8;
   score -= getComboPointValue(combo) * 2;
   return score;
+}
+
+/**
+ * 作用：
+ * 为中级 AI 评估一手首发是否符合“级牌扣底路线”的资源管理方向。
+ *
+ * 为什么这样写：
+ * 之前中级虽然能复用 beginner 的级牌扣底 helper，但统一评分器本身并不知道
+ * “吊主、保王、保级牌结构”应该被显式鼓励；这会让搜索在很多临界局面里又回到普通跑分习惯。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的首发组合。
+ * @param {Array<object>} handBefore - 出牌前完整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回这手首发对级牌扣底路线的专项加减分。
+ *
+ * 注意：
+ * - 这里只奖励“先吊可消耗主、后保王和级牌”的方向，不直接保证这手一定最佳。
+ * - 特殊级 `J / Q / K / A` 会抬高好坏分差，体现级牌扣底权重更高的规则口径。
+ */
+function scoreIntermediateGradeBottomLead(playerId, combo, handBefore) {
+  const profile = getAiGradeBottomProfile(playerId);
+  if (!profile.eligible || !shouldAiPursueGradeBottom(playerId)) return 0;
+  if (!Array.isArray(combo) || combo.length === 0 || !Array.isArray(handBefore)) return 0;
+  if ((state.trickNumber || 1) > (profile.specialPriority ? 10 : 8)) return 0;
+
+  const pattern = classifyPlay(combo);
+  const levelRank = getCurrentLevelRank();
+  const leadSuit = effectiveSuit(combo[0]);
+  const protectedCount = combo.filter((card) => card.suit === "joker" || card.rank === levelRank).length;
+  const controlTrumpCount = combo.filter((card) =>
+    effectiveSuit(card) === "trump" && card.suit !== "joker" && ["A", "K"].includes(card.rank) && card.rank !== levelRank
+  ).length;
+  const expendableTrumpCount = combo.filter((card) =>
+    effectiveSuit(card) === "trump" && card.suit !== "joker" && card.rank !== levelRank && !["A", "K"].includes(card.rank)
+  ).length;
+  let score = 0;
+
+  if (leadSuit === "trump") {
+    score += 28 + expendableTrumpCount * 22;
+    if (pattern.type === "pair") score += 16;
+    if (pattern.type === "tractor") score += 24;
+    if (pattern.type === "train") score += 28;
+    if (pattern.type === "bulldozer") score += 32;
+    score -= controlTrumpCount * 18;
+  } else {
+    score -= 16;
+    if (combo.some((card) => !!getBottomPenaltyModeForCard(card))) {
+      score -= profile.specialPriority ? 52 : 34;
+    }
+  }
+
+  score -= protectedCount * (profile.specialPriority ? 76 : 58);
+  if (profile.specialPriority && leadSuit === "trump" && expendableTrumpCount > 0) score += 18;
+  return score;
+}
+
+/**
+ * 作用：
+ * 为中级 AI 评估“接同伴递牌”时应否主动上手，以及该用多大的牌去接。
+ *
+ * 为什么这样写：
+ * 用户补充的递牌策略不只包含首发方“递出去”，还包含接牌方“要不要稳稳接住”。
+ * 尤其当我已经断门、后位敌人也可能断门时，只用小主试着接很容易被继续盖毙；
+ * 因此这里把“同伴递牌后用更大的主，甚至王去稳接”沉到中级跟牌评分里。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的跟牌组合。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次的领先出牌。
+ * @param {boolean} beats - 当前候选是否能压过现有最大。
+ *
+ * 输出：
+ * @returns {number} 返回“接同伴递牌”的收益分；越高表示越值得主动且稳稳接住。
+ *
+ * 注意：
+ * - 当前只对单张跟牌启用，避免把多张结构跟牌也误判成递牌接手。
+ * - 这里只处理“首家是同伴、且后位仍有敌人未出”的场景；如果我已经是最后一手，就没必要额外加权。
+ */
+function scoreIntermediateHandoffReceive(playerId, combo, currentWinningPlay, beats) {
+  if (!beats || !currentWinningPlay || !Array.isArray(combo) || combo.length !== 1) return 0;
+  if (!state.leadSpec || state.leadSpec.type !== "single" || state.currentTrick.length === 0) return 0;
+
+  const leaderPlay = state.currentTrick[0];
+  if (!leaderPlay?.cards?.length || leaderPlay.playerId === playerId) return 0;
+  if (!areAiSameSide(playerId, leaderPlay.playerId)) return 0;
+
+  const pendingEnemies = getPendingPlayersAfter(playerId).filter((otherId) => !areAiSameSide(playerId, otherId));
+  if (pendingEnemies.length === 0) return 0;
+
+  const leadCard = leaderPlay.cards[0];
+  const leadSuit = effectiveSuit(leadCard);
+  if (leadSuit === "trump") return 0;
+
+  const comboCard = combo[0];
+  const comboSuit = effectiveSuit(comboCard);
+  const leaderLookedLikeHandoff = scoreValue(leadCard) === 0 && getPatternUnitPower(leadCard, leadSuit) <= 9;
+  const allyVoidLead = state.exposedSuitVoid[playerId]?.[leadSuit];
+  if (!leaderLookedLikeHandoff && !allyVoidLead) return 0;
+
+  const pendingVoidCount = pendingEnemies.filter((enemyId) => state.exposedSuitVoid[enemyId]?.[leadSuit]).length;
+  let score = 0;
+
+  if (comboSuit === leadSuit) {
+    const suitedCards = getPlayer(playerId)?.hand.filter((card) => effectiveSuit(card) === leadSuit) || [];
+    if (suitedCards.length === 0) return 0;
+    if (highestCard(suitedCards)?.id === comboCard.id) {
+      score += 48;
+      if (pendingVoidCount > 0) score += 10;
+    }
+    score += getPatternUnitPower(comboCard, leadSuit) * 2;
+    return score;
+  }
+
+  if (comboSuit !== "trump") return 0;
+
+  score += 72;
+  score += pendingVoidCount * 54;
+  score += getPatternUnitPower(comboCard, "trump") * (pendingVoidCount > 0 ? 8 : 4);
+  if (comboCard.suit === "joker") score += pendingVoidCount > 0 ? 56 : 24;
+  if (pendingVoidCount > 0 && comboCard.suit !== "joker") score -= 28;
+  return score;
+}
+
+/**
+ * 作用：
+ * 为中级 AI 评估跟牌时是否成功保住了级牌扣底所需的关键资源。
+ *
+ * 为什么这样写：
+ * 用户希望中级在这条路线里不仅会“更多吊主”，还会在跟牌时尽量把王、级牌和含级牌结构保到末局；
+ * 因此这里把 `chooseAiGradeBottomPreserveDiscard(...)` 的方向正式转成评分项，而不是只靠入口短路。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的跟牌组合。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次领先出牌。
+ * @param {boolean} beats - 当前候选是否能压过现有最大。
+ *
+ * 输出：
+ * @returns {number} 返回这手跟牌对级牌扣底路线的专项加减分。
+ *
+ * 注意：
+ * - 这里只做相对排序，不替代“规则逼着必须压”之类的硬约束。
+ * - 被叫到朋友但处于延迟站队窗口时，也允许沿用同一套保资源倾向。
+ */
+function scoreIntermediateGradeBottomFollow(playerId, combo, currentWinningPlay, beats) {
+  const profile = getAiGradeBottomProfile(playerId);
+  const preserveRoute = shouldAiPursueGradeBottom(playerId);
+  const delayedRevealRoute = shouldAiDelayRevealForGradeBottom(playerId);
+  if (!profile.eligible || profile.potential === "none" || (!preserveRoute && !delayedRevealRoute)) return 0;
+  if (!Array.isArray(combo) || combo.length === 0) return 0;
+
+  const preserveCost = scoreGradeBottomPreserveCombo(combo);
+  let score = 0;
+
+  if (!beats) {
+    score += 42;
+    score -= preserveCost * 0.18;
+    if (currentWinningPlay && areAiSameSide(playerId, currentWinningPlay.playerId)) {
+      score += profile.specialPriority ? 24 : 16;
+    }
+  } else {
+    score -= preserveCost * 0.42;
+  }
+
+  if (delayedRevealRoute && state.friendTarget) {
+    const revealsTarget = combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank);
+    if (revealsTarget) score -= profile.specialPriority ? 88 : 60;
+  }
+
+  if (combo.some((card) => !!getBottomPenaltyModeForCard(card))) {
+    score -= profile.specialPriority ? 22 : 12;
+  }
+
+  return score;
+}
+
+/**
+ * 作用：
+ * 在明显的递牌接手窗口里，为中级 AI 直接挑出“该怎么稳接”的牌。
+ *
+ * 为什么这样写：
+ * 纯评分有时会被残局 rollout 的其它目标拉回去，导致 AI 明明看到了同伴递牌，
+ * 却仍然用过小的主去试探。这里把最明确的接手场景前置成直接选择器：
+ * 同伴先手递小牌、我能接、后位敌人还可能继续毙时，优先用更稳的高主或王接住。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<Array<object>>} candidates - 当前所有合法跟牌候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次的领先出牌。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中明确递牌接手窗口则返回推荐跟牌，否则返回空数组。
+ *
+ * 注意：
+ * - 当前只处理单张递牌接手，不扩展到对子和结构牌。
+ * - 若后位敌人已公开这门绝门，则默认按“高主优先、王优先”排序。
+ */
+function chooseIntermediateHandoffReceive(playerId, candidates, currentWinningPlay) {
+  if (!currentWinningPlay || !Array.isArray(candidates) || candidates.length === 0) return [];
+  if (!state.leadSpec || state.leadSpec.type !== "single" || state.currentTrick.length === 0) return [];
+
+  const leaderPlay = state.currentTrick[0];
+  if (!leaderPlay?.cards?.length || leaderPlay.playerId === playerId) return [];
+  if (!areAiSameSide(playerId, leaderPlay.playerId)) return [];
+
+  const leadCard = leaderPlay.cards[0];
+  const leadSuit = effectiveSuit(leadCard);
+  if (leadSuit === "trump") return [];
+
+  const pendingEnemies = getPendingPlayersAfter(playerId).filter((otherId) => !areAiSameSide(playerId, otherId));
+  if (pendingEnemies.length === 0) return [];
+
+  const leaderLookedLikeHandoff = scoreValue(leadCard) === 0 && getPatternUnitPower(leadCard, leadSuit) <= 9;
+  const selfVoidOnLeadSuit = !!state.exposedSuitVoid[playerId]?.[leadSuit];
+  if (!leaderLookedLikeHandoff && !selfVoidOnLeadSuit) return [];
+
+  const beatingSingles = candidates.filter((combo) =>
+    combo.length === 1 && wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay)
+  );
+  if (beatingSingles.length === 0) return [];
+
+  const pendingVoidCount = pendingEnemies.filter((enemyId) => state.exposedSuitVoid[enemyId]?.[leadSuit]).length;
+  const trumpBeaters = beatingSingles.filter((combo) => effectiveSuit(combo[0]) === "trump");
+  if (trumpBeaters.length > 0) {
+    return trumpBeaters.sort((left, right) => {
+      const powerDiff = getPatternUnitPower(right[0], "trump") - getPatternUnitPower(left[0], "trump");
+      if (powerDiff !== 0) return powerDiff;
+      if (pendingVoidCount > 0) {
+        const jokerDiff = (right[0].suit === "joker" ? 1 : 0) - (left[0].suit === "joker" ? 1 : 0);
+        if (jokerDiff !== 0) return jokerDiff;
+      }
+      return 0;
+    })[0];
+  }
+
+  const suitedBeaters = beatingSingles.filter((combo) => effectiveSuit(combo[0]) === leadSuit);
+  if (suitedBeaters.length === 0) return [];
+  return suitedBeaters.sort((left, right) =>
+    getPatternUnitPower(right[0], leadSuit) - getPatternUnitPower(left[0], leadSuit)
+  )[0];
 }
 
 // 评估一手牌打完后的连贯性。
@@ -469,6 +773,7 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candida
 
   score += scoreIntermediateReturnLead(playerId, combo, player);
   score += scoreIntermediateFriendTempoLead(playerId, combo);
+  score += scoreIntermediateGradeBottomLead(playerId, combo, handBefore);
   score += scoreLeadTripleBreakPenalty(handBefore, combo);
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
@@ -628,6 +933,8 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
     }
   }
 
+  score += scoreIntermediateGradeBottomFollow(playerId, combo, currentWinningPlay, beats);
+
   if (shouldAiAimForBottom(playerId) && allyWinning && !beats) {
     score += scoreBottomPrepCombo(combo) * 2;
   }
@@ -675,6 +982,7 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
   }
 
   score += scoreRememberedStructurePromotion(playerId, combo) * 0.85;
+  score += scoreIntermediateHandoffReceive(playerId, combo, currentWinningPlay, beats);
 
   return score;
 }
@@ -727,11 +1035,15 @@ function getIntermediateRolloutExtensionSignals(playerId, simState, mode = "lead
   const lateRound = simState.players.reduce((sum, seat) => sum + (seat.hand?.length || 0), 0) <= 20;
   const immediateOwnLead = !simState.currentTrick?.length && simState.currentTurnId === playerId;
   const bottomSensitive = lateRound && isSimulationDefenderTeam(simState, playerId);
+  const gradeBottomProfile = typeof getSimulationGradeBottomProfile === "function"
+    ? getSimulationGradeBottomProfile(simState, playerId)
+    : { active: false, specialPriority: false };
   const trumpCount = player.hand.filter((card) => effectiveSuit(card) === "trump").length;
   const structureCount = getStructureCombosFromHand(player.hand).length;
   const flags = [];
   if (unresolvedFriend) flags.push("unresolved_friend");
   if (bottomSensitive) flags.push("late_bottom_pressure");
+  if (gradeBottomProfile.active) flags.push(gradeBottomProfile.specialPriority ? "priority_grade_bottom" : "grade_bottom_pressure");
   if (lateRound && immediateOwnLead) flags.push("endgame_safe_lead_check");
   if (trumpCount >= 5) flags.push("heavy_trump_control");
   if (structureCount >= 2) flags.push("multi_structure_hand");
@@ -1098,7 +1410,7 @@ function scoreIntermediateStructureControlPenalty(entry, objective = null) {
 
   const primary = objective?.primary || null;
   const secondary = objective?.secondary || null;
-  const controlFocusedObjectives = new Set(["keep_control", "clear_trump", "pressure_void", "protect_bottom"]);
+  const controlFocusedObjectives = new Set(["keep_control", "clear_trump", "pressure_void", "protect_bottom", "grade_bottom"]);
   const controlFocused = controlFocusedObjectives.has(primary) || controlFocusedObjectives.has(secondary);
   const futureBreakdown = entry.rolloutFutureEvaluation?.breakdown || {};
   let penalty = 0;
@@ -1308,6 +1620,8 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
     && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
   }
+  const handoffReceiveChoice = chooseIntermediateHandoffReceive(playerId, candidates, currentWinningPlay);
+  if (handoffReceiveChoice.length > 0) return handoffReceiveChoice;
 
   const scoredEntries = buildScoredIntermediateFollowEntries(
     playerId,
@@ -1373,8 +1687,12 @@ function chooseAiLeadPlay(playerId) {
   }
   const lockedPointSafetyLead = chooseAiLockedPointSafetyLead(playerId, player);
   if (lockedPointSafetyLead.length > 0) return lockedPointSafetyLead;
+  const gradeBottomTrumpLead = chooseAiGradeBottomTrumpLead(playerId, player);
+  if (gradeBottomTrumpLead.length > 0) return gradeBottomTrumpLead;
   const safeAntiRuffLead = chooseAiSafeAntiRuffLead(playerId, player);
   if (safeAntiRuffLead.length > 0) return safeAntiRuffLead;
+  const handoffLead = chooseAiHandoffLead(playerId, player);
+  if (handoffLead.length > 0) return handoffLead;
   const voidPressureLead = chooseAiVoidPressureLead(playerId, player);
   if (voidPressureLead.length > 0) return voidPressureLead;
   return [];
@@ -1389,19 +1707,26 @@ function chooseAiFollowPlay(playerId, candidates) {
   const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
   const revealOpportunity = canAiRevealFriendNow(playerId);
+  const shouldDelayReveal = revealOpportunity
+    && (shouldAiDelayRevealOnOpeningLead(playerId) || shouldAiDelayRevealForGradeBottom(playerId));
   const revealChoice = revealOpportunity ? chooseAiRevealCombo(candidates) : [];
   const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
+  const safeBeatingCandidates = shouldDelayReveal
+    ? beatingCandidates.filter((combo) =>
+      !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
+    )
+    : beatingCandidates;
 
   if (supportChoice.length > 0) {
     return supportChoice;
   }
 
-  if (revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
+  if (!shouldDelayReveal && revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
   }
 
-  if (!allyWinning && beatingCandidates.length > 0) {
-    return beatingCandidates.sort((a, b) => {
+  if (!allyWinning && safeBeatingCandidates.length > 0) {
+    return safeBeatingCandidates.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
       if (structureDiff !== 0) return structureDiff;
       const aPattern = classifyPlay(a);
@@ -1410,6 +1735,11 @@ function chooseAiFollowPlay(playerId, candidates) {
       if (powerDiff !== 0) return powerDiff;
       return a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     })[0];
+  }
+
+  const gradeBottomPreserveDiscard = chooseAiGradeBottomPreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (gradeBottomPreserveDiscard.length > 0) {
+    return gradeBottomPreserveDiscard;
   }
 
   const bottomPrepDiscard = chooseAiBottomPrepDiscard(playerId, candidates, currentWinningPlay);
@@ -1429,7 +1759,7 @@ function chooseAiFollowPlay(playerId, candidates) {
     })[0];
   }
 
-  if (revealChoice.length > 0) {
+  if (!shouldDelayReveal && revealChoice.length > 0) {
     return revealChoice;
   }
 

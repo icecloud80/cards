@@ -1,3 +1,25 @@
+## Local Preview
+
+Use the local HTTP preview server instead of opening files directly:
+
+```bash
+npm run serve
+```
+
+If you want the Python entry for future workflows:
+
+```bash
+npm run serve:python
+```
+
+The server prints the exact URLs after startup. Common pages are:
+
+- `http://127.0.0.1:4173/index1.html` for PC
+- `http://127.0.0.1:4173/index2.html` for mobile
+- `http://127.0.0.1:4173/index-static.html` for the PC static mock
+
+After each file change, refresh the page in the browser to check the latest effect.
+
 ## Testing
 
 Run all unit regressions:
@@ -42,6 +64,8 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 
 ## Recent Updates
 
+- 2026-03-16 - 【规划文档】 - 新增 App 化与联机资料包：补齐 `移动 App 产品需求`、`App 与多人在线技术设计`、`移动 / 联机 / 广告路线图`，统一首发范围、免费运营边界、广告位策略以及好友房到匹配的阶段目标。
+- 2026-03-16 - 【工具】 - 新增统一的本地 HTTP 预览工作流：可通过 `npm run serve` 启动仓库静态预览服务，通过浏览器访问 `index1.html / index2.html / index-static.html` 看修改效果；同时保留 `npm run serve:python` 作为未来 Python 工作流入口，并让 UI smoke 复用同一套静态服务 helper。
 - 2026-03-15 - 【AI改进】 - 初级 AI 的叫朋友与扣底 heuristic 已重新对齐：现在会优先找最短副牌门的 `A`，并在扣底时尽量保留该门的 `A + 1 张回手牌`；若手里还有 `K`，也会尽量保留，方便按 `A -> K` 继续把短门打穿。
 - 2026-03-15 - 【规则改进】 - 扣底结算已按新规则拆分为 `普通扣底 / 级牌扣底`：普通扣底继续只看总分是否到 `120`，级牌扣底可直接判闲家胜；同时补齐了无主副级牌、特殊级主副级牌以及“最大同型牌组里的王张会阻断级牌扣底”的结算与测试。
 - 2026-03-15 - 【UI增强】 - 结算弹窗已同步调整 PC / mobile：标题直接显示 `获胜 / 失败 - 结果摘要`，并支持 `打家下台 / 闲家升x级 / 小光 / 大光 / 打家升x级 / 降x级` 这类结算标题。
@@ -71,5 +95,9 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 - AI search plan / AI 搜索计划: [ai-plan-search.md](docs/ai-plan-search.md)
 - AI status snapshot / AI 当前状态快照: [ai-status.md](docs/ai-status.md)
 - PC UI redesign brief / PC 界面改版说明: [pc-ui-redesign.md](docs/pc-ui-redesign.md)
+- Mobile App product requirements / 移动 App 产品需求: [mobile-app-product-requirements.md](docs/mobile-app-product-requirements.md)
+- Mobile and online architecture / App 与多人在线技术设计: [mobile-online-architecture.md](docs/mobile-online-architecture.md)
+- Mobile, online and ads roadmap / 移动 / 联机 / 广告路线图: [mobile-online-roadmap.md](docs/mobile-online-roadmap.md)
 - AI implementation checklist / AI 实现清单: [ai-checklist.md](docs/ai-checklist.md)
 - JS comment template for AI-generated code / AI 生成代码注释模板: [js-ai-comment-template.md](docs/js-ai-comment-template.md)
+- Local HTTP preview workflow / 本地 HTTP 预览工作流: [local-preview-workflow.md](docs/local-preview-workflow.md)

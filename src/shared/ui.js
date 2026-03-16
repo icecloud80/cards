@@ -1972,7 +1972,10 @@ function renderDebugDecisionPanel(player) {
  */
 function buildCompactSetupOptionLabelHtml(entry, isDealingPhase) {
   if (!entry) return "";
-  const prefix = isDealingPhase ? "" : `<span class="setup-option-prefix">${state.declaration ? "反" : "亮"}</span>`;
+  const hideActionPrefix = APP_PLATFORM === "pc" && state.phase === "countering";
+  const prefix = isDealingPhase || hideActionPrefix
+    ? ""
+    : `<span class="setup-option-prefix">${state.declaration ? "反" : "亮"}</span>`;
   const previewCards = Array.isArray(entry.cards) && entry.cards.length > 0
     ? entry.cards
     : getDeclarationCards(entry);
@@ -2066,6 +2069,65 @@ function buildSetupOptionCardFaceHtml(card) {
 
 /**
  * 作用：
+ * 判断当前平台和阶段是否应该直接把候选项当成最终操作按钮。
+ *
+ * 为什么这样写：
+ * 手游发牌阶段和 PC 最后反主阶段都已经改成“候选项即操作”的紧凑交互；
+ * 把判断条件收成同一个 helper 后，候选区渲染和中央按钮显隐就能共用同一套口径，
+ * 避免一边已经切成直选，另一边还残留旧确认按钮。
+ *
+ * 输入：
+ * @param {object[]} options - 当前阶段对人类玩家可见的候选项列表。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应隐藏旧确认按钮，直接使用候选按钮提交。
+ *
+ * 注意：
+ * - 手游只在发牌亮主阶段使用直选模式。
+ * - PC 只在最后反主且轮到玩家1时使用直选模式。
+ */
+function shouldUseDirectSetupChoiceMode(options) {
+  if (APP_PLATFORM === "mobile") {
+    return Array.isArray(options) && options.length > 0 && state.phase === "dealing";
+  }
+  if (APP_PLATFORM === "pc") {
+    return state.phase === "countering" && state.currentTurnId === 1;
+  }
+  return false;
+}
+
+/**
+ * 作用：
+ * 生成 PC 最后反主阶段使用的“放弃反主”直选按钮 HTML。
+ *
+ * 为什么这样写：
+ * 现在 PC 最后反主不再走上方“先选再确认”的旧流程，
+ * 需要把“不反主”并到下方候选区里，和 2 王 / 3 王等方案并列展示；
+ * 单独封装后，候选列表渲染可以保持统一结构。
+ *
+ * 输入：
+ * @param {void} - 不依赖额外输入，直接使用固定文案。
+ *
+ * 输出：
+ * @returns {string} 可直接拼进 `setupOptions` 的按钮 HTML 字符串。
+ *
+ * 注意：
+ * - 这里只服务于 PC 最后反主直选模式。
+ * - 不要复用旧 `passCounterBtn`，避免又把上方旧流程带回来。
+ */
+function buildPcCounterPassOptionButtonHtml() {
+  return `
+    <button
+      type="button"
+      class="setup-option-btn setup-option-pass-btn"
+      data-setup-pass="true"
+      aria-label="${TEXT.buttons.passCounter}"
+    >${TEXT.buttons.passCounter}</button>
+  `;
+}
+
+/**
+ * 作用：
  * 把当前亮主 / 反主候选项渲染到中央操作区的可选列表里。
  *
  * 为什么这样写：
@@ -2086,7 +2148,9 @@ function buildSetupOptionCardFaceHtml(card) {
  */
 function renderSetupOptions(options, selectedOption) {
   if (!dom.setupOptions) return;
-  if (!Array.isArray(options) || options.length === 0) {
+  const normalizedOptions = Array.isArray(options) ? options : [];
+  const pcCounterPassOnly = APP_PLATFORM === "pc" && state.phase === "countering" && state.currentTurnId === 1;
+  if (normalizedOptions.length === 0 && !pcCounterPassOnly) {
     dom.setupOptions.hidden = true;
     dom.setupOptions.innerHTML = "";
     return;
@@ -2094,12 +2158,14 @@ function renderSetupOptions(options, selectedOption) {
 
   const isDealingPhase = state.phase === "dealing";
   const selectedKey = getSetupOptionKey(selectedOption);
+  const directChoiceMode = shouldUseDirectSetupChoiceMode(normalizedOptions);
+  const appendPassChoice = pcCounterPassOnly;
   dom.setupOptions.hidden = false;
   dom.setupOptions.innerHTML = `
     ${isDealingPhase
       ? `<div class="setup-options-inline-label">${TEXT.setupOptions.declareInline}</div>`
       : `<div class="setup-options-label">${TEXT.setupOptions.counter}</div>`}
-    ${options.map((entry) => {
+    ${normalizedOptions.map((entry) => {
       const optionKey = getSetupOptionKey(entry);
       const actionLabel = isDealingPhase
         ? buildCompactSetupOptionLabelHtml(entry, true)
@@ -2109,10 +2175,11 @@ function renderSetupOptions(options, selectedOption) {
           type="button"
           class="setup-option-btn${isDealingPhase ? " primary" : ""}${optionKey === selectedKey ? " active" : ""}"
           data-setup-option-key="${optionKey}"
-          aria-pressed="${isDealingPhase ? "false" : (optionKey === selectedKey ? "true" : "false")}"
+          aria-pressed="${directChoiceMode ? "false" : (isDealingPhase ? "false" : (optionKey === selectedKey ? "true" : "false"))}"
         >${actionLabel}</button>
       `;
     }).join("")}
+    ${appendPassChoice ? buildPcCounterPassOptionButtonHtml() : ""}
   `;
 }
 
@@ -2121,7 +2188,7 @@ function renderCenterPanel() {
   const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
   const humanSetupOptions = isOpeningPhase ? getAvailableSetupOptionsForPlayer(1, state.phase) : [];
   const selectedSetupOption = state.phase === "countering" ? getSelectedSetupOptionForPlayer(1, state.phase) : null;
-  const directSetupChoiceMode = APP_PLATFORM === "mobile" && state.phase === "dealing" && humanSetupOptions.length > 0;
+  const directSetupChoiceMode = shouldUseDirectSetupChoiceMode(humanSetupOptions);
   const canDeclareNow = state.phase === "countering"
       ? state.currentTurnId === 1 && !!selectedSetupOption
       : false;
@@ -2197,12 +2264,12 @@ function renderCenterPanel() {
   } else {
     dom.declareBtn.textContent = TEXT.buttons.declare;
   }
-  dom.declareBtn.hidden = state.phase !== "countering";
+  dom.declareBtn.hidden = state.phase !== "countering" || directSetupChoiceMode;
   dom.declareBtn.disabled = state.gameOver || !canDeclareNow;
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
   const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!selectedSetupOption;
   dom.passCounterBtn.disabled = state.gameOver || !showPassCounterBtn;
-  dom.passCounterBtn.hidden = !showPassCounterBtn;
+  dom.passCounterBtn.hidden = !showPassCounterBtn || directSetupChoiceMode;
   renderSetupOptions(humanSetupOptions, selectedSetupOption);
   if (dom.centerPanel) {
     dom.centerPanel.classList.toggle("setup-choice-mode", directSetupChoiceMode);

@@ -1547,15 +1547,16 @@
         grid-template-columns: minmax(0, 1fr);
         gap: 0;
         min-height: 0;
+        height: 100%;
         align-items: stretch;
       }
 
       .hand-lane {
-        display: grid;
-        grid-template-rows: auto auto auto;
-        align-content: start;
+        display: flex;
+        flex-direction: column;
         min-width: 0;
-        padding: 6px 16px 0 14px;
+        height: 100%;
+        padding: 26px 16px 6px 14px;
         border: 0;
         border-radius: 0;
         background: transparent;
@@ -1579,8 +1580,8 @@
 
       .hand-stats-rail {
         position: relative;
-        min-height: 14px;
-        margin-top: 0;
+        min-height: 16px;
+        margin-top: -2px;
         padding: 0;
       }
 
@@ -1686,7 +1687,8 @@
         display: block;
         min-width: 0;
         overflow: hidden;
-        padding: 4px 0 0;
+        margin-top: auto;
+        padding: 0;
       }
 
       .hand-group {
@@ -1737,7 +1739,7 @@
         width: auto;
         min-width: 0;
         min-height: 104px;
-        padding: 8px 6px 4px 16px;
+        padding: 0 6px 2px 16px;
         border-radius: 0;
         background: transparent;
         border: 0;
@@ -3191,18 +3193,18 @@
         <section id="centerPanel" class="panel center-panel" data-layout-id="center-panel">
           <div class="center-panel-shell">
             <div class="bottom-action-row">
-              <button id="beatBtn" class="action-btn">毙牌</button>
               <button id="hintBtn" class="action-btn">选择</button>
               <button id="playBtn" class="action-btn primary">出牌</button>
-              <button id="newProgressBtn" class="action-btn">新的游戏</button>
-              <button id="continueGameBtn" class="action-btn">继续游戏</button>
-              <button id="startGameBtn" class="action-btn primary">开始发牌</button>
               <button id="declareBtn" class="action-btn">亮主</button>
               <button id="passCounterBtn" class="action-btn">不反主</button>
             </div>
             <div id="setupOptions" class="setup-options" hidden></div>
           </div>
           <div class="hidden">
+            <button id="beatBtn" class="action-btn" hidden>毙牌</button>
+            <button id="newProgressBtn" class="action-btn" hidden>新的游戏</button>
+            <button id="continueGameBtn" class="action-btn" hidden>继续游戏</button>
+            <button id="startGameBtn" class="action-btn primary" hidden>开始发牌</button>
             <span id="centerTag"></span>
             <span id="actionHint"></span>
             <span id="actionSelectionBadge"></span>

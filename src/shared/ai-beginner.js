@@ -30,8 +30,12 @@ function chooseAiLeadPlay(playerId) {
   }
   const lockedPointSafetyLead = chooseAiLockedPointSafetyLead(playerId, player);
   if (lockedPointSafetyLead.length > 0) return lockedPointSafetyLead;
+  const gradeBottomTrumpLead = chooseAiGradeBottomTrumpLead(playerId, player);
+  if (gradeBottomTrumpLead.length > 0) return gradeBottomTrumpLead;
   const safeAntiRuffLead = chooseAiSafeAntiRuffLead(playerId, player);
   if (safeAntiRuffLead.length > 0) return safeAntiRuffLead;
+  const handoffLead = chooseAiHandoffLead(playerId, player);
+  if (handoffLead.length > 0) return handoffLead;
   const voidPressureLead = chooseAiVoidPressureLead(playerId, player);
   if (voidPressureLead.length > 0) return voidPressureLead;
   return [];
@@ -46,9 +50,15 @@ function chooseAiFollowPlay(playerId, candidates) {
   const allyWinning = currentWinningPlay ? areAiSameSide(playerId, currentWinningPlay.playerId) : false;
   const beatingCandidates = candidates.filter((combo) => doesSelectionBeatCurrent(playerId, combo));
   const revealOpportunity = canAiRevealFriendNow(playerId);
-  const shouldDelayReveal = revealOpportunity && shouldAiDelayRevealOnOpeningLead(playerId);
+  const shouldDelayReveal = revealOpportunity
+    && (shouldAiDelayRevealOnOpeningLead(playerId) || shouldAiDelayRevealForGradeBottom(playerId));
   const revealChoice = revealOpportunity ? chooseAiRevealCombo(candidates) : [];
   const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
+  const safeBeatingCandidates = shouldDelayReveal
+    ? beatingCandidates.filter((combo) =>
+      !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
+    )
+    : beatingCandidates;
 
   if (supportChoice.length > 0) {
     return supportChoice;
@@ -58,8 +68,8 @@ function chooseAiFollowPlay(playerId, candidates) {
     return revealChoice;
   }
 
-  if (!allyWinning && beatingCandidates.length > 0) {
-    return beatingCandidates.sort((a, b) => {
+  if (!allyWinning && safeBeatingCandidates.length > 0) {
+    return safeBeatingCandidates.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
       if (structureDiff !== 0) return structureDiff;
       const aPattern = classifyPlay(a);
@@ -68,6 +78,11 @@ function chooseAiFollowPlay(playerId, candidates) {
       if (powerDiff !== 0) return powerDiff;
       return a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     })[0];
+  }
+
+  const gradeBottomPreserveDiscard = chooseAiGradeBottomPreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (gradeBottomPreserveDiscard.length > 0) {
+    return gradeBottomPreserveDiscard;
   }
 
   const bottomPrepDiscard = chooseAiBottomPrepDiscard(playerId, candidates, currentWinningPlay);

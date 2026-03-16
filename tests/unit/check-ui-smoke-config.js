@@ -7,7 +7,11 @@ const {
   getUiSmokeScenarios,
   parseUiSmokeArgs,
 } = require("../support/ui-smoke-config");
-const { PROJECT_ROOT, resolveStaticFilePath, getMimeType } = require("../ui/check-ui-smoke");
+const {
+  DEFAULT_PREVIEW_ROOT,
+  getMimeType,
+  resolveStaticFilePath,
+} = require("../../scripts/static-preview-server");
 
 /**
  * 作用：
@@ -57,7 +61,7 @@ function runUiSmokeConfigChecks() {
   assert.throws(() => parseUiSmokeArgs(["--bad"]), /未知参数/, "unknown arguments should throw");
   results.push("invalid cli options fail loudly");
 
-  assert.equal(resolveStaticFilePath("/index1.html"), `${PROJECT_ROOT}/index1.html`, "static file resolver should map normal paths under the project root");
+  assert.equal(resolveStaticFilePath("/index1.html"), `${DEFAULT_PREVIEW_ROOT}/index1.html`, "static file resolver should map normal paths under the project root");
   assert.equal(getMimeType("/tmp/test.svg"), "image/svg+xml", "mime helper should recognize svg files");
   assert.throws(() => resolveStaticFilePath("/../outside.txt"), /非法静态资源路径/, "static file resolver should block path traversal");
   results.push("static file resolution stays inside the project root");

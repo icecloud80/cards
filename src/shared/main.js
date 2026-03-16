@@ -35,6 +35,29 @@ function syncAutoManagedButton() {
   dom.autoManagedBtn.setAttribute("aria-pressed", managed ? "true" : "false");
 }
 
+/**
+ * 作用：
+ * 判断 PC 最后反主阶段是否启用了底部直选模式。
+ *
+ * 为什么这样写：
+ * 这轮 PC 反主交互不再依赖上方“确认反主 / 不反主”按钮，
+ * 而是直接在底部候选区点击 2 王、3 王或不反主完成操作；
+ * 单独抽成 helper 后，点击处理和渲染条件可以保持一致。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前平台和共享状态。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应直接执行反主或不反主。
+ *
+ * 注意：
+ * - 这里只对 PC 生效，手游仍按原有声明阶段交互处理。
+ * - 必须确认轮到玩家1，避免别的玩家回合误触发。
+ */
+function isPcDirectCounterChoiceMode() {
+  return APP_PLATFORM === "pc" && state.phase === "countering" && state.currentTurnId === 1;
+}
+
 // 规范化 AI 难度取值。
 function normalizeAiDifficulty(value) {
   return AI_DIFFICULTY_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_DIFFICULTY;
@@ -243,6 +266,13 @@ dom.hintBtn.addEventListener("click", () => {
 });
 
 dom.setupOptions?.addEventListener("click", (event) => {
+  const passButton = event.target.closest("button[data-setup-pass]");
+  if (passButton) {
+    if (state.gameOver || !isPcDirectCounterChoiceMode()) return;
+    passCounterForCurrentPlayer();
+    return;
+  }
+
   const button = event.target.closest("button[data-setup-option-key]");
   if (!button || state.gameOver || (state.phase !== "dealing" && state.phase !== "countering")) return;
   const selected = getAvailableSetupOptionsForPlayer(1, state.phase)
@@ -254,6 +284,10 @@ dom.setupOptions?.addEventListener("click", (event) => {
       clearTimers();
       finishDealingPhase();
     }
+    return;
+  }
+  if (isPcDirectCounterChoiceMode()) {
+    counterDeclare(1, selected);
     return;
   }
   selectSetupOptionForPlayer(1, button.dataset.setupOptionKey, state.phase);

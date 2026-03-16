@@ -261,7 +261,7 @@ function createBottomCard(suit, rank, index) {
  *
  * 为什么这样写：
  * 这次需求明确要求手机端把翻底公示改成更轻的浮层、牌位上移，
- * 并把读秒融入关闭按钮；如果后续有人把结构改回旧版，
+ * 并把读秒按钮放到底牌下方、另补一个右上角 `X`；如果后续有人把结构改回旧版，
  * 这条回归会第一时间提示按钮和渲染状态退化。
  *
  * 输入：
@@ -277,10 +277,22 @@ function createBottomCard(suit, rank, index) {
 function main() {
   const html = fs.readFileSync(path.join(__dirname, "../../index2.html"), "utf8");
   assert.equal(html.includes('class="bottom-reveal-kicker">翻底公示</span>'), true, "手游翻底公示层应补入阶段短标签");
+  assert.equal(html.includes('id="closeBottomRevealPanelBtn"'), true, "手游翻底公示层应保留右上角独立 X 关闭按钮");
+  assert.equal(html.includes('aria-label="关闭翻底展示面板"'), true, "手游翻底公示层右上角 X 按钮应保留独立关闭语义");
+  assert.match(
+    html,
+    /\.bottom-reveal-panel-close\s*\{[\s\S]*position:\s*absolute;[\s\S]*top:\s*0;[\s\S]*right:\s*0;/,
+    "手游翻底公示层右上角 X 按钮应固定在 panel 的右上角"
+  );
   assert.match(
     html,
     /id="closeBottomRevealBtn"[\s\S]*bottom-reveal-close-label">关闭<\/span>[\s\S]*id="bottomRevealTimer"[\s\S]*s\)<\/span>/,
     "手游翻底公示层应把关闭按钮改成 `关闭 \\(12s\\)` 这种一体化读秒样式"
+  );
+  assert.equal(
+    html.indexOf('id="bottomRevealCards"') < html.indexOf('id="closeBottomRevealBtn"'),
+    true,
+    "手游翻底公示层里底牌区应排在读秒关闭按钮上方"
   );
 
   const context = loadMobileBottomRevealContext();

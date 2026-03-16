@@ -365,13 +365,13 @@ function isBeginnerSideAceSuit(suit) {
 
 /**
  * 作用：
- * 按“副牌 A + 短门回手”规则，为初级 AI 收集短门找朋友候选。
+ * 按“副牌 A + 单张回手”规则，为初级 AI 收集短门找朋友候选。
  *
  * 为什么这样写：
- * 用户希望初级 AI 明确传达“这是一门可回手的短门”：
+ * 这轮把初级 AI 的短门思路进一步收紧成“尽量把找朋友这门做成单张回手口”：
  * 1. 优先找最短的副牌 `A`。
- * 2. 埋底时只保留 `A + 1 张回手牌`，若有 `K` 再额外保留一张 `K`。
- * 这样选朋友和埋底就能共用同一份目标门信息，而不是各自猜一套。
+ * 2. 埋底时默认只保留 `A + 1 张同门单牌回手`，不再默认额外保 `K`。
+ * 这样打家更容易先把这门走空，后续通过毙牌重新拿回控制权，而不是把同门高张都攥在手里。
  *
  * 输入：
  * @param {object|null} banker - 当前打家对象。
@@ -404,32 +404,39 @@ function collectBeginnerShortSuitFriendCandidates(banker, options = {}) {
       const outsideCopies = Math.max(0, 3 - buriedCopies - aceCards.length);
       if (outsideCopies <= 0) return null;
 
-      const kingCard = suitCards.find((card) => card.rank === "K") || null;
-      const returnCard = suitCards.find((card) => card.rank !== "A" && card.rank !== "K") || null;
+      const nonTargetCards = suitCards.filter((card) => card.rank !== "A");
+      const returnCard = suitCards.find((card) => card.rank !== "A" && card.rank !== "K")
+        || nonTargetCards[0]
+        || null;
       const reservedCards = [...aceCards];
       if (returnCard) reservedCards.push(returnCard);
-      if (kingCard) reservedCards.push(kingCard);
       const reservedCardIds = new Set(reservedCards.map((card) => card.id));
       const extraCards = suitCards.filter((card) => !reservedCardIds.has(card.id));
+      const singleReturnReady = nonTargetCards.length === 1 && !!returnCard;
+      const returnCardStrength = returnCard ? cardStrength(returnCard) : Number.POSITIVE_INFINITY;
 
       return {
         suit,
         suitCards,
         aceCards,
-        kingCard,
+        nonTargetCards,
         returnCard,
         reservedCards,
         reservedCardIds,
         totalCount: suitCards.length,
         extraCount: extraCards.length,
+        singleReturnReady,
+        returnCardStrength,
         occurrence: aceCards.length + 1,
       };
     })
     .filter(Boolean)
     .sort((left, right) => {
+      if (left.singleReturnReady !== right.singleReturnReady) return left.singleReturnReady ? -1 : 1;
       if (left.totalCount !== right.totalCount) return left.totalCount - right.totalCount;
-      if (!!left.kingCard !== !!right.kingCard) return left.kingCard ? -1 : 1;
+      if (left.nonTargetCards.length !== right.nonTargetCards.length) return left.nonTargetCards.length - right.nonTargetCards.length;
       if (!!left.returnCard !== !!right.returnCard) return left.returnCard ? -1 : 1;
+      if (left.returnCardStrength !== right.returnCardStrength) return left.returnCardStrength - right.returnCardStrength;
       if (left.extraCount !== right.extraCount) return left.extraCount - right.extraCount;
       return SUITS.indexOf(left.suit) - SUITS.indexOf(right.suit);
     });

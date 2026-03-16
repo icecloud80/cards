@@ -377,6 +377,7 @@ const dom = {
   bottomRevealText: document.getElementById("bottomRevealText"),
   bottomRevealTimer: document.getElementById("bottomRevealTimer"),
   bottomRevealCards: document.getElementById("bottomRevealCards"),
+  closeBottomRevealPanelBtn: document.getElementById("closeBottomRevealPanelBtn"),
   closeBottomRevealBtn: document.getElementById("closeBottomRevealBtn"),
   versionBadge: document.getElementById("versionBadge"),
   handSummary: document.getElementById("handSummary"),

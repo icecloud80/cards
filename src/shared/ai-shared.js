@@ -409,24 +409,54 @@ function chooseAiNoTrumpBankerPowerLead(playerId, player) {
 
 /**
  * 作用：
- * 为打家提供“延迟型朋友牌的前置副本应尽快先走掉”的早期首发启发。
+ * 为打家提取“找朋友这门单张回手”的默认首发牌。
  *
  * 为什么这样写：
- * 当打家叫的是第二张或第三张 `A`，且自己手里已经持有前面的副本时，
- * 如果前几轮不先把这张 `A` 安全走掉，就容易在中途丢失牌权后被别人先出同张，
- * 从而把原本可控的延迟站队打成高风险的“准 1 打 4”。
- * 这条经验应该让初级 AI 就能理解，中级则至少不能比它更差。
+ * 这轮初级短门策略改成“默认把找朋友这门做成单张回手口”。
+ * 当打家在这门只剩 1 张非目标牌时，先把它打出去，通常比先兑现自己手里的 `A`
+ * 更容易尽快把该门走空，后续靠毙牌把牌权重新拿回来。
+ *
+ * 输入：
+ * @param {object|null} player - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中“单张回手”条件则返回该单张，否则返回空数组。
+ *
+ * 注意：
+ * - 这里只处理副牌 `A` 线，不覆盖王找朋友或其它高张找朋友。
+ * - 只有当同门非目标牌恰好剩 `1` 张时才触发，避免把整门牌都无脑先手甩空。
+ */
+function chooseAiBankerFriendReturnLead(player) {
+  if (!player || !state.friendTarget || state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") {
+    return [];
+  }
+  const friendSuitCards = player.hand
+    .filter((card) => card.suit === state.friendTarget.suit && !isTrump(card))
+    .sort((left, right) => cardStrength(left) - cardStrength(right));
+  const nonTargetCards = friendSuitCards.filter((card) => card.rank !== state.friendTarget.rank);
+  return nonTargetCards.length === 1 ? [nonTargetCards[0]] : [];
+}
+
+/**
+ * 作用：
+ * 为打家提供“短门单张回手优先，其次才兑现前置副本”的早期首发启发。
+ *
+ * 为什么这样写：
+ * 当打家叫的是第二张或第三张 `A` 时，短门的关键不是“手里还剩多少高张”，
+ * 而是能不能尽快把这一门做成可回手、可毙牌的空门。
+ * 因此这里先尝试把唯一的同门单牌回手走掉；如果没有这种单张回手口，
+ * 再回退到旧规则，优先兑现自己手里的前置 `A`。
  *
  * 输入：
  * @param {number} playerId - 当前准备首发的玩家 ID。
  * @param {object|null} player - 当前玩家对象。
  *
  * 输出：
- * @returns {Array<object>} 若命中该启发式则返回单张前置副本，否则返回空数组。
+ * @returns {Array<object>} 若命中该启发式则返回建议首发，否则返回空数组。
  *
  * 注意：
- * - 当前先只对 `A` 生效，避免把 `K/Q` 之类不够稳的高张也一律提前打掉。
- * - 只在出牌早期、且当前确实是打家首发时触发，避免中后盘无脑清目标牌。
+ * - 当前先只对 `A` 生效，避免把 `K/Q` 之类不够稳的高张也一律套进来。
+ * - 只在出牌早期、且当前确实是打家首发时触发，避免中后盘无脑清空目标门。
  */
 function chooseAiBankerFriendSetupLead(playerId, player) {
   if (!player || playerId !== state.bankerId || !state.friendTarget || isFriendTeamResolved()) return [];
@@ -437,6 +467,9 @@ function chooseAiBankerFriendSetupLead(playerId, player) {
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
   if (neededOccurrence <= 1 || currentSeen >= neededOccurrence - 1) return [];
+
+  const returnLead = chooseAiBankerFriendReturnLead(player);
+  if (returnLead.length > 0) return returnLead;
 
   const targetCopies = player.hand.filter(
     (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank

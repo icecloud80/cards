@@ -237,11 +237,12 @@ function runBuryStrategySuite(context) {
 
     /**
      * 作用：
-     * 搭建“初级应为最短副牌 A 留下 A + 回手牌 + K”的埋底测试场景。
+     * 搭建“初级应为最短副牌 A 留下 A + 单牌回手”的埋底测试场景。
      *
      * 为什么这样写：
      * 这次 beginner heuristic 要把“短门找朋友”提前反映到埋底阶段，
-     * 因此需要验证初级不会把目标门里的 "A / 回手牌 / K" 一起扣掉。
+     * 因此需要验证初级会优先把目标门做成“A + 单牌回手”，
+     * 而不是默认再额外保留同门 “K”。
      *
      * 输入：
      * @param {void} - 场景固定只验证初级埋底。
@@ -250,7 +251,7 @@ function runBuryStrategySuite(context) {
      * @returns {void} 直接写入打家手牌。
      *
      * 注意：
-     * - 黑桃是最短副牌门，且同时具备 "A / K / 6" 三张，应整体保留。
+     * - 黑桃是最短副牌门，且同时具备 “A / K / 6” 三张；新规则只应强保 “A / 6”。
      * - 其余副牌数量更长，理论上更适合被扣到底里。
      */
     function setupBeginnerShortSuitReserveScenario() {
@@ -348,10 +349,14 @@ function runBuryStrategySuite(context) {
     }
 
     setupBeginnerShortSuitReserveScenario();
+    const beginnerShortSuitPlan = getBeginnerShortSuitFriendPlan(getPlayer(1), { countKnownBuriedCopies: false });
+    assert(beginnerShortSuitPlan?.suit === "spades", "beginner: short-suit plan should still target spades");
+    assert(beginnerShortSuitPlan?.reservedCardIds?.has("sA"), "beginner: short-suit plan should reserve side-suit A");
+    assert(beginnerShortSuitPlan?.reservedCardIds?.has("s6"), "beginner: short-suit plan should reserve the single low return card");
+    assert(!beginnerShortSuitPlan?.reservedCardIds?.has("sK"), "beginner: short-suit plan should not reserve extra K by default");
     const beginnerShortSuitReserve = getBuryHintForPlayer(1);
     const beginnerShortSuitReserveIds = new Set(beginnerShortSuitReserve.map((card) => card.id));
     assert(!beginnerShortSuitReserveIds.has("sA"), "beginner: should keep side-suit A for short-suit friend plan");
-    assert(!beginnerShortSuitReserveIds.has("sK"), "beginner: should keep side-suit K to extend the short-suit line");
     assert(!beginnerShortSuitReserveIds.has("s6"), "beginner: should keep one side-suit return card for the short-suit line");
     results.push("beginner short-suit reserve bury ok");
 

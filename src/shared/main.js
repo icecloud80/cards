@@ -320,6 +320,10 @@ dom.closeBottomRevealBtn.addEventListener("click", () => {
   finishBottomRevealPhase();
 });
 
+dom.closeBottomRevealPanelBtn?.addEventListener("click", () => {
+  finishBottomRevealPhase();
+});
+
 document.addEventListener("click", (event) => {
   if (event.target.closest(".trick-spot.zoomable")) return;
   for (const playerId of PLAYER_ORDER) {

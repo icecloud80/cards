@@ -374,7 +374,7 @@ function runFriendStrategySuite(context) {
       ];
     }
 
-    // 搭建“叫第二张 A 且自己持有第一张 A，应尽快先打出去”的测试场景。
+    // 搭建“叫第二张 A 且已形成单张回手，应先走回手牌”的测试场景。
     function setupBankerFriendSetupLeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -391,6 +391,7 @@ function runFriendStrategySuite(context) {
         basePlayer(4, [makeCard("p4-c-6", "clubs", "6")]),
         basePlayer(5, [
           makeCard("banker-h-a-held", "hearts", "A"),
+          makeCard("banker-h-3-return", "hearts", "3"),
           makeCard("banker-c-k-1", "clubs", "K"),
           makeCard("banker-c-k-2", "clubs", "K"),
           makeCard("banker-s-j", "spades", "J"),
@@ -680,7 +681,7 @@ function runFriendStrategySuite(context) {
       setupBankerFriendSetupLeadScenario(difficulty);
       const hint = chooseAiLeadPlay(5);
       assert(hint.length === 1, difficulty + ": banker friend-setup scenario should choose a single heuristic lead");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": banker should heuristically lead held hearts A early to set up delayed friend standing");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": banker should lead the single friend-suit return card before cashing held hearts A");
       results.push(difficulty + " banker friend-setup lead ok");
     }
 

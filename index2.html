@@ -864,8 +864,9 @@
         z-index: 1;
         display: flex;
         align-items: start;
-        justify-content: space-between;
+        justify-content: flex-start;
         gap: 16px;
+        padding-right: 48px;
       }
 
       .bottom-reveal-copy {
@@ -885,12 +886,31 @@
         letter-spacing: 0.18em;
       }
 
-      .bottom-reveal-side {
-        display: flex;
-        align-items: start;
-        justify-content: flex-end;
-        gap: 8px;
-        flex: 0 0 auto;
+      /* 把 panel 关闭按钮固定到右上角，避免继续挤占标题和说明文案的主阅读区。 */
+      .bottom-reveal-panel-close {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid rgba(165, 111, 49, 0.16);
+        border-radius: 999px;
+        background: rgba(246, 234, 208, 0.92);
+        color: #8d5e28;
+        font: inherit;
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 1;
+        box-shadow: 0 8px 16px rgba(89, 57, 23, 0.1);
+        cursor: pointer;
+      }
+
+      .bottom-reveal-panel-close:hover,
+      .bottom-reveal-panel-close:active {
+        transform: translateY(-1px);
       }
 
       .bottom-reveal-head .title {
@@ -963,11 +983,19 @@
         align-items: end;
         position: relative;
         z-index: 1;
-        margin-top: 18px;
+        margin-top: 16px;
         min-height: 136px;
         padding: 18px 10px 6px;
         border-radius: 22px;
         background: linear-gradient(180deg, rgba(255, 248, 233, 0.58), rgba(236, 224, 199, 0.34));
+      }
+
+      .bottom-reveal-actions {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: center;
+        margin-top: 14px;
       }
 
       /* 翻底公示需要保留 7 个固定卡位，顺序号和牌背都挂在 slot 容器里。 */
@@ -3378,6 +3406,14 @@
         width: 100%;
       }
 
+      body.mobile-index2 .bottom-reveal-panel-close {
+        top: -1px;
+        right: -1px;
+        width: 32px;
+        height: 32px;
+        font-size: 17px;
+      }
+
       body.mobile-index2 .bottom-reveal-kicker {
         padding: 4px 8px;
         font-size: 10px;
@@ -3393,11 +3429,6 @@
       body.mobile-index2 .bottom-reveal-head .subtle {
         font-size: 13px;
         line-height: 1.55;
-      }
-
-      body.mobile-index2 .bottom-reveal-side {
-        width: 100%;
-        justify-content: flex-start;
       }
 
       body.mobile-index2 .bottom-reveal-close {
@@ -3422,7 +3453,10 @@
         margin-top: 10px;
         min-height: 72px;
         padding: 10px 6px 0;
-        transform: translateY(-10px);
+      }
+
+      body.mobile-index2 .bottom-reveal-actions {
+        margin-top: 8px;
       }
 
       body.mobile-index2 .cards-row .card-btn {
@@ -4150,15 +4184,16 @@
               <strong class="title">翻底定主</strong>
               <div id="bottomRevealText" class="subtle"></div>
             </div>
-            <div class="bottom-reveal-side">
-              <!-- 关闭按钮同时承担自动读秒提示，避免手机端再拆成两个分散控件。 -->
-              <button id="closeBottomRevealBtn" class="bottom-reveal-close" type="button" aria-label="提前结束翻底展示">
-                <span class="bottom-reveal-close-label">关闭</span>
-                <span class="bottom-reveal-close-timer">(<strong id="bottomRevealTimer">30</strong>s)</span>
-              </button>
-            </div>
+            <button id="closeBottomRevealPanelBtn" class="bottom-reveal-panel-close" type="button" aria-label="关闭翻底展示面板">×</button>
           </div>
           <div id="bottomRevealCards" class="bottom-reveal-cards"></div>
+          <div class="bottom-reveal-actions">
+            <!-- 面板级 X 负责快速关闭，底部按钮继续承担更明确的“关闭并读秒”动作提示。 -->
+            <button id="closeBottomRevealBtn" class="bottom-reveal-close" type="button" aria-label="提前结束翻底展示">
+              <span class="bottom-reveal-close-label">关闭</span>
+              <span class="bottom-reveal-close-timer">(<strong id="bottomRevealTimer">30</strong>s)</span>
+            </button>
+          </div>
         </section>
 
         <section id="logPanel" class="panel floating-panel log-panel" data-layout-id="log-panel">

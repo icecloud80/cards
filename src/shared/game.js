@@ -87,6 +87,28 @@ function getAiDifficultyLogLabel() {
   return AI_DIFFICULTY_OPTIONS.find((option) => option.value === state.aiDifficulty)?.label || "初级";
 }
 
+/**
+ * 作用：
+ * 返回当前对局日志应展示的节奏档位名称。
+ *
+ * 为什么这样写：
+ * AI 难度和节奏现在都属于开局配置；把节奏标签也写进日志头，
+ * 后续复盘时才能区分“决策变了”还是“只是节奏更快了”。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局状态。
+ *
+ * 输出：
+ * @returns {string} 当前节奏档位对应的中文标签。
+ *
+ * 注意：
+ * - 这里复用共享层的标签 helper，不单独维护第二份映射。
+ * - 未知值必须退回到默认慢档。
+ */
+function getAiPaceLogLabel() {
+  return getAiPaceLabel(state.aiPace);
+}
+
 function getPlatformLogLabel() {
   return APP_PLATFORM === "mobile" ? "手机" : "PC";
 }
@@ -110,6 +132,7 @@ function getPlayerLevelsLogText() {
 function appendSessionHeaderLogs() {
   appendLog(`游戏版本：${APP_VERSION_LABEL}`);
   appendLog(`AI难度：${getAiDifficultyLogLabel()}`);
+  appendLog(`对局节奏：${getAiPaceLogLabel()}`);
   appendLog(`时间：${getLogTimestamp()}`);
   appendLog(`设备：${getPlatformLogLabel()}`);
   appendLog(`玩家等级：${getPlayerLevelsLogText()}`);
@@ -180,6 +203,7 @@ function setupGame() {
     return acc;
   }, {});
   state.awaitingHumanDeclaration = false;
+  state.selectedSetupOptionKey = null;
   state.selectedDebugPlayerId = PLAYER_ORDER.includes(state.selectedDebugPlayerId) && state.selectedDebugPlayerId !== 1
     ? state.selectedDebugPlayerId
     : 2;
@@ -596,7 +620,7 @@ function startCallingFriendPhase() {
 
   state.aiTimer = window.setTimeout(() => {
     confirmFriendTargetSelection(defaults);
-  }, 900);
+  }, getAiPaceDelay("callingFriendDelay"));
 }
 
 // 确认并应用当前选择的朋友目标牌。
@@ -657,11 +681,11 @@ function startDealing() {
   state.awaitingHumanDeclaration = false;
   appendLog(TEXT.log.startDealing);
   render();
-  queueDealStep(140);
+  queueDealStep(getAiPaceDelay("dealStartDelay"));
 }
 
 // 安排下一步发牌流程。
-function queueDealStep(delay = 90) {
+function queueDealStep(delay = getAiPaceDelay("dealStepDelay")) {
   if (state.dealTimer) {
     window.clearTimeout(state.dealTimer);
   }
@@ -691,7 +715,7 @@ function dealOneCard() {
   render();
 
   if (state.dealIndex >= state.dealCards.length) {
-    queueDealStep(220);
+    queueDealStep(getAiPaceDelay("dealFinishDelay"));
     return;
   }
   queueDealStep();
@@ -878,17 +902,29 @@ function getDeclarationOptions(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
   const playerLevel = getPlayerLevelRank(playerId);
-  const suitOptions = SUITS.map((suit) => {
+  const suitOptions = SUITS.flatMap((suit) => {
     const cards = player.hand.filter((card) => card.suit === suit && card.rank === playerLevel);
-    return {
-      playerId,
-      suit,
-      rank: playerLevel,
-      count: cards.length,
-      cards,
-    };
-  })
-    .filter((entry) => entry.count === 2 || entry.count === 3);
+    const options = [];
+    if (cards.length >= 2) {
+      options.push({
+        playerId,
+        suit,
+        rank: playerLevel,
+        count: 2,
+        cards: cards.slice(0, 2),
+      });
+    }
+    if (cards.length >= 3) {
+      options.push({
+        playerId,
+        suit,
+        rank: playerLevel,
+        count: 3,
+        cards: cards.slice(0, 3),
+      });
+    }
+    return options;
+  });
 
   const jokerOptions = ["BJ", "RJ"].flatMap((rank) => {
     const cards = player.hand.filter((card) => card.suit === "joker" && card.rank === rank);
@@ -915,6 +951,118 @@ function getDeclarationOptions(playerId) {
   });
 
   return [...suitOptions, ...jokerOptions].sort((a, b) => getDeclarationPriority(b) - getDeclarationPriority(a));
+}
+
+/**
+ * 作用：
+ * 按当前阶段返回玩家真正可以操作的亮主 / 反主候选项列表。
+ *
+ * 为什么这样写：
+ * 亮主按钮现在需要把“所有当前合法可选项”直接列给玩家挑选，
+ * 不能再只取一个最高档方案；把阶段过滤统一收口后，
+ * UI、提示文案和点击逻辑都能共用同一份候选结果，避免出现“文案写能亮、实际不能点”的分叉。
+ *
+ * 输入：
+ * @param {number} playerId - 需要查询候选项的玩家 ID。
+ * @param {string} phase - 当前要按哪个阶段筛选候选项，默认读取共享状态。
+ *
+ * 输出：
+ * @returns {object[]} 已按优先级排好序的合法候选项列表。
+ *
+ * 注意：
+ * - 发牌阶段和最后反主阶段都只返回当前能压过现有亮主的方案。
+ * - 最后反主阶段若还没轮到该玩家，必须直接返回空数组。
+ */
+function getAvailableSetupOptionsForPlayer(playerId, phase = state.phase) {
+  const options = getDeclarationOptions(playerId);
+  if (phase === "countering") {
+    if (state.currentTurnId !== playerId) return [];
+    return options.filter((entry) => canOverrideDeclaration(entry, state.declaration));
+  }
+  if (phase === "dealing") {
+    return options.filter((entry) => canOverrideDeclaration(entry, state.declaration));
+  }
+  return [];
+}
+
+/**
+ * 作用：
+ * 为单个亮主 / 反主候选项生成稳定的选中键值。
+ *
+ * 为什么这样写：
+ * 玩家现在可以在多个候选项之间来回切换；
+ * 用展示牌 ID 组合生成稳定 key，既能区分 `2 张` 和 `3 张` 方案，
+ * 又能在重新渲染时安全找回同一个选项。
+ *
+ * 输入：
+ * @param {object} entry - 单个亮主或反主候选项。
+ *
+ * 输出：
+ * @returns {string} 可直接写入 DOM 和共享状态的唯一键值；若候选项无效则返回空字符串。
+ *
+ * 注意：
+ * - 会把展示牌 ID 排序后再拼接，避免手牌顺序变化导致 key 漂移。
+ * - key 仅用于当前局内的人类操作选择，不作为长期存储字段。
+ */
+function getSetupOptionKey(entry) {
+  if (!entry) return "";
+  const cardIds = Array.isArray(entry.cards) ? entry.cards.map((card) => card.id).sort().join(",") : "";
+  return `${entry.playerId || 0}:${entry.suit}:${entry.count}:${cardIds}`;
+}
+
+/**
+ * 作用：
+ * 把玩家当前选中的亮主 / 反主候选项写回共享状态。
+ *
+ * 为什么这样写：
+ * 交互层现在需要支持“先看所有方案，再点其中一项，再确认亮牌”；
+ * 单独做一个选择入口后，按钮文案、候选列表高亮和最终执行动作都能读取同一份状态。
+ *
+ * 输入：
+ * @param {number} playerId - 当前要选择候选项的玩家 ID。
+ * @param {string} optionKey - 目标候选项的稳定键值。
+ * @param {string} phase - 当前要按哪个阶段验证候选项，默认读取共享状态。
+ *
+ * 输出：
+ * @returns {?object} 选中成功时返回对应候选项，否则返回 `null`。
+ *
+ * 注意：
+ * - 若传入的 key 已失效，必须自动清空选中状态，避免 UI 残留旧高亮。
+ * - 这里只负责记录选择，不直接执行亮主或反主。
+ */
+function selectSetupOptionForPlayer(playerId, optionKey, phase = state.phase) {
+  const options = getAvailableSetupOptionsForPlayer(playerId, phase);
+  const selected = options.find((entry) => getSetupOptionKey(entry) === optionKey) || null;
+  state.selectedSetupOptionKey = selected ? optionKey : null;
+  return selected;
+}
+
+/**
+ * 作用：
+ * 返回玩家当前应当使用的亮主 / 反主候选项。
+ *
+ * 为什么这样写：
+ * 候选列表需要支持“默认选最高档，但尊重玩家刚刚手动改选”的体验；
+ * 这里统一处理回落逻辑，渲染层就不必重复判断“当前选中项是否还合法”。
+ *
+ * 输入：
+ * @param {number} playerId - 需要读取当前候选项的玩家 ID。
+ * @param {string} phase - 当前要按哪个阶段取候选项，默认读取共享状态。
+ *
+ * 输出：
+ * @returns {?object} 当前选中的合法候选项；若没有则返回 `null`。
+ *
+ * 注意：
+ * - 当旧选项失效时，会自动回退到当前列表第一项。
+ * - 回退时不会主动写回状态，避免只因渲染就覆盖玩家手动选择。
+ */
+function getSelectedSetupOptionForPlayer(playerId, phase = state.phase) {
+  const options = getAvailableSetupOptionsForPlayer(playerId, phase);
+  if (options.length === 0) return null;
+  const selected = state.selectedSetupOptionKey
+    ? options.find((entry) => getSetupOptionKey(entry) === state.selectedSetupOptionKey) || null
+    : null;
+  return selected || options[0];
 }
 
 // 为玩家选出当前最优叫主方案。
@@ -1759,6 +1907,7 @@ function declareTrump(playerId, declaration, source = "manual") {
     ? getPlayerLevelRank(playerId)
     : declaration.rank;
   state.awaitingHumanDeclaration = false;
+  state.selectedSetupOptionKey = null;
   state.declaration = {
     playerId,
     suit: declaration.suit,
@@ -1846,7 +1995,7 @@ function startCounterTurn() {
     state.countdown = 0;
     state.aiTimer = window.setTimeout(() => {
       passCounterForCurrentPlayer();
-    }, 450);
+    }, getAiPaceDelay("counterPassDelay"));
     render();
     return;
   }
@@ -1871,7 +2020,7 @@ function startCounterTurn() {
       return;
     }
     passCounterForCurrentPlayer();
-  }, 1000 + Math.random() * 900);
+  }, getAiPaceDelay("counterActionDelay"));
 }
 
 // 执行一次反主。
@@ -2131,7 +2280,7 @@ function startBuryingPhase() {
   state.aiTimer = window.setTimeout(() => {
     const buryCards = getBuryHintForPlayer(banker.id);
     completeBurying(banker.id, buryCards.map((card) => card.id));
-  }, 1200);
+  }, getAiPaceDelay("buryDelay"));
 }
 
 // 开始正式出牌阶段的首轮流程。
@@ -2217,7 +2366,7 @@ function startTurn() {
   if (!player.isHuman) {
     state.aiTimer = window.setTimeout(() => {
       autoPlayCurrentTurn();
-    }, 900 + Math.random() * 700);
+    }, getAiPaceDelay("turnDelay"));
   }
 }
 
@@ -2319,7 +2468,7 @@ function showNextCenterAnnouncement() {
     if (state.centerAnnouncementQueue.length > 0) {
       showNextCenterAnnouncement();
     }
-  }, 3000);
+  }, getAiPaceDelay("centerAnnouncementDelay"));
 }
 
 // 判断某位玩家当前是否是玩家本人可见的盟友。
@@ -2590,7 +2739,7 @@ function resolveTrick(options = {}) {
       state.trickPauseTimer = window.setTimeout(() => {
         state.trickPauseTimer = null;
         finishGame();
-      }, 1800);
+      }, getAiPaceDelay("trickFinishDelay"));
     }
     return;
   }
@@ -2618,11 +2767,11 @@ function resolveTrick(options = {}) {
     state.trickPauseTimer = window.setTimeout(() => {
       state.trickPauseTimer = null;
       advanceToNextTrick();
-    }, 2400);
+    }, getAiPaceDelay("trickPauseDelay"));
   }
 }
 
-// 结算本墩的获胜玩家。
+// 结算本轮的获胜玩家。
 function pickTrickWinner() {
   if (!state.leadSpec) return state.leaderId;
   if (state.leadSpec.type === "single") {
@@ -2720,32 +2869,138 @@ function getLevelDelta(before, after) {
   return order.indexOf(after) - order.indexOf(before);
 }
 
-// 获取结算风格标签。
-function getResultFlavorTag(outcome, bottomResult = null) {
-  if (outcome.winner === "banker") {
-    if (outcome.bankerLevels >= 3) return "大光";
-    if (outcome.bankerLevels === 2) return "小光";
+/**
+ * 作用：
+ * 返回结算页里使用的阵营短标签。
+ *
+ * 为什么这样写：
+ * 结果页现在需要把每位玩家的“打家 / 朋友 / 闲家”直接列出来；
+ * 单独收成 helper 后，标题摘要、等级列表和后续日志扩展都能共用同一套阵营口径。
+ *
+ * 输入：
+ * @param {number} playerId - 需要查询的玩家 ID。
+ *
+ * 输出：
+ * @returns {string} 适合结果页展示的阵营短标签。
+ *
+ * 注意：
+ * - 结算前如果朋友仍未揭晓，会先被标记为 `1 打 4`，这里自然回落成 `闲家`。
+ * - 结果页刻意使用 `闲家`，避免继续沿用对普通玩家不够直观的“非打家”说法。
+ */
+function getResultCampLabel(playerId) {
+  if (playerId === state.bankerId) return "打家";
+  if (!state.friendTarget?.failed && state.hiddenFriendId === playerId) return "朋友";
+  return "闲家";
+}
+
+/**
+ * 作用：
+ * 生成结果页标题里的结算摘要。
+ *
+ * 为什么这样写：
+ * 用户希望在“获胜 / 失败”后立刻看到最关键的结算结果，
+ * 例如“打家下台”“升 1 级”“降 1 级”；把判断集中在这里，能避免 UI 层再拼多套分支。
+ *
+ * 输入：
+ * @param {{winner: string, bankerLevels: number, defenderLevels: number}} outcome - 本局结算结果。
+ * @param {boolean} humanWon - 玩家本人是否获胜。
+ * @param {string} humanLevelBefore - 玩家本人结算前等级。
+ * @param {string} humanLevelAfter - 玩家本人结算后等级。
+ *
+ * 输出：
+ * @returns {string} 直接拼到标题后的短结果摘要。
+ *
+ * 注意：
+ * - 标题优先显示真人玩家自己最关心的信息：先看自己升降级，再看打家是否下台。
+ * - 若命中保级位导致等级数字未变，但己方确实赢得升级结果，仍保留“升 x 级”的摘要。
+ */
+function getResultHeadlineDetail(outcome, humanWon, humanLevelBefore, humanLevelAfter) {
+  const levelDelta = getLevelDelta(humanLevelBefore, humanLevelAfter);
+  if (humanWon) {
+    if (levelDelta > 0) return `升${levelDelta}级`;
+    if (outcome.winner === "banker" && outcome.bankerLevels > 0) {
+      return `升${outcome.bankerLevels}级`;
+    }
+    if (outcome.winner === "defender" && outcome.defenderLevels > 0) {
+      return `升${outcome.defenderLevels}级`;
+    }
+    if (outcome.winner === "defender") return "打家下台";
+    return "守级";
   }
-  if (bottomResult?.penalty?.levels > 0) {
-    return "扣底";
+  if (levelDelta < 0) return `降${Math.abs(levelDelta)}级`;
+  if (outcome.winner === "banker" && outcome.bankerLevels > 0) {
+    return `打家升${outcome.bankerLevels}级`;
+  }
+  if (outcome.winner === "defender") return "打家下台";
+  return "守级";
+}
+
+/**
+ * 作用：
+ * 判断结果页里某位玩家是否需要额外显示“升级 / 降级”标签。
+ *
+ * 为什么这样写：
+ * 逐人等级列表除了展示 `LvX -> LvY`，还要把“虽然数字没变，但这次结果本质上是升级”
+ * 这类保级位情况显式标出来；集中判断后，列表渲染会更简单也更稳定。
+ *
+ * 输入：
+ * @param {number} playerId - 目标玩家 ID。
+ * @param {{winner: string, bankerLevels: number, defenderLevels: number}} outcome - 本局结算结果。
+ * @param {Record<number, string>} levelsBefore - 各玩家结算前等级。
+ * @param {Record<number, string>} levelsAfter - 各玩家结算后等级。
+ *
+ * 输出：
+ * @returns {string} 需要展示的结果标签；不需要时返回空字符串。
+ *
+ * 注意：
+ * - 实际等级变化优先级最高，先根据 `Lv` 前后值判断。
+ * - 保级位卡住升级时，仍返回 `升级`，让玩家知道这局结算结果没有丢。
+ */
+function getResultLevelChangeLabel(playerId, outcome, levelsBefore, levelsAfter) {
+  const levelDelta = getLevelDelta(levelsBefore[playerId], levelsAfter[playerId]);
+  if (levelDelta > 0) return "升级";
+  if (levelDelta < 0) return "降级";
+  const isBankerSide = getResultCampLabel(playerId) !== "闲家";
+  if (isBankerSide && outcome.winner === "banker" && outcome.bankerLevels > 0) {
+    return "升级";
+  }
+  if (!isBankerSide && outcome.winner === "defender" && outcome.defenderLevels > 0) {
+    return "升级";
   }
   return "";
 }
 
-// 获取结算摘要标签。
-function getResultSummaryTags(outcome, humanWon, humanLevelBefore, humanLevelAfter, bottomResult = null) {
-  const tags = [humanWon ? "获胜" : "失败"];
-  const flavor = getResultFlavorTag(outcome, bottomResult);
-  if (flavor) {
-    tags.push(flavor);
-  }
-  const levelDelta = getLevelDelta(humanLevelBefore, humanLevelAfter);
-  if (levelDelta > 0) {
-    tags.push(`升${levelDelta}级`);
-  } else if (levelDelta < 0) {
-    tags.push(`降${Math.abs(levelDelta)}级`);
-  }
-  return tags;
+/**
+ * 作用：
+ * 生成结果页里的逐人等级结算列表 HTML。
+ *
+ * 为什么这样写：
+ * 用户希望结果页把每位玩家的阵营和等级变化一行一行列清楚，
+ * 而不是继续藏在正文长句里；统一从这里生成，可以保证 PC / mobile 两端结果层完全一致。
+ *
+ * 输入：
+ * @param {{winner: string, bankerLevels: number, defenderLevels: number}} outcome - 本局结算结果。
+ * @param {Record<number, string>} levelsBefore - 各玩家结算前等级。
+ * @param {Record<number, string>} levelsAfter - 各玩家结算后等级。
+ *
+ * 输出：
+ * @returns {string} 可直接写入结果列表容器的 HTML。
+ *
+ * 注意：
+ * - 行内文案统一使用 `玩家名 - 阵营 - LvX -> LvY` 格式，便于快速扫读。
+ * - 若没有任何玩家数据，仍返回空字符串，避免插入空列表壳子。
+ */
+function buildResultLevelListHtml(outcome, levelsBefore, levelsAfter) {
+  const rows = state.players.map((player) => {
+    const resultLabel = getResultLevelChangeLabel(player.id, outcome, levelsBefore, levelsAfter);
+    const resultSuffix = resultLabel ? ` <span class="result-level-tag">【${resultLabel}】</span>` : "";
+    return `<li>${player.name} - ${getResultCampLabel(player.id)} - Lv${levelsBefore[player.id]} -> Lv${levelsAfter[player.id]}${resultSuffix}</li>`;
+  });
+  if (rows.length === 0) return "";
+  return `
+    <div class="result-level-title">级别结算</div>
+    <ul class="result-level-list">${rows.join("")}</ul>
+  `;
 }
 
 // 完成牌局。
@@ -2762,22 +3017,31 @@ function finishGame() {
   state.nextFirstDealPlayerId = bottomResult?.nextLeadPlayerId || state.bankerId;
   const outcome = getOutcome(state.defenderPoints, { bottomPenalty: bottomResult?.penalty || null });
   const humanWon = didHumanSideWin(outcome);
-  const humanLevelBefore = getPlayerLevel(1);
+  const playerLevelsBefore = Object.fromEntries(
+    PLAYER_ORDER.map((playerId) => [playerId, getPlayerLevel(playerId)])
+  );
+  const humanLevelBefore = playerLevelsBefore[1];
   applyLevelSettlement(outcome, bottomResult?.penalty || null);
-  const humanLevelAfter = getPlayerLevel(1);
+  const playerLevelsAfter = Object.fromEntries(
+    PLAYER_ORDER.map((playerId) => [playerId, getPlayerLevel(playerId)])
+  );
+  const humanLevelAfter = playerLevelsAfter[1];
   dom.resultCard.classList.toggle("win", humanWon);
   dom.resultCard.classList.toggle("loss", !humanWon);
-  dom.resultTitle.textContent = humanWon ? TEXT.outcome.winTitle : TEXT.outcome.lossTitle;
+  dom.resultTitle.textContent = `${humanWon ? TEXT.outcome.winTitle : TEXT.outcome.lossTitle} - ${getResultHeadlineDetail(
+    outcome,
+    humanWon,
+    humanLevelBefore,
+    humanLevelAfter
+  )}`;
   if (dom.resultSubinfo) {
-    dom.resultSubinfo.innerHTML = getResultSummaryTags(
+    dom.resultSubinfo.innerHTML = buildResultLevelListHtml(
       outcome,
-      humanWon,
-      humanLevelBefore,
-      humanLevelAfter,
-      bottomResult
-    ).map((item) => `<span class="result-chip">${item}</span>`).join("");
+      playerLevelsBefore,
+      playerLevelsAfter
+    );
   }
-  dom.resultBody.textContent = `${outcome.body}${getBottomResultText(bottomResult)}${getLevelSettlementSummary(outcome)}`;
+  dom.resultBody.textContent = `${outcome.body}${getBottomResultText(bottomResult)}`;
   dom.resultOverlay.classList.add("show");
   startResultCountdown();
   render();

@@ -74,7 +74,11 @@ function createElementStub(identifier) {
   return {
     id: identifier,
     dataset: {},
-    style: {},
+    style: {
+      setProperty(name, value) {
+        this[name] = value;
+      },
+    },
     children: [],
     textContent: "",
     innerHTML: "",
@@ -113,7 +117,7 @@ function createElementStub(identifier) {
  * @param {void} - 通过内部固定脚本路径加载 PC 环境。
  *
  * 输出：
- * @returns {{setupGame: Function, getPlayer: Function, buildCompactRoleBadgeMarkup: Function, buildTrickSpotMetricChips: Function, getPcHandOverlap: Function, getPcTrickSpotTitle: Function, buildPcTrickSpotRoleTag: Function, state: object}} 当前测试需要的真实接口集合。
+ * @returns {{setupGame: Function, getPlayer: Function, buildCompactRoleBadgeMarkup: Function, buildTrickSpotMetricChips: Function, getPcHandOverlap: Function, getPcSingleLaneHandOverlap: Function, getPcTrickSpotTitle: Function, buildPcTrickSpotRoleTag: Function, renderHand: Function, state: object, document: object}} 当前测试需要的真实接口集合。
  *
  * 注意：
  * - 这里只加载 PC 平台脚本，避免把移动端分支带进来。
@@ -213,7 +217,7 @@ function loadUiContext() {
     }
   `, context);
 
-  return vm.runInContext("({ setupGame, getPlayer, buildCompactRoleBadgeMarkup, buildTrickSpotMetricChips, getPcHandOverlap, getPcTrickSpotTitle, buildPcTrickSpotRoleTag, state })", context);
+  return vm.runInContext("({ setupGame, getPlayer, buildCompactRoleBadgeMarkup, buildTrickSpotMetricChips, getPcHandOverlap, getPcSingleLaneHandOverlap, getPcTrickSpotTitle, buildPcTrickSpotRoleTag, renderHand, state, document })", context);
 }
 
 /**
@@ -243,22 +247,42 @@ function main() {
   assert.equal(unknownBadge, "", "未知阵营在紧凑界面里应直接留空");
 
   const bankerBadge = context.buildCompactRoleBadgeMarkup({ kind: "banker", label: "打家" }, "seat-role-icon");
-  assert.equal(bankerBadge.includes("庄"), true, "打家应渲染成紧凑的庄家图标");
+  assert.equal(bankerBadge.includes("打"), true, "打家应渲染成紧凑的打家图标");
 
-  const defenderBadge = context.buildCompactRoleBadgeMarkup({ kind: "defender", label: "非打家" }, "seat-role-icon");
-  assert.equal(defenderBadge.includes("闲"), true, "非打家应渲染成紧凑的闲家图标");
+  const defenderBadge = context.buildCompactRoleBadgeMarkup({ kind: "defender", label: "闲家" }, "seat-role-icon");
+  assert.equal(defenderBadge.includes("闲"), true, "闲家应渲染成紧凑的闲家图标");
 
   const pcSpotTitle = context.getPcTrickSpotTitle({ id: 3, name: "玩家3" });
   assert.equal(pcSpotTitle, "玩家3", "桌面端其他玩家标题不应继续拼接“出牌区”字样");
 
   const bankerSpotTag = context.buildPcTrickSpotRoleTag({ kind: "banker", label: "打家" });
-  assert.equal(bankerSpotTag.includes("庄"), true, "桌面端出牌区应能渲染庄家短签");
+  assert.equal(bankerSpotTag.includes("打"), true, "桌面端出牌区应能渲染打家短签");
 
   const friendSpotTag = context.buildPcTrickSpotRoleTag({ kind: "friend", label: "朋友" });
   assert.equal(friendSpotTag.includes("朋"), true, "桌面端出牌区应能渲染朋友短签");
 
+  const winningChips = context.buildTrickSpotMetricChips(
+    { id: 3, level: 4, hand: [{ id: "c1" }], capturedPoints: 40, isHuman: false },
+    { kind: "banker", label: "打家" },
+    true
+  );
+  assert.equal(winningChips.includes("大"), false, "桌面端出牌区不应再通过底部信息重复渲染“大”标签");
+
   const heavyOverlap = context.getPcHandOverlap(13, 31);
   assert.equal(heavyOverlap >= 30, true, "拿到底牌后的长手牌应适度加大重叠量，避免出现滚动条");
+  assert.equal(context.getPcSingleLaneHandOverlap(31) >= 22, true, "连续牌轨模式也应在 31 张手牌时主动增加重叠");
+
+  const human = context.getPlayer(1);
+  human.hand = [
+    { id: "h1", suit: "clubs", rank: "A" },
+    { id: "h2", suit: "hearts", rank: "2" },
+    { id: "h3", suit: "spades", rank: "10" },
+  ];
+  context.state.phase = "playing";
+  context.state.currentTurnId = 2;
+  context.renderHand();
+  assert.equal(context.document.getElementById("handStatsRail").children.length > 0, true, "桌面端手牌区应渲染左侧统计列");
+  assert.equal(context.document.getElementById("handGroups").children.length, 1, "桌面端手牌区应压成单条连续牌轨");
 
   const chips = context.buildTrickSpotMetricChips(
     { id: 3, level: 4, hand: [{ id: "c1" }], capturedPoints: 40, isHuman: false },

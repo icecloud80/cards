@@ -66,8 +66,11 @@ function main() {
   assert.equal(html.includes('id="lastTrickPanel"'), true, "静态模板页应提供可开关的上一局回看面板");
   assert.equal(html.includes('id="toolbarMenuPanel"'), true, "静态模板页应提供设置菜单面板");
   assert.equal(html.includes('id="toggleCardFaceBtn"'), true, "静态模板页应保留切换牌面按钮");
+  assert.equal(html.includes('id="handStatsRail"'), true, "静态模板页应保留左侧手牌统计列容器");
   assert.equal(html.includes("./m_cards"), true, "静态模板页应支持切到第二套 mock 牌面资源");
+  assert.equal(html.includes("./poker.png"), true, "静态模板页默认牌面应支持 poker.png 整图 sprite");
   assert.equal(html.includes("STATIC_CARD_FACES"), true, "静态模板页应定义可切换的牌面列表");
+  assert.equal(html.includes('cardFaceKey: "sprite"'), true, "静态模板页应默认启用 sprite 牌面");
 
   const handTotal = mockPage.handGroups.reduce((sum, group) => sum + group.cards.length, 0);
   assert.equal(handTotal, 31, "静态模板页的手牌区应固定铺满 31 张牌");

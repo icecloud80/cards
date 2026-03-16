@@ -114,7 +114,7 @@ function createElementStub(identifier) {
  * 为指定平台加载真实的牌面渲染上下文。
  *
  * 为什么这样写：
- * 这次要验证的是“PC 新增 sprite 牌面、mobile 保持原样”的平台隔离；
+ * 这次要验证的是“PC 与 mobile 都支持 sprite 牌面”的跨平台配置；
  * 直接用 VM 加载真实脚本，可以确保断言覆盖到生产里真正会执行的配置和 helper。
  *
  * 输入：
@@ -226,11 +226,11 @@ function loadCardFaceContext(platform) {
 
 /**
  * 作用：
- * 执行 PC 整图牌面回归断言。
+ * 执行整图牌面回归断言。
  *
  * 为什么这样写：
- * 这次改动把 `poker.png` 接进了 PC 牌面切换；
- * 如果后续有人误删 sprite 配置、把裁切坐标改乱，或者让 mobile 也吃到 PC sprite，
+ * 这次改动把 `poker.png` 接进了 PC 和 mobile 的牌面切换；
+ * 如果后续有人误删 sprite 配置、把裁切坐标改乱，或者只剩一端还能切整图牌面，
  * 这条回归可以第一时间把问题拦住。
  *
  * 输入：
@@ -240,7 +240,7 @@ function loadCardFaceContext(platform) {
  * @returns {void} 全部断言通过后正常退出。
  *
  * 注意：
- * - 这里优先验证“平台隔离、sprite 存在、关键牌位坐标正确、能回退到 SVG”四类行为。
+ * - 这里优先验证“跨平台可用、关键牌位坐标正确、能切换回 SVG”三类行为。
  * - 不检查最终视觉像素，只检查 DOM 结构和关键样式值。
  */
 function main() {
@@ -286,11 +286,20 @@ function main() {
 
   const mobile = loadCardFaceContext("mobile");
   mobile.setupGame();
-  assert.equal(
-    mobile.CARD_FACE_OPTIONS.some((option) => option.key === "sprite"),
-    false,
-    "mobile 不应误带入 PC 的整图牌面选项"
-  );
+  const mobileSpriteOption = mobile.getCardFaceOption("sprite");
+  assert.equal(mobileSpriteOption.key, "sprite", "mobile 也应提供整图牌面选项");
+  assert.equal(mobileSpriteOption.spriteSheet.src, "./poker.png", "mobile 整图牌面也应使用 poker.png");
+
+  mobile.state.cardFaceKey = "sprite";
+  const mobileSpriteNode = mobile.buildCardNode({ id: "m1", suit: "spades", rank: "10" }, "card-btn");
+  assert.equal(mobileSpriteNode.children[0].className, "card-face-sprite", "mobile 切到整图牌面后也应渲染 sprite 节点");
+  assert.equal(mobileSpriteNode.children[0].style.backgroundImage, 'url("./poker.png")', "mobile sprite 节点应指向 poker.png");
+  assert.equal(mobileSpriteNode.children[0].style.backgroundPosition, "75% 50%", "黑桃 10 应映射到第 3 行第 10 列");
+
+  mobile.state.cardFaceKey = "modern";
+  const mobileModernNode = mobile.buildCardNode({ id: "m2", suit: "spades", rank: "10" }, "card-btn");
+  assert.equal(mobileModernNode.children[0].tagName, "IMG", "mobile 切回普通牌面后应回退到逐张图片");
+  assert.equal(mobileModernNode.children[0].src, "./m_cards/10_of_spades.svg", "mobile 默认牌面应继续使用原有 m_cards 资源");
 }
 
 main();

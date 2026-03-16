@@ -20,6 +20,7 @@ function render() {
     phase: state.phase,
     gameOver: state.gameOver,
     aiDifficulty: state.aiDifficulty,
+    aiPace: state.aiPace,
     bankerId: state.bankerId,
     currentTurnId: state.currentTurnId,
     trickNumber: state.trickNumber,
@@ -67,7 +68,7 @@ function render() {
  * 把身份状态映射成桌面端使用的图标徽标数据。
  *
  * 为什么这样写：
- * 玩家面板、手牌头部和出牌区都会共享同一组 `庄 / 友 / 闲` 图标；
+ * 玩家面板、手牌头部和出牌区都会共享同一组 `打 / 朋 / 闲` 图标；
  * 先统一成纯数据，再分别生成 DOM 或 HTML，可以避免同一套映射被重复写多次。
  *
  * 输入：
@@ -82,8 +83,8 @@ function render() {
  */
 function getCompactRoleBadgeState(role) {
   const badgeMap = {
-    banker: { glyph: "庄", title: TEXT.roles.banker },
-    friend: { glyph: "友", title: TEXT.roles.friend },
+    banker: { glyph: "打", title: TEXT.roles.banker },
+    friend: { glyph: "朋", title: TEXT.roles.friend },
     defender: { glyph: "闲", title: TEXT.roles.defender },
   };
   const entry = badgeMap[role?.kind];
@@ -96,7 +97,7 @@ function getCompactRoleBadgeState(role) {
  *
  * 为什么这样写：
  * 这轮 PC 精修要求左侧玩家面板和中央出牌区都减少文案密度；
- * 统一用一个 helper 产出 `庄 / 友 / 闲` 这类图标徽标，能保证两处视觉语言一致，
+ * 统一用一个 helper 产出 `打 / 朋 / 闲` 这类图标徽标，能保证两处视觉语言一致，
  * 同时让“阵营待揭晓”在需要时直接留空。
  *
  * 输入：
@@ -155,7 +156,7 @@ function getPcSeatStatusText(player) {
     return player.id === state.bankerId ? "整理底牌" : "等待开打";
   }
   if (state.phase === "callingFriend") {
-    return player.id === state.bankerId ? "叫朋友中" : "等待叫友";
+    return player.id === state.bankerId ? "叫朋友中" : "等待叫朋友";
   }
   if (state.phase === "pause") {
     return "本轮结算";
@@ -558,13 +559,13 @@ function renderTopbarTrumpBadge() {
 function getCompactTopbarBankerLabel() {
   if (state.phase === "ready") return "待定";
   if (state.phase === "dealing") {
-    return state.declaration ? `庄 ${getPlayer(state.declaration.playerId).name}` : "待亮主";
+    return state.declaration ? `打 ${getPlayer(state.declaration.playerId).name}` : "待亮主";
   }
   if (state.phase === "bottomReveal") return "翻底定主";
   if (state.phase === "countering") return `玩家${state.currentTurnId}反主`;
   if (state.phase === "burying") return playerIdLabel(state.bankerId, "扣底中");
   if (state.phase === "callingFriend") return playerIdLabel(state.bankerId, "叫朋友");
-  return `庄 ${getPlayer(state.bankerId).name}`;
+  return `打 ${getPlayer(state.bankerId).name}`;
 }
 
 /**
@@ -889,24 +890,20 @@ function getVisibleRole(playerId) {
  * 输入：
  * @param {object} player - 当前玩家对象。
  * @param {{kind: string, label: string}} role - 当前玩家的可见身份信息。
- * @param {boolean} isWinning - 当前玩家是否是本墩实时最大。
+ * @param {boolean} isWinning - 当前玩家是否是本轮实时最大。
  *
  * 输出：
  * @returns {string} 可直接插入到出牌区头部的 HTML 字符串。
  *
  * 注意：
  * - 这里只输出紧凑标签，不负责决定卡片整体布局。
- * - 朋友、打家和“当前最大”都要通过高亮标签体现，避免再依赖侧边玩家面板。
+ * - 朋友和打家身份仍通过头部短签体现；“当前最大”统一交给角标，避免重复出现两个“大”。
  */
 function buildTrickSpotMetricChips(player, role, isWinning) {
   const chips = [];
 
   if (player.id === 1 && !player.isHuman) {
     chips.push('<span class="spot-chip">托管</span>');
-  }
-
-  if (isWinning) {
-    chips.push('<span class="spot-chip highlight">大</span>');
   }
 
   return chips.join("");
@@ -939,7 +936,7 @@ function getPcTrickSpotTitle(player) {
  * 生成桌面端出牌区里用背景色区分的阵营短签。
  *
  * 为什么这样写：
- * 用户希望 PC 出牌区像手游一样，直接用带底色的 `庄 / 朋` 短签表达关键身份，
+ * 用户希望 PC 出牌区像手游一样，直接用带底色的 `打 / 朋` 短签表达关键身份，
  * 而不是再通过一整行解释性副标题说明；统一从 helper 出 HTML，
  * 可以让桌面端只改一处就同步所有出牌区头部。
  *
@@ -950,12 +947,12 @@ function getPcTrickSpotTitle(player) {
  * @returns {string} 可直接插入桌面端出牌区标题行的身份短签 HTML。
  *
  * 注意：
- * - 这里只显示 `庄` 和 `朋` 两种高优先级短签，其他身份保持留空。
+ * - 这里只显示 `打` 和 `朋` 两种高优先级短签，其他身份保持留空。
  * - `unknown` 必须返回空字符串，避免重新出现“阵营待揭晓”。
  */
 function buildPcTrickSpotRoleTag(role) {
   if (role?.kind === "banker") {
-    return '<span class="spot-role-chip banker">庄</span>';
+    return '<span class="spot-role-chip banker">打</span>';
   }
   if (role?.kind === "friend") {
     return '<span class="spot-role-chip friend">朋</span>';
@@ -1025,7 +1022,7 @@ function buildLegacyMobileTrickSpotLabel(player, role) {
   `;
 }
 
-// 渲染当前一墩中各玩家的出牌位置。
+// 渲染当前一轮中各玩家的出牌位置。
 function renderTrickSpots() {
   // 当前墩的实时赢家，用来在桌面出牌区打“大”角标。
   const winningPlay = state.phase === "playing" && typeof getCurrentWinningPlay === "function"
@@ -1035,7 +1032,6 @@ function renderTrickSpots() {
     const spot = document.getElementById(`trickSpot-${player.id}`);
     const play = state.currentTrick.find((entry) => entry.playerId === player.id);
     const role = getVisibleRole(player.id);
-    const avatar = PLAYER_AVATARS[player.id];
     const isWinning = winningPlay?.playerId === player.id;
     const declarationCards = (state.phase === "dealing" || state.phase === "countering") && state.declaration && state.declaration.playerId === player.id
       ? getDeclarationCards(state.declaration)
@@ -1095,7 +1091,6 @@ function renderTrickSpots() {
     spot.innerHTML = `
       <div class="spot-head">
         <div class="spot-player">
-          <div class="spot-avatar"><img src="${avatar.src}" alt="${avatar.label}" /></div>
           <div class="spot-info">
             <div class="spot-name-row">
               <span class="spot-name">${getPcTrickSpotTitle(player)}</span>
@@ -1128,6 +1123,117 @@ function renderTrickSpots() {
   }
 }
 
+/**
+ * 作用：
+ * 计算当前主玩家手牌区应展示的分组结果。
+ *
+ * 为什么这样写：
+ * mobile 仍旧按分组展示手牌，而 PC 改成“左侧统计列 + 单条牌轨”；
+ * 先把同一份分组数据算出来，两个平台就能共享规则判断，而不用复制过滤逻辑。
+ *
+ * 输入：
+ * @param {object} human - 当前主玩家对象。
+ *
+ * 输出：
+ * @returns {Array<{key: string, label: string, red: boolean, cards: object[]}>} 当前手牌区的展示分组。
+ *
+ * 注意：
+ * - 发牌前未定主时，`主牌` 组仍要兼容大小王和级牌兜底。
+ * - 这里只产出数据，不直接关心 DOM 结构。
+ */
+function getDisplayHandGroups(human) {
+  const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
+  const specialLabel = isSetupPhase
+    ? (state.declaration ? TEXT.hand.setupSpecialLabelWithTrump : TEXT.hand.setupSpecialLabelWithoutTrump)
+    : TEXT.hand.specialLabelNormal;
+  const setupLevelRank = getLevelRank(human.level);
+  return [
+    { key: "trump", label: specialLabel, red: true },
+    { key: "clubs", label: SUIT_LABEL.clubs, red: false },
+    { key: "diamonds", label: SUIT_LABEL.diamonds, red: true },
+    { key: "spades", label: SUIT_LABEL.spades, red: false },
+    { key: "hearts", label: SUIT_LABEL.hearts, red: true },
+  ].map((group) => ({
+    ...group,
+    cards: human.hand.filter((card) => {
+      if (group.key === "trump") {
+        if (isSetupPhase && !state.declaration) {
+          return card.suit === "joker" || card.rank === setupLevelRank;
+        }
+        return isTrump(card);
+      }
+      if (isSetupPhase && !state.declaration) {
+        return card.suit === group.key && card.rank !== setupLevelRank;
+      }
+      return !isTrump(card) && card.suit === group.key;
+    }).sort(compareHandCardsForDisplay),
+  }));
+}
+
+/**
+ * 作用：
+ * 把桌面端手牌渲染成“左侧统计列 + 一条连续牌轨”。
+ *
+ * 为什么这样写：
+ * 这轮 PC 调整需要让静态模板和实机都采用同一套阅读路径，
+ * 也就是左侧快速看分组统计，右侧直接在一条连续牌轨上选牌；
+ * 单独封装成 helper 后，mobile 还能继续使用原来的分组 DOM，不会被桌面端结构带乱。
+ *
+ * 输入：
+ * @param {object} human - 当前主玩家对象。
+ * @param {Array<{key: string, label: string, red: boolean, cards: object[]}>} groups - 已经计算好的展示分组。
+ *
+ * 输出：
+ * @returns {void} 直接更新桌面端手牌统计列和连续牌轨。
+ *
+ * 注意：
+ * - 这里只服务于 PC 分支，mobile 不调用。
+ * - 左侧统计列只展示有牌的分组，避免空组浪费空间。
+ */
+function renderPcHandGroups(human, groups) {
+  if (dom.handStatsRail) {
+    dom.handStatsRail.innerHTML = "";
+  }
+  dom.handGroups.innerHTML = "";
+
+  const visibleGroups = groups.filter((group) => group.cards.length > 0);
+  for (const group of visibleGroups) {
+    if (!dom.handStatsRail) break;
+    const chip = document.createElement("div");
+    chip.className = `group-chip${group.red ? " red" : ""}`;
+    chip.innerHTML = `<span>${group.label}</span><span class="group-chip-count">${group.cards.length}</span>`;
+    chip.style.setProperty("flex", `${Math.max(group.cards.length, 1)} 1 0`);
+    dom.handStatsRail.appendChild(chip);
+  }
+
+  const allCards = visibleGroups.flatMap((group) => group.cards);
+  if (allCards.length === 0) {
+    dom.handGroups.innerHTML = `<div class="empty-note">${TEXT.bottom.unavailable}</div>`;
+    return;
+  }
+
+  const row = document.createElement("div");
+  row.className = "cards-row hand-cards-track";
+  row.dataset.cardCount = String(allCards.length);
+  row.style.setProperty("--pc-card-overlap", `${getPcSingleLaneHandOverlap(human.hand.length).toFixed(1)}px`);
+
+  for (const card of allCards) {
+    const button = buildCardNode(card, `card-btn${state.selectedCardIds.includes(card.id) ? " selected" : ""}${isTrump(card) ? " trump" : ""}`);
+    button.type = "button";
+    const canInteract = (state.phase === "playing" && isHumanTurnActive()) || (state.phase === "burying" && state.bankerId === 1);
+    button.disabled = !canInteract;
+    if (canInteract) {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleSelection(card.id);
+      });
+    }
+    row.appendChild(button);
+  }
+
+  dom.handGroups.appendChild(row);
+}
+
 // 渲染手牌。
 function renderHand() {
   const human = getPlayer(1);
@@ -1135,7 +1241,7 @@ function renderHand() {
     if (state.phase === "ready") {
       dom.handSummary.textContent = `${getReadyStartMessage()} 你当前是 Lv:${human.level}。`;
     } else if (state.phase === "dealing") {
-      const humanOptions = getDeclarationOptions(1);
+      const humanOptions = getAvailableSetupOptionsForPlayer(1, "dealing");
       dom.handSummary.textContent = state.awaitingHumanDeclaration
         ? (humanOptions.length > 0
           ? TEXT.hand.dealingAwaitHuman(human.hand.length, Math.max(0, state.countdown), humanOptions.map((entry) => formatDeclaration(entry)))
@@ -1144,9 +1250,9 @@ function renderHand() {
           ? TEXT.hand.dealingCanDeclare(human.hand.length, humanOptions.map((entry) => formatDeclaration(entry)))
           : TEXT.hand.dealingNoDeclare(human.hand.length, getLevelRank(human.level)));
     } else if (state.phase === "countering") {
-      const counterOption = getCounterDeclarationForPlayer(1);
-      dom.handSummary.textContent = counterOption
-        ? TEXT.hand.counteringCan(human.hand.length, formatDeclaration(counterOption))
+      const counterOptions = getAvailableSetupOptionsForPlayer(1, "countering");
+      dom.handSummary.textContent = counterOptions.length > 0
+        ? TEXT.hand.counteringCan(human.hand.length, counterOptions.map((entry) => formatDeclaration(entry)))
         : TEXT.hand.counteringCannot(human.hand.length);
     } else if (state.phase === "bottomReveal") {
       dom.handSummary.textContent = TEXT.hand.bottomReveal(human.hand.length);
@@ -1162,62 +1268,15 @@ function renderHand() {
       dom.handSummary.textContent = TEXT.hand.playing(human.hand.length);
     }
   }
-  const avatar = PLAYER_AVATARS[1];
-  const role = getVisibleRole(1);
-  const roleBadge = getCompactRoleBadgeState(role);
-
-  if (APP_PLATFORM === "pc" && dom.handPlayerAvatar) {
-    dom.handPlayerAvatar.src = avatar.src;
-    dom.handPlayerAvatar.alt = avatar.label;
+  const groups = getDisplayHandGroups(human);
+  if (APP_PLATFORM === "pc") {
+    renderPcHandGroups(human, groups);
+    return;
   }
-  if (APP_PLATFORM === "pc" && dom.handPanelTitle) {
-    dom.handPanelTitle.textContent = "我的手牌";
-  }
-  if (APP_PLATFORM === "pc" && dom.handCountPill) {
-    dom.handCountPill.textContent = `Lv:${human.level} · 手牌 ${human.hand.length}`;
-  }
-  if (APP_PLATFORM === "pc" && dom.handRoleBadge) {
-    if (roleBadge) {
-      dom.handRoleBadge.className = `hand-role-badge ${roleBadge.kind}`;
-      dom.handRoleBadge.textContent = roleBadge.glyph;
-      dom.handRoleBadge.title = roleBadge.title;
-      dom.handRoleBadge.setAttribute("aria-label", roleBadge.title);
-      dom.handRoleBadge.classList.remove("hidden");
-    } else {
-      dom.handRoleBadge.className = "hand-role-badge hidden";
-      dom.handRoleBadge.textContent = "";
-      dom.handRoleBadge.title = "";
-      dom.handRoleBadge.setAttribute("aria-label", "");
-    }
-  }
-
-  const isSetupPhase = state.phase === "dealing" || state.phase === "countering" || state.phase === "burying";
-  const specialLabel = isSetupPhase
-    ? (state.declaration ? TEXT.hand.setupSpecialLabelWithTrump : TEXT.hand.setupSpecialLabelWithoutTrump)
-    : TEXT.hand.specialLabelNormal;
-  const setupLevelRank = getLevelRank(human.level);
-  const groups = [
-    { key: "trump", label: specialLabel, red: true },
-    { key: "clubs", label: SUIT_LABEL.clubs, red: false },
-    { key: "diamonds", label: SUIT_LABEL.diamonds, red: true },
-    { key: "spades", label: SUIT_LABEL.spades, red: false },
-    { key: "hearts", label: SUIT_LABEL.hearts, red: true },
-  ];
 
   dom.handGroups.innerHTML = "";
   for (const group of groups) {
-    const cards = human.hand.filter((card) => {
-      if (group.key === "trump") {
-        if (isSetupPhase && !state.declaration) {
-          return card.suit === "joker" || card.rank === setupLevelRank;
-        }
-        return isTrump(card);
-      }
-      if (isSetupPhase && !state.declaration) {
-        return card.suit === group.key && card.rank !== setupLevelRank;
-      }
-      return !isTrump(card) && card.suit === group.key;
-    }).sort(compareHandCardsForDisplay);
+    const cards = group.cards;
     if (cards.length === 0) continue;
 
     const wrapper = document.createElement("div");
@@ -1231,22 +1290,16 @@ function renderHand() {
     const row = document.createElement("div");
     row.className = "cards-row";
     row.dataset.cardCount = String(cards.length);
-    if (APP_PLATFORM === "mobile") {
-      const extraCards = Math.max(0, cards.length - 13);
-      const overlap = Math.min(16, 8 + extraCards * 0.7);
-      row.style.setProperty("--mobile-card-overlap", overlap.toFixed(1));
-    } else {
-      const overlap = getPcHandOverlap(cards.length, human.hand.length);
-      row.style.setProperty("--pc-card-overlap", `${overlap.toFixed(1)}px`);
-    }
+    const extraCards = Math.max(0, cards.length - 13);
+    const overlap = Math.min(16, 8 + extraCards * 0.7);
+    row.style.setProperty("--mobile-card-overlap", overlap.toFixed(1));
     for (const card of cards) {
       const button = buildCardNode(card, `card-btn${state.selectedCardIds.includes(card.id) ? " selected" : ""}${isTrump(card) ? " trump" : ""}`);
       button.type = "button";
       const canInteract = (state.phase === "playing" && isHumanTurnActive()) || (state.phase === "burying" && state.bankerId === 1);
       button.disabled = !canInteract;
       if (canInteract) {
-        const eventName = APP_PLATFORM === "mobile" ? "pointerup" : "click";
-        button.addEventListener(eventName, (event) => {
+        button.addEventListener("pointerup", (event) => {
           event.preventDefault();
           toggleSelection(card.id);
         });
@@ -1285,6 +1338,30 @@ function getPcHandOverlap(groupCardCount, totalHandCount) {
   return Math.max(14, Math.min(34, overlap));
 }
 
+/**
+ * 作用：
+ * 计算桌面端连续牌轨模式下的手牌重叠量。
+ *
+ * 为什么这样写：
+ * 新版 PC 手里所有牌现在排成一条连续牌轨，不再按花色拆成多行；
+ * 这时重叠量主要受整手牌张数影响，用单独 helper 能避免沿用旧分组算法后把 31 张压得过狠。
+ *
+ * 输入：
+ * @param {number} totalHandCount - 当前整手牌张数。
+ *
+ * 输出：
+ * @returns {number} 应写入连续牌轨 `--pc-card-overlap` 的像素值。
+ *
+ * 注意：
+ * - 返回值越大，牌与牌之间重叠越多。
+ * - 这里优先保证左上角点数可读，所以不能压到过大的遮挡量。
+ */
+function getPcSingleLaneHandOverlap(totalHandCount) {
+  const totalPressure = Math.max(0, totalHandCount - 24);
+  const overlap = 16 + totalPressure * 0.92;
+  return Math.max(16, Math.min(26, overlap));
+}
+
 // 创建单张牌对应的 DOM 节点。
 function buildCardNode(card, className) {
   const node = document.createElement("button");
@@ -1314,15 +1391,16 @@ function updateActionHint() {
     return;
   }
   if (state.phase === "dealing") {
-    const best = getBestDeclarationForPlayer(1);
+    const options = getAvailableSetupOptionsForPlayer(1, "dealing");
+    const optionLabels = options.map((entry) => formatDeclaration(entry));
     if (state.awaitingHumanDeclaration) {
-      dom.actionHint.textContent = best && canOverrideDeclaration(best)
-        ? TEXT.actionHint.dealingAwaitHuman(Math.max(0, state.countdown), formatDeclaration(best))
+      dom.actionHint.textContent = optionLabels.length > 0
+        ? TEXT.actionHint.dealingAwaitHuman(Math.max(0, state.countdown), optionLabels)
         : TEXT.actionHint.dealingAwaitHumanNoOption;
       return;
     }
-    if (best && canOverrideDeclaration(best)) {
-      dom.actionHint.textContent = TEXT.actionHint.dealingCanDeclare(formatDeclaration(best));
+    if (optionLabels.length > 0) {
+      dom.actionHint.textContent = TEXT.actionHint.dealingCanDeclare(optionLabels);
       return;
     }
     dom.actionHint.textContent = TEXT.actionHint.dealing;
@@ -1335,13 +1413,13 @@ function updateActionHint() {
   }
 
   if (state.phase === "countering") {
-    const counterOption = getCounterDeclarationForPlayer(1);
+    const counterOptions = getAvailableSetupOptionsForPlayer(1, "countering");
     if (state.currentTurnId !== 1) {
       dom.actionHint.textContent = TEXT.actionHint.counteringWait(state.currentTurnId);
       return;
     }
-    dom.actionHint.textContent = counterOption
-      ? TEXT.actionHint.counteringCan(formatDeclaration(counterOption))
+    dom.actionHint.textContent = counterOptions.length > 0
+      ? TEXT.actionHint.counteringCan(counterOptions.map((entry) => formatDeclaration(entry)))
       : TEXT.actionHint.counteringCannot;
     return;
   }
@@ -1394,7 +1472,7 @@ function updateActionHint() {
     : validation.reason;
 }
 
-// 渲染上一墩回顾内容。
+// 渲染上一轮回顾内容。
 function renderLastTrick() {
   dom.lastTrickPanel.classList.toggle("hidden", !state.showLastTrick);
   if (!state.lastTrick) {
@@ -1704,15 +1782,62 @@ function renderDebugDecisionPanel(player) {
   }).join("") || `<div class="empty-note">${TEXT.debug.noDecision}</div>`;
 }
 
+/**
+ * 作用：
+ * 把当前亮主 / 反主候选项渲染到中央操作区的可选列表里。
+ *
+ * 为什么这样写：
+ * 玩家现在需要在多个合法亮牌方案之间手动切换，
+ * 不能只看按钮上一条文案；单独做一个渲染 helper，
+ * 可以让 PC 和 mobile 共用同一套候选列表结构与高亮状态。
+ *
+ * 输入：
+ * @param {object[]} options - 当前阶段所有可选候选项。
+ * @param {?object} selectedOption - 当前应高亮的候选项。
+ *
+ * 输出：
+ * @returns {void} 直接更新中央操作区的候选列表 DOM。
+ *
+ * 注意：
+ * - 没有可选项时必须清空并隐藏，避免残留上一阶段内容。
+ * - 列表按钮只负责选择方案，真正执行仍由主按钮触发。
+ */
+function renderSetupOptions(options, selectedOption) {
+  if (!dom.setupOptions) return;
+  if (!Array.isArray(options) || options.length === 0) {
+    dom.setupOptions.hidden = true;
+    dom.setupOptions.innerHTML = "";
+    return;
+  }
+
+  const selectedKey = getSetupOptionKey(selectedOption);
+  const sectionLabel = state.phase === "countering" ? TEXT.setupOptions.counter : TEXT.setupOptions.declare;
+  dom.setupOptions.hidden = false;
+  dom.setupOptions.innerHTML = `
+    <div class="setup-options-label">${sectionLabel}</div>
+    ${options.map((entry) => {
+      const optionKey = getSetupOptionKey(entry);
+      return `
+        <button
+          type="button"
+          class="setup-option-btn${optionKey === selectedKey ? " active" : ""}"
+          data-setup-option-key="${optionKey}"
+          aria-pressed="${optionKey === selectedKey ? "true" : "false"}"
+        >${formatDeclaration(entry)}</button>
+      `;
+    }).join("")}
+  `;
+}
+
 // 渲染中央操作面板内容。
 function renderCenterPanel() {
-  const humanDeclaration = getBestDeclarationForPlayer(1);
-  const humanCounter = getCounterDeclarationForPlayer(1);
   const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
+  const humanSetupOptions = isOpeningPhase ? getAvailableSetupOptionsForPlayer(1, state.phase) : [];
+  const selectedSetupOption = isOpeningPhase ? getSelectedSetupOptionForPlayer(1, state.phase) : null;
   const canDeclareNow = state.phase === "dealing"
-    ? canOverrideDeclaration(humanDeclaration)
+    ? !!selectedSetupOption
     : state.phase === "countering"
-      ? state.currentTurnId === 1 && !!humanCounter
+      ? state.currentTurnId === 1 && !!selectedSetupOption
       : false;
   const selected = state.selectedCardIds
     .map((id) => getPlayer(1).hand.find((card) => card.id === id))
@@ -1776,18 +1901,18 @@ function renderCenterPanel() {
       ? TEXT.buttons.buryPickSeven
       : TEXT.buttons.select;
   if (state.phase === "countering") {
-    dom.declareBtn.textContent = humanCounter
-      ? (humanCounter.suit === "notrump"
-        ? getNoTrumpCounterLabel(humanCounter)
-        : `反${getActionSuitLabel(humanCounter)} ${humanCounter.count}张`)
+    dom.declareBtn.textContent = selectedSetupOption
+      ? (selectedSetupOption.suit === "notrump"
+        ? getNoTrumpCounterLabel(selectedSetupOption)
+        : `反${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`)
       : TEXT.buttons.counter;
   } else if (state.phase === "dealing") {
-    if (humanDeclaration) {
-      dom.declareBtn.textContent = humanDeclaration.suit === "notrump"
-        ? (state.declaration ? `抢亮${getNoTrumpDeclarationLabel(humanDeclaration)}无主` : `亮${getNoTrumpDeclarationLabel(humanDeclaration)}无主`)
+    if (selectedSetupOption) {
+      dom.declareBtn.textContent = selectedSetupOption.suit === "notrump"
+        ? (state.declaration ? `抢亮${getNoTrumpDeclarationLabel(selectedSetupOption)}无主` : `亮${getNoTrumpDeclarationLabel(selectedSetupOption)}无主`)
         : (state.declaration
-          ? `抢亮${getActionSuitLabel(humanDeclaration)} ${humanDeclaration.count}张`
-          : `亮${getActionSuitLabel(humanDeclaration)} ${humanDeclaration.count}张`);
+          ? `抢亮${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`
+          : `亮${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`);
     } else {
       dom.declareBtn.textContent = state.declaration ? TEXT.buttons.redeclare : TEXT.buttons.declare;
     }
@@ -1797,17 +1922,23 @@ function renderCenterPanel() {
   dom.declareBtn.hidden = !isOpeningPhase;
   dom.declareBtn.disabled = state.gameOver || !canDeclareNow;
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
-  const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!humanCounter;
+  const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!selectedSetupOption;
   dom.passCounterBtn.disabled = state.gameOver || !showPassCounterBtn;
   dom.passCounterBtn.hidden = !showPassCounterBtn;
-  if (dom.setupOptions) {
-    dom.setupOptions.hidden = true;
-  }
+  renderSetupOptions(humanSetupOptions, selectedSetupOption);
   if (dom.aiDifficultySelect) {
     dom.aiDifficultySelect.value = AI_DIFFICULTY_OPTIONS.some((option) => option.value === state.aiDifficulty)
       ? state.aiDifficulty
       : DEFAULT_AI_DIFFICULTY;
     dom.aiDifficultySelect.disabled = state.gameOver || state.phase !== "ready";
+  }
+  if (dom.aiPaceSelect) {
+    dom.aiPaceSelect.value = normalizeAiPace(state.aiPace);
+    dom.aiPaceSelect.disabled = false;
+  }
+  if (dom.menuAiPaceSelect) {
+    dom.menuAiPaceSelect.value = normalizeAiPace(state.aiPace);
+    dom.menuAiPaceSelect.disabled = false;
   }
   dom.newProgressBtn.hidden = true;
   dom.newProgressBtn.disabled = true;

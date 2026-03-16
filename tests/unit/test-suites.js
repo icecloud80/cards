@@ -27,6 +27,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-declaration-strategy.js"),
   },
   {
+    name: "Human declaration options regression",
+    file: path.join(__dirname, "check-human-declaration-options.js"),
+  },
+  {
     name: "AI friend strategy regression",
     file: path.join(__dirname, "check-ai-friend-strategy.js"),
   },
@@ -59,6 +63,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-play-announcements.js"),
   },
   {
+    name: "AI pace settings regression",
+    file: path.join(__dirname, "check-ai-pace-settings.js"),
+  },
+  {
     name: "Start lobby regression",
     file: path.join(__dirname, "check-start-lobby.js"),
   },
@@ -88,7 +96,7 @@ const UNIT_TEST_SUITES = [
     skip: shouldSkipHeadlessFullGameSuite(),
   },
   {
-    name: "Result subinfo regression",
+    name: "Result settlement summary regression",
     file: path.join(__dirname, "check-result-subinfo.js"),
   },
   {

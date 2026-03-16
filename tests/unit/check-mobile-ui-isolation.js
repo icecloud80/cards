@@ -74,7 +74,11 @@ function createElementStub(identifier) {
   return {
     id: identifier,
     dataset: {},
-    style: {},
+    style: {
+      setProperty(name, value) {
+        this[name] = value;
+      },
+    },
     children: [],
     textContent: "",
     innerHTML: "",

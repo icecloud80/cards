@@ -1086,9 +1086,38 @@
 
       .setup-options {
         display: flex;
-        align-items: center;
-        gap: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
         margin-top: 14px;
+      }
+
+      .setup-options-label {
+        flex: 0 0 100%;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      button.setup-option-btn {
+        min-height: 34px;
+        padding: 7px 12px;
+        border: 1px solid rgba(120, 74, 24, 0.18);
+        border-radius: 999px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.7),
+          0 6px 14px rgba(0, 0, 0, 0.08);
+        cursor: pointer;
+      }
+
+      button.setup-option-btn.active {
+        color: #fff;
+        border-color: rgba(214, 94, 87, 0.36);
+        background: linear-gradient(180deg, #f26d67, #ba3934);
       }
 
       .setup-field {
@@ -1468,40 +1497,55 @@
         color: #15191d;
       }
 
-      .result-card p {
-        margin: 10px 0 0;
+      .result-card .result-body {
+        margin: 14px 0 0;
         color: var(--muted);
         line-height: 1.6;
       }
 
       .result-subinfo {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 12px;
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(125, 83, 32, 0.08);
       }
 
-      .result-chip {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 28px;
-        padding: 0 12px;
-        border-radius: 999px;
-        background: rgba(120, 74, 24, 0.1);
-        color: #7d5320;
-        font-size: 12px;
+      .result-subinfo:empty {
+        display: none;
+      }
+
+      .result-level-title {
+        font-size: 13px;
         font-weight: 800;
-        line-height: 1;
+        letter-spacing: 0.08em;
+        color: #7d5320;
       }
 
-      .result-card.win .result-chip {
-        background: rgba(181, 48, 45, 0.1);
+      .result-level-list {
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+
+      .result-level-list li {
+        color: #3a3f44;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .result-level-tag {
+        font-weight: 800;
+        color: #7d5320;
+      }
+
+      .result-card.win .result-level-tag {
         color: #a72a27;
       }
 
-      .result-card.loss .result-chip {
-        background: rgba(21, 25, 29, 0.08);
+      .result-card.loss .result-level-tag {
         color: #30373d;
       }
 
@@ -2060,6 +2104,16 @@
       .result-card h2 {
         font-size: 40px;
         letter-spacing: 2px;
+      }
+
+      .result-subinfo {
+        margin-top: 14px;
+        padding: 12px 14px;
+      }
+
+      .result-level-list li {
+        font-size: 13px;
+        line-height: 1.5;
       }
 
       #friendHint,
@@ -2639,6 +2693,18 @@
         font-weight: 700;
         color: var(--text);
         background: rgba(255, 255, 255, 0.92);
+      }
+
+      body.mobile-index2 .mobile-menu-field {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 2px;
+      }
+
+      body.mobile-index2 .mobile-menu-field span {
+        font-size: 12px;
+        font-weight: 800;
+        color: rgba(22, 33, 41, 0.72);
       }
 
       body.mobile-index2 .mobile-primary-btn,
@@ -3491,6 +3557,15 @@
                 <option value="advanced">高级</option>
               </select>
             </label>
+            <label class="mobile-setup-field" for="mobileAiPaceSelect">
+              <span>对局节奏</span>
+              <select id="mobileAiPaceSelect" class="mobile-setup-select">
+                <option value="slow">慢</option>
+                <option value="medium">中</option>
+                <option value="fast">快</option>
+                <option value="instant">瞬</option>
+              </select>
+            </label>
             <div class="mobile-setup-actions">
               <button id="mobileStartBtn" class="mobile-primary-btn" type="button">开始游戏</button>
               <button id="mobileSetupContinueBtn" class="mobile-secondary-btn" type="button">继续游戏</button>
@@ -3526,6 +3601,15 @@
               <button id="mobileCloseMenuBtn" class="mobile-icon-btn" type="button" aria-label="关闭设定菜单">×</button>
             </div>
             <div class="mobile-menu-actions">
+              <label class="mobile-menu-field" for="mobileMenuAiPaceSelect">
+                <span>对局节奏</span>
+                <select id="mobileMenuAiPaceSelect" class="mobile-setup-select">
+                  <option value="slow">慢</option>
+                  <option value="medium">中</option>
+                  <option value="fast">快</option>
+                  <option value="instant">瞬</option>
+                </select>
+              </label>
               <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">重开此局</button>
               <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
               <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌面</button>
@@ -3598,7 +3682,7 @@
               <span class="subtle">秒</span>
             </div>
             <div class="score-stack">
-              <div class="label">非打家总分</div>
+              <div class="label">闲家总分</div>
               <div id="defenderScore" class="score-big">0</div>
             </div>
           </div>
@@ -3674,10 +3758,17 @@
             <button id="declareBtn" class="action-btn">亮主</button>
             <button id="passCounterBtn" class="action-btn">不反主</button>
           </div>
+          <div id="setupOptions" class="setup-options" hidden></div>
           <select id="aiDifficultySelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
             <option value="beginner">初级</option>
             <option value="intermediate">中级</option>
             <option value="advanced">高级</option>
+          </select>
+          <select id="aiPaceSelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
+            <option value="slow">慢</option>
+            <option value="medium">中</option>
+            <option value="fast">快</option>
+            <option value="instant">瞬</option>
           </select>
         </section>
 
@@ -3733,7 +3824,7 @@
             <li>首家只能出同一门的合法牌型，不能混合不同花色；多种合法组件混在同一门一起打时，按甩牌处理。</li>
             <li>末手不会额外放宽出牌规则；只有当你剩下的整手牌本身就是合法单型或合法甩牌时，才能一次性整手打出。</li>
             <li>打无主时，王和本局级牌都算主；若最后被无主里的级牌扣底，照样按主牌扣底降级。</li>
-            <li>若非打家用主牌完成扣底，打家会按牌型降级；从 2 往下会依次退到 -A、-2，最低为 -2，且负级不能跳级，必须一档一档打回。</li>
+            <li>若闲家用主牌完成扣底，打家会按牌型降级；从 2 往下会依次退到 -A、-2，最低为 -2，且负级不能跳级，必须一档一档打回。</li>
             <li>若打家当前级别是 J、Q、K、A 且本局朋友已揭晓，被扣底降级时朋友还会连带再降 1 级。</li>
             <li>5、10、J、Q、K、A 都是必打级，升多级时也不能直接跳过，必须逐级打到。</li>
           </ul>
@@ -3760,8 +3851,8 @@
         <div id="resultOverlay" class="result-overlay">
           <div id="resultCard" class="result-card">
             <h2 id="resultTitle"></h2>
+            <p id="resultBody" class="result-body"></p>
             <div id="resultSubinfo" class="result-subinfo"></div>
-            <p id="resultBody"></p>
             <div class="result-bottom">
               <div class="label">底牌亮出</div>
               <div id="resultBottomCards" class="bottom-cards"></div>
@@ -3857,6 +3948,8 @@
           setupContinueBtn: document.getElementById("mobileSetupContinueBtn"),
           setupRulesBtn: document.getElementById("mobileSetupRulesBtn"),
           difficultySelect: document.getElementById("mobileAiDifficultySelect"),
+          paceSelect: document.getElementById("mobileAiPaceSelect"),
+          menuPaceSelect: document.getElementById("mobileMenuAiPaceSelect"),
           menuCardFaceBtn: document.getElementById("mobileMenuCardFaceBtn"),
           menuLayoutBtn: document.getElementById("mobileMenuLayoutBtn"),
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
@@ -3869,6 +3962,7 @@
           startGameBtn: document.getElementById("startGameBtn"),
           continueGameBtn: document.getElementById("continueGameBtn"),
           aiDifficultySelect: document.getElementById("aiDifficultySelect"),
+          aiPaceSelect: document.getElementById("aiPaceSelect"),
           toggleLastTrickBtn: document.getElementById("toggleLastTrickBtn"),
           toggleLogBtn: document.getElementById("toggleLogBtn"),
           toggleBottomBtn: document.getElementById("toggleBottomBtn"),
@@ -4351,6 +4445,14 @@
             mobileDom.difficultySelect.value = originalDom.aiDifficultySelect?.value || snapshot.aiDifficulty || "beginner";
             mobileDom.difficultySelect.disabled = !!originalDom.aiDifficultySelect?.disabled;
           }
+          if (mobileDom.paceSelect) {
+            mobileDom.paceSelect.value = originalDom.aiPaceSelect?.value || snapshot.aiPace || "slow";
+            mobileDom.paceSelect.disabled = !!originalDom.aiPaceSelect?.disabled;
+          }
+          if (mobileDom.menuPaceSelect) {
+            mobileDom.menuPaceSelect.value = originalDom.aiPaceSelect?.value || snapshot.aiPace || "slow";
+            mobileDom.menuPaceSelect.disabled = !!originalDom.aiPaceSelect?.disabled;
+          }
           syncTopbarStats(snapshot);
           syncTrumpStatus(snapshot);
           syncFriendCard(snapshot);
@@ -4373,6 +4475,16 @@
           if (!originalDom.aiDifficultySelect) return;
           originalDom.aiDifficultySelect.value = mobileDom.difficultySelect.value;
           originalDom.aiDifficultySelect.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        mobileDom.paceSelect?.addEventListener("change", () => {
+          if (!originalDom.aiPaceSelect) return;
+          originalDom.aiPaceSelect.value = mobileDom.paceSelect.value;
+          originalDom.aiPaceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        mobileDom.menuPaceSelect?.addEventListener("change", () => {
+          if (!originalDom.aiPaceSelect) return;
+          originalDom.aiPaceSelect.value = mobileDom.menuPaceSelect.value;
+          originalDom.aiPaceSelect.dispatchEvent(new Event("change", { bubbles: true }));
         });
         document.addEventListener("keydown", (event) => {
           if (!mobileDom.infoSheet.classList.contains("show")) return;

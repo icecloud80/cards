@@ -94,56 +94,72 @@ function runSuite(context) {
       }
     }
 
-    const cases = [
+    const headlineCases = [
       {
-        name: "banker big win shows big win and level up",
+        name: "banker win shows level-up headline",
         outcome: { winner: "banker", bankerLevels: 3, defenderLevels: 0 },
         humanWon: true,
         humanLevelBefore: "2",
         humanLevelAfter: "5",
-        bottomResult: null,
-        expected: ["获胜", "大光", "升3级"],
+        expected: "升3级",
       },
       {
-        name: "banker small win shows small win and level up",
-        outcome: { winner: "banker", bankerLevels: 2, defenderLevels: 0 },
+        name: "defender win without level-up shows banker down",
+        outcome: { winner: "defender", bankerLevels: 0, defenderLevels: 0 },
         humanWon: true,
-        humanLevelBefore: "2",
-        humanLevelAfter: "4",
-        bottomResult: null,
-        expected: ["获胜", "小光", "升2级"],
+        humanLevelBefore: "6",
+        humanLevelAfter: "6",
+        expected: "打家下台",
       },
       {
-        name: "defender level-up win shows level gain",
-        outcome: { winner: "defender", bankerLevels: 0, defenderLevels: 1 },
-        humanWon: true,
-        humanLevelBefore: "9",
-        humanLevelAfter: "10",
-        bottomResult: null,
-        expected: ["获胜", "升1级"],
+        name: "banker loss without self level drop shows banker level-up summary",
+        outcome: { winner: "banker", bankerLevels: 1, defenderLevels: 0 },
+        humanWon: false,
+        humanLevelBefore: "6",
+        humanLevelAfter: "6",
+        expected: "打家升1级",
       },
       {
-        name: "bottom-penalty loss shows penalty and level drop",
+        name: "bottom-penalty loss shows level drop headline",
         outcome: { winner: "defender", bankerLevels: 0, defenderLevels: 0 },
         humanWon: false,
         humanLevelBefore: "6",
         humanLevelAfter: "5",
-        bottomResult: { penalty: { levels: 1, label: "单张主牌扣底" } },
-        expected: ["失败", "扣底", "降1级"],
+        expected: "降1级",
       },
     ];
 
-    const results = cases.map((testCase) => {
-      const actual = getResultSummaryTags(
+    const results = headlineCases.map((testCase) => {
+      const actual = getResultHeadlineDetail(
         testCase.outcome,
         testCase.humanWon,
         testCase.humanLevelBefore,
-        testCase.humanLevelAfter,
-        testCase.bottomResult
+        testCase.humanLevelAfter
       );
-      assertDeepEqual(actual, testCase.expected, testCase.name);
+      assert(actual === testCase.expected, testCase.name + "\\nexpected: " + testCase.expected + "\\nactual:   " + actual);
       return { name: testCase.name, actual };
     });
+
+    state.players = [
+      { id: 1, name: "玩家1" },
+      { id: 2, name: "玩家2" },
+      { id: 3, name: "玩家3" },
+    ];
+    state.bankerId = 1;
+    state.hiddenFriendId = 2;
+    state.friendTarget = { failed: false };
+
+    const settlementListHtml = buildResultLevelListHtml(
+      { winner: "banker", bankerLevels: 1, defenderLevels: 0 },
+      { 1: "2", 2: "10", 3: "3" },
+      { 1: "3", 2: "10", 3: "2" }
+    );
+    assert(settlementListHtml.includes("级别结算"), "result list should include a section title");
+    assert(settlementListHtml.includes("玩家1 - 打家 - Lv2 -> Lv3"), "result list should include banker level transition");
+    assert(settlementListHtml.includes("玩家2 - 朋友 - Lv10 -> Lv10"), "result list should include friend level transition");
+    assert(settlementListHtml.includes("玩家3 - 闲家 - Lv3 -> Lv2"), "result list should include defender level transition");
+    assert(settlementListHtml.includes("【升级】"), "result list should mark upgrade-style outcomes");
+    assert(settlementListHtml.includes("【降级】"), "result list should mark level drops");
 
     const underThresholdBottomPenaltyOutcome = getOutcome(110, {
       bottomPenalty: { levels: 2, label: "两张主级牌扣底" },
@@ -167,7 +183,7 @@ function runSuite(context) {
 const context = loadGameContext();
 const output = runSuite(context);
 
-console.log("Result subinfo regression passed:");
+console.log("Result settlement summary regression passed:");
 for (const result of output.results) {
-  console.log(`- ${result.name}: ${result.actual.join(" / ")}`);
+  console.log(`- ${result.name}: ${result.actual}`);
 }

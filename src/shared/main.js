@@ -51,6 +51,37 @@ function setAiDifficulty(value) {
   }
 }
 
+/**
+ * 作用：
+ * 设置当前 AI 节奏档位并同步可见设置入口。
+ *
+ * 为什么这样写：
+ * 节奏配置现在同时出现在 PC 开始界面、PC 更多菜单、手游开始页和手游设置页；
+ * 统一从一个入口改共享状态，才能保证多端镜像控件始终显示同一个档位。
+ *
+ * 输入：
+ * @param {string} value - 目标节奏档位键值。
+ *
+ * 输出：
+ * @returns {void} 只更新共享状态并触发重渲染，不返回额外数据。
+ *
+ * 注意：
+ * - 这里只改变后续等待节奏，不改 AI 决策逻辑本身。
+ * - 非法值会自动回落到默认慢档。
+ */
+function setAiPace(value) {
+  state.aiPace = normalizeAiPace(value);
+  if (dom.aiPaceSelect && dom.aiPaceSelect.value !== state.aiPace) {
+    dom.aiPaceSelect.value = state.aiPace;
+  }
+  if (dom.menuAiPaceSelect && dom.menuAiPaceSelect.value !== state.aiPace) {
+    dom.menuAiPaceSelect.value = state.aiPace;
+  }
+  if (typeof render === "function") {
+    render();
+  }
+}
+
 // 应用托管状态。
 function applyAutoManagedState(enabled) {
   if (typeof getPlayer !== "function") return;
@@ -178,6 +209,14 @@ dom.aiDifficultySelect?.addEventListener("change", () => {
   setAiDifficulty(dom.aiDifficultySelect.value);
 });
 
+dom.aiPaceSelect?.addEventListener("change", () => {
+  setAiPace(dom.aiPaceSelect.value);
+});
+
+dom.menuAiPaceSelect?.addEventListener("change", () => {
+  setAiPace(dom.menuAiPaceSelect.value);
+});
+
 dom.hintBtn.addEventListener("click", () => {
   if (state.selectedCardIds.length > 0) {
     state.selectedCardIds = [];
@@ -203,12 +242,21 @@ dom.hintBtn.addEventListener("click", () => {
   updateActionHint();
 });
 
+dom.setupOptions?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-setup-option-key]");
+  if (!button || state.gameOver || (state.phase !== "dealing" && state.phase !== "countering")) return;
+  const selected = selectSetupOptionForPlayer(1, button.dataset.setupOptionKey, state.phase);
+  if (!selected) return;
+  renderCenterPanel();
+  updateActionHint();
+});
+
 dom.declareBtn.addEventListener("click", () => {
   if (state.gameOver) return;
   if (state.phase === "dealing") {
-    const best = getBestDeclarationForPlayer(1);
-    if (!best || !canOverrideDeclaration(best)) return;
-    if (!declareTrump(1, best, "manual")) return;
+    const selectedOption = getSelectedSetupOptionForPlayer(1, "dealing");
+    if (!selectedOption || !canOverrideDeclaration(selectedOption)) return;
+    if (!declareTrump(1, selectedOption, "manual")) return;
     if (state.dealIndex >= state.dealCards.length) {
       clearTimers();
       finishDealingPhase();
@@ -217,9 +265,9 @@ dom.declareBtn.addEventListener("click", () => {
   }
   if (state.phase === "countering") {
     if (state.currentTurnId !== 1) return;
-    const counter = getCounterDeclarationForPlayer(1);
-    if (!counter) return;
-    counterDeclare(1, counter);
+    const selectedOption = getSelectedSetupOptionForPlayer(1, "countering");
+    if (!selectedOption) return;
+    counterDeclare(1, selectedOption);
   }
 });
 

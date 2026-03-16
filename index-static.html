@@ -12,9 +12,8 @@
         --felt-deep: #143543;
         --gold: #d8ad63;
         --edge-gap: 24px;
-        --hand-width: 1062px;
-        --hand-height: 166px;
-        --action-width: 236px;
+        --hand-width: 1176px;
+        --hand-height: 180px;
       }
 
       * {
@@ -207,10 +206,10 @@
         color: #b33a34;
       }
 
-      .topbar-friend-card img {
+      .topbar-friend-card > * {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        display: block;
       }
 
       .topbar-tools {
@@ -355,14 +354,14 @@
 
       .battle-range {
         position: absolute;
-        left: 176px;
+        left: 198px;
         top: 168px;
-        width: 1266px;
+        width: 1244px;
         height: 460px;
         border-radius: 32px;
-        background: rgba(10, 24, 31, 0.16);
-        border: 1px solid rgba(239, 224, 181, 0.16);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        background: linear-gradient(180deg, rgba(12, 28, 36, 0.2), rgba(9, 24, 31, 0.14));
+        border: 1px solid rgba(239, 224, 181, 0.14);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 26px rgba(0, 0, 0, 0.08);
       }
 
       .battle-range-core {
@@ -370,15 +369,15 @@
         inset: 20px;
         border-radius: 28px;
         background:
-          radial-gradient(circle at 50% 40%, rgba(101, 153, 178, 0.26), transparent 54%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(7, 18, 24, 0.12));
+          radial-gradient(circle at 50% 40%, rgba(101, 153, 178, 0.24), transparent 52%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(7, 18, 24, 0.12));
       }
 
       .battle-range-route {
         position: absolute;
-        left: 226px;
+        left: 244px;
         top: 38px;
-        width: 720px;
+        width: 694px;
         height: 370px;
         border: 1px dashed rgba(244, 232, 198, 0.12);
         background: rgba(255, 255, 255, 0.018);
@@ -419,15 +418,15 @@
       .trick-spot.right { right: 210px; top: 364px; }
       .trick-spot.bottom {
         left: 530px;
-        bottom: 226px;
-        width: 386px;
+        bottom: 240px;
+        width: 462px;
         min-height: 158px;
       }
 
       .spot-head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         gap: 10px;
       }
 
@@ -435,20 +434,6 @@
         display: flex;
         align-items: center;
         gap: 10px;
-      }
-
-      .spot-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 12px;
-        overflow: hidden;
-        background: rgba(255, 255, 255, 0.75);
-      }
-
-      .spot-avatar img {
-        width: 100%;
-        height: 100%;
-        display: block;
       }
 
       .spot-name-row {
@@ -503,15 +488,16 @@
 
       .spot-row {
         display: flex;
+        justify-content: center;
         align-items: end;
         min-height: 84px;
         margin-top: 20px;
       }
 
       .played-card {
-        width: 58px;
-        height: 84px;
-        margin-left: -16px;
+        width: 52px;
+        height: 76px;
+        margin-left: -12px;
       }
 
       .played-card:first-child {
@@ -524,6 +510,12 @@
         display: block;
         object-fit: cover;
         box-shadow: 0 10px 18px rgba(0, 0, 0, 0.14);
+      }
+
+      .played-card > * {
+        width: 100%;
+        height: 100%;
+        display: block;
       }
 
       .log-panel {
@@ -640,43 +632,88 @@
 
       .hand-panel {
         position: absolute;
-        left: 68px;
+        left: 50%;
         bottom: 24px;
         width: var(--hand-width);
         height: var(--hand-height);
-        padding: 12px 14px 10px;
+        padding: 12px 16px 12px;
         border: 1px solid rgba(232, 219, 183, 0.2);
         border-radius: 22px;
+        background: linear-gradient(180deg, rgba(11, 27, 35, 0.08), rgba(8, 21, 28, 0.05));
+        transform: translateX(-50%);
+      }
+
+      .hand-shell {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 0;
+        height: 100%;
+      }
+
+      .hand-main-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+        min-height: 0;
+      }
+
+      .hand-lane {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        min-width: 0;
+        padding: 12px 16px 10px 14px;
+        border: 1px solid rgba(232, 219, 183, 0.24);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(9, 24, 31, 0.16), rgba(7, 19, 25, 0.1));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      }
+
+      .hand-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        min-height: 46px;
+        padding: 0 6px 8px 0;
+      }
+
+      .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        width: 270px;
       }
 
       .hand-groups {
-        display: flex;
-        align-items: end;
-        gap: 0;
-        height: 100%;
+        display: block;
+        min-height: 0;
         overflow: hidden;
       }
 
-      .hand-group {
-        flex: 0 0 auto;
+      .hand-stats-rail {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 10px 0 12px;
       }
 
       .group-chip {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
-        margin-bottom: 10px;
-        padding: 4px 9px;
+        min-width: 0;
+        padding: 0 0 0 2px;
         border-radius: 999px;
-        background: rgba(16, 44, 54, 0.16);
-        color: rgba(220, 231, 235, 0.82);
+        background: transparent;
+        color: rgba(246, 249, 251, 0.94);
         font-size: 11px;
         font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
       }
 
       .group-chip.red {
-        background: rgba(207, 74, 68, 0.14);
-        color: #d36b65;
+        color: rgba(246, 249, 251, 0.94);
       }
 
       .group-chip-count {
@@ -686,15 +723,20 @@
         place-items: center;
         padding: 0 5px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.78);
-        color: #6d7b82;
+        background: rgba(255, 255, 255, 0.18);
+        color: rgba(255, 255, 255, 0.96);
         font-size: 10px;
       }
 
       .cards-row {
         display: flex;
         align-items: end;
-        padding: 8px 4px 6px 0;
+        min-height: 118px;
+        padding: 20px 6px 14px 16px;
+      }
+
+      .hand-cards-track {
+        width: 100%;
       }
 
       .card {
@@ -715,39 +757,36 @@
         box-shadow: 0 10px 18px rgba(0, 0, 0, 0.14);
       }
 
-      .center-panel {
-        position: absolute;
-        right: 28px;
-        bottom: 14px;
-        width: var(--action-width);
-        height: var(--hand-height);
-        display: flex;
-        align-items: flex-end;
+      .card > * {
+        width: 100%;
+        height: 100%;
+        display: block;
       }
 
-      .actions-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        width: 100%;
+      .card-face-sprite {
+        border-radius: 8px;
+        background-image: url("./poker.png");
+        background-repeat: no-repeat;
+        background-size: 1300% 500%;
+        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.14);
       }
 
       .action-btn {
-        min-height: 58px;
-        border: 1px solid rgba(104, 145, 176, 0.26);
-        border-radius: 16px;
-        background: linear-gradient(180deg, rgba(238, 246, 251, 0.96), rgba(171, 197, 216, 0.96));
-        color: #14384c;
-        font-size: 15px;
+        min-height: 54px;
+        border: 1px solid rgba(117, 160, 196, 0.24);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(241, 248, 252, 0.98), rgba(194, 215, 232, 0.96));
+        color: #173a4f;
+        font-size: 16px;
         font-weight: 800;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 14px 22px rgba(18, 55, 82, 0.2);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84), 0 10px 18px rgba(18, 55, 82, 0.18);
       }
 
       .action-btn.primary {
-        background: linear-gradient(180deg, #8ec4f0, #4f8dcb);
+        background: linear-gradient(180deg, #8ebde7, #4a7fb5);
         color: #f7fbff;
         border-color: rgba(135, 192, 239, 0.34);
-        box-shadow: inset 0 1px 0 rgba(224, 241, 255, 0.74), 0 16px 26px rgba(29, 83, 129, 0.28);
+        box-shadow: inset 0 1px 0 rgba(224, 241, 255, 0.74), 0 14px 22px rgba(29, 83, 129, 0.26);
       }
 
       .last-trick-panel {
@@ -846,11 +885,17 @@
       <div class="version-badge" id="versionBadge"></div>
 
       <section class="hand-panel">
-        <div class="hand-groups" id="handGroups"></div>
-      </section>
-
-      <section class="center-panel">
-        <div class="actions-grid" id="actionsGrid"></div>
+        <div class="hand-shell">
+          <div class="hand-main-layout">
+            <div class="hand-lane">
+              <div class="hand-toolbar">
+                <div class="actions-grid" id="actionsGrid"></div>
+              </div>
+              <div class="hand-groups" id="handGroups"></div>
+              <div class="hand-stats-rail" id="handStatsRail"></div>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -876,7 +921,7 @@
       const MOCK_PAGE = {
         topbarSummary: [
           { label: "计时", main: "13", suffix: "秒", tone: "timer" },
-          { label: "总分", main: "——", suffix: "", tone: "score" },
+          { label: "总分", main: "125", suffix: "", tone: "score" },
         ],
         topbarStatus: [
           {
@@ -888,7 +933,7 @@
           {
             key: "主",
             title: "红桃 2",
-            subline: "庄 玩家3",
+            subline: "打 玩家3",
             badge: { type: "trump", value: "♥" },
           },
           {
@@ -1050,7 +1095,7 @@
         ...MOCK_PAGE,
         topbarSummary: [
           { label: "计时", main: "9", suffix: "秒", tone: "timer" },
-          { label: "总分", main: "40", suffix: "", tone: "score" },
+          { label: "总分", main: "125", suffix: "", tone: "score" },
         ],
         topbarStatus: [
           {
@@ -1062,7 +1107,7 @@
           {
             key: "主",
             title: "黑桃 3",
-            subline: "庄 玩家2",
+            subline: "打 玩家2",
             badge: { type: "trump", value: "♠" },
           },
           {
@@ -1113,7 +1158,7 @@
        */
       const STATIC_STATE = {
         pageKey: "default",
-        cardFaceKey: "default",
+        cardFaceKey: "sprite",
         showLogPanel: true,
         showLastTrick: false,
         showToolbarMenu: false,
@@ -1139,8 +1184,18 @@
        * - `key` 要保持稳定，便于按钮状态和测试断言复用。
        */
       const STATIC_CARD_FACES = [
-        { key: "default", label: "默认牌面", dir: "./cards" },
-        { key: "mock", label: "Mock牌面", dir: "./m_cards" },
+        {
+          key: "sprite",
+          label: "整图牌面",
+          dir: "./cards",
+          spriteSheet: {
+            src: "./poker.png",
+            columns: 13,
+            rows: 5,
+          },
+        },
+        { key: "modern", label: "新牌面", dir: "./m_cards" },
+        { key: "classic", label: "经典", dir: "./cards" },
       ];
 
       /**
@@ -1162,8 +1217,129 @@
        * - 数值不要压得过狠，避免静态模板失去“可读性基准”的意义。
        */
       function getStaticHandOverlap(cardCount) {
-        const pressure = Math.max(0, cardCount - 6);
-        return Math.max(14, Math.min(28, 14 + pressure * 1.9));
+        const pressure = Math.max(0, cardCount - 24);
+        return Math.max(16, Math.min(26, 16 + pressure * 0.95));
+      }
+
+      /**
+       * 作用：
+       * 把静态模板里使用的牌面资源路径解析成统一的业务牌对象。
+       *
+       * 为什么这样写：
+       * 这页现在默认走 `poker.png` sprite，而 mock 数据里仍然保存的是单张资源路径；
+       * 先把路径还原成 `花色 + 点数`，后面的 sprite 裁切和目录切换才能共用同一套渲染入口。
+       *
+       * 输入：
+       * @param {string} src - mock 数据里的单张牌资源路径。
+       *
+       * 输出：
+       * @returns {{suit: string, rank: string}|null} 当前牌对应的业务对象；无法识别时返回 `null`。
+       *
+       * 注意：
+       * - 这里只处理模板里会出现的正面牌资源，不处理头像和图标。
+       * - 大小王使用 `joker + RJ/BJ` 表示，保持和运行态 sprite 规则一致。
+       */
+      function parseStaticCardSource(src) {
+        if (typeof src !== "string") return null;
+        if (src.includes("red_joker")) return { suit: "joker", rank: "RJ" };
+        if (src.includes("black_joker")) return { suit: "joker", rank: "BJ" };
+
+        const match = src.match(/\/([^/]+)_of_([^/.]+)\.svg$/);
+        if (!match) return null;
+
+        const rankMap = {
+          ace: "A",
+          jack: "J",
+          queen: "Q",
+          king: "K",
+        };
+
+        return {
+          suit: match[2],
+          rank: rankMap[match[1]] || match[1],
+        };
+      }
+
+      /**
+       * 作用：
+       * 计算静态模板页里某张牌在 sprite 整图中的背景定位。
+       *
+       * 为什么这样写：
+       * 桌面端默认牌面已经切到 `poker.png`，静态模板也要按同一套格子顺序裁牌；
+       * 在本地重新实现最小映射后，模板页就能独立工作，不依赖运行态脚本加载顺序。
+       *
+       * 输入：
+       * @param {{suit: string, rank: string}|null} card - 已解析出的业务牌对象。
+       * @param {{columns: number, rows: number}} spriteSheet - 当前整图牌面配置。
+       *
+       * 输出：
+       * @returns {{xPercent: number, yPercent: number}|null} 当前牌的背景定位百分比；不支持时返回 `null`。
+       *
+       * 注意：
+       * - 普通牌按 `A,2,3...10,J,Q,K` 的列顺序排列。
+       * - 大小王固定在最后一行的前两列。
+       */
+      function getStaticSpritePosition(card, spriteSheet) {
+        if (!card || !spriteSheet?.columns || !spriteSheet?.rows) return null;
+
+        const rankOrder = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+        const suitRow = {
+          hearts: 0,
+          diamonds: 1,
+          spades: 2,
+          clubs: 3,
+        };
+        const jokerColumn = {
+          RJ: 0,
+          BJ: 1,
+        };
+
+        let column = -1;
+        let row = -1;
+        if (card.suit === "joker") {
+          column = jokerColumn[card.rank] ?? -1;
+          row = spriteSheet.rows - 1;
+        } else {
+          column = rankOrder.indexOf(card.rank);
+          row = suitRow[card.suit] ?? -1;
+        }
+
+        if (column < 0 || row < 0) return null;
+
+        return {
+          xPercent: spriteSheet.columns === 1 ? 0 : (column / (spriteSheet.columns - 1)) * 100,
+          yPercent: spriteSheet.rows === 1 ? 0 : (row / (spriteSheet.rows - 1)) * 100,
+        };
+      }
+
+      /**
+       * 作用：
+       * 渲染静态模板页里的单张牌面内容。
+       *
+       * 为什么这样写：
+       * 顶部朋友牌、中央出牌区、上一轮回看和底部 31 张手牌都要共用同一套牌面切换；
+       * 把“用图片还是用 sprite”统一封装后，所有区域都能自动跟随当前牌面主题切换。
+       *
+       * 输入：
+       * @param {string} src - mock 数据里的牌资源路径。
+       *
+       * 输出：
+       * @returns {string} 可直接插入页面的单张牌面 HTML。
+       *
+       * 注意：
+       * - 当 sprite 映射失败时必须回退到单张图片，避免页面出现空白牌。
+       * - 返回内容只负责牌面本身，不包含外层尺寸容器。
+       */
+      function renderStaticCardFace(src) {
+        const face = STATIC_CARD_FACES.find((item) => item.key === STATIC_STATE.cardFaceKey) || STATIC_CARD_FACES[0];
+        if (face.spriteSheet) {
+          const card = parseStaticCardSource(src);
+          const position = getStaticSpritePosition(card, face.spriteSheet);
+          if (position) {
+            return `<span class="card-face-sprite" style="background-image:url('${face.spriteSheet.src}');background-position:${position.xPercent}% ${position.yPercent}%;"></span>`;
+          }
+        }
+        return `<img src="${resolveCardFaceSrc(src)}" alt="" />`;
       }
 
       /**
@@ -1186,7 +1362,7 @@
        * - 卡牌顺序必须和 mock data 保持一致，方便对照截图调视觉。
        */
       function renderCardStack(cards, className) {
-        return cards.map((src) => `<div class="${className}"><img src="${resolveCardFaceSrc(src)}" alt="" /></div>`).join("");
+        return cards.map((src) => `<div class="${className}">${renderStaticCardFace(src)}</div>`).join("");
       }
 
       /**
@@ -1269,7 +1445,7 @@
               ? `<div class="topbar-trump-badge">${item.badge.value}</div>`
               : ""}
             ${item.badge?.type === "card"
-              ? `<div class="topbar-friend-card"><img src="${item.badge.src}" alt="" /></div>`
+              ? `<div class="topbar-friend-card">${renderStaticCardFace(item.badge.src)}</div>`
               : ""}
             <div class="topbar-copy">
               <strong>${item.title}</strong>
@@ -1298,7 +1474,7 @@
                 <div class="seat-level">${seat.level}</div>
               </div>
             </div>
-            ${seat.role ? `<span class="seat-role-dot ${seat.role}">${seat.role === "banker" ? "庄" : "朋"}</span>` : ""}
+            ${seat.role ? `<span class="seat-role-dot ${seat.role}">${seat.role === "banker" ? "打" : "朋"}</span>` : ""}
           </div>
         `).join("");
 
@@ -1308,10 +1484,9 @@
           <section class="trick-spot ${spot.position}">
             <div class="spot-head">
               <div class="spot-player">
-                <div class="spot-avatar"><img src="${spot.avatar}" alt="${spot.name}" /></div>
                 <div class="spot-name-row">
                   <span class="spot-name">${spot.name}</span>
-                  ${spot.role ? `<span class="spot-role-chip ${spot.role}">${spot.role === "banker" ? "庄" : "朋"}</span>` : ""}
+                  ${spot.role ? `<span class="spot-role-chip ${spot.role}">${spot.role === "banker" ? "打" : "朋"}</span>` : ""}
                 </div>
               </div>
             </div>
@@ -1339,17 +1514,18 @@
         document.getElementById("toggleLastTrickMenuBtn").classList.toggle("active", STATIC_STATE.showLastTrick);
         document.getElementById("toggleCardFaceBtn").textContent = `牌面：${page.cardFaceLabel || getActiveCardFaceLabel()}`;
 
-        document.getElementById("handGroups").innerHTML = page.handGroups.map((group) => `
-          <div class="hand-group">
-            <div class="group-chip${group.red ? " red" : ""}">
-              <span>${group.label}</span>
-              <span class="group-chip-count">${group.cards.length}</span>
-            </div>
-            <div class="cards-row" style="--static-card-overlap:${getStaticHandOverlap(group.cards.length)}px;">
-              ${renderCardStack(group.cards, "card")}
-            </div>
+        const allHandCards = page.handGroups.flatMap((group) => group.cards);
+        document.getElementById("handStatsRail").innerHTML = page.handGroups.map((group) => `
+          <div class="group-chip${group.red ? " red" : ""}" style="flex:${Math.max(group.cards.length, 1)} 1 0;">
+            <span>${group.label}</span>
+            <span class="group-chip-count">${group.cards.length}</span>
           </div>
         `).join("");
+        document.getElementById("handGroups").innerHTML = `
+          <div class="cards-row hand-cards-track" style="--static-card-overlap:${getStaticHandOverlap(allHandCards.length)}px;">
+            ${renderCardStack(allHandCards, "card")}
+          </div>
+        `;
 
         document.getElementById("actionsGrid").innerHTML = page.actions.map((action) => `
           <button class="action-btn${action.primary ? " primary" : ""}" type="button">${action.label}</button>
@@ -1456,12 +1632,14 @@
           renderCurrentStaticPage();
         });
         document.getElementById("toggleCardFaceBtn")?.addEventListener("click", () => {
-          STATIC_STATE.cardFaceKey = STATIC_STATE.cardFaceKey === "default" ? "mock" : "default";
+          const currentIndex = STATIC_CARD_FACES.findIndex((item) => item.key === STATIC_STATE.cardFaceKey);
+          const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % STATIC_CARD_FACES.length : 0;
+          STATIC_STATE.cardFaceKey = STATIC_CARD_FACES[nextIndex].key;
           renderCurrentStaticPage();
         });
         document.getElementById("resetMockBtn")?.addEventListener("click", () => {
           STATIC_STATE.pageKey = "default";
-          STATIC_STATE.cardFaceKey = "default";
+          STATIC_STATE.cardFaceKey = "sprite";
           STATIC_STATE.showLogPanel = true;
           STATIC_STATE.showLastTrick = false;
           STATIC_STATE.showToolbarMenu = false;

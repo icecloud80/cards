@@ -117,7 +117,7 @@ function wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay = getCurren
   return compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) > 0;
 }
 
-// 判断庄家在不亮朋友时是否大概率守住这一墩。
+// 判断打家在不亮朋友时是否大概率守住这一轮。
 function isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay) {
   if (!currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return false;
   return getPendingPlayersAfter(playerId).length === 0;
@@ -559,7 +559,7 @@ function getComboPointValue(combo) {
   return combo.reduce((sum, card) => sum + scoreValue(card), 0);
 }
 
-// 计算当前这一墩的总分值。
+// 计算当前这一轮的总分值。
 function getCurrentTrickPointValue() {
   return state.currentTrick.reduce((sum, play) => sum + getComboPointValue(play.cards), 0);
 }

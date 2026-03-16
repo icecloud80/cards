@@ -12,6 +12,7 @@
 - `中级`：已经从“纯启发式”进入“启发式 + 短前瞻搜索”的第一阶段，属于当前最关键、也最接近收益兑现的位置。
 - `高级`：目前仍然是“完整记牌版的中级”，还没有进入路线图里定义的 belief / 多世界模拟阶段。
 - 之前暴露出来的“甩牌透视”红线已经修正：AI 决策层不再直接读取对手暗手判断甩牌成败，而是改成基于公开信息和记牌能力做风险评估。
+- 对局节奏现已和 AI 难度拆开：`慢 / 中 / 快 / 瞬` 只控制 AI 行动等待与过渡速度，不改变三档 AI 的决策强度和信息利用边界。
 
 换句话说，当前项目最准确的判断不是“高级不够强”，而是“中级搜索框架已经起骨架，但还没完全收口；高级暂时还不该往 hidden belief 硬冲”。
 
@@ -46,7 +47,7 @@
 - 已经有统一决策入口 `chooseIntermediatePlay`，首发和跟牌都走统一框架，见 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L811)。
 - 已经拆出了候选层 `generateCandidatePlays`，见 [src/shared/ai-candidates.js](src/shared/ai-candidates.js#L77)。
 - 已经有轻量模拟态复制 `cloneSimulationState`，并且明确避免污染 live state，见 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L38)。
-- 已经支持“模拟到本墩结束”和“模拟到自己下一次行动前”，见 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L244) 与 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L278)。
+- 已经支持“模拟到本轮结束”和“模拟到自己下一次行动前”，见 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L244) 与 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L278)。
 - 已经有统一局面评估 `evaluateState`，并且有 `structure / control / points / friend / bottom / voidPressure / tempo / friendRisk / bottomRisk` 等评分项，见 [src/shared/ai-evaluate.js](src/shared/ai-evaluate.js#L191)。
 - 已经有目标层 `getIntermediateObjective`，把 `find_friend / run_points / protect_bottom / keep_control / pressure_void` 变成统一权重，而不是全靠即时 if，见 [src/shared/ai-objectives.js](src/shared/ai-objectives.js)。
 - 已经把 rollout 深度、future delta、触发原因和 debug bundle 打出来，见 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L631) 和 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L827)。
@@ -126,7 +127,7 @@
 
 原因：
 
-- 当前中级已经能看到“本墩结束”和“下次自己行动前”，里程碑 1 的残局 `牌权续控` 触发已经补齐。
+- 当前中级已经能看到“本轮结束”和“下次自己行动前”，里程碑 1 的残局 `牌权续控` 触发已经补齐。
 - 现在更直接影响实战体感的，不再是“看不看得到两步”，而是“看到了之后会不会把失先手代价、朋友已揭晓后的策略切换和危险带分领牌惩罚算进去”。
 
 建议的具体目标：
@@ -137,7 +138,7 @@
 建议重点：
 
 - 明确补 `turnAccess / 回手能力 / 牌权续控`。
-- 补“危险带分领牌”惩罚，尤其是高分牌或高分主对试探性争墩但一旦失手会同时送分和失先手的场景。
+- 补“危险带分领牌”惩罚，尤其是高分牌或高分主对试探性争轮但一旦失手会同时送分和失先手的场景。
 - 补“朋友已揭晓后的策略切换”，把目标从找朋友推进切到队友协同、清主、牌权续控和保底安全。
 - 把更多“先判断再直接 return”的 legacy 规则改成评分修正项。
 - 继续把甩牌风险从候选层标签推进成 `evaluateState` 可解释 breakdown 的正式组成部分。

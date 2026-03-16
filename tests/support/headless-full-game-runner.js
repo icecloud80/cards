@@ -1074,7 +1074,7 @@ function buildAnalysisMarkdown(summary) {
     `- 失败局数：${summary.totals.failedGames}`,
     `- 完局率：${summary.totals.completionRate}%`,
     `- 平均推进步数：${summary.totals.averageSteps}`,
-    `- 平均墩数：${summary.totals.averageTricks}`,
+    `- 平均轮数：${summary.totals.averageTricks}`,
     `- 平均日志条数：${summary.totals.averageLogs}`,
     `- 平均告警数：${summary.totals.averageWarnings}`,
     `- 平均 AI 决策耗时：${summary.totals.averageDecisionTimeMs} ms`,
@@ -1107,7 +1107,7 @@ function buildAnalysisMarkdown(summary) {
     lines.push("");
     lines.push(`- 完成局数：${detail.completedGames}/${detail.requestedGames}`);
     lines.push(`- 平均推进步数：${detail.averageSteps}`);
-    lines.push(`- 平均墩数：${detail.averageTricks}`);
+    lines.push(`- 平均轮数：${detail.averageTricks}`);
     lines.push(`- 平均告警数：${detail.averageWarnings}`);
     lines.push(`- 平均 AI 决策耗时：${detail.averageDecisionTimeMs} ms`);
     lines.push(`- 打家方胜局：${detail.winnerBreakdown.banker}`);

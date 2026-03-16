@@ -175,6 +175,101 @@ function getCurrentCardFaceOption() {
 
 /**
  * 作用：
+ * 规范化当前节奏档位取值。
+ *
+ * 为什么这样写：
+ * 节奏档位会被 PC、手游和测试共用；统一在共享层做兜底，
+ * 可以避免某一端传入非法值后把整套计时配置打坏。
+ *
+ * 输入：
+ * @param {string} value - UI 或外部逻辑传入的节奏档位键值。
+ *
+ * 输出：
+ * @returns {string} 合法的节奏档位键值；非法输入统一回落到默认档。
+ *
+ * 注意：
+ * - 这里只校验 `slow / medium / fast / instant` 四档。
+ * - 默认档必须和“当前体验不变”的慢档保持一致。
+ */
+function normalizeAiPace(value) {
+  return AI_PACE_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_PACE;
+}
+
+/**
+ * 作用：
+ * 读取某个节奏档位对应的完整延迟配置。
+ *
+ * 为什么这样写：
+ * 牌局里有发牌、叫朋友、AI 出牌、结算停顿等多种等待；
+ * 用统一 profile 管理，后续再调“慢 / 中 / 快 / 瞬”时只改一处即可。
+ *
+ * 输入：
+ * @param {string} value - 目标节奏档位；不传时读取当前全局状态。
+ *
+ * 输出：
+ * @returns {object} 当前档位对应的延迟 profile。
+ *
+ * 注意：
+ * - `slow` 必须严格保持现有体验，避免用户切回慢档后手感漂移。
+ * - `instant` 也不能返回 0，仍需保留极短但可感知的过渡时间。
+ */
+function getAiPaceProfile(value = state?.aiPace) {
+  return AI_PACE_PROFILES[normalizeAiPace(value)];
+}
+
+/**
+ * 作用：
+ * 把当前节奏档位转换成界面或日志可读的中文标签。
+ *
+ * 为什么这样写：
+ * 开始界面、设置菜单和对局日志都需要展示相同的节奏名称；
+ * 统一走同一个 helper，能避免多端文案出现“慢速 / 慢档 / 慢”等不一致。
+ *
+ * 输入：
+ * @param {string} value - 目标节奏档位；不传时读取当前全局状态。
+ *
+ * 输出：
+ * @returns {string} 当前档位对应的中文短标签。
+ *
+ * 注意：
+ * - 未知值必须回退到 `慢`，和默认档保持一致。
+ * - 这里只返回纯标签，不拼接“节奏”前后缀。
+ */
+function getAiPaceLabel(value = state?.aiPace) {
+  return AI_PACE_OPTIONS.find((option) => option.value === normalizeAiPace(value))?.label || "慢";
+}
+
+/**
+ * 作用：
+ * 按当前节奏档位抽取某个等待项的实际毫秒数。
+ *
+ * 为什么这样写：
+ * 一部分等待项是固定时长，一部分需要在区间内随机，
+ * 集中在这里做数值展开后，业务层只管声明“要哪种等待”，不再到处手写随机公式。
+ *
+ * 输入：
+ * @param {string} key - 当前要读取的延迟配置键名。
+ * @param {string} pace - 目标节奏档位；不传时读取当前全局状态。
+ *
+ * 输出：
+ * @returns {number} 实际可直接传给定时器的毫秒数。
+ *
+ * 注意：
+ * - 当配置是 `{min,max}` 时会返回闭区间内的随机值。
+ * - 所有返回值都至少为 `1`，避免误产生 0ms 定时器。
+ */
+function getAiPaceDelay(key, pace = state?.aiPace) {
+  const profile = getAiPaceProfile(pace);
+  const timing = profile?.[key];
+  if (typeof timing === "number") return Math.max(1, timing);
+  if (!timing || typeof timing.min !== "number" || typeof timing.max !== "number") return 1;
+  const min = Math.max(1, Math.min(timing.min, timing.max));
+  const max = Math.max(min, timing.max);
+  return Math.max(1, Math.round(min + Math.random() * (max - min)));
+}
+
+/**
+ * 作用：
  * 读取当前牌面配置里声明的整图牌面信息。
  *
  * 为什么这样写：
@@ -272,6 +367,7 @@ const dom = {
   actionHint: document.getElementById("actionHint"),
   setupOptions: document.getElementById("setupOptions"),
   aiDifficultySelect: document.getElementById("aiDifficultySelect"),
+  aiPaceSelect: document.getElementById("aiPaceSelect"),
   centerTag: document.getElementById("centerTag"),
   focusAnnouncement: document.getElementById("focusAnnouncement"),
   centerPanel: document.getElementById("centerPanel"),
@@ -292,6 +388,7 @@ const dom = {
   handCountPill: document.getElementById("handCountPill"),
   handSelectedPill: document.getElementById("handSelectedPill"),
   handSelectionNote: document.getElementById("handSelectionNote"),
+  handStatsRail: document.getElementById("handStatsRail"),
   handGroups: document.getElementById("handGroups"),
   actionSelectionBadge: document.getElementById("actionSelectionBadge"),
   lastTrickPanel: document.getElementById("lastTrickPanel"),
@@ -306,6 +403,7 @@ const dom = {
   toggleCardFaceBtn: document.getElementById("toggleCardFaceBtn"),
   toolbarMenuPanel: document.getElementById("toolbarMenuPanel"),
   menuRulesBtn: document.getElementById("menuRulesBtn"),
+  menuAiPaceSelect: document.getElementById("menuAiPaceSelect"),
   menuNewRoundBtn: document.getElementById("menuNewRoundBtn"),
   layoutEditBtn: document.getElementById("layoutEditBtn"),
   resetLayoutBtn: document.getElementById("resetLayoutBtn"),
@@ -402,6 +500,7 @@ const state = {
   resultCountdownTimer: null,
   layoutEditMode: false,
   declaration: null,
+  selectedSetupOptionKey: null,
   counterPasses: 0,
   phase: "ready",
   showLastTrick: false,
@@ -411,6 +510,7 @@ const state = {
   showBottomPanel: true,
   showRulesPanel: false,
   aiDifficulty: DEFAULT_AI_DIFFICULTY,
+  aiPace: DEFAULT_AI_PACE,
   cardFaceKey: loadSavedCardFaceKey(),
   logs: [],
   allLogs: [],

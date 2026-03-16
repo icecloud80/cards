@@ -305,6 +305,7 @@
 
       .seat-name {
         color: rgba(249, 243, 232, 0.96);
+        font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
         font-size: 14px;
         font-weight: 800;
       }
@@ -674,7 +675,7 @@
         display: grid;
         grid-template-rows: auto minmax(0, 1fr) auto;
         min-width: 0;
-        padding: 10px 16px 8px 14px;
+        padding: 8px 16px 0 14px;
         border: 0;
         border-radius: 0;
         background: transparent;
@@ -685,15 +686,15 @@
         display: flex;
         justify-content: flex-end;
         align-items: center;
-        min-height: 34px;
-        padding: 0 0 6px 0;
+        min-height: 28px;
+        padding: 0 4px 2px 0;
       }
 
       .actions-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        width: 214px;
+        gap: 6px;
+        width: 188px;
       }
 
       .hand-groups {
@@ -703,13 +704,16 @@
       }
 
       .hand-stats-rail {
-        display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        padding: 4px 10px 0 12px;
+        position: relative;
+        min-height: 18px;
+        margin-top: -10px;
+        padding: 0;
       }
 
       .group-chip {
+        position: absolute;
+        left: 0;
+        bottom: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -719,10 +723,11 @@
         border-radius: 999px;
         background: transparent;
         color: rgba(246, 249, 251, 0.94);
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 700;
         line-height: 1;
         white-space: nowrap;
+        pointer-events: none;
       }
 
       .group-chip.red {
@@ -745,7 +750,7 @@
         display: flex;
         align-items: end;
         min-height: 126px;
-        padding: 26px 6px 18px 16px;
+        padding: 20px 6px 16px 16px;
       }
 
       .hand-cards-track {
@@ -1011,10 +1016,10 @@
           "玩家4 出牌：♣4、♣4、♣6。",
           "玩家3 出牌：♣J、♣J、♣J。",
           "进入出牌阶段，玩家3 先出牌。",
-          "已叫朋友：第二张梅花 A。",
+          "已找朋友：第二张梅花 A。",
         ],
         versionLabel: "原型版 v2.0",
-        cardFaceLabel: "默认牌面",
+        cardFaceLabel: "整图牌面",
         lastTrick: {
           title: "第 0 轮 · 玩家4 获胜",
           plays: [
@@ -1380,6 +1385,46 @@
 
       /**
        * 作用：
+       * 生成静态模板页底部花色统计的精确定位标记。
+       *
+       * 为什么这样写：
+       * 视觉稿要求 `主牌 / 梅花 / 方块...` 直接贴在对应牌段左下角，
+       * 不能再按整行宽度平均分配；把定位逻辑收成 helper 后，
+       * 静态模板就能和运行态共用同一种“按首牌起点对齐”的阅读方式。
+       *
+       * 输入：
+       * @param {Array<{label: string, red?: boolean, cards: string[]}>} groups - 当前静态页的手牌分组。
+       * @param {number} totalCardCount - 当前连续牌轨里的总牌数。
+       *
+       * 输出：
+       * @returns {string} 可直接插入统计轨道的 HTML 字符串。
+       *
+       * 注意：
+       * - 左偏移必须和 `.cards-row` 的左内边距保持一致，否则统计会和牌段错位。
+       * - 这里只负责静态模板页，不要把运行态 DOM 依赖带进来。
+       */
+      function buildStaticHandStatsMarkup(groups, totalCardCount) {
+        const visibleGroups = groups.filter((group) => Array.isArray(group.cards) && group.cards.length > 0);
+        const cardWidth = 58;
+        const trackInset = 16;
+        const overlap = getStaticHandOverlap(totalCardCount);
+        const step = cardWidth - overlap;
+        let startIndex = 0;
+
+        return visibleGroups.map((group) => {
+          const left = trackInset + startIndex * step;
+          startIndex += group.cards.length;
+          return `
+            <div class="group-chip${group.red ? " red" : ""}" style="left:${left}px;">
+              <span>${group.label}</span>
+              <span class="group-chip-count">${group.cards.length}</span>
+            </div>
+          `;
+        }).join("");
+      }
+
+      /**
+       * 作用：
        * 根据当前选中的静态牌面目录，转换一张牌的资源路径。
        *
        * 为什么这样写：
@@ -1531,12 +1576,7 @@
         document.getElementById("toggleCardFaceBtn").textContent = `牌面：${page.cardFaceLabel || getActiveCardFaceLabel()}`;
 
         const allHandCards = page.handGroups.flatMap((group) => group.cards);
-        document.getElementById("handStatsRail").innerHTML = page.handGroups.map((group) => `
-          <div class="group-chip${group.red ? " red" : ""}" style="flex:${Math.max(group.cards.length, 1)} 1 0;">
-            <span>${group.label}</span>
-            <span class="group-chip-count">${group.cards.length}</span>
-          </div>
-        `).join("");
+        document.getElementById("handStatsRail").innerHTML = buildStaticHandStatsMarkup(page.handGroups, allHandCards.length);
         document.getElementById("handGroups").innerHTML = `
           <div class="cards-row hand-cards-track" style="--static-card-overlap:${getStaticHandOverlap(allHandCards.length)}px;">
             ${renderCardStack(allHandCards, "card")}

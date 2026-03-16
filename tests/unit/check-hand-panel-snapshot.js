@@ -226,7 +226,7 @@ function loadUiContext() {
  *
  * 为什么这样写：
  * 这轮 PC 精修把左侧玩家面板和出牌区都改成了更轻的短信息结构；
- * 如果后续有人又把“阵营待揭晓”写回界面、把“闲”改回旧写法，
+ * 如果后续有人又把“阵营待明确”写回界面、把“闲”改回旧写法，
  * 或把出牌区的手牌/分数信息加回去，
  * 这条回归能第一时间提示信息密度回退。
  *
@@ -243,7 +243,8 @@ function loadUiContext() {
 function main() {
   const context = loadUiContext();
   context.setupGame();
-  const unknownBadge = context.buildCompactRoleBadgeMarkup({ kind: "unknown", label: "阵营待揭晓" }, "seat-role-icon");
+  assert.equal(context.state.cardFaceKey, "sprite", "桌面端默认牌面应直接启用整图 sprite 主题");
+  const unknownBadge = context.buildCompactRoleBadgeMarkup({ kind: "unknown", label: "阵营待明确" }, "seat-role-icon");
   assert.equal(unknownBadge, "", "未知阵营在紧凑界面里应直接留空");
 
   const bankerBadge = context.buildCompactRoleBadgeMarkup({ kind: "banker", label: "打家" }, "seat-role-icon");
@@ -298,10 +299,11 @@ function main() {
   context.renderHand();
   assert.equal(context.document.getElementById("handStatsRail").children.length > 0, true, "桌面端手牌区应渲染左侧统计列");
   assert.equal(context.document.getElementById("handGroups").children.length, 1, "桌面端手牌区应压成单条连续牌轨");
+  assert.equal(typeof context.document.getElementById("handStatsRail").children[0]?.style.left, "string", "桌面端手牌统计应按对应牌段的首张牌位置精确定位");
 
   const chips = context.buildTrickSpotMetricChips(
     { id: 3, level: 4, hand: [{ id: "c1" }], capturedPoints: 40, isHuman: false },
-    { kind: "unknown", label: "阵营待揭晓" },
+    { kind: "unknown", label: "阵营待明确" },
     false
   );
   assert.equal(chips.includes("Lv:4"), false, "出牌区不应再显示等级信息");

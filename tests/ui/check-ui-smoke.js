@@ -39,7 +39,7 @@ function resolveStaticFilePath(requestPath) {
   const normalizedPath = requestPath === "/" ? "/index.html" : requestPath;
   const decodedPath = decodeURIComponent(normalizedPath);
   const absolutePath = path.resolve(PROJECT_ROOT, `.${decodedPath}`);
-  if (!absolutePath.startsWith(PROJECT_ROOT)) {
+  if (absolutePath !== PROJECT_ROOT && !absolutePath.startsWith(`${PROJECT_ROOT}${path.sep}`)) {
     throw new Error(`非法静态资源路径：${requestPath}`);
   }
   return absolutePath;

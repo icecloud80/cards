@@ -2314,8 +2314,8 @@
           clamp(80px, 10.6vh, 96px)
           clamp(80px, 10.6vh, 96px)
           clamp(86px, 11.1vh, 102px)
-          clamp(222px, 33.5vh, 276px)
-          clamp(48px, 5.9vh, 58px);
+          clamp(186px, 28.8vh, 228px)
+          clamp(42px, 5.2vh, 50px);
         gap: 6px;
         overflow: hidden;
         align-content: stretch;
@@ -3130,8 +3130,8 @@
         grid-column: 1 / -1;
         grid-row: 5;
         display: block !important;
-        padding: 8px 8px 6px;
-        border-radius: 14px;
+        padding: 6px 6px 4px;
+        border-radius: 12px;
         overflow: hidden;
       }
 
@@ -3143,7 +3143,7 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: 3px;
+        gap: 2px;
         height: 100%;
         overflow: hidden;
       }
@@ -3152,12 +3152,12 @@
         display: flex;
         align-items: flex-end;
         justify-content: flex-start;
-        gap: 8px;
+        gap: 6px;
         flex: 1 1 0;
         width: 100%;
-        min-height: 50px;
+        min-height: 44px;
         overflow: visible;
-        padding-left: 4px;
+        padding-left: 2px;
       }
 
       body.mobile-index2 .hand-group {
@@ -3166,7 +3166,7 @@
         flex-direction: row;
         align-items: center;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
         flex: 0 1 auto;
         justify-content: flex-start;
         max-width: 100%;
@@ -3178,9 +3178,9 @@
         justify-content: center;
         margin-bottom: 0;
         padding: 0;
-        min-width: 24px;
+        min-width: 22px;
         border-radius: 999px;
-        font-size: 10px;
+        font-size: 9px;
         line-height: 1;
         flex: 0 0 auto;
       }
@@ -3189,7 +3189,7 @@
         display: flex;
         align-items: flex-end;
         justify-content: flex-start;
-        padding: 0 0 2px 4px;
+        padding: 0 0 1px 2px;
         overflow: visible;
         min-width: 0;
         flex: 0 1 auto;
@@ -3199,8 +3199,8 @@
       body.mobile-index2 .friend-card,
       body.mobile-index2 .bottom-reveal-cards .played-card,
       body.mobile-index2 .last-trick .played-card {
-        width: 36px;
-        height: 52px;
+        width: 32px;
+        height: 46px;
         flex: 0 0 auto;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
@@ -3229,7 +3229,7 @@
       }
 
       body.mobile-index2 .cards-row .card-btn {
-        margin-left: calc(-1px * var(--mobile-card-overlap, 8));
+        margin-left: calc(-1px * var(--mobile-card-overlap, 7));
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -3246,8 +3246,8 @@
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 7px 7px calc(7px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 20px), 6px));
-        border-radius: 14px;
+        padding: 5px 6px calc(5px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 24px), 4px));
+        border-radius: 12px;
         z-index: 6;
         margin: 0 auto;
         align-self: end;
@@ -3258,14 +3258,43 @@
       }
 
       body.mobile-index2 .action-row {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 6px;
+        margin-top: 0;
+        gap: 4px;
       }
 
       body.mobile-index2 button.action-btn {
-        min-height: 30px;
-        padding: 5px 4px;
+        min-height: 28px;
+        padding: 4px 4px;
+        font-size: 10px;
+      }
+
+      body.mobile-index2 .setup-options {
+        margin-top: 6px;
+        gap: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 2px;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      body.mobile-index2 .setup-options::-webkit-scrollbar {
+        display: none;
+      }
+
+      body.mobile-index2 .setup-options-label {
+        flex: 0 0 auto;
+        align-self: center;
+        padding-left: 2px;
         font-size: 11px;
+        white-space: nowrap;
+      }
+
+      body.mobile-index2 button.setup-option-btn {
+        min-height: 30px;
+        padding: 5px 10px;
+        font-size: 11px;
+        white-space: nowrap;
       }
 
       body.mobile-index2 .mobile-sheet {
@@ -3936,7 +3965,7 @@
         </section>
 
         <section id="friendPickerPanel" class="panel friend-picker hidden">
-          <div class="label">叫朋友</div>
+          <div class="label">找朋友</div>
           <div id="friendPickerHint" class="subtle"></div>
           <div class="friend-picker-actions">
             <div class="label">第几张</div>
@@ -3953,7 +3982,7 @@
           <div id="friendPickerPreview" class="friend-picker-preview"></div>
           <div class="action-row" style="margin-top: 14px;">
             <button id="autoFriendBtn" class="action-btn">自动选择</button>
-            <button id="confirmFriendBtn" class="action-btn primary">确认叫朋友</button>
+            <button id="confirmFriendBtn" class="action-btn primary">确认找朋友</button>
           </div>
         </section>
 
@@ -3980,15 +4009,15 @@
             <li>新牌局先等待玩家点击“开始发牌”，之后才进入发牌阶段。</li>
             <li>每位玩家按自己的 Lv 亮主或反主，不能自己反自己。</li>
             <li>如果发牌结束后始终无人亮主，则由先抓牌的玩家翻底定主并直接做打家；公示时只展示实际已经翻开的底牌。</li>
-            <li>打家扣底完成后，需要先叫朋友，再进入正式出牌。</li>
+            <li>打家扣底完成后，需要先找朋友，再进入正式出牌。</li>
             <li>打家重新扣下的 7 张底牌，分牌总和不能超过 25 分；超过时不能确认扣牌。</li>
-            <li>叫朋友时可选第一张、第二张或第三张目标牌；若打家误出前置张数，则本局可能变成 1 打 4。</li>
+            <li>找朋友时可选第一张、第二张或第三张目标牌；若打家误出前置张数，则本局可能变成 1 打 4。</li>
             <li>跟牌没有同类型时，只要满足同门和张数要求即可正常出牌。</li>
             <li>首家只能出同一门的合法牌型，不能混合不同花色；多种合法组件混在同一门一起打时，按甩牌处理。</li>
             <li>末手不会额外放宽出牌规则；只有当你剩下的整手牌本身就是合法单型或合法甩牌时，才能一次性整手打出。</li>
             <li>打无主时，王和本局级牌都算主；若最后被无主里的级牌扣底，照样按主牌扣底降级。</li>
             <li>若闲家用主牌完成扣底，打家会按牌型降级；从 2 往下会依次退到 -A、-2，最低为 -2，且负级不能跳级，必须一档一档打回。</li>
-            <li>若打家当前级别是 J、Q、K、A 且本局朋友已揭晓，被扣底降级时朋友还会连带再降 1 级。</li>
+            <li>若打家当前级别是 J、Q、K、A 且本局朋友已站队，被扣底降级时朋友还会连带再降 1 级。</li>
             <li>5、10、J、Q、K、A 都是必打级，升多级时也不能直接跳过，必须逐级打到。</li>
           </ul>
         </section>

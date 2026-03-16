@@ -91,7 +91,7 @@ function getSimulationVoidPressureScore(simState, playerId) {
  * 评估当前局面对“已知队友协同”是否友好。
  *
  * 为什么这样写：
- * 朋友已揭晓后，中级 AI 不能只是把 `find_friend` 权重降下来，
+ * 朋友已站队后，中级 AI 不能只是把 `find_friend` 权重降下来，
  * 还需要显式看懂“当前牌权是否落在已知队友手里”“是否值得继续让同侧维持节奏”。
  *
  * 输入：
@@ -102,7 +102,7 @@ function getSimulationVoidPressureScore(simState, playerId) {
  * @returns {number} 返回队友协同分；正值表示当前局面更利于已知队友协同。
  *
  * 注意：
- * - 只有在朋友已揭晓后才生效，未揭晓阶段返回 0。
+ * - 只有在朋友已站队后才生效，未站队阶段返回 0。
  * - 该项强调“已知同侧谁在控牌”，不读取任何对手暗手。
  */
 function getSimulationAllySupportScore(simState, playerId) {

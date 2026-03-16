@@ -71,11 +71,13 @@ function main() {
   assert.equal(html.includes("./poker.png"), true, "静态模板页默认牌面应支持 poker.png 整图 sprite");
   assert.equal(html.includes("STATIC_CARD_FACES"), true, "静态模板页应定义可切换的牌面列表");
   assert.equal(html.includes('cardFaceKey: "sprite"'), true, "静态模板页应默认启用 sprite 牌面");
+  assert.equal(html.includes("buildStaticHandStatsMarkup"), true, "静态模板页应提供按首牌起点定位花色统计的 helper");
   assert.equal(html.includes("spot-role-chip managed"), true, "静态模板页应支持把托管胶囊并到出牌区身份短签旁边");
   assert.equal(mockPage.topbarStatus[0].key, "本局", "静态模板页顶部应改用“本局”标签");
   assert.equal(mockPage.topbarStatus[1].key, "主牌", "静态模板页顶部应改用“主牌”标签");
   assert.equal(mockPage.topbarStatus[2].key, "朋友", "静态模板页顶部应改用“朋友”标签");
   assert.equal(mockPage.topbarStatus[2].subline.includes("/"), true, "静态模板页朋友状态应使用 1/2 这类紧凑位置写法");
+  assert.equal(mockPage.cardFaceLabel, "整图牌面", "静态模板页应把整图 sprite 作为默认牌面标签");
 
   const handTotal = mockPage.handGroups.reduce((sum, group) => sum + group.cards.length, 0);
   assert.equal(handTotal, 31, "静态模板页的手牌区应固定铺满 31 张牌");

@@ -104,7 +104,7 @@ function runTests(context) {
     };
     const viceTargetReveal = maybeRevealFriend(2, [makeCard("clubs", "2", "exact-vice-level")]);
     if (viceTargetReveal !== null || state.friendTarget.matchesSeen !== 0 || state.friendTarget.revealed) {
-      failures.push("副级牌不应作为朋友牌触发揭晓");
+      failures.push("副级牌不应作为朋友牌触发站队");
     }
 
     globalThis.__friendSignalFailures = failures;

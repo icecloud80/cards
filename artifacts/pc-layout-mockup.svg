@@ -91,7 +91,7 @@
   <text x="68" y="146" style="font:700 40px serif; fill:#1C1C1C;">♣</text>
   <text x="124" y="108" class="label">朋友牌</text>
   <text x="124" y="130" class="heading" style="font-size:16px;">第一张梅花 A</text>
-  <text x="124" y="149" class="copy">已揭晓 · 玩家5</text>
+  <text x="124" y="149" class="copy">已站队 · 玩家5</text>
 
   <!-- 顶部关键状态三联卡 -->
   <rect x="388" y="52" width="184" height="82" rx="16" fill="rgba(255,255,255,.66)"/>
@@ -302,7 +302,7 @@
 
   <rect x="1100" y="724" width="406" height="104" rx="18" fill="rgba(255,255,255,.56)"/>
   <text x="1124" y="750" class="label">底部操作条</text>
-  <text x="1124" y="775" class="heading" style="font-size:16px;">出牌 / 毙牌 / 亮主 / 叫朋友</text>
+  <text x="1124" y="775" class="heading" style="font-size:16px;">出牌 / 毙牌 / 亮主 / 找朋友</text>
   <text x="1124" y="797" class="copy">高频动作保留在桌面底部；低频功能继续收纳到右上更多菜单。</text>
   <rect x="1124" y="808" width="68" height="30" rx="12" fill="#FFFDF8"/>
   <rect x="1200" y="808" width="68" height="30" rx="12" fill="#FFFDF8"/>

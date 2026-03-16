@@ -195,7 +195,7 @@ function chooseIntermediatePlay(playerId, mode) {}
 建议触发条件：
 
 - 末局扣底敏感
-- 朋友未揭晓
+- 朋友未站队
 - 高主资源集中
 - 结构牌较多
 
@@ -398,7 +398,7 @@ function chooseIntermediatePlay(playerId, mode) {}
 
 - 不拆结构
 - 回手优先
-- 延后亮友
+- 延后站队
 - 避免误打 1 打 4
 - 末局保底
 - 清主与留主权衡

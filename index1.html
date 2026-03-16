@@ -29,8 +29,9 @@
         --score-panel-width: 192px;
         --player1-seat-width: 204px;
         --player1-seat-height: 162px;
+        --hand-panel-width: 1188px;
         --hand-panel-height: 204px;
-        --action-panel-width: 276px;
+        --action-panel-width: 188px;
       }
 
       * {
@@ -1452,7 +1453,7 @@
         left: 50%;
         right: auto;
         bottom: var(--edge-gap);
-        width: 1188px;
+        width: var(--hand-panel-width);
         min-height: var(--hand-panel-height);
         height: var(--hand-panel-height);
         padding: 12px 16px 10px;
@@ -1486,20 +1487,35 @@
 
       .hand-lane {
         display: grid;
-        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-rows: auto minmax(0, 1fr) auto;
         min-width: 0;
-        padding: 10px 16px 8px 14px;
+        padding: 8px 16px 0 14px;
         border: 0;
         border-radius: 0;
         background: transparent;
         box-shadow: none;
       }
 
-      .hand-stats-rail {
+      .hand-toolbar {
         display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        padding: 4px 10px 0 12px;
+        justify-content: flex-end;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 4px 2px 0;
+      }
+
+      .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 188px;
+      }
+
+      .hand-stats-rail {
+        position: relative;
+        min-height: 18px;
+        margin-top: -10px;
+        padding: 0;
       }
 
       .hand-head-main {
@@ -1604,7 +1620,7 @@
         display: block;
         min-width: 0;
         overflow: hidden;
-        padding: 34px 0 0;
+        padding: 10px 0 0;
       }
 
       .hand-group {
@@ -1613,6 +1629,9 @@
       }
 
       .group-chip {
+        position: absolute;
+        left: 0;
+        bottom: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1622,11 +1641,12 @@
         border-radius: 999px;
         background: transparent;
         color: rgba(246, 249, 251, 0.94);
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 700;
         line-height: 1;
         text-align: center;
         white-space: nowrap;
+        pointer-events: none;
       }
 
       .group-chip.red {
@@ -1651,7 +1671,7 @@
         width: auto;
         min-width: 0;
         min-height: 126px;
-        padding: 26px 6px 18px 16px;
+        padding: 20px 6px 16px 16px;
         border-radius: 0;
         background: transparent;
         border: 0;
@@ -2447,6 +2467,7 @@
 
       .seat .title {
         color: rgba(249, 243, 232, 0.96);
+        font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
         font-size: 14px;
         font-weight: 800;
       }
@@ -2718,9 +2739,9 @@
       }
 
       .center-panel {
-        left: calc(50% + 320px);
-        right: auto;
-        bottom: calc(var(--edge-gap) + 140px);
+        left: auto;
+        right: calc(50% - (var(--hand-panel-width) / 2) + 26px);
+        bottom: calc(var(--edge-gap) + 148px);
         padding: 0;
         border: 0;
         background: transparent;
@@ -2733,12 +2754,12 @@
         height: auto;
         display: flex;
         align-items: flex-start;
-        width: 214px;
+        width: var(--action-panel-width);
       }
 
       .center-panel button.action-btn {
-        min-height: 36px;
-        padding: 8px 10px;
+        min-height: 34px;
+        padding: 7px 10px;
         border: 1px solid rgba(117, 160, 196, 0.24);
         border-radius: 12px;
         background:
@@ -2761,7 +2782,7 @@
 
       .bottom-action-row {
         width: 100%;
-        gap: 8px;
+        gap: 6px;
         align-self: flex-start;
       }
 
@@ -3116,7 +3137,7 @@
         </section>
 
         <section id="friendPickerPanel" class="panel friend-picker hidden">
-          <div class="label">叫朋友</div>
+          <div class="label">找朋友</div>
           <div id="friendPickerHint" class="subtle"></div>
           <div class="friend-picker-actions">
             <div class="label">先选第几张</div>
@@ -3133,7 +3154,7 @@
           <div id="friendPickerPreview" class="friend-picker-preview"></div>
           <div class="action-row" style="margin-top: 14px;">
             <button id="autoFriendBtn" class="action-btn">用推荐</button>
-            <button id="confirmFriendBtn" class="action-btn primary">确认叫朋友</button>
+            <button id="confirmFriendBtn" class="action-btn primary">确认找朋友</button>
           </div>
         </section>
 
@@ -3160,15 +3181,15 @@
             <li>新牌局先等待玩家点击“开始发牌”，之后才进入发牌阶段。</li>
             <li>每位玩家按自己的 Lv 亮主或反主，不能自己反自己。</li>
             <li>如果发牌结束后始终无人亮主，则由先抓牌的玩家翻底定主并直接做打家；公示时只展示实际已经翻开的底牌。</li>
-            <li>打家扣底完成后，需要先叫朋友，再进入正式出牌。</li>
+            <li>打家扣底完成后，需要先找朋友，再进入正式出牌。</li>
             <li>打家重新扣下的 7 张底牌，分牌总和不能超过 25 分；超过时不能确认扣牌。</li>
-            <li>叫朋友时可选第一张、第二张或第三张目标牌；若打家误出前置张数，则本局可能变成 1 打 4。</li>
+            <li>找朋友时可选第一张、第二张或第三张目标牌；若打家误出前置张数，则本局可能变成 1 打 4。</li>
             <li>跟牌没有同类型时，只要满足同门和张数要求即可正常出牌。</li>
             <li>首家只能出同一门的合法牌型，不能混合不同花色；多种合法组件混在同一门一起打时，按甩牌处理。</li>
             <li>末手不会额外放宽出牌规则；只有当你剩下的整手牌本身就是合法单型或合法甩牌时，才能一次性整手打出。</li>
             <li>打无主时，王和本局级牌都算主；若最后被无主里的级牌扣底，照样按主牌扣底降级。</li>
             <li>若闲家用主牌完成扣底，打家会按牌型降级；从 2 往下会依次退到 -A、-2，最低为 -2，且负级不能跳级，必须一档一档打回。</li>
-            <li>若打家当前级别是 J、Q、K、A 且本局朋友已揭晓，被扣底降级时朋友还会连带再降 1 级。</li>
+            <li>若打家当前级别是 J、Q、K、A 且本局朋友已站队，被扣底降级时朋友还会连带再降 1 级。</li>
             <li>5、10、J、Q、K、A 都是必打级，升多级时也不能直接跳过，必须逐级打到。</li>
           </ul>
         </section>

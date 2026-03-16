@@ -119,7 +119,7 @@ function runFriendStrategySuite(context) {
       };
     }
 
-    // 搭建叫死朋友的测试场景。
+    // 搭建目标朋友已被锁定的测试场景。
     function setupCalledDeadFriendScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -140,7 +140,7 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
-    // 搭建第三张朋友牌叫死的测试场景。
+    // 搭建第三张朋友牌已被锁定的测试场景。
     function setupThirdAceCalledDeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -160,7 +160,7 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
-    // 搭建首轮延后亮朋友的测试场景。
+    // 搭建首轮延后站队的测试场景。
     function setupDelayRevealOpeningLeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -330,6 +330,32 @@ function runFriendStrategySuite(context) {
         basePlayer(4, [makeCard("p4-s-k", "spades", "K"), makeCard("p4-s-7", "spades", "7")]),
         basePlayer(5, [makeCard("p5-d-q", "diamonds", "Q"), makeCard("p5-d-6", "diamonds", "6")]),
       ];
+    }
+
+    // 搭建“找第二张 A 且自己持有第一张 A，应尽快先打出去”的测试场景。
+    function setupBankerFriendSetupLeadScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.phase = "playing";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trickNumber = 2;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [makeCard("p1-s-7", "spades", "7")], true),
+        basePlayer(2, [makeCard("p2-d-8", "diamonds", "8")]),
+        basePlayer(3, [makeCard("p3-s-9", "spades", "9")]),
+        basePlayer(4, [makeCard("p4-c-6", "clubs", "6")]),
+        basePlayer(5, [
+          makeCard("banker-h-a-held", "hearts", "A"),
+          makeCard("banker-c-k-1", "clubs", "K"),
+          makeCard("banker-c-k-2", "clubs", "K"),
+          makeCard("banker-s-j", "spades", "J"),
+        ]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 2 });
+      state.friendTarget.matchesSeen = 0;
     }
 
     function setupAvoidKingWhileAceAliveScenario(difficulty) {
@@ -606,6 +632,14 @@ function runFriendStrategySuite(context) {
       assert(hint.length === 1, difficulty + ": second banker-A delay should still choose a single follow card");
       assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": should delay revealing third A when banker leads another A that still keeps control");
       results.push(difficulty + " second banker-A delay reveal ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupBankerFriendSetupLeadScenario(difficulty);
+      const hint = chooseAiLeadPlay(5);
+      assert(hint.length === 1, difficulty + ": banker friend-setup scenario should choose a single heuristic lead");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": banker should heuristically lead held hearts A early to set up delayed friend reveal");
+      results.push(difficulty + " banker friend-setup lead ok");
     }
 
     setupRevealTakeoverScenario("beginner");

@@ -7,6 +7,7 @@ const {
   getUiSmokeScenarios,
   parseUiSmokeArgs,
 } = require("../support/ui-smoke-config");
+const { PROJECT_ROOT, resolveStaticFilePath, getMimeType } = require("../ui/check-ui-smoke");
 
 /**
  * 作用：
@@ -14,7 +15,7 @@ const {
  *
  * 为什么这样写：
  * smoke 脚本本身比较重，不适合塞进常规单测；
- * 但场景选择、viewport 和 CLI 参数一旦被改坏，hook 就会在真正跑浏览器前失效，所以这里先锁住轻量配置层。
+ * 但场景选择、静态资源路径和 CLI 参数一旦被改坏，hook 就会在真正跑浏览器前失效，所以这里先锁住轻量配置层。
  *
  * 输入：
  * @param {void} - 测试数据在函数内部固定构造。
@@ -55,6 +56,11 @@ function runUiSmokeConfigChecks() {
   assert.throws(() => parseUiSmokeArgs(["--timeout=0"]), /timeout 必须是正整数毫秒/, "invalid timeout should throw");
   assert.throws(() => parseUiSmokeArgs(["--bad"]), /未知参数/, "unknown arguments should throw");
   results.push("invalid cli options fail loudly");
+
+  assert.equal(resolveStaticFilePath("/index1.html"), `${PROJECT_ROOT}/index1.html`, "static file resolver should map normal paths under the project root");
+  assert.equal(getMimeType("/tmp/test.svg"), "image/svg+xml", "mime helper should recognize svg files");
+  assert.throws(() => resolveStaticFilePath("/../outside.txt"), /非法静态资源路径/, "static file resolver should block path traversal");
+  results.push("static file resolution stays inside the project root");
 
   return { results };
 }

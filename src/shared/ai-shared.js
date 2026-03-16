@@ -9,7 +9,7 @@ function getAiHandStrength(playerId) {
   }, 0);
 }
 
-// 评估 AI 手里亮朋友相关牌型的压力。
+// 评估 AI 手里站队相关牌型的压力。
 function getAiRevealPatternPressure(player) {
   if (!player) return 0;
   const bulldozers = findSerialTuples(player.hand, 3);
@@ -28,7 +28,7 @@ function getGoalkeeperId() {
   return getPreviousPlayerId(state.nextFirstDealPlayerId || PLAYER_ORDER[0]);
 }
 
-// 计算 AI 是否主动亮朋友的意愿分数。
+// 计算 AI 是否主动站队的意愿分数。
 function getAiRevealIntentScore(playerId) {
   const player = getPlayer(playerId);
   if (!player) return 0;
@@ -59,7 +59,7 @@ function canAiRevealFriendNow(playerId) {
   return true;
 }
 
-// 判断 AI 当前是否应该亮朋友。
+// 判断 AI 当前是否应该站队。
 function shouldAiRevealFriend(playerId) {
   if (!canAiRevealFriendNow(playerId)) return false;
   if (isAiCertainFriend(playerId)) return true;
@@ -67,7 +67,7 @@ function shouldAiRevealFriend(playerId) {
   return getAiRevealIntentScore(playerId) >= 2;
 }
 
-// 从候选牌组中挑选最适合亮朋友的出牌。
+// 从候选牌组中挑选最适合站队的出牌。
 function chooseAiRevealCombo(candidates) {
   const revealChoices = candidates.filter((combo) =>
     combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
@@ -80,7 +80,7 @@ function chooseAiRevealCombo(candidates) {
   })[0];
 }
 
-// 为必然成友的 AI 返回强制亮朋友的出牌。
+// 为必然成友的 AI 返回强制站队的出牌。
 function getForcedCertainFriendRevealPlay(playerId, candidates = null) {
   if (!canAiRevealFriendNow(playerId) || !isAiCertainFriend(playerId)) return [];
   if (shouldAiDelayRevealOnOpeningLead(playerId)) return [];
@@ -117,7 +117,7 @@ function wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay = getCurren
   return compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) > 0;
 }
 
-// 判断打家在不亮朋友时是否大概率守住这一轮。
+// 判断打家在不站队时是否大概率守住这一轮。
 function isBankerLikelyToHoldTrickWithoutReveal(playerId, currentWinningPlay) {
   if (!currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return false;
   return getPendingPlayersAfter(playerId).length === 0;
@@ -152,7 +152,7 @@ function doesBankerOpeningLeadBlockFriendTakeover(target = state.friendTarget) {
   return getPatternUnitPower(bankerLeadCard, leadSuit) >= getPatternUnitPower(targetCard, targetSuit);
 }
 
-// 判断 AI 是否应在庄家领单时延后亮朋友。
+// 判断 AI 是否应在庄家领单时延后站队。
 function shouldAiDelayRevealOnOpeningLead(playerId) {
   if (!state.friendTarget || state.currentTrick[0]?.playerId !== state.bankerId) return false;
   if (state.currentTrick[0]?.cards.length !== 1) return false;
@@ -212,7 +212,7 @@ function areAiSameSide(playerA, playerB) {
   return playerA === playerB;
 }
 
-// 为亮朋友前的配合出牌选择方案。
+// 为站队前的配合出牌选择方案。
 function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (!state.friendTarget || !currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return [];
   if (state.currentTrick[0]?.playerId !== state.bankerId) return [];
@@ -405,6 +405,45 @@ function chooseAiNoTrumpBankerPowerLead(playerId, player) {
   }
 
   return [];
+}
+
+/**
+ * 作用：
+ * 为打家提供“延迟型朋友牌的前置副本应尽快先走掉”的早期首发启发。
+ *
+ * 为什么这样写：
+ * 当打家找的是第二张或第三张 `A`，且自己手里已经持有前面的副本时，
+ * 如果前几轮不先把这张 `A` 安全走掉，就容易在中途丢失牌权后被别人先出同张，
+ * 从而把原本可控的延迟站队打成高风险的“准 1 打 4”。
+ * 这条经验应该让初级 AI 就能理解，中级则至少不能比它更差。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中该启发式则返回单张前置副本，否则返回空数组。
+ *
+ * 注意：
+ * - 当前先只对 `A` 生效，避免把 `K/Q` 之类不够稳的高张也一律提前打掉。
+ * - 只在出牌早期、且当前确实是打家首发时触发，避免中后盘无脑清目标牌。
+ */
+function chooseAiBankerFriendSetupLead(playerId, player) {
+  if (!player || playerId !== state.bankerId || !state.friendTarget || isFriendTeamResolved()) return [];
+  if (state.currentTrick.length !== 0 || state.currentTurnId !== playerId) return [];
+  if (state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") return [];
+  if ((state.trickNumber || 1) > 4) return [];
+
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  if (neededOccurrence <= 1 || currentSeen >= neededOccurrence - 1) return [];
+
+  const targetCopies = player.hand.filter(
+    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  if (targetCopies.length <= 0) return [];
+
+  return [targetCopies.sort((left, right) => cardStrength(left) - cardStrength(right))[0]];
 }
 
 // 枚举玩家当前所有合法跟牌选择。

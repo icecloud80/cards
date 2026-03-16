@@ -603,7 +603,7 @@ function getDefaultFriendSelection() {
   };
 }
 
-// 开始叫朋友阶段并初始化默认选择。
+// 开始找朋友阶段并初始化默认选择。
 function startCallingFriendPhase() {
   clearTimers();
   const banker = getPlayer(state.bankerId);
@@ -2885,7 +2885,7 @@ function getLevelDelta(before, after) {
  * @returns {string} 适合结果页展示的阵营短标签。
  *
  * 注意：
- * - 结算前如果朋友仍未揭晓，会先被标记为 `1 打 4`，这里自然回落成 `闲家`。
+ * - 结算前如果朋友仍未站队，会先被标记为 `1 打 4`，这里自然回落成 `闲家`。
  * - 结果页刻意使用 `闲家`，避免继续沿用对普通玩家不够直观的“非打家”说法。
  */
 function getResultCampLabel(playerId) {
@@ -3007,7 +3007,7 @@ function getResultLevelSummaryRows(outcome, levelsBefore, levelsAfter) {
  *
  * 注意：
  * - 这里只返回 `banker / friend / defender` 三种样式键，不直接返回中文。
- * - 未揭晓朋友在结算时会被并入 `defender`。
+ * - 未站队朋友在结算时会被并入 `defender`。
  */
 function getResultCampTone(playerId) {
   const campLabel = getResultCampLabel(playerId);

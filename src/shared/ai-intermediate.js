@@ -339,6 +339,53 @@ function scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore)
   return penalty;
 }
 
+/**
+ * 作用：
+ * 为“打家早期先走掉延迟型朋友牌前置副本”的动作提供中级评分加成。
+ *
+ * 为什么这样写：
+ * 当打家找的是第二张或第三张 `A`，且自己手里已经持有前面的 `A` 时，
+ * 如果前几轮不尽快把这张 `A` 走掉，就容易在中途丢失牌权后被别人抢先亮掉同张，
+ * 让整局长时间处于近似 `1 打 4` 的失衡状态。
+ * 这条经验应显式进中级评分，而不是只停留在 beginner 入口的直觉规则里。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的首发牌组。
+ * @param {Array<object>} handBefore - 出牌前完整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回应加到候选分上的正向奖励；越高表示越应优先做站队前置清理。
+ *
+ * 注意：
+ * - 当前先只对单张 `A` 生效，避免把一般高张都一律提前打掉。
+ * - 这里只奖励“前几轮、打家首发、且目标仍属于第二/第三张”的准备动作。
+ */
+function scoreIntermediateFriendSetupLead(playerId, combo, handBefore) {
+  if (playerId !== state.bankerId || !Array.isArray(combo) || combo.length !== 1 || !Array.isArray(handBefore)) return 0;
+  if (!state.friendTarget || isFriendTeamResolved()) return 0;
+  if (state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") return 0;
+  if ((state.trickNumber || 1) > 4) return 0;
+
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  if (neededOccurrence <= 1 || currentSeen >= neededOccurrence - 1) return 0;
+
+  const targetCard = combo[0];
+  if (targetCard.suit !== state.friendTarget.suit || targetCard.rank !== state.friendTarget.rank) return 0;
+
+  const targetCopiesInHand = handBefore.filter(
+    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  ).length;
+  if (targetCopiesInHand <= 0) return 0;
+
+  let bonus = 88;
+  if ((state.trickNumber || 1) <= 2) bonus += 16;
+  if (targetCopiesInHand >= 2) bonus += 10;
+  if (effectiveSuit(targetCard) !== "trump") bonus += 8;
+  return bonus;
+}
+
 // 收集中级 AI 可用的首发候选牌组。
 function getIntermediateLeadCandidates(playerId) {
   const player = getPlayer(playerId);
@@ -425,6 +472,7 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candida
   score += scoreLeadTripleBreakPenalty(handBefore, combo);
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
+  score += scoreIntermediateFriendSetupLead(playerId, combo, handBefore);
   const dangerousPointLeadPenalty = scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore);
   if (candidateEntry && typeof candidateEntry === "object") {
     candidateEntry.dangerousPointLeadPenalty = dangerousPointLeadPenalty;
@@ -1299,6 +1347,8 @@ function chooseAiLeadPlay(playerId) {
   if (!player) return [];
   const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
   if (forcedReveal.length > 0) return forcedReveal;
+  const friendSetupLead = chooseAiBankerFriendSetupLead(playerId, player);
+  if (friendSetupLead.length > 0) return friendSetupLead;
   const noTrumpPowerLead = chooseAiNoTrumpBankerPowerLead(playerId, player);
   if (noTrumpPowerLead.length > 0) return noTrumpPowerLead;
   if (playerId === state.bankerId && state.friendTarget && !isFriendTeamResolved() && state.friendTarget.suit !== "joker") {
@@ -1442,7 +1492,7 @@ function getFollowStructureScore(combo) {
  *
  * 注意：
  * - 这里只处理“当前墩非空”的跟牌主体；首发仍通过局部适配保留现有行为。
- * - 特殊亮友、基础跟牌结构和搜索兜底都会按 sourceState 计算。
+ * - 特殊站队、基础跟牌结构和搜索兜底都会按 sourceState 计算。
  */
 function getBeginnerFollowHintForState(sourceState, playerId) {
   const player = getSimulationPlayer(sourceState, playerId);

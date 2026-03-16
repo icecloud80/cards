@@ -4,6 +4,8 @@ function chooseAiLeadPlay(playerId) {
   if (!player) return [];
   const forcedReveal = getForcedCertainFriendRevealPlay(playerId);
   if (forcedReveal.length > 0) return forcedReveal;
+  const friendSetupLead = chooseAiBankerFriendSetupLead(playerId, player);
+  if (friendSetupLead.length > 0) return friendSetupLead;
   const noTrumpPowerLead = chooseAiNoTrumpBankerPowerLead(playerId, player);
   if (noTrumpPowerLead.length > 0) return noTrumpPowerLead;
   if (playerId === state.bankerId && state.friendTarget && !isFriendTeamResolved() && state.friendTarget.suit !== "joker") {

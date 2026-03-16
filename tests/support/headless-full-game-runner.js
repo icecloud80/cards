@@ -156,7 +156,7 @@ function summarizeDeclaration(declaration) {
  * 将朋友目标牌状态转成稳定的摘要。
  *
  * 为什么这样写：
- * 朋友是否揭晓、是否误出，是分析完局性和后续 AI 训练价值的重要标签。
+ * 朋友是否站队、是否误出，是分析完局性和后续 AI 训练价值的重要标签。
  *
  * 输入：
  * @param {object|null} friendTarget - 当前状态中的朋友目标牌对象。
@@ -189,7 +189,7 @@ function summarizeFriendTarget(friendTarget) {
  * 将朋友目标对象归一化为当前时刻的朋友状态标签。
  *
  * 为什么这样写：
- * headless 结构化事件需要记录“这一步发生时朋友是否已经揭晓”，
+ * headless 结构化事件需要记录“这一步发生时朋友是否已经站队”，
  * 这样后续才能在批量复盘里判断策略是否已从“找朋友”切到“协同 / 清主 / 保先手”。
  *
  * 输入：
@@ -323,7 +323,7 @@ function enableHeadlessAiDecisionDebug(context) {
  * 构造一份用于 headless 批量复盘的空决策信号汇总桶。
  *
  * 为什么这样写：
- * 里程碑 3.5 需要把“牌权续控风险、连续跑分风险、危险带分领牌、朋友已揭晓策略切换”
+ * 里程碑 3.5 需要把“牌权续控风险、连续跑分风险、危险带分领牌、朋友已站队策略切换”
  * 统一沉淀到同一份摘要结构里，先定义稳定骨架，后续加信号时才不会反复改 JSON 形状。
  *
  * 输入：
@@ -478,7 +478,7 @@ function buildDecisionSignalSample(game, event, signal) {
  *
  * 为什么这样写：
  * 里程碑 3.5 的目标不是再做一套搜索，而是让批量回归可以直接告诉我们：
- * “哪些种子出现了掉控风险、连续跑分风险、危险带分领牌，以及朋友揭晓后的控制型策略切换”。
+ * “哪些种子出现了掉控风险、连续跑分风险、危险带分领牌，以及朋友站队后的控制型策略切换”。
  *
  * 输入：
  * @param {object[]} games - 已完成的单局回归结果列表。
@@ -827,7 +827,7 @@ function runSingleHeadlessGame(options) {
         ? context.getFriendPickerRecommendation()?.target
         : context.chooseFriendTarget()?.target;
       if (!recommendation) {
-        throw new Error(`玩家${context.state.bankerId} 未能生成叫朋友方案`);
+        throw new Error(`玩家${context.state.bankerId} 未能生成找朋友方案`);
       }
       context.confirmFriendTargetSelection(recommendation);
       pushEvent(events, steps, "friend_called", {
@@ -1083,16 +1083,16 @@ function buildAnalysisMarkdown(summary) {
     "",
     `- 打家方胜局：${summary.winnerBreakdown.banker}`,
     `- 闲家方胜局：${summary.winnerBreakdown.defender}`,
-    `- 朋友已揭晓：${summary.friendBreakdown.revealed}`,
+    `- 朋友已站队：${summary.friendBreakdown.revealed}`,
     `- 朋友牌误出 / 1 打 4：${summary.friendBreakdown.failed}`,
-    `- 直到结算仍未揭晓：${summary.friendBreakdown.unrevealed}`,
+    `- 直到结算仍未站队：${summary.friendBreakdown.unrevealed}`,
     "",
     "## 决策信号摘要",
     "",
     `- 触发 turn_access_risk 的已选动作：${overallSignals.selectedSignals.turnAccessRisk}`,
     `- 触发 point_run_risk 的已选动作：${overallSignals.selectedSignals.pointRunRisk}`,
     `- 仍被选中的危险带分领牌：${overallSignals.selectedSignals.dangerousPointLead}`,
-    `- 朋友已揭晓后的控制型策略切换：${overallSignals.selectedSignals.revealedFriendControlShift}`,
+    `- 朋友已站队后的控制型策略切换：${overallSignals.selectedSignals.revealedFriendControlShift}`,
     `- 候选池内 turn_access_risk 总数：${overallSignals.candidateAudit.turnAccessRiskCandidates}`,
     `- 候选池内 point_run_risk 总数：${overallSignals.candidateAudit.pointRunRiskCandidates}`,
     `- 被过滤候选总数：${overallSignals.candidateAudit.filteredCandidates}`,
@@ -1115,7 +1115,7 @@ function buildAnalysisMarkdown(summary) {
     lines.push(`- 已选 turn_access_risk：${detail.decisionSignals.selectedSignals.turnAccessRisk}`);
     lines.push(`- 已选 point_run_risk：${detail.decisionSignals.selectedSignals.pointRunRisk}`);
     lines.push(`- 已选危险带分领牌：${detail.decisionSignals.selectedSignals.dangerousPointLead}`);
-    lines.push(`- 朋友揭晓后控制型切换：${detail.decisionSignals.selectedSignals.revealedFriendControlShift}`);
+    lines.push(`- 朋友站队后控制型切换：${detail.decisionSignals.selectedSignals.revealedFriendControlShift}`);
     lines.push("");
   }
 

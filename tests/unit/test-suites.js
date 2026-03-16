@@ -75,6 +75,14 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-mobile-ui-isolation.js"),
   },
   {
+    name: "Mobile start entry regression",
+    file: path.join(__dirname, "check-mobile-start-entry.js"),
+  },
+  {
+    name: "Mobile bootstrap fallback regression",
+    file: path.join(__dirname, "check-mobile-bootstrap-fallbacks.js"),
+  },
+  {
     name: "PC card-face sprite regression",
     file: path.join(__dirname, "check-card-face-sprite.js"),
   },

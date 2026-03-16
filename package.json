@@ -6,5 +6,8 @@
     "test:unit": "node --test --test-reporter=spec tests/unit/regressions.test.js",
     "test:unit:fast": "SKIP_HEADLESS_FULL_GAME=1 node --test --test-reporter=spec tests/unit/regressions.test.js",
     "test:headless": "node tests/unit/check-headless-full-game.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2"
   }
 }

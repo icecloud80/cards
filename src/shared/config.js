@@ -514,6 +514,7 @@ const state = {
   cardFaceKey: loadSavedCardFaceKey(),
   logs: [],
   allLogs: [],
+  resultScreenExportLines: [],
   gameOver: false,
   selectedFriendOccurrence: 1,
   selectedFriendSuit: "hearts",

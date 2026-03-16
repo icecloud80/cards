@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Result Level Preview</title>
+    <style>
+      /**
+       * 作用：
+       * 提供结算结果静态预览页的全局视觉变量。
+       *
+       * 为什么这样写：
+       * 这页只用于快速确认“级别结算”模块的排版和色彩方向；
+       * 把常用颜色、阴影和背景集中管理后，后续继续微调会更省事。
+       *
+       * 输入：
+       * @param {void} - 纯静态样式变量，无运行时输入。
+       *
+       * 输出：
+       * @returns {void} 仅定义 CSS 变量。
+       *
+       * 注意：
+       * - 这里只是预览稿，不替代正式页面样式源。
+       * - 正式结果页改动后，这里也要一起同步。
+       */
+      :root {
+        --bg-top: #163847;
+        --bg-bottom: #09141b;
+        --card-bg-top: rgba(255, 250, 241, 0.98);
+        --card-bg-bottom: rgba(239, 229, 203, 0.96);
+        --ink: #181a1f;
+        --muted: #687687;
+        --gold: #7d5320;
+        --shadow-lg: 0 28px 60px rgba(0, 0, 0, 0.2);
+      }
+
+      /**
+       * 作用：
+       * 设置预览页基础背景和双栏容器。
+       *
+       * 为什么这样写：
+       * 这次要同时对比 PC 与 mobile 的结算卡片，
+       * 所以直接在一张画布里平铺两种尺寸，截图时更方便横向看差异。
+       *
+       * 输入：
+       * @param {void} - 纯样式规则。
+       *
+       * 输出：
+       * @returns {void} 设置页面基础布局。
+       *
+       * 注意：
+       * - 这里按截图体验固定大致版心，不追求真实响应式。
+       * - 仅服务本地预览，不参与正式运行态。
+       */
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 40px;
+        font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 16% 16%, rgba(225, 185, 111, 0.16), transparent 26%),
+          radial-gradient(circle at 84% 18%, rgba(96, 190, 200, 0.1), transparent 22%),
+          linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      }
+
+      .preview-grid {
+        width: min(1480px, 100%);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1.12fr 0.88fr;
+        gap: 32px;
+        align-items: start;
+      }
+
+      .preview-panel {
+        display: grid;
+        gap: 14px;
+      }
+
+      .preview-label {
+        color: rgba(248, 244, 236, 0.94);
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+      }
+
+      .result-card {
+        padding: 26px;
+        border-radius: 22px;
+        background: linear-gradient(180deg, var(--card-bg-top), var(--card-bg-bottom));
+        box-shadow: var(--shadow-lg);
+      }
+
+      .result-card.mobile {
+        width: 450px;
+        margin-left: auto;
+        padding: 22px 20px;
+      }
+
+      .result-title {
+        margin: 0;
+        font-size: 62px;
+        line-height: 1.04;
+        letter-spacing: 2px;
+      }
+
+      .result-card.mobile .result-title {
+        font-size: 42px;
+      }
+
+      .result-body {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.7;
+      }
+
+      .result-card.mobile .result-body {
+        font-size: 15px;
+      }
+
+      .result-subinfo {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 16px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(248, 242, 229, 0.82));
+        border: 1px solid rgba(125, 83, 32, 0.1);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.72),
+          0 10px 24px rgba(120, 74, 24, 0.06);
+      }
+
+      .result-level-head {
+        display: grid;
+        gap: 4px;
+      }
+
+      .result-level-title {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: var(--gold);
+      }
+
+      .result-level-caption {
+        color: rgba(90, 75, 51, 0.78);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .result-level-list {
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+
+      .result-level-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(125, 83, 32, 0.08);
+      }
+
+      .result-level-item.up {
+        background: linear-gradient(180deg, rgba(233, 247, 236, 0.96), rgba(215, 240, 221, 0.92));
+        border-color: rgba(62, 138, 84, 0.18);
+      }
+
+      .result-level-item.down {
+        background: linear-gradient(180deg, rgba(250, 234, 232, 0.96), rgba(245, 220, 216, 0.92));
+        border-color: rgba(183, 74, 63, 0.18);
+      }
+
+      .result-card.mobile .result-level-item {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .result-level-main {
+        min-width: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .result-level-player {
+        color: #241e17;
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .result-level-chips {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .result-camp-chip,
+      .result-level-tag,
+      .result-level-value {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .result-camp-chip,
+      .result-level-tag {
+        min-height: 24px;
+        padding: 0 10px;
+        font-size: 12px;
+      }
+
+      .result-camp-chip.banker {
+        background: rgba(184, 118, 33, 0.14);
+        color: #9a6222;
+      }
+
+      .result-camp-chip.friend {
+        background: rgba(28, 120, 136, 0.14);
+        color: #1e6c78;
+      }
+
+      .result-camp-chip.defender {
+        background: rgba(78, 92, 115, 0.12);
+        color: #4f5d74;
+      }
+
+      .result-level-tag {
+        background: rgba(181, 48, 45, 0.12);
+        color: #a72a27;
+      }
+
+      .result-level-item.up .result-level-tag {
+        background: rgba(56, 132, 82, 0.16);
+        color: #2d7d49;
+      }
+
+      .result-level-item.down .result-level-tag {
+        background: rgba(183, 74, 63, 0.14);
+        color: #a44139;
+      }
+
+      .result-level-change {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .result-level-value {
+        min-height: 34px;
+        padding: 0 12px;
+        background: rgba(246, 239, 225, 0.95);
+        border: 1px solid rgba(125, 83, 32, 0.08);
+        color: #342c22;
+        font-size: 14px;
+      }
+
+      .result-level-item.up .result-level-value.after {
+        color: #2d7d49;
+      }
+
+      .result-level-item.down .result-level-value.after {
+        color: #a44139;
+      }
+
+      .result-level-arrow {
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(90, 75, 51, 0.72);
+      }
+
+      .result-level-arrow svg {
+        width: 100%;
+        height: 100%;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .result-bottom {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.42);
+      }
+
+      .result-bottom-label {
+        color: var(--gold);
+        font-weight: 800;
+        font-size: 14px;
+      }
+
+      .bottom-cards {
+        margin-top: 12px;
+        display: flex;
+        gap: 10px;
+      }
+
+      .mock-card {
+        width: 66px;
+        height: 92px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff, #ece7de);
+        border: 1px solid rgba(0, 0, 0, 0.16);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+      }
+
+      .result-card.mobile .mock-card {
+        width: 50px;
+        height: 72px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="preview-grid">
+      <section class="preview-panel">
+        <div class="preview-label">PC 预览</div>
+        <article class="result-card">
+          <h1 class="result-title">失败 - 打家下台</h1>
+          <p class="result-body">
+            闲家总分为 205 分，按你当前规则从 165 分开始升级，本局闲家方升 1 级。
+            玩家2完成扣底，但未形成主级牌成功扣底，本次只计底牌分，不触发翻盘降级。
+          </p>
+          <section class="result-subinfo">
+            <div class="result-level-head">
+              <div class="result-level-title">级别结算</div>
+              <div class="result-level-caption">身份与结果靠左，等级胶囊统一落在最右侧</div>
+            </div>
+            <ul class="result-level-list">
+              <li class="result-level-item steady">
+                <div class="result-level-main">
+                  <div class="result-level-player">玩家1</div>
+                  <div class="result-level-chips">
+                    <span class="result-camp-chip banker">打家</span>
+                  </div>
+                </div>
+                <div class="result-level-change">
+                  <span class="result-level-value">Lv10</span>
+                  <span class="result-level-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h9"></path>
+                      <path d="M10 5l5 5-5 5"></path>
+                    </svg>
+                  </span>
+                  <span class="result-level-value after">Lv10</span>
+                </div>
+              </li>
+              <li class="result-level-item up">
+                <div class="result-level-main">
+                  <div class="result-level-player">玩家2</div>
+                  <div class="result-level-chips">
+                    <span class="result-camp-chip defender">闲家</span>
+                    <span class="result-level-tag">升级</span>
+                  </div>
+                </div>
+                <div class="result-level-change">
+                  <span class="result-level-value">Lv5</span>
+                  <span class="result-level-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h9"></path>
+                      <path d="M10 5l5 5-5 5"></path>
+                    </svg>
+                  </span>
+                  <span class="result-level-value after">Lv6</span>
+                </div>
+              </li>
+              <li class="result-level-item steady">
+                <div class="result-level-main">
+                  <div class="result-level-player">玩家3</div>
+                  <div class="result-level-chips">
+                    <span class="result-camp-chip friend">朋友</span>
+                  </div>
+                </div>
+                <div class="result-level-change">
+                  <span class="result-level-value">Lv8</span>
+                  <span class="result-level-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h9"></path>
+                      <path d="M10 5l5 5-5 5"></path>
+                    </svg>
+                  </span>
+                  <span class="result-level-value after">Lv8</span>
+                </div>
+              </li>
+              <li class="result-level-item down">
+                <div class="result-level-main">
+                  <div class="result-level-player">玩家4</div>
+                  <div class="result-level-chips">
+                    <span class="result-camp-chip defender">闲家</span>
+                    <span class="result-level-tag">降级</span>
+                  </div>
+                </div>
+                <div class="result-level-change">
+                  <span class="result-level-value">Lv3</span>
+                  <span class="result-level-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h9"></path>
+                      <path d="M10 5l5 5-5 5"></path>
+                    </svg>
+                  </span>
+                  <span class="result-level-value after">Lv2</span>
+                </div>
+              </li>
+            </ul>
+          </section>
+          <section class="result-bottom">
+            <div class="result-bottom-label">底牌亮出</div>
+            <div class="bottom-cards">
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+            </div>
+          </section>
+        </article>
+      </section>
+
+      <section class="preview-panel">
+        <div class="preview-label">Mobile 预览</div>
+        <article class="result-card mobile">
+          <h1 class="result-title">获胜 - 小光 - 打家升2级</h1>
+          <p class="result-body">
+            闲家总分为 42 分，未到 60 分，且未形成主级牌成功扣底，打家方本局小光，升 2 级。
+          </p>
+          <section class="result-subinfo">
+            <div class="result-level-head">
+              <div class="result-level-title">级别结算</div>
+              <div class="result-level-caption">竖向堆叠时也保持“身份在左，等级在右”的阅读顺序</div>
+            </div>
+            <ul class="result-level-list">
+              <li class="result-level-item up">
+                <div class="result-level-main">
+                  <div class="result-level-player">玩家1</div>
+                  <div class="result-level-chips">
+                    <span class="result-camp-chip banker">打家</span>
+                    <span class="result-level-tag">升级</span>
+                  </div>
+                </div>
+                <div class="result-level-change">
+                  <span class="result-level-value">Lv2</span>
+                  <span class="result-level-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h9"></path>
+                      <path d="M10 5l5 5-5 5"></path>
+                    </svg>
+                  </span>
+                  <span class="result-level-value after">Lv4</span>
+                </div>
+              </li>
+              <li class="result-level-item steady">
+                <div class="result-level-main">
+                  <div class="result-level-player">玩家2</div>
+                  <div class="result-level-chips">
+                    <span class="result-camp-chip friend">朋友</span>
+                  </div>
+                </div>
+                <div class="result-level-change">
+                  <span class="result-level-value">Lv10</span>
+                  <span class="result-level-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h9"></path>
+                      <path d="M10 5l5 5-5 5"></path>
+                    </svg>
+                  </span>
+                  <span class="result-level-value after">Lv10</span>
+                </div>
+              </li>
+              <li class="result-level-item down">
+                <div class="result-level-main">
+                  <div class="result-level-player">玩家3</div>
+                  <div class="result-level-chips">
+                    <span class="result-camp-chip defender">闲家</span>
+                    <span class="result-level-tag">降级</span>
+                  </div>
+                </div>
+                <div class="result-level-change">
+                  <span class="result-level-value">Lv3</span>
+                  <span class="result-level-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 20 20">
+                      <path d="M4 10h9"></path>
+                      <path d="M10 5l5 5-5 5"></path>
+                    </svg>
+                  </span>
+                  <span class="result-level-value after">Lv2</span>
+                </div>
+              </li>
+            </ul>
+          </section>
+          <section class="result-bottom">
+            <div class="result-bottom-label">底牌亮出</div>
+            <div class="bottom-cards">
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+              <div class="mock-card"></div>
+            </div>
+          </section>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

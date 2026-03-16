@@ -1983,15 +1983,35 @@ function renderCenterPanel() {
     dom.menuAiPaceSelect.value = normalizeAiPace(state.aiPace);
     dom.menuAiPaceSelect.disabled = false;
   }
+  /**
+   * 作用：
+   * 同步准备阶段原始开局按钮的隐藏与可用状态。
+   *
+   * 为什么这样写：
+   * PC 现在由独立开始界面接管 ready 阶段入口，所以中央操作条里的旧按钮必须隐藏；
+   * 但手游页仍然通过隐藏的原始按钮转发“开始游戏 / 继续游戏”动作，
+   * 因此 mobile 端不能再把这些原始按钮一并禁用，否则壳层按钮会点了没反应。
+   *
+   * 输入：
+   * @param {void} - 直接读取当前平台与全局状态。
+   *
+   * 输出：
+   * @returns {void} 只更新按钮显隐和禁用状态，不返回额外结果。
+   *
+   * 注意：
+   * - PC 必须继续隐藏旧按钮，避免和新版开始界面重复。
+   * - mobile 即使让原始按钮保持可用，也仍由外层壳层界面承接真实点击入口。
+   */
+  const keepReadyEntryForMobile = APP_PLATFORM === "mobile" && state.phase === "ready" && !state.gameOver;
   dom.newProgressBtn.hidden = true;
   dom.newProgressBtn.disabled = true;
   dom.newProgressBtn.classList.remove("primary");
-  dom.continueGameBtn.hidden = true;
-  dom.continueGameBtn.disabled = true;
+  dom.continueGameBtn.hidden = !keepReadyEntryForMobile;
+  dom.continueGameBtn.disabled = !keepReadyEntryForMobile || !state.hasSavedProgress;
   dom.continueGameBtn.classList.toggle("primary", false);
   dom.continueGameBtn.textContent = "继续游戏";
-  dom.startGameBtn.hidden = true;
-  dom.startGameBtn.disabled = true;
+  dom.startGameBtn.hidden = !keepReadyEntryForMobile;
+  dom.startGameBtn.disabled = !keepReadyEntryForMobile;
   dom.startGameBtn.textContent = "开始游戏";
   if (dom.centerPanel && typeof shouldShowPcReadyLobby === "function") {
     dom.centerPanel.classList.toggle("hidden", shouldShowPcReadyLobby());

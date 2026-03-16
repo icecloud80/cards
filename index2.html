@@ -1505,14 +1505,23 @@
 
       .result-subinfo {
         margin-top: 16px;
-        padding: 14px 16px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.5);
-        border: 1px solid rgba(125, 83, 32, 0.08);
+        padding: 16px;
+        border-radius: 16px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(248, 242, 229, 0.82));
+        border: 1px solid rgba(125, 83, 32, 0.1);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.72),
+          0 10px 24px rgba(120, 74, 24, 0.06);
       }
 
       .result-subinfo:empty {
         display: none;
+      }
+
+      .result-level-head {
+        display: grid;
+        gap: 4px;
       }
 
       .result-level-title {
@@ -1522,18 +1531,127 @@
         color: #7d5320;
       }
 
+      .result-level-caption {
+        color: rgba(90, 75, 51, 0.78);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
       .result-level-list {
-        margin: 10px 0 0;
+        margin: 12px 0 0;
         padding: 0;
         list-style: none;
+        display: grid;
+        gap: 10px;
+      }
+
+      .result-level-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(125, 83, 32, 0.08);
+        transition: background-color 120ms ease, border-color 120ms ease;
+      }
+
+      .result-level-item.up {
+        background: linear-gradient(180deg, rgba(233, 247, 236, 0.96), rgba(215, 240, 221, 0.92));
+        border-color: rgba(62, 138, 84, 0.18);
+      }
+
+      .result-level-item.down {
+        background: linear-gradient(180deg, rgba(250, 234, 232, 0.96), rgba(245, 220, 216, 0.92));
+        border-color: rgba(183, 74, 63, 0.18);
+      }
+
+      .result-level-main {
+        min-width: 0;
         display: grid;
         gap: 8px;
       }
 
-      .result-level-list li {
-        color: #3a3f44;
+      .result-level-player {
+        color: #241e17;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+      }
+
+      .result-level-chips {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .result-camp-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .result-camp-chip.banker {
+        background: rgba(184, 118, 33, 0.14);
+        color: #9a6222;
+      }
+
+      .result-camp-chip.friend {
+        background: rgba(28, 120, 136, 0.14);
+        color: #1e6c78;
+      }
+
+      .result-camp-chip.defender {
+        background: rgba(78, 92, 115, 0.12);
+        color: #4f5d74;
+      }
+
+      .result-level-change {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        min-height: 34px;
+        border-radius: 999px;
+        background: rgba(246, 239, 225, 0.95);
+        border: 1px solid rgba(125, 83, 32, 0.08);
+      }
+
+      .result-level-value {
+        color: #342c22;
         font-size: 14px;
-        line-height: 1.55;
+        font-weight: 800;
+      }
+
+      .result-level-value.after {
+        color: #9b3f25;
+      }
+
+      .result-level-arrow {
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(90, 75, 51, 0.72);
+      }
+
+      .result-level-arrow svg {
+        width: 100%;
+        height: 100%;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
 
       .result-level-tag {
@@ -1542,7 +1660,6 @@
         justify-content: center;
         min-height: 24px;
         padding: 0 10px;
-        margin-left: 6px;
         border-radius: 999px;
         background: rgba(120, 74, 24, 0.1);
         font-weight: 800;
@@ -1560,6 +1677,24 @@
       .result-card.loss .result-level-tag {
         background: rgba(21, 25, 29, 0.08);
         color: #30373d;
+      }
+
+      .result-level-item.up .result-level-tag {
+        background: rgba(56, 132, 82, 0.16);
+        color: #2d7d49;
+      }
+
+      .result-level-item.down .result-level-tag {
+        background: rgba(183, 74, 63, 0.14);
+        color: #a44139;
+      }
+
+      .result-level-item.up .result-level-value.after {
+        color: #2d7d49;
+      }
+
+      .result-level-item.down .result-level-value.after {
+        color: #a44139;
       }
 
       .result-bottom {
@@ -2121,12 +2256,21 @@
 
       .result-subinfo {
         margin-top: 14px;
-        padding: 12px 14px;
+        padding: 14px;
       }
 
-      .result-level-list li {
-        font-size: 13px;
-        line-height: 1.5;
+      .result-level-item {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .result-level-player {
+        font-size: 14px;
+      }
+
+      .result-level-change {
+        padding: 0 10px;
       }
 
       #friendHint,
@@ -3905,6 +4049,64 @@
         document.body.classList.add("mobile-index2");
         const rootStyle = document.documentElement.style;
         let viewportMetricsFrame = 0;
+        const mobileFrameFallbackDelay = 16;
+
+        /**
+         * 作用：
+         * 为手游壳层脚本提供安全的逐帧调度入口。
+         *
+         * 为什么这样写：
+         * `index2.html` 会在启动时和每次共享渲染后重排顶栏/手牌；
+         * 某些手机 WebView 没有 `requestAnimationFrame` 时，直接调用会让整页白屏。
+         * 统一在这里兜底成 `setTimeout`，就能保证手游至少能正常打开和操作。
+         *
+         * 输入：
+         * @param {FrameRequestCallback} callback - 下一帧要执行的回调。
+         *
+         * 输出：
+         * @returns {number} 当前调度任务的句柄 ID。
+         *
+         * 注意：
+         * - 兜底路径只负责“能启动”，不追求和原生逐帧节奏完全一致。
+         * - 延迟固定为 16ms，保持接近一帧的体验，避免布局连续闪动。
+         */
+        function requestMobileFrame(callback) {
+          if (typeof window.requestAnimationFrame === "function") {
+            return window.requestAnimationFrame(callback);
+          }
+          return window.setTimeout(callback, mobileFrameFallbackDelay);
+        }
+
+        /**
+         * 作用：
+         * 为手游手牌区提供兼容性安全的 DOM 变更监听。
+         *
+         * 为什么这样写：
+         * 正常浏览器会用 `MutationObserver` 侦听共享手牌容器的更新，
+         * 但部分低配 WebView 没有这个 API；这时我们退化成“只靠共享 render 事件触发布局”，
+         * 也能保证页面可打开，不会因为构造观察器时报错。
+         *
+         * 输入：
+         * @param {Element|null} target - 要观察的目标节点。
+         * @param {MutationCallback} onChange - 节点变更后要执行的回调。
+         *
+         * 输出：
+         * @returns {{disconnect: Function}} 兼容 `MutationObserver` 的最小观察器对象。
+         *
+         * 注意：
+         * - 当环境不支持 `MutationObserver` 时，这里返回空 `disconnect` 占位对象。
+         * - 仅监听手牌容器的子节点变化，不额外扩大观察范围。
+         */
+        function createSafeMutationObserver(target, onChange) {
+          if (!target || typeof MutationObserver !== "function") {
+            return {
+              disconnect() {},
+            };
+          }
+          const observer = new MutationObserver(onChange);
+          observer.observe(target, { childList: true, subtree: true });
+          return observer;
+        }
 
         function applyViewportMetrics() {
           const viewport = window.visualViewport;
@@ -3920,7 +4122,7 @@
 
         function scheduleViewportMetrics() {
           if (viewportMetricsFrame) return;
-          viewportMetricsFrame = window.requestAnimationFrame(() => {
+          viewportMetricsFrame = requestMobileFrame(() => {
             viewportMetricsFrame = 0;
             applyViewportMetrics();
           });
@@ -4438,7 +4640,7 @@
         function scheduleHandLayout() {
           if (handLayoutQueued || handLayoutRunning) return;
           handLayoutQueued = true;
-          window.requestAnimationFrame(() => {
+          requestMobileFrame(() => {
             handLayoutQueued = false;
             layoutHandRows();
           });
@@ -4593,12 +4795,11 @@
           }
         });
 
-        const handObserver = new MutationObserver(() => {
+        const handObserver = createSafeMutationObserver(originalDom.handGroups, () => {
           if (!handLayoutRunning) {
             scheduleHandLayout();
           }
         });
-        handObserver.observe(originalDom.handGroups, { childList: true, subtree: true });
         originalDom.handGroups.addEventListener("click", () => {
           scheduleHandLayout();
         });
@@ -4615,7 +4816,9 @@
             width: rect.width,
             height: rect.height,
           };
-          mobileDom.broadcast.setPointerCapture(event.pointerId);
+          if (typeof mobileDom.broadcast.setPointerCapture === "function") {
+            mobileDom.broadcast.setPointerCapture(event.pointerId);
+          }
         });
 
         mobileDom.broadcast.addEventListener("pointermove", (event) => {
@@ -4636,7 +4839,9 @@
 
         function stopBroadcastDrag(event) {
           if (!broadcastDrag || broadcastDrag.pointerId !== event.pointerId) return;
-          mobileDom.broadcast.releasePointerCapture(event.pointerId);
+          if (typeof mobileDom.broadcast.releasePointerCapture === "function") {
+            mobileDom.broadcast.releasePointerCapture(event.pointerId);
+          }
           broadcastDrag = null;
         }
 

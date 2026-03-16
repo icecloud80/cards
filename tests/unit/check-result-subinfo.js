@@ -171,11 +171,42 @@ function runSuite(context) {
       { 1: "3", 2: "10", 3: "2" }
     );
     assert(settlementListHtml.includes("级别结算"), "result list should include a section title");
-    assert(settlementListHtml.includes("玩家1 - 打家 - Lv2 -> Lv3"), "result list should include banker level transition");
-    assert(settlementListHtml.includes("玩家2 - 朋友 - Lv10 -> Lv10"), "result list should include friend level transition");
-    assert(settlementListHtml.includes("玩家3 - 闲家 - Lv3 -> Lv2"), "result list should include defender level transition");
-    assert(settlementListHtml.includes("【升级】"), "result list should mark upgrade-style outcomes");
-    assert(settlementListHtml.includes("【降级】"), "result list should mark level drops");
+    assert(settlementListHtml.includes("玩家1"), "result list should include banker player name");
+    assert(settlementListHtml.includes(">打家<"), "result list should include banker camp chip");
+    assert(settlementListHtml.includes("Lv2"), "result list should include banker level before");
+    assert(settlementListHtml.includes("Lv3"), "result list should include banker level after");
+    assert(settlementListHtml.includes("玩家2"), "result list should include friend player name");
+    assert(settlementListHtml.includes(">朋友<"), "result list should include friend camp chip");
+    assert(settlementListHtml.includes("Lv10"), "result list should include friend level values");
+    assert(settlementListHtml.includes("玩家3"), "result list should include defender player name");
+    assert(settlementListHtml.includes(">闲家<"), "result list should include defender camp chip");
+    assert(settlementListHtml.includes("<svg"), "result list should include level arrow icon markup");
+    assert(settlementListHtml.includes(">升级<"), "result list should mark upgrade-style outcomes");
+    assert(settlementListHtml.includes(">降级<"), "result list should mark level drops");
+
+    // 回归对局日志导出，确认末尾会补入最终胜负界面的完整摘要。
+    state.allLogs = ["玩家1 吊主", "玩家2 甩牌失败"];
+    state.bottomCards = [
+      { suit: "hearts", rank: "A" },
+      { suit: "spades", rank: "K" },
+    ];
+    dom.resultTitle.textContent = "获胜 - 打家升1级";
+    dom.resultBody.textContent = "打家方获胜，闲家总分 80。";
+    state.resultScreenExportLines = buildResultScreenExportLines(
+      dom.resultTitle.textContent,
+      dom.resultBody.textContent,
+      { winner: "banker", bankerLevels: 1, defenderLevels: 0 },
+      { 1: "2", 2: "10", 3: "3" },
+      { 1: "3", 2: "10", 3: "2" }
+    );
+    const resultLogText = getResultLogText();
+    const bottomCardsText = state.bottomCards.map(shortCardLabel).join("、");
+    assert(resultLogText.includes("全局播报：\\n1. 玩家1 吊主\\n2. 玩家2 甩牌失败"), "result log should keep the broadcast section before the final screen summary");
+    assert(resultLogText.includes("最终胜负界面："), "result log should append the final result screen section");
+    assert(resultLogText.includes("- 标题：获胜 - 打家升1级"), "result log should include the final result title");
+    assert(resultLogText.includes("- 正文：打家方获胜，闲家总分 80。"), "result log should include the final result body");
+    assert(resultLogText.includes("1. 玩家1 - 打家 - Lv2 -> Lv3升级"), "result log should include per-player settlement rows from the final screen");
+    assert(resultLogText.trim().endsWith("- 底牌展示：" + bottomCardsText), "result log should end with the revealed bottom cards from the final screen");
 
     const underThresholdBottomPenaltyOutcome = getOutcome(110, {
       bottomPenalty: { levels: 2, label: "两张主级牌扣底" },

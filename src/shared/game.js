@@ -186,6 +186,7 @@ function setupGame() {
   state.showRulesPanel = false;
   state.logs = [];
   state.allLogs = [];
+  state.resultScreenExportLines = [];
   state.gameOver = false;
   state.bottomRevealMessage = "";
   state.bottomRevealCount = 0;
@@ -2964,6 +2965,109 @@ function getResultLevelChangeLabel(playerId, outcome, levelsBefore, levelsAfter)
 
 /**
  * 作用：
+ * 生成结果页和日志导出共用的逐人等级结算文本行。
+ *
+ * 为什么这样写：
+ * 最终结果弹窗和对局日志都需要展示同一套“玩家名 - 阵营 - LvX -> LvY【结果】”摘要；
+ * 先收敛成纯文本行，后续无论渲染 HTML 还是导出纯文本都不会出现两套格式漂移。
+ *
+ * 输入：
+ * @param {{winner: string, bankerLevels: number, defenderLevels: number}} outcome - 本局结算结果。
+ * @param {Record<number, string>} levelsBefore - 各玩家结算前等级。
+ * @param {Record<number, string>} levelsAfter - 各玩家结算后等级。
+ *
+ * 输出：
+ * @returns {string[]} 逐人等级结算文本行数组。
+ *
+ * 注意：
+ * - 返回值不包含列表序号，方便 HTML 与纯文本导出分别决定外层包装。
+ * - 结果标签继续沿用 `【升级】/【降级】`，保证和结果弹窗可视文案一致。
+ */
+function getResultLevelSummaryRows(outcome, levelsBefore, levelsAfter) {
+  return state.players.map((player) => {
+    const resultLabel = getResultLevelChangeLabel(player.id, outcome, levelsBefore, levelsAfter);
+    const resultSuffix = resultLabel ? `${resultLabel}` : "";
+    return `${player.name} - ${getResultCampLabel(player.id)} - Lv${levelsBefore[player.id]} -> Lv${levelsAfter[player.id]}${resultSuffix}`;
+  });
+}
+
+/**
+ * 作用：
+ * 返回结果页阵营胶囊使用的样式键值。
+ *
+ * 为什么这样写：
+ * 级别结算现在要把阵营做成独立胶囊，不同阵营需要稳定映射到固定配色；
+ * 单独抽成 helper 后，HTML 结构和样式命名都能保持简单。
+ *
+ * 输入：
+ * @param {number} playerId - 当前玩家 ID。
+ *
+ * 输出：
+ * @returns {string} 可直接拼到 className 上的样式键值。
+ *
+ * 注意：
+ * - 这里只返回 `banker / friend / defender` 三种样式键，不直接返回中文。
+ * - 未揭晓朋友在结算时会被并入 `defender`。
+ */
+function getResultCampTone(playerId) {
+  const campLabel = getResultCampLabel(playerId);
+  if (campLabel === "打家") return "banker";
+  if (campLabel === "朋友") return "friend";
+  return "defender";
+}
+
+/**
+ * 作用：
+ * 生成结果页单个玩家的等级结算行 HTML。
+ *
+ * 为什么这样写：
+ * 这一块已经从“纯文本列表”升级成带阵营胶囊、等级箭头和结果状态的卡片行；
+ * 用单独 helper 生成每一行，可以避免主模板里堆大量字符串分支。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ * @param {{winner: string, bankerLevels: number, defenderLevels: number}} outcome - 本局结算结果。
+ * @param {Record<number, string>} levelsBefore - 各玩家结算前等级。
+ * @param {Record<number, string>} levelsAfter - 各玩家结算后等级。
+ *
+ * 输出：
+ * @returns {string} 单行结算卡片的 HTML 字符串。
+ *
+ * 注意：
+ * - 玩家名、阵营和等级变化必须全部保留，不能为了视觉压缩而省字段。
+ * - `result-level-tag` 允许为空，此时整行只保留等级箭头，不强行塞“平级”。
+ */
+function buildResultLevelRowHtml(player, outcome, levelsBefore, levelsAfter) {
+  const campLabel = getResultCampLabel(player.id);
+  const campTone = getResultCampTone(player.id);
+  const resultLabel = getResultLevelChangeLabel(player.id, outcome, levelsBefore, levelsAfter);
+  const rowTone = resultLabel === "升级" ? "up" : resultLabel === "降级" ? "down" : "steady";
+  const resultTag = resultLabel ? `<span class="result-level-tag">${resultLabel}</span>` : "";
+  return `
+    <li class="result-level-item ${rowTone}">
+      <div class="result-level-main">
+        <div class="result-level-player">${player.name}</div>
+        <div class="result-level-chips">
+          <span class="result-camp-chip ${campTone}">${campLabel}</span>
+          ${resultTag}
+        </div>
+      </div>
+      <div class="result-level-change">
+        <span class="result-level-value before">Lv${levelsBefore[player.id]}</span>
+        <span class="result-level-arrow" aria-hidden="true">
+          <svg viewBox="0 0 20 20" focusable="false">
+            <path d="M4 10h9"></path>
+            <path d="M10 5l5 5-5 5"></path>
+          </svg>
+        </span>
+        <span class="result-level-value after">Lv${levelsAfter[player.id]}</span>
+      </div>
+    </li>
+  `;
+}
+
+/**
+ * 作用：
  * 生成结果页里的逐人等级结算列表 HTML。
  *
  * 为什么这样写：
@@ -2983,16 +3087,57 @@ function getResultLevelChangeLabel(playerId, outcome, levelsBefore, levelsAfter)
  * - 若没有任何玩家数据，仍返回空字符串，避免插入空列表壳子。
  */
 function buildResultLevelListHtml(outcome, levelsBefore, levelsAfter) {
-  const rows = state.players.map((player) => {
-    const resultLabel = getResultLevelChangeLabel(player.id, outcome, levelsBefore, levelsAfter);
-    const resultSuffix = resultLabel ? ` <span class="result-level-tag">【${resultLabel}】</span>` : "";
-    return `<li>${player.name} - ${getResultCampLabel(player.id)} - Lv${levelsBefore[player.id]} -> Lv${levelsAfter[player.id]}${resultSuffix}</li>`;
-  });
+  const rows = state.players.map((player) => buildResultLevelRowHtml(player, outcome, levelsBefore, levelsAfter));
   if (rows.length === 0) return "";
   return `
-    <div class="result-level-title">级别结算</div>
+    <div class="result-level-head">
+      <div class="result-level-title">级别结算</div>
+      <div class="result-level-caption">按玩家顺序查看本局阵营与等级变化</div>
+    </div>
     <ul class="result-level-list">${rows.join("")}</ul>
   `;
+}
+
+/**
+ * 作用：
+ * 生成导出到对局日志末尾的最终胜负界面摘要。
+ *
+ * 为什么这样写：
+ * 用户希望复盘日志最后能直接看到结算弹窗里真正展示出来的内容，
+ * 包括标题、正文、逐人等级结算和底牌亮出；集中在这里拼装，可以保证日志与 UI 永远同步。
+ *
+ * 输入：
+ * @param {string} resultTitle - 结果弹窗标题。
+ * @param {string} resultBody - 结果弹窗正文。
+ * @param {{winner: string, bankerLevels: number, defenderLevels: number}} outcome - 本局结算结果。
+ * @param {Record<number, string>} levelsBefore - 各玩家结算前等级。
+ * @param {Record<number, string>} levelsAfter - 各玩家结算后等级。
+ *
+ * 输出：
+ * @returns {string[]} 可直接追加到日志末尾的多行纯文本。
+ *
+ * 注意：
+ * - 底牌展示沿用最终结算页亮出的真实顺序，不做额外排序。
+ * - 即使没有底牌或等级变化，也保留标题结构，避免日志末尾缺块。
+ */
+function buildResultScreenExportLines(resultTitle, resultBody, outcome, levelsBefore, levelsAfter) {
+  const lines = [
+    "最终胜负界面：",
+    `- 标题：${resultTitle || "未结算"}`,
+  ];
+  if (resultBody) {
+    lines.push(`- 正文：${resultBody}`);
+  }
+  const levelRows = getResultLevelSummaryRows(outcome, levelsBefore, levelsAfter);
+  if (levelRows.length > 0) {
+    lines.push("- 级别结算：");
+    lines.push(...levelRows.map((row, index) => `  ${index + 1}. ${row}`));
+  }
+  const bottomCardsText = Array.isArray(state.bottomCards) && state.bottomCards.length > 0
+    ? state.bottomCards.map(shortCardLabel).join("、")
+    : "无";
+  lines.push(`- 底牌展示：${bottomCardsText}`);
+  return lines;
 }
 
 // 完成牌局。
@@ -3020,12 +3165,13 @@ function finishGame() {
   const humanLevelAfter = playerLevelsAfter[1];
   dom.resultCard.classList.toggle("win", humanWon);
   dom.resultCard.classList.toggle("loss", !humanWon);
-  dom.resultTitle.textContent = `${humanWon ? TEXT.outcome.winTitle : TEXT.outcome.lossTitle} - ${getResultHeadlineDetail(
+  const resultTitle = `${humanWon ? TEXT.outcome.winTitle : TEXT.outcome.lossTitle} - ${getResultHeadlineDetail(
     outcome,
     humanWon,
     humanLevelBefore,
     humanLevelAfter
   )}`;
+  dom.resultTitle.textContent = resultTitle;
   if (dom.resultSubinfo) {
     dom.resultSubinfo.innerHTML = buildResultLevelListHtml(
       outcome,
@@ -3033,7 +3179,15 @@ function finishGame() {
       playerLevelsAfter
     );
   }
-  dom.resultBody.textContent = `${outcome.body}${getBottomResultText(bottomResult)}`;
+  const resultBody = `${outcome.body}${getBottomResultText(bottomResult)}`;
+  dom.resultBody.textContent = resultBody;
+  state.resultScreenExportLines = buildResultScreenExportLines(
+    resultTitle,
+    resultBody,
+    outcome,
+    playerLevelsBefore,
+    playerLevelsAfter
+  );
   dom.resultOverlay.classList.add("show");
   startResultCountdown();
   render();
@@ -3168,6 +3322,10 @@ function getResultLogText() {
     lines.push("");
     lines.push("AI 决策记录：");
     lines.push(...getAiDecisionHistoryExportLines());
+  }
+  if (Array.isArray(state.resultScreenExportLines) && state.resultScreenExportLines.length > 0) {
+    lines.push("");
+    lines.push(...state.resultScreenExportLines);
   }
   return lines.join("\n");
 }

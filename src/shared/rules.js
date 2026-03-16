@@ -1050,16 +1050,18 @@ function compareSingle(candidate, current, leadSuit) {
  * 判断一张牌在当前主牌环境下，是否能触发成功扣底降级，并返回对应的扣底模式。
  *
  * 为什么这样写：
- * 主级牌和副级牌的回退规则不同，末手判定时需要先区分“主扣”还是“副扣”，后续才能走对的等级回退表。
+ * 当前规则要求“非无主只认主级牌，无主才认任意级牌”；
+ * 因此这里必须把副级牌直接挡掉，避免末手只是副级牌时也误触发成功扣底降级。
  *
  * 输入：
  * @param {{suit: string, rank: string} | null} card - 末手制胜牌型里的一张牌
  *
  * 输出：
- * @returns {"trump" | "vice" | null} 该牌命中的扣底模式；不命中时返回 `null`
+ * @returns {"trump" | null} 该牌命中的扣底模式；不命中时返回 `null`
  *
  * 注意：
- * - 无主时所有级牌都按主扣处理
+ * - 无主时任意级牌都按主扣处理
+ * - 非无主时只有主级牌能触发成功扣底降级
  * - 王不能触发主级/副级扣底判定
  */
 function getBottomPenaltyModeForCard(card) {
@@ -1067,7 +1069,7 @@ function getBottomPenaltyModeForCard(card) {
   if (!card || !currentLevelRank || card.suit === "joker") return null;
   if (card.rank !== currentLevelRank) return null;
   if (state.trumpSuit === "notrump") return "trump";
-  return card.suit === state.trumpSuit ? "trump" : "vice";
+  return card.suit === state.trumpSuit ? "trump" : null;
 }
 
 /**
@@ -1075,10 +1077,11 @@ function getBottomPenaltyModeForCard(card) {
  * 根据扣底模式和牌型类型，生成结算与日志使用的成功扣底标签。
  *
  * 为什么这样写：
- * 成功扣底现在同时支持主级牌和副级牌，两套标签统一从这里取，可以避免 UI 文案和规则判定脱节。
+ * 日志和结算文案都要复用同一套成功扣底标签；
+ * 这里统一收口后，即使未来规则调整，也不用在多个入口分别改字符串。
  *
  * 输入：
- * @param {"trump" | "vice"} mode - 当前成功扣底对应的模式
+ * @param {"trump" | "vice"} mode - 当前成功扣底对应的模式；当前运行态只会命中 `trump`
  * @param {string} type - 当前末手牌型类型
  *
  * 输出：
@@ -1097,7 +1100,8 @@ function getBottomPenaltyLabel(mode, type) {
  * 计算某个当前等级在成功扣底时，真正需要执行的降级步数。
  *
  * 为什么这样写：
- * 对 `J / Q / K / A` 这类有主扣/副扣回退锚点的等级，多张成功扣底需要先回退到锚点，再继续按牌型级数向下扣；否则会少算一级，无法满足像“副 J 双扣回 7、三扣回 6”这样的业务规则。
+ * 对 `J / Q / K / A` 这类有特殊回退锚点的等级，多张成功扣底需要先回退到锚点，再继续按牌型级数向下扣；
+ * 否则高等级在多张成功扣底时会少算一步，导致结算结果与当前等级回退规则不一致。
  *
  * 输入：
  * @param {string} rank - 打家当前等级

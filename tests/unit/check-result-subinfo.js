@@ -157,11 +157,6 @@ function runSuite(context) {
     assert(thresholdBottomPenaltyOutcome.winner === "defender", "bottoming to 120 or above should still let defenders win");
     assert(thresholdBottomPenaltyOutcome.defenderLevels === 0, "120-164 points should still be a non-level-up defender win");
 
-    assert(getBottomPenaltyDropSteps("J", { levels: 2, mode: "vice" }) === 3, "vice J pair should add one extra step after fallback");
-    assert(getBottomPenaltyDropSteps("J", { levels: 3, mode: "vice" }) === 4, "vice J triple should add one extra step after fallback");
-    assert(dropLevel("J", getBottomPenaltyDropSteps("J", { levels: 2, mode: "vice" }), "vice") === "7", "vice J pair should drop to 7");
-    assert(dropLevel("J", getBottomPenaltyDropSteps("J", { levels: 3, mode: "vice" }), "vice") === "6", "vice J triple should drop to 6");
-
     globalThis.__resultSubinfoResults = { results };
   `;
 

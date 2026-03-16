@@ -126,7 +126,7 @@ function runSuite(context) {
     }
 
     // 重置最小结算状态。
-    function resetSettlementState(bottomCards) {
+    function resetSettlementState(bottomCards, options = {}) {
       state.gameOver = false;
       state.phase = "playing";
       state.bankerId = 1;
@@ -143,9 +143,12 @@ function runSuite(context) {
       state.centerAnnouncementTimer = null;
       state.logs = [];
       state.allLogs = [];
-      state.defenderPoints = 0;
+      state.defenderPoints = options.initialDefenderPoints || 0;
       state.friendTarget = { failed: true };
       state.hiddenFriendId = null;
+      state.trumpSuit = options.trumpSuit || "spades";
+      state.levelRank = options.levelRank || "2";
+      state.declaration = null;
       state.playerLevels = { 1: "2", 2: "2", 3: "2", 4: "2", 5: "2" };
       state.players = [1, 2, 3, 4, 5].map((id) => makePlayer(id, []));
       render = function render() {};
@@ -153,12 +156,12 @@ function runSuite(context) {
     }
 
     // 构造一轮末手并直接触发结算，返回底牌加分。
-    function resolveFinalBottomWith(cards) {
+    function resolveFinalBottomWith(cards, options = {}) {
       const bottomCards = [
         makeCard("bottom-5", "clubs", "5"),
         makeCard("bottom-10", "diamonds", "10"),
       ];
-      resetSettlementState(bottomCards);
+      resetSettlementState(bottomCards, options);
       state.currentTrick = [
         { playerId: 2, cards: cards },
         { playerId: 3, cards: cards.map((card, index) => makeCard("follower-a-" + index, "hearts", "3")) },
@@ -171,6 +174,8 @@ function runSuite(context) {
       return {
         defenderPoints: state.defenderPoints,
         logs: [...state.allLogs],
+        bottomPenalty: getBottomPenalty(),
+        outcome: getOutcome(state.defenderPoints, { bottomPenalty: getBottomPenalty() }),
       };
     }
 
@@ -235,9 +240,19 @@ function runSuite(context) {
     assert(throwSettlement.defenderPoints === 120, "throw settlement should follow the best component multiplier");
     assert(throwSettlement.logs.some((item) => item.includes("甩牌扣（按拖拉机扣） x8")), "throw settlement log should mention the derived throw multiplier");
 
+    const viceLevelSettlement = resolveFinalBottomWith(
+      [makeCard("vice-level-4", "diamonds", "4")],
+      { trumpSuit: "spades", levelRank: "4", initialDefenderPoints: 80 }
+    );
+    assert(viceLevelSettlement.defenderPoints === 110, "vice-level bottom should still add ordinary bottom points");
+    assert(viceLevelSettlement.bottomPenalty === null, "vice-level bottom should not trigger an extra downgrade penalty");
+    assert(viceLevelSettlement.outcome.winner === "banker", "vice-level bottom under 120 should still keep banker win");
+    assert(!viceLevelSettlement.logs.some((item) => item.includes("额外降")), "vice-level bottom log should not claim an extra downgrade");
+
     globalThis.__bottomScoringResults = {
       tractorSettlementPoints: tractorSettlement.defenderPoints,
       throwSettlementPoints: throwSettlement.defenderPoints,
+      viceLevelSettlementPoints: viceLevelSettlement.defenderPoints,
     };
   `;
 
@@ -251,3 +266,4 @@ const output = runSuite(context);
 console.log("Bottom scoring regression passed:");
 console.log(`- tractor settlement points: ${output.tractorSettlementPoints}`);
 console.log(`- throw settlement points: ${output.throwSettlementPoints}`);
+console.log(`- vice-level settlement points: ${output.viceLevelSettlementPoints}`);

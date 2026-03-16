@@ -2,7 +2,7 @@
 
 这份文档用于统一当前 AI 难度定义、后续演进方向与工程落地顺序。
 
-配套工程拆解见 [ai-plan-search.md](/Users/mo.li/Documents/cards/ai-plan-search.md)。
+配套工程拆解见 [ai-plan-search.md](ai-plan-search.md)。
 
 术语约定：
 

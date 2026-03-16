@@ -8,7 +8,7 @@
 - 中级阶段：开始会留牌、会配合同伴、会考虑下一轮牌权。
 - 高级阶段：开始会读局、会算结构、会围绕升级目标做整局布局。
 
-配套规则请先看 [rules-summary.md](/Users/mo.li/Documents/cards/rules-summary.md)。
+配套规则请先看 [rules-summary.md](rules-summary.md)。
 
 ## 1. 先记住这 6 条总原则
 

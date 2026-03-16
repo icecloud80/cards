@@ -7,8 +7,8 @@
 当前说明：
 
 - 这份文档主要保留“亮主 / 反主专项策略”的分级目标与设计拆解，不重复维护中级搜索主线的里程碑状态。
-- 搜索主线状态以 [ai-checklist.md](/Users/mo.li/Documents/cards/ai-checklist.md) 为准。
-- 术语沿用 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md)。
+- 搜索主线状态以 [ai-checklist.md](ai-checklist.md) 为准。
+- 术语沿用 [ai-roadmap.md](ai-roadmap.md)。
 - 当前代码状态可粗略视为：
   - `初级` 亮主 / 反主策略已稳定
   - `中级` 亮主 / 反主第一阶段已落地
@@ -45,7 +45,7 @@
 
 当前代码的主流程主要在：
 
-- [src/shared/game.js](/Users/mo.li/Documents/cards/src/shared/game.js)
+- [src/shared/game.js](src/shared/game.js)
 
 其中与亮主 / 反主最直接相关的入口为：
 
@@ -326,7 +326,7 @@ updateDeclarationReadFromAction(playerId, action)
 
 优先建议修改这些函数附近的逻辑：
 
-- [src/shared/game.js](/Users/mo.li/Documents/cards/src/shared/game.js)
+- [src/shared/game.js](src/shared/game.js)
 
 具体建议：
 

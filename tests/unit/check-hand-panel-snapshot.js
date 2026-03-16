@@ -258,7 +258,7 @@ function main() {
   assert.equal(friendSpotTag.includes("朋"), true, "桌面端出牌区应能渲染朋友短签");
 
   const heavyOverlap = context.getPcHandOverlap(13, 31);
-  assert.equal(heavyOverlap >= 43, true, "拿到底牌后的长手牌应进一步加大重叠量，避免出现滚动条");
+  assert.equal(heavyOverlap >= 30, true, "拿到底牌后的长手牌应适度加大重叠量，避免出现滚动条");
 
   const chips = context.buildTrickSpotMetricChips(
     { id: 3, level: 4, hand: [{ id: "c1" }], capturedPoints: 40, isHuman: false },

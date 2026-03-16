@@ -1225,7 +1225,7 @@ function renderHand() {
  * 为什么这样写：
  * PC 新方案要求底部手牌区彻底取消滚动条，并且在拿起底牌后也尽量把 31 张牌压进同一视野；
  * 重叠量只看单组张数会在“拿底牌后主牌变多”的场景下压不住宽度，
- * 所以这里同时参考整手牌张数，保证常态下仍清楚、长牌时再主动加大重叠。
+ * 所以这里同时参考整手牌张数，保证常态下牌面更清楚、长牌时再主动加大重叠。
  *
  * 输入：
  * @param {number} groupCardCount - 当前花色分组内的牌张数。
@@ -1241,8 +1241,8 @@ function renderHand() {
 function getPcHandOverlap(groupCardCount, totalHandCount) {
   const groupPressure = Math.max(0, groupCardCount - 7);
   const totalPressure = Math.max(0, totalHandCount - 24);
-  const overlap = 20 + groupPressure * 3.4 + totalPressure * 0.8;
-  return Math.max(20, Math.min(46, overlap));
+  const overlap = 14 + groupPressure * 2.2 + totalPressure * 0.55;
+  return Math.max(14, Math.min(34, overlap));
 }
 
 // 创建单张牌对应的 DOM 节点。

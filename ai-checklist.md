@@ -2,7 +2,7 @@
 
 目标：先把中级 AI 的短前瞻做完整，再把“非透视的隐藏信息判断”接进高级 belief。
 
-术语沿用 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md)。
+术语沿用 [ai-roadmap.md](ai-roadmap.md)。
 
 ## 设计红线
 

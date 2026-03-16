@@ -5,8 +5,8 @@
 当前说明：
 
 - 这份文档主要保留“架构拆解”和任务拆分，不再重复维护最细的里程碑状态。
-- 里程碑状态以 [ai-checklist.md](/Users/mo.li/Documents/cards/ai-checklist.md) 为准。
-- 术语沿用 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md)。
+- 里程碑状态以 [ai-checklist.md](ai-checklist.md) 为准。
+- 术语沿用 [ai-roadmap.md](ai-roadmap.md)。
 - 截至当前代码状态，可粗略视为：
   - `M1` 已完成
   - `M2` 已完成

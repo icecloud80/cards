@@ -3,7 +3,7 @@
 这份文档基于当前仓库实现、路线图和回归测试，回答 3 个问题：
 
 1. `初级 / 中级 / 高级` AI 现在分别做到什么程度了。
-2. 它们和 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md) 的目标相比还差什么。
+2. 它们和 [ai-roadmap.md](ai-roadmap.md) 的目标相比还差什么。
 3. 下一步最值得优先做的提升是什么。
 
 ## 一句话结论
@@ -23,9 +23,9 @@
 
 依据：
 
-- 路线图把初级定义为“规则合法 + 固定启发式 + 只用公开断门信息”，见 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md#L22)。
-- 当前决策入口把 `beginner` 单独路由到 `getBeginnerLegalHintForPlayer`，而非走中级搜索链路，见 [src/shared/ai.js](/Users/mo.li/Documents/cards/src/shared/ai.js)。
-- 回归里也专门验证了初级不记额外出牌信息，只保留公开信息门控，见 [tests/unit/check-ai-memory-strategy.js](/Users/mo.li/Documents/cards/tests/unit/check-ai-memory-strategy.js#L171)。
+- 路线图把初级定义为“规则合法 + 固定启发式 + 只用公开断门信息”，见 [ai-roadmap.md](ai-roadmap.md#L22)。
+- 当前决策入口把 `beginner` 单独路由到 `getBeginnerLegalHintForPlayer`，而非走中级搜索链路，见 [src/shared/ai.js](src/shared/ai.js)。
+- 回归里也专门验证了初级不记额外出牌信息，只保留公开信息门控，见 [tests/unit/check-ai-memory-strategy.js](tests/unit/check-ai-memory-strategy.js#L171)。
 
 和路线图对比：
 
@@ -43,26 +43,26 @@
 
 已经做到的部分：
 
-- 已经有统一决策入口 `chooseIntermediatePlay`，首发和跟牌都走统一框架，见 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L811)。
-- 已经拆出了候选层 `generateCandidatePlays`，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L77)。
-- 已经有轻量模拟态复制 `cloneSimulationState`，并且明确避免污染 live state，见 [src/shared/ai-simulate.js](/Users/mo.li/Documents/cards/src/shared/ai-simulate.js#L38)。
-- 已经支持“模拟到本墩结束”和“模拟到自己下一次行动前”，见 [src/shared/ai-simulate.js](/Users/mo.li/Documents/cards/src/shared/ai-simulate.js#L244) 与 [src/shared/ai-simulate.js](/Users/mo.li/Documents/cards/src/shared/ai-simulate.js#L278)。
-- 已经有统一局面评估 `evaluateState`，并且有 `structure / control / points / friend / bottom / voidPressure / tempo / friendRisk / bottomRisk` 等评分项，见 [src/shared/ai-evaluate.js](/Users/mo.li/Documents/cards/src/shared/ai-evaluate.js#L191)。
-- 已经有目标层 `getIntermediateObjective`，把 `find_friend / run_points / protect_bottom / keep_control / pressure_void` 变成统一权重，而不是全靠即时 if，见 [src/shared/ai-objectives.js](/Users/mo.li/Documents/cards/src/shared/ai-objectives.js)。
-- 已经把 rollout 深度、future delta、触发原因和 debug bundle 打出来，见 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L631) 和 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L827)。
-- 候选层、提示层和模拟层已经基本统一到 `sourceState` 口径；`getLegalSelectionsForState`、`getBeginnerLegalHintForState`、`getIntermediateLegalHintForState` 都已经落地，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js) 与 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L1238)。
-- 里程碑 0 的候选清洗已经完成：非法候选不会进入评分链，debug 里能看见过滤原因和数量，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L834) 与 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L563)。
-- 甩牌判断已经从“全知真值过滤”改成“公开信息风险评估”。AI 现在会基于已出牌、断门和当前难度允许的记牌范围给甩牌打 `throw_safe / throw_guarded / throw_risky` 标签，并把风险惩罚接进首发评分，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L501) 与 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L319)。
-- 专项测试已经覆盖“模拟隔离”“双层前瞻触发”“debug 数据落地”，见 [tests/unit/check-ai-intermediate-search.js](/Users/mo.li/Documents/cards/tests/unit/check-ai-intermediate-search.js#L148)。
-- 回归已经覆盖“AI 不得透视甩牌成败”“中级按公开信息判断甩牌风险边界”，见 [tests/unit/check-ai-intermediate-foundation.js](/Users/mo.li/Documents/cards/tests/unit/check-ai-intermediate-foundation.js#L218)。
+- 已经有统一决策入口 `chooseIntermediatePlay`，首发和跟牌都走统一框架，见 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L811)。
+- 已经拆出了候选层 `generateCandidatePlays`，见 [src/shared/ai-candidates.js](src/shared/ai-candidates.js#L77)。
+- 已经有轻量模拟态复制 `cloneSimulationState`，并且明确避免污染 live state，见 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L38)。
+- 已经支持“模拟到本墩结束”和“模拟到自己下一次行动前”，见 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L244) 与 [src/shared/ai-simulate.js](src/shared/ai-simulate.js#L278)。
+- 已经有统一局面评估 `evaluateState`，并且有 `structure / control / points / friend / bottom / voidPressure / tempo / friendRisk / bottomRisk` 等评分项，见 [src/shared/ai-evaluate.js](src/shared/ai-evaluate.js#L191)。
+- 已经有目标层 `getIntermediateObjective`，把 `find_friend / run_points / protect_bottom / keep_control / pressure_void` 变成统一权重，而不是全靠即时 if，见 [src/shared/ai-objectives.js](src/shared/ai-objectives.js)。
+- 已经把 rollout 深度、future delta、触发原因和 debug bundle 打出来，见 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L631) 和 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L827)。
+- 候选层、提示层和模拟层已经基本统一到 `sourceState` 口径；`getLegalSelectionsForState`、`getBeginnerLegalHintForState`、`getIntermediateLegalHintForState` 都已经落地，见 [src/shared/ai-candidates.js](src/shared/ai-candidates.js) 与 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L1238)。
+- 里程碑 0 的候选清洗已经完成：非法候选不会进入评分链，debug 里能看见过滤原因和数量，见 [src/shared/ai-candidates.js](src/shared/ai-candidates.js#L834) 与 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L563)。
+- 甩牌判断已经从“全知真值过滤”改成“公开信息风险评估”。AI 现在会基于已出牌、断门和当前难度允许的记牌范围给甩牌打 `throw_safe / throw_guarded / throw_risky` 标签，并把风险惩罚接进首发评分，见 [src/shared/ai-candidates.js](src/shared/ai-candidates.js#L501) 与 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L319)。
+- 专项测试已经覆盖“模拟隔离”“双层前瞻触发”“debug 数据落地”，见 [tests/unit/check-ai-intermediate-search.js](tests/unit/check-ai-intermediate-search.js#L148)。
+- 回归已经覆盖“AI 不得透视甩牌成败”“中级按公开信息判断甩牌风险边界”，见 [tests/unit/check-ai-intermediate-foundation.js](tests/unit/check-ai-intermediate-foundation.js#L218)。
 
 还没完全做到的部分：
 
-- 候选与状态解耦的主体已经做完，但还没有彻底纯函数化；当前候选生成虽然能接收 `simState`，仍有一部分 legacy helper 通过 `withSimulationState(...)` 借用全局 `state`，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L58)。
-- 当前候选生成和部分 legacy 逻辑依然依赖 `chooseAiLeadPlay`、`getLegalSelectionsForPlayer`、`state.leadSpec` 这些 live-style 接口，说明“可在 sampled worlds 中纯函数运行”这一步还没真正完成，见 [src/shared/ai-candidates.js](/Users/mo.li/Documents/cards/src/shared/ai-candidates.js#L31)。
-- 路线图要求“现有零散 if 规则逐步退化成评分修正器”，但当前 `chooseIntermediatePlay` 前后仍保留不少直接短路规则，例如强制亮友、support-before-reveal 等，这说明框架虽已成型，legacy 规则还没彻底下沉，见 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md#L86) 和 [src/shared/ai-intermediate.js](/Users/mo.li/Documents/cards/src/shared/ai-intermediate.js#L816)。
+- 候选与状态解耦的主体已经做完，但还没有彻底纯函数化；当前候选生成虽然能接收 `simState`，仍有一部分 legacy helper 通过 `withSimulationState(...)` 借用全局 `state`，见 [src/shared/ai-candidates.js](src/shared/ai-candidates.js#L58)。
+- 当前候选生成和部分 legacy 逻辑依然依赖 `chooseAiLeadPlay`、`getLegalSelectionsForPlayer`、`state.leadSpec` 这些 live-style 接口，说明“可在 sampled worlds 中纯函数运行”这一步还没真正完成，见 [src/shared/ai-candidates.js](src/shared/ai-candidates.js#L31)。
+- 路线图要求“现有零散 if 规则逐步退化成评分修正器”，但当前 `chooseIntermediatePlay` 前后仍保留不少直接短路规则，例如强制亮友、support-before-reveal 等，这说明框架虽已成型，legacy 规则还没彻底下沉，见 [ai-roadmap.md](ai-roadmap.md#L86) 和 [src/shared/ai-intermediate.js](src/shared/ai-intermediate.js#L816)。
 - 路线图里提到“朋友未揭晓时，持续维护谁更像朋友的简单概率分”，当前还没有显式概率状态，更接近“目标权重 + 若干身份特判”，尚未形成真正的 lightweight belief。
-- 调试信息已经有了，但性能保护还没形成明确的上限控制和专项性能回归；清单里这一项仍是 `待开始`，见 [ai-checklist.md](/Users/mo.li/Documents/cards/ai-checklist.md#L146)。
+- 调试信息已经有了，但性能保护还没形成明确的上限控制和专项性能回归；清单里这一项仍是 `待开始`，见 [ai-checklist.md](ai-checklist.md#L146)。
 - 甩牌风险评估的第一版已经接进首发候选和评分，但它还不等于完整的“评估函数第二版”；像 `turnAccess`、失去先手后的连续跑分潜力、残局安全起手值这些更核心的 `牌权续控` 项还没接完。
 
 和路线图对比：
@@ -82,9 +82,9 @@
 
 已经做到的部分：
 
-- 路线图明确说当前产品里的高级只是“完整记牌版的中级”，见 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md#L34)。
-- 代码层面也确实如此：`advanced` 直接记住全部 `playHistory`，而 `intermediate` 只记与自己结构相关的高牌，见 [src/shared/ai-shared.js](/Users/mo.li/Documents/cards/src/shared/ai-shared.js#L498)。
-- 回归也验证了高级会记住所有已出牌，并且行为路由仍继承中级决策链，见 [tests/unit/check-ai-memory-strategy.js](/Users/mo.li/Documents/cards/tests/unit/check-ai-memory-strategy.js#L182)。
+- 路线图明确说当前产品里的高级只是“完整记牌版的中级”，见 [ai-roadmap.md](ai-roadmap.md#L34)。
+- 代码层面也确实如此：`advanced` 直接记住全部 `playHistory`，而 `intermediate` 只记与自己结构相关的高牌，见 [src/shared/ai-shared.js](src/shared/ai-shared.js#L498)。
+- 回归也验证了高级会记住所有已出牌，并且行为路由仍继承中级决策链，见 [tests/unit/check-ai-memory-strategy.js](tests/unit/check-ai-memory-strategy.js#L182)。
 
 还没做到的部分：
 
@@ -94,7 +94,7 @@
 - 没有多世界模拟。
 - 没有基于不确定性做风险控制。
 
-这些能力都只存在于路线图目标里，还没有体现在当前实现中，见 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md#L120)。
+这些能力都只存在于路线图目标里，还没有体现在当前实现中，见 [ai-roadmap.md](ai-roadmap.md#L120)。
 
 结论：
 
@@ -195,7 +195,7 @@
 
 原因很简单：
 
-- 路线图已经明确写了，在中级搜索框架落稳前，不建议过早引入复杂 hidden sampling，见 [ai-roadmap.md](/Users/mo.li/Documents/cards/ai-roadmap.md#L239)。
+- 路线图已经明确写了，在中级搜索框架落稳前，不建议过早引入复杂 hidden sampling，见 [ai-roadmap.md](ai-roadmap.md#L239)。
 - 当前代码也证明，最值钱的基础设施已经有了，但承载高级推断所需的“去全局状态化”还没完成。
 - 当前代码也证明，中级的基础设施已经足够支撑继续打磨，真正的短板已经从“框架缺失”转成“收口和调优不够完整”。
 

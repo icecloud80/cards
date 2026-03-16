@@ -39,7 +39,7 @@
 - 规则帮助、Debug、播报、底牌、布局编辑、AI 难度、牌面切换等放进 `更多功能` 菜单。
 - 顶部不承担新手导引职责，只保留短状态，不放规则解释句。
 - 顶部 5 个功能按钮固定为单排图标：`托管 / 信息 / 回看上轮 / 新游戏 / 设置`。
-- 顶部 5 个按钮统一使用提供的图标素材，其中 `新游戏` 改用外部提供的 [new_game.png](/Users/mo.li/Documents/cards/icons/icon_new_game.png)。
+- 顶部 5 个按钮统一使用提供的图标素材，其中 `新游戏` 改用外部提供的 [new_game.png](icons/icon_new_game.png)。
 
 ### 中央战场
 
@@ -84,9 +84,12 @@
 - 常态下按约 `20% ~ 25%` 的可视牌面密度压叠；拿起底牌后再动态加大重叠，保证 31 张牌仍尽量留在同一视野内。
 - 底部手牌区移除整块浅色背景，让牌组直接贴近桌面展示。
 - 左侧手牌区的各花色分组紧贴排列，不再在花色之间额外留空。
+- 底部手牌区整体向右收，并补一圈轻线框，避免太贴左边且缺少边界。
 - 高频动作继续贴近手牌区右侧保留，形成独立操作区。
 - 右侧操作区恢复偏蓝的配色，和中央桌面冷色环境更统一。
 - 右侧操作区去掉外层面板背景，按钮直接落在桌面右侧区域。
+- 右侧操作按钮整体下沉，并放大按钮尺寸与蓝色对比度，让操作区更容易被看到。
+- 新增独立静态模板页 `index-static.html`，用 mock data 固定展示顶部、左侧玩家列、中央战场和 31 张手牌，专门用于 PC 视觉对齐。
 
 ### 开始界面
 
@@ -127,8 +130,11 @@
 - 底部手牌区改成左手牌、右操作的双栏结构
 - 底部手牌区去掉头像、标题和手牌统计头部，并移除整块浅色背景
 - 底部各花色手牌改成紧贴排布，不再在花色之间人为留空
+- 底部手牌区整体向右收，减少过于贴左的感觉，并补上线框
 - 底部手牌区移除滚动条，改用更高重叠密度承载长手牌和拿到底牌后的 31 张牌
 - 右侧操作区恢复蓝色主题，并移除操作区外层卡片背景
+- 右侧操作按钮下移并放大，增强操作区存在感
+- 新增 `index-static.html` 作为 PC 静态测试模板，默认铺满 31 张 mock 手牌
 - PC 紧凑化改动已加平台隔离，mobile 继续沿用原有出牌区、玩家面板和手牌摘要结构
 
 - 仍可继续迭代的内容：
@@ -143,8 +149,8 @@
 
 ## 7. 设计稿落点
 
-- 主设计稿：[/Users/mo.li/Documents/cards/artifacts/pc-layout-mockup.svg](/Users/mo.li/Documents/cards/artifacts/pc-layout-mockup.svg)
-- 预览封装：[/Users/mo.li/Documents/cards/artifacts/pc-layout-mockup-inline.svg](/Users/mo.li/Documents/cards/artifacts/pc-layout-mockup-inline.svg)
+- 主设计稿：[artifacts/pc-layout-mockup.svg](artifacts/pc-layout-mockup.svg)
+- 预览封装：[artifacts/pc-layout-mockup-inline.svg](artifacts/pc-layout-mockup-inline.svg)
 
 ## 8. 后续实现建议
 

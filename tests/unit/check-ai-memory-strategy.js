@@ -168,9 +168,58 @@ function runAiMemorySuite(context) {
       state.exposedSuitVoid[1].hearts = true;
     }
 
+    function setupResolvedScoreMemoryScenario() {
+      resetCommonState();
+      state.aiDifficulty = "beginner";
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.hiddenFriendId = 3;
+      state.players[0].roundPoints = 70;
+      state.players[2].roundPoints = 100;
+      state.players[1].roundPoints = 70;
+      state.defenderPoints = recalcDefenderPoints();
+    }
+
+    function setupLockedPointLeadScenario() {
+      resetCommonState();
+      state.aiDifficulty = "beginner";
+      state.phase = "playing";
+      state.currentTrick = [];
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.hiddenFriendId = 3;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-h-10", "hearts", "10"),
+          makeCard("b-d-3", "diamonds", "3"),
+          makeCard("b-s-2", "spades", "2"),
+        ], true),
+        basePlayer(2, [makeCard("p2-d-7", "diamonds", "7")]),
+        basePlayer(3, [makeCard("p3-h-k", "hearts", "K")]),
+        basePlayer(4, [makeCard("p4-d-8", "diamonds", "8")]),
+        basePlayer(5, [makeCard("p5-d-9", "diamonds", "9")]),
+      ];
+      state.players[0].roundPoints = 70;
+      state.players[2].roundPoints = 150;
+      state.players[1].roundPoints = 60;
+      state.defenderPoints = recalcDefenderPoints();
+    }
+
     setupRememberedCardsScenario("beginner");
     const beginnerRemembered = getRememberedPlayedCardsForPlayer(3);
     assert(beginnerRemembered.length === 0, "beginner: should not remember played cards beyond exposed void");
+
+    setupResolvedScoreMemoryScenario();
+    const beginnerScoreMemory = getVisibleScoreMemoryForPlayer(3);
+    assert(beginnerScoreMemory.playerSide === "banker", "beginner: revealed friend should know it is on banker side");
+    assert(beginnerScoreMemory.bankerTeamPoints === 170, "beginner: should remember banker-team captured points after reveal");
+    assert(beginnerScoreMemory.defenderPoints === 70, "beginner: should remember defender captured points after reveal");
+    assert(beginnerScoreMemory.remainingPointPool === 60, "beginner: remaining point pool should exclude only settled points");
+    assert(beginnerScoreMemory.defenderCanStillReach120 === true, "beginner: 70 + 60 should still allow defender point win");
 
     setupRememberedCardsScenario("intermediate");
     const intermediateRemembered = getRememberedPlayedCardsForPlayer(3);
@@ -190,12 +239,22 @@ function runAiMemorySuite(context) {
     assert(advancedHint.length === 1, "advanced: should route through legal hint selection");
     assert(advancedHint[0].suit === "hearts" && advancedHint[0].rank === "3", "advanced: should inherit intermediate public-info return behavior");
 
+    setupLockedPointLeadScenario();
+    const lockedPointMemory = getVisibleScoreMemoryForPlayer(1);
+    assert(lockedPointMemory.bankerSideLockedByPoints === true, "beginner: banker side should detect when defenders cannot reach 120 anymore");
+    assert(shouldAiAimForBottom(4) === true, "beginner: defender should switch to bottom-first when public remaining points are not enough");
+    const lockedPointLead = chooseAiLeadPlay(1);
+    assert(lockedPointLead.length === 1, "beginner: locked-point safety lead should still produce a single legal card");
+    assert(lockedPointLead[0].suit === "diamonds" && lockedPointLead[0].rank === "3", "beginner: banker should dump the lowest zero-point side card after point lock");
+
     globalThis.__aiMemoryResults = {
       results: [
         "beginner memory gate ok",
+        "beginner public-score memory ok",
         "intermediate structure-memory gate ok",
         "advanced full-memory gate ok",
         "advanced decision route ok",
+        "beginner point-lock tactic gate ok",
       ],
     };
   `;

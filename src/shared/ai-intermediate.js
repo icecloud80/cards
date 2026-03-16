@@ -1371,6 +1371,8 @@ function chooseAiLeadPlay(playerId) {
     const friendCard = player.hand.find((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank);
     if (friendCard) return [friendCard];
   }
+  const lockedPointSafetyLead = chooseAiLockedPointSafetyLead(playerId, player);
+  if (lockedPointSafetyLead.length > 0) return lockedPointSafetyLead;
   const safeAntiRuffLead = chooseAiSafeAntiRuffLead(playerId, player);
   if (safeAntiRuffLead.length > 0) return safeAntiRuffLead;
   const voidPressureLead = chooseAiVoidPressureLead(playerId, player);

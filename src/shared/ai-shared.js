@@ -347,9 +347,55 @@ function chooseAiVoidPressureLead(playerId, player) {
   })[0].combo;
 }
 
+/**
+ * 作用：
+ * 在“闲家已经不可能靠常规分数到 120”时，为打家方选择更保守的首发。
+ *
+ * 为什么这样写：
+ * 一旦公开分数已经表明闲家后面分全拿也不够 120，打家方就不该再主动用高分牌或大主去冒险抢节奏，
+ * 这时更合理的做法是优先出低风险、低分值的牌，把局面推进到保底与防扣底。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中“分数锁定”条件则返回一手保守首发，否则返回空数组。
+ *
+ * 注意：
+ * - 这里只在阵营已明后启用，避免未站队阶段误判分数归属。
+ * - 该启发式只负责“降低主动送分风险”，不替代末局保底和扣底逻辑。
+ */
+function chooseAiLockedPointSafetyLead(playerId, player) {
+  if (!player || state.currentTrick.length !== 0) return [];
+  const scoreMemory = getVisibleScoreMemoryForPlayer(playerId);
+  if (scoreMemory.playerSide !== "banker" || !scoreMemory.bankerSideLockedByPoints) return [];
+
+  const zeroPointSideSingles = player.hand.filter((card) => !isTrump(card) && scoreValue(card) === 0);
+  if (zeroPointSideSingles.length > 0) {
+    return [lowestCard(zeroPointSideSingles)];
+  }
+
+  const lowSideSingles = player.hand.filter((card) => !isTrump(card));
+  if (lowSideSingles.length > 0) {
+    return [lowestCard(lowSideSingles)];
+  }
+
+  const zeroPointCards = player.hand.filter((card) => scoreValue(card) === 0);
+  if (zeroPointCards.length > 0) {
+    return [lowestCard(zeroPointCards)];
+  }
+
+  return [];
+}
+
 // 判断 AI 当前是否应该争取扣底。
 function shouldAiAimForBottom(playerId) {
   if (!isDefenderTeam(playerId)) return false;
+  const scoreMemory = getVisibleScoreMemoryForPlayer(playerId);
+  if (scoreMemory.playerSide === "defender" && scoreMemory.defenderCanStillReach120 === false) {
+    return true;
+  }
   const cardsLeft = state.players.reduce((sum, player) => sum + player.hand.length, 0);
   const visiblePoints = state.defenderPoints + getCurrentTrickPointValue();
   if (visiblePoints < 60 && cardsLeft <= 25) return true;
@@ -564,6 +610,110 @@ function isAdvancedAiDifficulty() {
 
 function getAiPlayedHistoryCards() {
   return Array.isArray(state.playHistory) ? state.playHistory : [];
+}
+
+let cachedTotalDeckPointValue = null;
+
+/**
+ * 作用：
+ * 返回当前三副牌整局理论上的总分数。
+ *
+ * 为什么这样写：
+ * 这轮要让初级 AI 基于“公开已跑分 + 剩余可争分”判断后面是否还够赢，
+ * 因此需要一份稳定的全局总分基线，而不是每个 heuristic 各自硬编码。
+ *
+ * 输入：
+ * @param {void} - 无额外输入，直接基于当前规则牌堆计算。
+ *
+ * 输出：
+ * @returns {number} 当前牌堆总分，默认三副牌应为 300 分。
+ *
+ * 注意：
+ * - 这里缓存结果，避免每次决策都重复创建整副牌。
+ * - 如果以后牌堆规格改动，这里会跟着 `createDeck()` 自动同步。
+ */
+function getTotalDeckPointValue() {
+  if (typeof cachedTotalDeckPointValue === "number") {
+    return cachedTotalDeckPointValue;
+  }
+  cachedTotalDeckPointValue = createDeck().reduce((sum, card) => sum + scoreValue(card), 0);
+  return cachedTotalDeckPointValue;
+}
+
+/**
+ * 作用：
+ * 汇总当前局面对 AI 公开可见的得分记忆。
+ *
+ * 为什么这样写：
+ * 用户希望初级 AI 除了记住绝门外，还能记住“打家/朋友收了多少、闲家收了多少”，
+ * 这样它才能判断后面剩余分数是否还足够翻盘，并据此切换“继续抢分”或“改抢扣底”。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ *
+ * 输出：
+ * @returns {{
+ *   totalPoints: number,
+ *   collectedPoints: number,
+ *   remainingPointPool: number,
+ *   unresolvedTeams: boolean,
+ *   bankerKnownPoints: number,
+ *   bankerTeamPoints: number | null,
+ *   defenderPoints: number | null,
+ *   defenderPointsNeeded: number | null,
+ *   defenderCanStillReach120: boolean | null,
+ *   bankerSideLockedByPoints: boolean | null,
+ *   playerSide: "banker" | "defender" | "unknown"
+ * }} 当前 AI 可直接依赖的公开分数摘要。
+ *
+ * 注意：
+ * - 未站队前不推断隐藏朋友的分数归属，所以 `bankerTeamPoints / defenderPoints` 会保留为 `null`。
+ * - `remainingPointPool` 只扣除已结算到 `roundPoints` 的分；当前桌面这一墩的分仍视为“可争取”。
+ */
+function getVisibleScoreMemoryForPlayer(playerId) {
+  const totalPoints = getTotalDeckPointValue();
+  const collectedPoints = state.players.reduce((sum, player) => sum + (player.roundPoints || 0), 0);
+  const remainingPointPool = Math.max(0, totalPoints - collectedPoints);
+  const unresolvedTeams = !isFriendTeamResolved();
+  const bankerKnownPoints = getPlayer(state.bankerId)?.roundPoints || 0;
+  const playerSide = unresolvedTeams
+    ? (playerId === state.bankerId ? "banker" : "unknown")
+    : (isDefenderTeam(playerId) ? "defender" : "banker");
+
+  if (unresolvedTeams) {
+    return {
+      totalPoints,
+      collectedPoints,
+      remainingPointPool,
+      unresolvedTeams,
+      bankerKnownPoints,
+      bankerTeamPoints: null,
+      defenderPoints: null,
+      defenderPointsNeeded: null,
+      defenderCanStillReach120: null,
+      bankerSideLockedByPoints: null,
+      playerSide,
+    };
+  }
+
+  const defenderPoints = state.defenderPoints;
+  const bankerTeamPoints = Math.max(0, collectedPoints - defenderPoints);
+  const defenderPointsNeeded = Math.max(0, 120 - defenderPoints);
+  const defenderCanStillReach120 = defenderPoints + remainingPointPool >= 120;
+
+  return {
+    totalPoints,
+    collectedPoints,
+    remainingPointPool,
+    unresolvedTeams,
+    bankerKnownPoints,
+    bankerTeamPoints,
+    defenderPoints,
+    defenderPointsNeeded,
+    defenderCanStillReach120,
+    bankerSideLockedByPoints: !defenderCanStillReach120,
+    playerSide,
+  };
 }
 
 function getStructureCombosFromHand(hand) {

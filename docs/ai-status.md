@@ -101,9 +101,9 @@
 
 依据：
 
-- 路线图把初级定义为“规则合法 + 固定启发式 + 只用公开断门信息”，见 [ai-roadmap.md](ai-roadmap.md#L22)。
+- 路线图把初级定义为“规则合法 + 固定启发式 + 只用公开断门与公开分数信息”，见 [ai-roadmap.md](ai-roadmap.md#L22)。
 - 当前决策入口把 `beginner` 单独路由到 `getBeginnerLegalHintForPlayer`，而非走中级搜索链路，见 [src/shared/ai.js](../src/shared/ai.js)。
-- 回归里也专门验证了初级不记额外出牌信息，只保留公开信息门控，见 [tests/unit/check-ai-memory-strategy.js](../tests/unit/check-ai-memory-strategy.js#L171)。
+- 回归里也专门验证了初级不记额外出牌信息，只保留公开断门与公开分数门控，见 [tests/unit/check-ai-memory-strategy.js](../tests/unit/check-ai-memory-strategy.js#L171)。
 
 和路线图对比：
 

@@ -235,6 +235,52 @@ function runBuryStrategySuite(context) {
       ];
     }
 
+    /**
+     * 作用：
+     * 搭建“初级应为最短副牌 A 留下 A + 回手牌 + K”的埋底测试场景。
+     *
+     * 为什么这样写：
+     * 这次 beginner heuristic 要把“短门找朋友”提前反映到埋底阶段，
+     * 因此需要验证初级不会把目标门里的 "A / 回手牌 / K" 一起扣掉。
+     *
+     * 输入：
+     * @param {void} - 场景固定只验证初级埋底。
+     *
+     * 输出：
+     * @returns {void} 直接写入打家手牌。
+     *
+     * 注意：
+     * - 黑桃是最短副牌门，且同时具备 "A / K / 6" 三张，应整体保留。
+     * - 其余副牌数量更长，理论上更适合被扣到底里。
+     */
+    function setupBeginnerShortSuitReserveScenario() {
+      resetBuryState("beginner");
+      state.players = [
+        basePlayer(1, [
+          makeCard("sA", "spades", "A"),
+          makeCard("sK", "spades", "K"),
+          makeCard("s6", "spades", "6"),
+          makeCard("dA", "diamonds", "A"),
+          makeCard("d9", "diamonds", "9"),
+          makeCard("d8", "diamonds", "8"),
+          makeCard("hQ", "hearts", "Q"),
+          makeCard("h9", "hearts", "9"),
+          makeCard("h8", "hearts", "8"),
+          makeCard("c7", "clubs", "7"),
+          makeCard("c6", "clubs", "6"),
+          makeCard("c5", "clubs", "5"),
+          makeCard("trump-1", "joker", "BJ"),
+          makeCard("trump-2", "spades", "2"),
+        ], true),
+        basePlayer(2, []),
+        basePlayer(3, []),
+        basePlayer(4, []),
+        basePlayer(5, []),
+      ];
+      state.trumpSuit = "clubs";
+      state.declaration = { playerId: 1, suit: "clubs", rank: "2", count: 2, cards: [] };
+    }
+
     function setupManualPointCapValidationScenario() {
       resetBuryState("beginner");
       state.players = [
@@ -300,6 +346,14 @@ function runBuryStrategySuite(context) {
       assert(getCardsPointTotal(bury) <= MAX_BURY_POINT_TOTAL, difficulty + ": bury hint should respect the 25-point cap");
       results.push(difficulty + " bury-point-cap ok");
     }
+
+    setupBeginnerShortSuitReserveScenario();
+    const beginnerShortSuitReserve = getBuryHintForPlayer(1);
+    const beginnerShortSuitReserveIds = new Set(beginnerShortSuitReserve.map((card) => card.id));
+    assert(!beginnerShortSuitReserveIds.has("sA"), "beginner: should keep side-suit A for short-suit friend plan");
+    assert(!beginnerShortSuitReserveIds.has("sK"), "beginner: should keep side-suit K to extend the short-suit line");
+    assert(!beginnerShortSuitReserveIds.has("s6"), "beginner: should keep one side-suit return card for the short-suit line");
+    results.push("beginner short-suit reserve bury ok");
 
     setupManualPointCapValidationScenario();
     const invalidBuryIds = ["c5-1", "c10-1", "ck-1", "d5-1", "d10-1", "h3-1", "h4-1"];

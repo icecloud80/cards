@@ -241,6 +241,9 @@ function loadUiContext() {
  * - 断言优先覆盖“未知阵营留空”、“闲家徽标”、“PC 标题不写出牌区”和“长手牌时加大重叠”这几个关键约束。
  */
 function main() {
+  const indexHtml = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
+  assert.match(indexHtml, /playerSeat-2[\s\S]*playerSeat-3[\s\S]*playerSeat-4[\s\S]*playerSeat-5[\s\S]*playerSeat-1/, "PC 左侧玩家面板 DOM 顺序应为 2, 3, 4, 5, 1");
+
   const context = loadUiContext();
   context.setupGame();
   assert.equal(context.state.cardFaceKey, "sprite", "桌面端默认牌面应直接启用整图 sprite 主题");

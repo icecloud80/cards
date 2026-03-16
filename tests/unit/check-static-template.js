@@ -78,6 +78,7 @@ function main() {
   assert.equal(mockPage.topbarStatus[2].key, "朋友", "静态模板页顶部应改用“朋友”标签");
   assert.equal(mockPage.topbarStatus[2].subline.includes("/"), true, "静态模板页朋友状态应使用 1/2 这类紧凑位置写法");
   assert.equal(mockPage.cardFaceLabel, "整图牌面", "静态模板页应把整图 sprite 作为默认牌面标签");
+  assert.equal(mockPage.seats.map((seat) => seat.id).join(","), "2,3,4,5,1", "静态模板页左侧玩家列顺序应为 2, 3, 4, 5, 1");
 
   const handTotal = mockPage.handGroups.reduce((sum, group) => sum + group.cards.length, 0);
   assert.equal(handTotal, 31, "静态模板页的手牌区应固定铺满 31 张牌");

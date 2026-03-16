@@ -339,10 +339,140 @@ function scoreBeginnerFriendTargetCandidate(target, banker, meta = {}) {
   return rankBonus + occurrenceBonus + suitBonus - trumpPenalty - jokerPenalty - buriedPenalty - higherRankRiskPenalty - supportPenalty;
 }
 
+/**
+ * 作用：
+ * 判断一门 `A` 在当前局面下是否仍属于副牌 `A` 候选。
+ *
+ * 为什么这样写：
+ * 初级 AI 的新规则明确要求优先找“副牌 A”做朋友牌。
+ * 这里单独把判定收口，避免在选朋友和埋底两条链路里重复散写“这张 A 现在算不算主”的条件。
+ *
+ * 输入：
+ * @param {string} suit - 候选花色。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示这门 `A` 当前仍可按副牌 `A` 处理。
+ *
+ * 注意：
+ * - 级别为 `A` 时，所有 `A` 都会转成常主；这时这里应返回 `false`。
+ * - 这里只服务初级 AI 的短门找朋友 heuristic，不影响人类可选项。
+ */
+function isBeginnerSideAceSuit(suit) {
+  if (!suit) return false;
+  if (suit === state.trumpSuit) return false;
+  return getPlayerLevelRank(state.bankerId) !== "A";
+}
+
+/**
+ * 作用：
+ * 按“副牌 A + 短门回手”规则，为初级 AI 收集短门找朋友候选。
+ *
+ * 为什么这样写：
+ * 用户希望初级 AI 明确传达“这是一门可回手的短门”：
+ * 1. 优先找最短的副牌 `A`。
+ * 2. 埋底时只保留 `A + 1 张回手牌`，若有 `K` 再额外保留一张 `K`。
+ * 这样选朋友和埋底就能共用同一份目标门信息，而不是各自猜一套。
+ *
+ * 输入：
+ * @param {object|null} banker - 当前打家对象。
+ * @param {{countKnownBuriedCopies?: boolean}} options - 是否把已知底牌里的同门 `A` 计入外部剩余张数。
+ *
+ * 输出：
+ * @returns {Array<object>} 短门候选列表，按“门信息 + 建议保留牌”组织。
+ *
+ * 注意：
+ * - 埋底阶段会临时把原始底牌并回手里，因此那一刻不能把 `state.bottomCards` 当成“已经埋下”的信息。
+ * - 这里只收集“副牌 A”候选；若完全没有可用副牌 `A`，调用方再回落到旧 heuristic。
+ */
+function collectBeginnerShortSuitFriendCandidates(banker, options = {}) {
+  if (!banker) return [];
+  const countKnownBuriedCopies = options.countKnownBuriedCopies === true;
+  return SUITS
+    .filter((suit) => isBeginnerSideAceSuit(suit))
+    .map((suit) => {
+      const suitCards = banker.hand
+        .filter((card) => !isTrump(card) && card.suit === suit)
+        .sort((a, b) => cardStrength(a) - cardStrength(b));
+      if (suitCards.length === 0) return null;
+
+      const aceCards = suitCards.filter((card) => card.rank === "A");
+      if (aceCards.length === 0 || aceCards.length >= 3) return null;
+
+      const buriedCopies = countKnownBuriedCopies
+        ? getKnownBuriedTargetCopies({ suit, rank: "A" })
+        : 0;
+      const outsideCopies = Math.max(0, 3 - buriedCopies - aceCards.length);
+      if (outsideCopies <= 0) return null;
+
+      const kingCard = suitCards.find((card) => card.rank === "K") || null;
+      const returnCard = suitCards.find((card) => card.rank !== "A" && card.rank !== "K") || null;
+      const reservedCards = [...aceCards];
+      if (returnCard) reservedCards.push(returnCard);
+      if (kingCard) reservedCards.push(kingCard);
+      const reservedCardIds = new Set(reservedCards.map((card) => card.id));
+      const extraCards = suitCards.filter((card) => !reservedCardIds.has(card.id));
+
+      return {
+        suit,
+        suitCards,
+        aceCards,
+        kingCard,
+        returnCard,
+        reservedCards,
+        reservedCardIds,
+        totalCount: suitCards.length,
+        extraCount: extraCards.length,
+        occurrence: aceCards.length + 1,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      if (left.totalCount !== right.totalCount) return left.totalCount - right.totalCount;
+      if (!!left.kingCard !== !!right.kingCard) return left.kingCard ? -1 : 1;
+      if (!!left.returnCard !== !!right.returnCard) return left.returnCard ? -1 : 1;
+      if (left.extraCount !== right.extraCount) return left.extraCount - right.extraCount;
+      return SUITS.indexOf(left.suit) - SUITS.indexOf(right.suit);
+    });
+}
+
+/**
+ * 作用：
+ * 为初级 AI 选出“副牌 A 短门找朋友”的主计划。
+ *
+ * 为什么这样写：
+ * 叫朋友和埋底都需要知道“哪一门是初级这局打算公开传递的短门”。
+ * 用统一 helper 选出主计划后，两个入口才能稳定保持同一方向。
+ *
+ * 输入：
+ * @param {object|null} banker - 当前打家对象。
+ * @param {{countKnownBuriedCopies?: boolean}} options - 是否把已知底牌中的同门 `A` 计入外部剩余张数。
+ *
+ * 输出：
+ * @returns {object|null} 最优的短门找朋友计划；没有可用副牌 `A` 时返回 `null`。
+ *
+ * 注意：
+ * - 这是初级专用 heuristic；中高级仍走各自原有链路。
+ * - 返回值里的 `reservedCardIds` 会被埋底策略直接复用。
+ */
+function getBeginnerShortSuitFriendPlan(banker, options = {}) {
+  return collectBeginnerShortSuitFriendCandidates(banker, options)[0] || null;
+}
+
 // 选择新手难度下的朋友目标牌。
 function chooseBeginnerFriendTarget() {
   const banker = getPlayer(state.bankerId);
   if (!banker) return getFriendTargetFallback();
+  const shortSuitPlan = getBeginnerShortSuitFriendPlan(banker, { countKnownBuriedCopies: true });
+  if (shortSuitPlan) {
+    return {
+      target: buildFriendTarget({
+        suit: shortSuitPlan.suit,
+        rank: "A",
+        occurrence: shortSuitPlan.occurrence,
+      }),
+      ownerId: null,
+    };
+  }
   for (const ranks of getFriendAutoRankGroups()) {
     const candidates = collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate);
     const best = pickBestFriendTargetFromCandidates(candidates);
@@ -2090,6 +2220,11 @@ function getBuryHintForPlayer(playerId) {
   const player = getPlayer(playerId);
   if (!player) return [];
   const protectedCardIds = getBuryProtectedCardIds(player.hand);
+  const beginnerShortSuitPlan = state.aiDifficulty === "beginner"
+    ? getBeginnerShortSuitFriendPlan(player, { countKnownBuriedCopies: false })
+    : null;
+  const beginnerReserveSuit = beginnerShortSuitPlan?.suit || null;
+  const beginnerReservedCardIds = beginnerShortSuitPlan?.reservedCardIds || new Set();
   const suitCounts = SUITS.reduce((acc, suit) => {
     acc[suit] = player.hand.filter((card) => !isTrump(card) && card.suit === suit).length;
     return acc;
@@ -2119,6 +2254,17 @@ function getBuryHintForPlayer(playerId) {
   const getScore = (card) => {
     let score = (isTrump(card) ? 1000 : 0) + scoreValue(card) * 50 + cardStrength(card) + getBuryControlRetentionScore(card);
     if (protectedCardIds.has(card.id)) score += 600;
+    if (state.aiDifficulty === "beginner" && !isTrump(card) && beginnerReserveSuit) {
+      if (beginnerReservedCardIds.has(card.id)) {
+        score += 1800;
+      } else if (card.suit === beginnerReserveSuit) {
+        score -= 150;
+      } else {
+        score -= 80;
+        score -= Math.min(suitCounts[card.suit] || 0, 5) * 8;
+        if (card.rank === "A") score -= 170;
+      }
+    }
     if (!isTrump(card) && state.aiDifficulty !== "beginner") {
       score += suitCounts[card.suit] * 14;
       if (card.suit === reserveSuit) {

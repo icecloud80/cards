@@ -332,6 +332,48 @@ function runFriendStrategySuite(context) {
       ];
     }
 
+    /**
+     * 作用：
+     * 搭建“初级应优先选择最短副牌 A 做朋友牌”的测试场景。
+     *
+     * 为什么这样写：
+     * 这次规则把初级叫朋友明确改成“优先副牌 A，并优先最短门”；
+     * 这里同时给出多门副牌 A，验证它会稳定选择最短的那一门。
+     *
+     * 输入：
+     * @param {void} - 场景固定给打家 5 使用。
+     *
+     * 输出：
+     * @returns {void} 直接写入 callingFriend 状态。
+     *
+     * 注意：
+     * - 黑桃只有 "A + 7" 两张，应被视为最短门。
+     * - 方块虽然也有 "A"，但门更长，不应压过黑桃。
+     */
+    function setupBeginnerShortestSideAceScenario() {
+      resetCommonState();
+      state.aiDifficulty = "beginner";
+      state.phase = "callingFriend";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [makeCard("p1-c-6", "clubs", "6")], true),
+        basePlayer(2, [makeCard("p2-h-8", "hearts", "8")]),
+        basePlayer(3, [makeCard("p3-d-9", "diamonds", "9")]),
+        basePlayer(4, [makeCard("p4-s-5", "spades", "5")]),
+        basePlayer(5, [
+          makeCard("b-s-a", "spades", "A"),
+          makeCard("b-s-7", "spades", "7"),
+          makeCard("b-d-a", "diamonds", "A"),
+          makeCard("b-d-k", "diamonds", "K"),
+          makeCard("b-d-8", "diamonds", "8"),
+          makeCard("b-h-q", "hearts", "Q"),
+        ]),
+      ];
+    }
+
     // 搭建“叫第二张 A 且自己持有第一张 A，应尽快先打出去”的测试场景。
     function setupBankerFriendSetupLeadScenario(difficulty) {
       resetCommonState();
@@ -659,6 +701,13 @@ function runFriendStrategySuite(context) {
       assert(["A", "K"].includes(chosen.rank), difficulty + ": auto friend target should stay in A/K, got " + chosen.rank);
       results.push(difficulty + " auto-friend rank ok -> " + chosen.rank);
     }
+
+    setupBeginnerShortestSideAceScenario();
+    const beginnerShortestSideAce = chooseFriendTarget().target;
+    assert(beginnerShortestSideAce.suit === "spades", "beginner: should prefer the shortest side suit when calling A");
+    assert(beginnerShortestSideAce.rank === "A", "beginner: shortest-side heuristic should still call side-suit A");
+    assert(beginnerShortestSideAce.occurrence === 2, "beginner: holding the first side-suit A should call the second copy");
+    results.push("beginner shortest-side A target ok");
 
     setupAvoidKingWhileAceAliveScenario("beginner");
     const beginnerAvoidKingWhileAceAlive = chooseFriendTarget().target;

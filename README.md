@@ -12,6 +12,12 @@ If you want the Python entry for future workflows:
 npm run serve:python
 ```
 
+If you want to ensure the preview server is running from scripts or shell hooks:
+
+```bash
+npm run serve:ensure -- --quiet
+```
+
 The server prints the exact URLs after startup. Common pages are:
 
 - `http://127.0.0.1:3721/index1.html` for PC
@@ -64,6 +70,7 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 
 ## Recent Updates
 
+- 2026-03-16 - 【工具】 - 本地 HTTP 预览已补上“进入项目目录时自动确保服务已启动”的 helper：新增 `npm run serve:ensure` 和 `scripts/ensure-preview-server.js`，可供 shell 钩子在进入 cards 工作区时自动拉起 `3721` 端口预览服务。
 - 2026-03-16 - 【Bug修复】 - 修复了 pre-commit 浏览器 UI smoke 会卡在 PC 开始界面隐藏节奏 `select` 的问题；smoke 现在会优先点击用户真实可见的 `慢 / 中 / 快 / 瞬` 按钮，仍保留对 mobile 下拉框的兜底兼容。
 - 2026-03-16 - 【工具】 - 仓库根目录现已把 `artifacts/` 统一纳入忽略规则：默认不再跟踪本地预览截图、SVG 和其他临时导出物，仅保留 `artifacts/README.md` 与 `artifacts/headless-regression/.gitkeep` 这类说明或目录占位文件。
 - 2026-03-16 - 【UI增强】 - 手游结算弹窗已进一步压紧：结果层宽度、标题字号、级别结算卡片、底牌亮出区和底部按钮组统一收口，减少窄屏上的空白与滚动压力。

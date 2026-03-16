@@ -6,6 +6,7 @@
     "serve": "node scripts/local-preview-server.js",
     "serve:js": "node scripts/local-preview-server.js",
     "serve:python": "python3 scripts/local_preview_server.py",
+    "serve:ensure": "node scripts/ensure-preview-server.js",
     "test": "npm run test:unit",
     "test:unit": "node --test --test-reporter=spec tests/unit/regressions.test.js",
     "test:unit:fast": "SKIP_HEADLESS_FULL_GAME=1 node --test --test-reporter=spec tests/unit/regressions.test.js",

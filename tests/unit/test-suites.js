@@ -83,6 +83,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-local-preview-server.js"),
   },
   {
+    name: "Preview auto-start regression",
+    file: path.join(__dirname, "check-preview-auto-start.js"),
+  },
+  {
     name: "Start lobby regression",
     file: path.join(__dirname, "check-start-lobby.js"),
   },

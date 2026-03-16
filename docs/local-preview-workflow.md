@@ -20,6 +20,7 @@
 - Node 入口：`npm run serve`
 - Node 显式入口：`npm run serve:js`
 - Python 入口：`npm run serve:python`
+- 自动确保服务入口：`npm run serve:ensure -- --quiet`
 
 默认行为：
 
@@ -57,3 +58,12 @@
 - `artifacts/headless-regression/` 继续视为本地回归运行产物目录；除 `.gitkeep` 外，默认不纳入版本管理。
 - 如果历史上已经有 `.DS_Store` 或 `artifacts/` 下的预览文件被 Git 跟踪，后续清理时需要显式删掉已跟踪文件；仅补 `.gitignore` 不会自动把它们从索引里移除。
 - 清理前先确认哪些产物是“调试日志 / 预览截图”，哪些是仍在文档中被引用的设计稿或对照图，避免误删还在被文档引用的预览资源。
+
+## 8. 目录进入自动启动
+
+- 当前仓库已提供 `scripts/ensure-preview-server.js` 作为“进入目录时自动确保预览服务已启动”的 helper。
+- 推荐的 shell 钩子做法是在 `zsh` 的 `chpwd` hook 中调用：
+  `node /Users/mo.li/Documents/cards/scripts/ensure-preview-server.js --cwd="$PWD" --quiet`
+- helper 只会在当前目录位于 `/Users/mo.li/Documents/cards` 及其子目录时生效。
+- 如果 `3721` 端口已有服务监听，helper 会安静退出，不会重复拉起新进程。
+- helper 内部带有 `/tmp/cards-preview-autostart.lock` 短时锁，避免多个 shell 同时进入目录时重复启动多个预览进程。

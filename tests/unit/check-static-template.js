@@ -50,7 +50,7 @@ function extractMockPage(html) {
  * @returns {void} 所有关键断言通过后正常退出。
  *
  * 注意：
- * - 这里只验证模板存在和 mock 数据规模，不检查像素级布局。
+ * - 这里只验证模板存在、交互入口和 mock 数据规模，不检查像素级布局。
  * - `handGroups` 的总张数必须固定为 31。
  */
 function main() {
@@ -62,6 +62,12 @@ function main() {
   assert.equal(mockPage.seats.length, 5, "静态模板页应保留完整的 5 个玩家面板");
   assert.equal(mockPage.trickSpots.length, 5, "静态模板页应保留完整的 5 个中央出牌区");
   assert.equal(mockPage.actions.length >= 2, true, "静态模板页应提供至少两枚右侧操作按钮");
+  assert.equal(html.includes('id="logPanel"'), true, "静态模板页应提供可开关的信息面板");
+  assert.equal(html.includes('id="lastTrickPanel"'), true, "静态模板页应提供可开关的上一局回看面板");
+  assert.equal(html.includes('id="toolbarMenuPanel"'), true, "静态模板页应提供设置菜单面板");
+  assert.equal(html.includes('id="toggleCardFaceBtn"'), true, "静态模板页应保留切换牌面按钮");
+  assert.equal(html.includes("./m_cards"), true, "静态模板页应支持切到第二套 mock 牌面资源");
+  assert.equal(html.includes("STATIC_CARD_FACES"), true, "静态模板页应定义可切换的牌面列表");
 
   const handTotal = mockPage.handGroups.reduce((sum, group) => sum + group.cards.length, 0);
   assert.equal(handTotal, 31, "静态模板页的手牌区应固定铺满 31 张牌");

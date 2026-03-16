@@ -227,6 +227,7 @@
       }
 
       .icon-btn {
+        cursor: pointer;
         display: grid;
         place-items: center;
         width: 100%;
@@ -242,6 +243,11 @@
         height: 20px;
         object-fit: contain;
         filter: brightness(0) saturate(100%) opacity(0.92);
+      }
+
+      .icon-btn.active {
+        border-color: rgba(173, 112, 64, 0.24);
+        background: linear-gradient(180deg, rgba(243, 224, 214, 0.96), rgba(233, 207, 190, 0.92));
       }
 
       .seat-rail {
@@ -534,6 +540,10 @@
         z-index: 2;
       }
 
+      .hidden {
+        display: none !important;
+      }
+
       .log-head {
         display: flex;
         align-items: center;
@@ -548,9 +558,11 @@
         display: grid;
         place-items: center;
         border-radius: 10px;
+        border: 0;
         background: rgba(16, 44, 54, 0.08);
         color: #8c99a0;
         font-weight: 800;
+        cursor: pointer;
       }
 
       .log-list {
@@ -572,6 +584,58 @@
         color: #7e5721;
         font-size: 11px;
         font-weight: 800;
+      }
+
+      .toolbar-menu {
+        position: absolute;
+        top: 152px;
+        right: 24px;
+        width: 268px;
+        padding: 14px;
+        border: 1px solid rgba(132, 96, 43, 0.12);
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(236, 228, 212, 0.96));
+        box-shadow: 0 20px 34px rgba(0, 0, 0, 0.2);
+        z-index: 5;
+      }
+
+      .toolbar-menu-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .toolbar-menu-head strong {
+        color: #1b252c;
+      }
+
+      .toolbar-menu-subtle {
+        color: #7e8d95;
+        font-size: 10px;
+      }
+
+      .toolbar-menu-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .toolbar-menu-btn {
+        min-height: 42px;
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 232, 221, 0.92));
+        color: #31414a;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .toolbar-menu-btn.active {
+        background: linear-gradient(180deg, rgba(226, 239, 248, 0.98), rgba(183, 207, 225, 0.96));
+        color: #1e4f72;
       }
 
       .hand-panel {
@@ -685,6 +749,43 @@
         border-color: rgba(135, 192, 239, 0.34);
         box-shadow: inset 0 1px 0 rgba(224, 241, 255, 0.74), 0 16px 26px rgba(29, 83, 129, 0.28);
       }
+
+      .last-trick-panel {
+        position: absolute;
+        right: 212px;
+        bottom: 204px;
+        width: 286px;
+        min-height: 188px;
+        padding: 14px 16px;
+        border: 1px solid rgba(225, 185, 111, 0.14);
+        border-radius: 18px;
+        background: rgba(10, 22, 29, 0.78);
+        color: #f8f0dc;
+        box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
+        z-index: 3;
+      }
+
+      .last-trick-meta {
+        margin-top: 8px;
+        color: rgba(248, 240, 220, 0.76);
+        font-size: 12px;
+      }
+
+      .last-trick-entry {
+        margin-top: 12px;
+      }
+
+      .last-trick-entry-name {
+        color: rgba(248, 240, 220, 0.88);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .last-trick-row {
+        display: flex;
+        align-items: end;
+        margin-top: 8px;
+      }
     </style>
   </head>
   <body>
@@ -709,13 +810,38 @@
       <section class="focus-banner" id="focusBanner"></section>
       <section id="trickLayer"></section>
 
-      <aside class="log-panel">
+      <aside class="log-panel" id="logPanel">
         <div class="log-head">
           <span id="logTitle"></span>
-          <span class="log-close">×</span>
+          <button id="closeLogBtn" class="log-close" type="button">×</button>
         </div>
         <ul class="log-list" id="logList"></ul>
       </aside>
+
+      <section id="toolbarMenuPanel" class="toolbar-menu hidden">
+        <div class="toolbar-menu-head">
+          <div>
+            <strong>更多功能</strong>
+            <div class="toolbar-menu-subtle">静态模板可用入口</div>
+          </div>
+          <button id="closeToolbarMenuBtn" class="log-close" type="button">×</button>
+        </div>
+        <div class="toolbar-menu-grid">
+          <button id="toggleInfoMenuBtn" class="toolbar-menu-btn" type="button">信息面板</button>
+          <button id="toggleLastTrickMenuBtn" class="toolbar-menu-btn" type="button">上一局回看</button>
+          <button id="toggleCardFaceBtn" class="toolbar-menu-btn" type="button">切换牌面</button>
+          <button id="resetMockBtn" class="toolbar-menu-btn" type="button">恢复模板</button>
+        </div>
+      </section>
+
+      <section id="lastTrickPanel" class="last-trick-panel hidden">
+        <div class="log-head">
+          <span>上一局回看</span>
+          <button id="closeLastTrickBtn" class="log-close" type="button">×</button>
+        </div>
+        <div id="lastTrickMeta" class="last-trick-meta"></div>
+        <div id="lastTrickCards"></div>
+      </section>
 
       <div class="version-badge" id="versionBadge"></div>
 
@@ -774,11 +900,11 @@
           },
         ],
         toolbarIcons: [
-          { src: "./icons/icon_robot.png", label: "托管" },
-          { src: "./icons/info-button.svg", label: "信息" },
-          { src: "./icons/icon_back.png", label: "回看上轮" },
-          { src: "./icons/icon_new_game.png", label: "新游戏" },
-          { src: "./icons/icon_menu.png", label: "设置" },
+          { id: "autoManageBtn", src: "./icons/icon_robot.png", label: "托管" },
+          { id: "toggleLogBtn", src: "./icons/info-button.svg", label: "信息" },
+          { id: "toggleLastTrickBtn", src: "./icons/icon_back.png", label: "回看上轮" },
+          { id: "newMockBtn", src: "./icons/icon_new_game.png", label: "新游戏" },
+          { id: "toggleToolbarMenuBtn", src: "./icons/icon_menu.png", label: "设置" },
         ],
         seats: [
           { id: 4, name: "玩家4", level: "Lv:2", avatar: "./avatars/tiger.svg" },
@@ -830,6 +956,17 @@
           "已叫朋友：第二张梅花 A。",
         ],
         versionLabel: "原型版 v2.0",
+        cardFaceLabel: "默认牌面",
+        lastTrick: {
+          title: "第 0 轮 · 玩家4 获胜",
+          plays: [
+            { name: "玩家4", cards: ["./cards/10_of_clubs.svg", "./cards/10_of_clubs.svg"] },
+            { name: "玩家3", cards: ["./cards/9_of_clubs.svg", "./cards/9_of_clubs.svg"] },
+            { name: "玩家5", cards: ["./cards/8_of_clubs.svg", "./cards/8_of_clubs.svg"] },
+            { name: "玩家2", cards: ["./cards/7_of_clubs.svg", "./cards/7_of_clubs.svg"] },
+            { name: "玩家1", cards: ["./cards/6_of_clubs.svg", "./cards/6_of_clubs.svg"] },
+          ],
+        },
         handGroups: [
           {
             label: "主牌",
@@ -893,6 +1030,121 @@
 
       /**
        * 作用：
+       * 提供静态模板页可切换的第二套 mock 数据。
+       *
+       * 为什么这样写：
+       * 顶部 `新游戏` 按钮在静态页里不接真实开局逻辑，
+       * 但仍应能切到另一套局面，方便验证按钮本身和布局对不同内容的承载能力。
+       *
+       * 输入：
+       * @param {void} - 由模板页交互脚本按需读取。
+       *
+       * 输出：
+       * @returns {object} 和默认模板结构一致的第二套静态样例数据。
+       *
+       * 注意：
+       * - 这仍然是 mock 视图，不要把它当作真实对局状态。
+       * - 手牌总数同样维持 31 张，避免影响手牌区的视觉基准。
+       */
+      const ALT_MOCK_PAGE = {
+        ...MOCK_PAGE,
+        topbarSummary: [
+          { label: "计时", main: "9", suffix: "秒", tone: "timer" },
+          { label: "总分", main: "40", suffix: "", tone: "score" },
+        ],
+        topbarStatus: [
+          {
+            key: "局",
+            title: "第6轮",
+            subline: "玩家3行动",
+            meta: ["出牌中", "当前首家：玩家3"],
+          },
+          {
+            key: "主",
+            title: "黑桃 3",
+            subline: "庄 玩家2",
+            badge: { type: "trump", value: "♠" },
+          },
+          {
+            key: "朋",
+            title: "第一张方块 K",
+            subline: "已现身 · 玩家5",
+            keyClass: "friend",
+            badge: { type: "card", src: "./cards/king_of_diamonds.svg" },
+          },
+        ],
+        focusText: "玩家2 吊主",
+        logs: [
+          "玩家3 出牌：♠J、♠10。",
+          "玩家2 毙牌：主牌对。",
+          "上一轮由玩家2 获胜。",
+          "已现朋友：玩家5。",
+        ],
+        lastTrick: {
+          title: "第 5 轮 · 玩家2 获胜",
+          plays: [
+            { name: "玩家3", cards: ["./cards/jack_of_spades.svg", "./cards/10_of_spades.svg"] },
+            { name: "玩家2", cards: ["./cards/queen_of_spades.svg", "./cards/king_of_spades.svg"] },
+            { name: "玩家5", cards: ["./cards/9_of_spades.svg", "./cards/8_of_spades.svg"] },
+            { name: "玩家4", cards: ["./cards/7_of_spades.svg", "./cards/6_of_spades.svg"] },
+            { name: "玩家1", cards: ["./cards/5_of_spades.svg", "./cards/4_of_spades.svg"] },
+          ],
+        },
+      };
+
+      /**
+       * 作用：
+       * 描述静态模板页当前的轻量交互状态。
+       *
+       * 为什么这样写：
+       * 这页要让 `信息 / 上一局 / 牌面切换 / 设置菜单 / 新游戏` 这些入口可用，
+       * 但又不能接入真实规则状态机；用一份独立的模板状态对象，
+       * 就能只管理展示层交互，而不污染生产逻辑。
+       *
+       * 输入：
+       * @param {void} - 由当前页面脚本直接读写。
+       *
+       * 输出：
+       * @returns {{pageKey: string, cardFaceKey: string, showLogPanel: boolean, showLastTrick: boolean, showToolbarMenu: boolean, autoManaged: boolean}} 模板页展示状态。
+       *
+       * 注意：
+       * - 这里只保存展示状态，不参与玩法计算。
+       * - 切换 mock 局面时要保留当前牌面选择，方便比对两套样例。
+       */
+      const STATIC_STATE = {
+        pageKey: "default",
+        cardFaceKey: "default",
+        showLogPanel: true,
+        showLastTrick: false,
+        showToolbarMenu: false,
+        autoManaged: false,
+      };
+
+      /**
+       * 作用：
+       * 定义静态模板页可切换的牌面资源目录。
+       *
+       * 为什么这样写：
+       * 用户希望静态页里的“换牌面”入口也能真正可用；
+       * 明确列出两套牌面目录后，模板就可以在不依赖真实配置脚本的前提下完成切换。
+       *
+       * 输入：
+       * @param {void} - 由模板页交互脚本直接读取。
+       *
+       * 输出：
+       * @returns {Array<{key: string, label: string, dir: string}>} 当前模板支持的牌面选项列表。
+       *
+       * 注意：
+       * - `dir` 必须和仓库内真实资源目录保持一致。
+       * - `key` 要保持稳定，便于按钮状态和测试断言复用。
+       */
+      const STATIC_CARD_FACES = [
+        { key: "default", label: "默认牌面", dir: "./cards" },
+        { key: "mock", label: "Mock牌面", dir: "./m_cards" },
+      ];
+
+      /**
+       * 作用：
        * 计算静态模板里各组手牌的重叠量。
        *
        * 为什么这样写：
@@ -934,7 +1186,51 @@
        * - 卡牌顺序必须和 mock data 保持一致，方便对照截图调视觉。
        */
       function renderCardStack(cards, className) {
-        return cards.map((src) => `<div class="${className}"><img src="${src}" alt="" /></div>`).join("");
+        return cards.map((src) => `<div class="${className}"><img src="${resolveCardFaceSrc(src)}" alt="" /></div>`).join("");
+      }
+
+      /**
+       * 作用：
+       * 根据当前选中的静态牌面目录，转换一张牌的资源路径。
+       *
+       * 为什么这样写：
+       * 模板数据默认保存的是 `./cards` 资源路径，
+       * 切换牌面时只需要替换目录前缀，就能把整页所有牌统一切到 `./m_cards`。
+       *
+       * 输入：
+       * @param {string} src - 当前 mock 数据里的牌面路径。
+       *
+       * 输出：
+       * @returns {string} 适配当前牌面选项后的最终图片路径。
+       *
+       * 注意：
+       * - 这里只替换牌面目录，不影响头像和图标资源。
+       * - 如果路径不是牌面资源，必须原样返回。
+       */
+      function resolveCardFaceSrc(src) {
+        const face = STATIC_CARD_FACES.find((item) => item.key === STATIC_STATE.cardFaceKey) || STATIC_CARD_FACES[0];
+        return typeof src === "string" && src.startsWith("./cards/") ? src.replace("./cards", face.dir) : src;
+      }
+
+      /**
+       * 作用：
+       * 读取当前静态页应该展示的 mock 局面数据。
+       *
+       * 为什么这样写：
+       * `新游戏` 在静态模板里通过切换两套 mock 局面来模拟状态变化；
+       * 用 helper 统一读取当前页数据后，渲染入口就不用关心具体切到哪一套。
+       *
+       * 输入：
+       * @param {void} - 直接读取当前模板状态。
+       *
+       * 输出：
+       * @returns {object} 当前应被渲染的静态样例数据。
+       *
+       * 注意：
+       * - 默认回退到 `MOCK_PAGE`，避免状态异常时页面空白。
+       */
+      function getActiveMockPage() {
+        return STATIC_STATE.pageKey === "alt" ? ALT_MOCK_PAGE : MOCK_PAGE;
       }
 
       /**
@@ -986,9 +1282,9 @@
         `).join("");
 
         document.getElementById("toolbarIcons").innerHTML = page.toolbarIcons.map((item) => `
-          <div class="icon-btn" title="${item.label}">
+          <button id="${item.id}" class="icon-btn${isToolbarButtonActive(item.id) ? " active" : ""}" type="button" title="${item.label}" aria-label="${item.label}">
             <img src="${item.src}" alt="${item.label}" />
-          </div>
+          </button>
         `).join("");
 
         document.getElementById("seatRail").innerHTML = page.seats.map((seat) => `
@@ -1026,7 +1322,22 @@
 
         document.getElementById("logTitle").textContent = "信息";
         document.getElementById("logList").innerHTML = page.logs.map((item) => `<li>${item}</li>`).join("");
+        document.getElementById("logPanel").classList.toggle("hidden", !STATIC_STATE.showLogPanel);
         document.getElementById("versionBadge").textContent = page.versionLabel;
+
+        document.getElementById("lastTrickMeta").textContent = page.lastTrick.title;
+        document.getElementById("lastTrickCards").innerHTML = page.lastTrick.plays.map((play) => `
+          <div class="last-trick-entry">
+            <div class="last-trick-entry-name">${play.name}</div>
+            <div class="last-trick-row">${renderCardStack(play.cards, "played-card")}</div>
+          </div>
+        `).join("");
+        document.getElementById("lastTrickPanel").classList.toggle("hidden", !STATIC_STATE.showLastTrick);
+
+        document.getElementById("toolbarMenuPanel").classList.toggle("hidden", !STATIC_STATE.showToolbarMenu);
+        document.getElementById("toggleInfoMenuBtn").classList.toggle("active", STATIC_STATE.showLogPanel);
+        document.getElementById("toggleLastTrickMenuBtn").classList.toggle("active", STATIC_STATE.showLastTrick);
+        document.getElementById("toggleCardFaceBtn").textContent = `牌面：${page.cardFaceLabel || getActiveCardFaceLabel()}`;
 
         document.getElementById("handGroups").innerHTML = page.handGroups.map((group) => `
           <div class="hand-group">
@@ -1043,9 +1354,156 @@
         document.getElementById("actionsGrid").innerHTML = page.actions.map((action) => `
           <button class="action-btn${action.primary ? " primary" : ""}" type="button">${action.label}</button>
         `).join("");
+
+        bindStaticInteractions();
       }
 
-      renderStaticPage(MOCK_PAGE);
+      /**
+       * 作用：
+       * 返回当前静态模板页的牌面名称。
+       *
+       * 为什么这样写：
+       * 设置菜单里的“切换牌面”按钮需要显示当前牌面标签；
+       * 把读取逻辑单独封装后，渲染和切换都能共用同一套来源。
+       *
+       * 输入：
+       * @param {void} - 直接读取静态模板状态。
+       *
+       * 输出：
+       * @returns {string} 当前牌面标签。
+       *
+       * 注意：
+       * - 状态异常时必须回退到第一套牌面名称。
+       */
+      function getActiveCardFaceLabel() {
+        return (STATIC_CARD_FACES.find((item) => item.key === STATIC_STATE.cardFaceKey) || STATIC_CARD_FACES[0]).label;
+      }
+
+      /**
+       * 作用：
+       * 计算顶部工具按钮在静态页里的激活态样式。
+       *
+       * 为什么这样写：
+       * 信息、回看、设置和托管在静态模板里都会有“展开 / 开启”的视觉状态；
+       * 单独封装判断后，按钮渲染就能保持简洁。
+       *
+       * 输入：
+       * @param {string} buttonId - 当前按钮的 DOM 标识。
+       *
+       * 输出：
+       * @returns {boolean} `true` 表示按钮应显示激活态。
+       *
+       * 注意：
+       * - 这里只服务于静态模板页，不影响生产页面。
+       */
+      function isToolbarButtonActive(buttonId) {
+        if (buttonId === "toggleLogBtn") return STATIC_STATE.showLogPanel;
+        if (buttonId === "toggleLastTrickBtn") return STATIC_STATE.showLastTrick;
+        if (buttonId === "toggleToolbarMenuBtn") return STATIC_STATE.showToolbarMenu;
+        if (buttonId === "autoManageBtn") return STATIC_STATE.autoManaged;
+        return false;
+      }
+
+      /**
+       * 作用：
+       * 让静态模板页顶部的功能入口具备可点击行为。
+       *
+       * 为什么这样写：
+       * 这页需要模拟 `信息 / 上一局 / 换牌面 / 新游戏 / 设置` 等高频入口，
+       * 但页面每次重渲染都会重建按钮 DOM，所以需要统一在渲染结束后重新绑定事件。
+       *
+       * 输入：
+       * @param {void} - 直接读取并更新静态模板状态。
+       *
+       * 输出：
+       * @returns {void} 只绑定当前页面交互，不返回额外结果。
+       *
+       * 注意：
+       * - 事件处理只更新静态展示状态，不接真实规则逻辑。
+       * - 每次重新渲染后都需要重新调用。
+       */
+      function bindStaticInteractions() {
+        document.getElementById("toggleLogBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showLogPanel = !STATIC_STATE.showLogPanel;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("closeLogBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showLogPanel = false;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("toggleLastTrickBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showLastTrick = !STATIC_STATE.showLastTrick;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("closeLastTrickBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showLastTrick = false;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("toggleToolbarMenuBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showToolbarMenu = !STATIC_STATE.showToolbarMenu;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("closeToolbarMenuBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showToolbarMenu = false;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("toggleInfoMenuBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showLogPanel = !STATIC_STATE.showLogPanel;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("toggleLastTrickMenuBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showLastTrick = !STATIC_STATE.showLastTrick;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("toggleCardFaceBtn")?.addEventListener("click", () => {
+          STATIC_STATE.cardFaceKey = STATIC_STATE.cardFaceKey === "default" ? "mock" : "default";
+          renderCurrentStaticPage();
+        });
+        document.getElementById("resetMockBtn")?.addEventListener("click", () => {
+          STATIC_STATE.pageKey = "default";
+          STATIC_STATE.cardFaceKey = "default";
+          STATIC_STATE.showLogPanel = true;
+          STATIC_STATE.showLastTrick = false;
+          STATIC_STATE.showToolbarMenu = false;
+          STATIC_STATE.autoManaged = false;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("newMockBtn")?.addEventListener("click", () => {
+          STATIC_STATE.pageKey = STATIC_STATE.pageKey === "default" ? "alt" : "default";
+          renderCurrentStaticPage();
+        });
+        document.getElementById("autoManageBtn")?.addEventListener("click", () => {
+          STATIC_STATE.autoManaged = !STATIC_STATE.autoManaged;
+          renderCurrentStaticPage();
+        });
+      }
+
+      /**
+       * 作用：
+       * 按当前静态状态重新渲染整页模板。
+       *
+       * 为什么这样写：
+       * 牌面切换、面板显隐和 mock 局面切换都需要刷新多个区域；
+       * 提供一个统一的重渲染入口，可以避免不同按钮各自拼装局部更新逻辑。
+       *
+       * 输入：
+       * @param {void} - 直接读取 `STATIC_STATE`。
+       *
+       * 输出：
+       * @returns {void} 直接刷新当前静态模板页。
+       *
+       * 注意：
+       * - 当前实现采用整页局部容器重绘，足够满足静态模板页需求。
+       */
+      function renderCurrentStaticPage() {
+        const activePage = getActiveMockPage();
+        renderStaticPage({
+          ...activePage,
+          cardFaceLabel: getActiveCardFaceLabel(),
+        });
+      }
+
+      renderCurrentStaticPage();
     </script>
   </body>
 </html>

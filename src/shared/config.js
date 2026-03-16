@@ -77,6 +77,67 @@ const AI_DIFFICULTY_OPTIONS = [
   { value: "advanced", label: "高级" },
 ];
 const DEFAULT_AI_DIFFICULTY = AI_DIFFICULTY_OPTIONS[0].value;
+const AI_PACE_OPTIONS = [
+  { value: "slow", label: "慢" },
+  { value: "medium", label: "中" },
+  { value: "fast", label: "快" },
+  { value: "instant", label: "瞬" },
+];
+const DEFAULT_AI_PACE = AI_PACE_OPTIONS[0].value;
+const AI_PACE_PROFILES = {
+  slow: {
+    dealStartDelay: 140,
+    dealStepDelay: 90,
+    dealFinishDelay: 220,
+    callingFriendDelay: { min: 900, max: 900 },
+    counterPassDelay: { min: 450, max: 450 },
+    counterActionDelay: { min: 1000, max: 1900 },
+    buryDelay: { min: 1200, max: 1200 },
+    turnDelay: { min: 900, max: 1600 },
+    trickFinishDelay: 1800,
+    trickPauseDelay: 2400,
+    centerAnnouncementDelay: 3000,
+  },
+  medium: {
+    dealStartDelay: 110,
+    dealStepDelay: 65,
+    dealFinishDelay: 170,
+    callingFriendDelay: { min: 550, max: 550 },
+    counterPassDelay: { min: 260, max: 260 },
+    counterActionDelay: { min: 650, max: 1050 },
+    buryDelay: { min: 750, max: 750 },
+    turnDelay: { min: 550, max: 950 },
+    trickFinishDelay: 900,
+    trickPauseDelay: 1200,
+    centerAnnouncementDelay: 1800,
+  },
+  fast: {
+    dealStartDelay: 65,
+    dealStepDelay: 36,
+    dealFinishDelay: 90,
+    callingFriendDelay: { min: 260, max: 260 },
+    counterPassDelay: { min: 140, max: 140 },
+    counterActionDelay: { min: 260, max: 420 },
+    buryDelay: { min: 320, max: 320 },
+    turnDelay: { min: 220, max: 380 },
+    trickFinishDelay: 420,
+    trickPauseDelay: 650,
+    centerAnnouncementDelay: 1200,
+  },
+  instant: {
+    dealStartDelay: 32,
+    dealStepDelay: 20,
+    dealFinishDelay: 50,
+    callingFriendDelay: { min: 120, max: 120 },
+    counterPassDelay: { min: 80, max: 80 },
+    counterActionDelay: { min: 120, max: 180 },
+    buryDelay: { min: 160, max: 160 },
+    turnDelay: { min: 120, max: 180 },
+    trickFinishDelay: 180,
+    trickPauseDelay: 240,
+    centerAnnouncementDelay: 800,
+  },
+};
 const CARD_FACE_STORAGE_KEY = `five-friends-card-face-${APP_PLATFORM}-v1`;
 const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
@@ -110,6 +171,32 @@ function saveCardFaceKey(key) {
 // 获取当前牌面配置。
 function getCurrentCardFaceOption() {
   return getCardFaceOption(state.cardFaceKey);
+}
+
+/**
+ * 作用：
+ * 读取当前牌面配置里声明的整图牌面信息。
+ *
+ * 为什么这样写：
+ * 现在 PC 既支持传统的“单张 SVG 牌面”，也支持 `poker.png` 这种整图 sprite；
+ * 把读取逻辑统一收口后，渲染层只需要判断是否拿到 sprite 配置，
+ * 就能在不改玩法层的前提下切换不同牌面来源。
+ *
+ * 输入：
+ * @param {{spriteSheet?: {src: string, columns: number, rows: number}}} [option=getCurrentCardFaceOption()] - 当前要读取的牌面配置。
+ *
+ * 输出：
+ * @returns {{src: string, columns: number, rows: number}|null} 可用的整图牌面配置；若当前牌面不是 sprite，则返回 `null`。
+ *
+ * 注意：
+ * - 只有同时具备 `src / columns / rows` 的配置才视为有效 sprite。
+ * - mobile 当前不提供 sprite 牌面，这里必须允许返回 `null`。
+ */
+function getCardFaceSpriteSheet(option = getCurrentCardFaceOption()) {
+  if (!option?.spriteSheet?.src || !option.spriteSheet.columns || !option.spriteSheet.rows) {
+    return null;
+  }
+  return option.spriteSheet;
 }
 
 // 获取当前牌面资源目录。

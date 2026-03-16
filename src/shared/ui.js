@@ -268,6 +268,49 @@ function getBottomRevealVisibleCount() {
 
 /**
  * 作用：
+ * 为当前牌对象创建具体的牌面内容节点。
+ *
+ * 为什么这样写：
+ * 现在 PC 既可能使用逐张 SVG，也可能切到 `poker.png` 这种整图 sprite；
+ * 把两种渲染分支都收口成同一个 helper 后，
+ * 手牌、出牌区、底牌和朋友预览就能共用同一套牌面装载逻辑。
+ *
+ * 输入：
+ * @param {object} card - 要展示的牌对象。
+ *
+ * 输出：
+ * @returns {HTMLElement} 可直接插入按钮或展示容器中的牌面节点。
+ *
+ * 注意：
+ * - sprite 节点本身只负责视觉展示，语义描述交给外层容器的 `aria-label`。
+ * - 如果当前 sprite 配置无法匹配到具体牌格，必须回退到原先的单张图片方案。
+ */
+function createCardFaceContent(card) {
+  const spriteSheet = getCardFaceSpriteSheet();
+  const spritePosition = getCardSpriteSheetPosition(card, spriteSheet);
+  if (spriteSheet && spritePosition) {
+    const sprite = document.createElement("span");
+    sprite.className = "card-face-sprite";
+    sprite.setAttribute("aria-hidden", "true");
+    sprite.style.display = "block";
+    sprite.style.width = "100%";
+    sprite.style.height = "100%";
+    sprite.style.backgroundImage = `url("${spriteSheet.src}")`;
+    sprite.style.backgroundRepeat = "no-repeat";
+    sprite.style.backgroundSize = `${spriteSheet.columns * 100}% ${spriteSheet.rows * 100}%`;
+    sprite.style.backgroundPosition = `${spritePosition.xPercent}% ${spritePosition.yPercent}%`;
+    sprite.style.boxShadow = "0 10px 18px rgba(0, 0, 0, 0.14)";
+    return sprite;
+  }
+
+  const image = document.createElement("img");
+  image.src = resolveCardImage(card);
+  image.alt = shortCardLabel(card);
+  return image;
+}
+
+/**
+ * 作用：
  * 为展示场景创建一张只读的明牌节点。
  *
  * 为什么这样写：
@@ -290,10 +333,7 @@ function buildDisplayCardNode(card, className) {
   node.className = className;
   node.setAttribute("role", "img");
   node.setAttribute("aria-label", shortCardLabel(card));
-  const image = document.createElement("img");
-  image.src = resolveCardImage(card);
-  image.alt = shortCardLabel(card);
-  node.appendChild(image);
+  node.appendChild(createCardFaceContent(card));
   return node;
 }
 
@@ -1250,10 +1290,7 @@ function buildCardNode(card, className) {
   const node = document.createElement("button");
   node.className = className;
   node.setAttribute("aria-label", shortCardLabel(card));
-  const image = document.createElement("img");
-  image.src = resolveCardImage(card);
-  image.alt = shortCardLabel(card);
-  node.appendChild(image);
+  node.appendChild(createCardFaceContent(card));
   return node;
 }
 

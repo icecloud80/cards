@@ -56,6 +56,62 @@ function resolveCardImage(card) {
   return card.img || "";
 }
 
+const CARD_SPRITE_RANK_ORDER = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const CARD_SPRITE_SUIT_ROW = {
+  hearts: 0,
+  diamonds: 1,
+  spades: 2,
+  clubs: 3,
+};
+const CARD_SPRITE_JOKER_COLUMN = {
+  RJ: 0,
+  BJ: 1,
+};
+
+/**
+ * 作用：
+ * 把一张业务牌对象映射到整图牌面里的网格坐标。
+ *
+ * 为什么这样写：
+ * `poker.png` 是按固定行列排布的 sprite，不再是逐张单文件；
+ * 先把“红桃 A 在第几格、黑桃 K 在第几格、大小王在哪两格”统一算出来，
+ * UI 层才能稳定用同一张图裁出对应牌面。
+ *
+ * 输入：
+ * @param {{suit?: string, rank?: string}} card - 当前要展示的牌对象。
+ * @param {{columns: number, rows: number}|null} [spriteSheet=getCardFaceSpriteSheet()] - 当前牌面使用的 sprite 配置。
+ *
+ * 输出：
+ * @returns {{column: number, row: number, xPercent: number, yPercent: number}|null} 当前牌在 sprite 中的位置；若当前牌或配置不支持 sprite，则返回 `null`。
+ *
+ * 注意：
+ * - 普通牌按 `A,2,3...10,J,Q,K` 排列，不是按代码里的 `2...A`。
+ * - 当前只映射正面牌；牌背仍由单独的 face-down 结构负责。
+ */
+function getCardSpriteSheetPosition(card, spriteSheet = getCardFaceSpriteSheet()) {
+  if (!card || !spriteSheet?.columns || !spriteSheet?.rows) return null;
+
+  let column = -1;
+  let row = -1;
+
+  if (card.suit === "joker") {
+    column = CARD_SPRITE_JOKER_COLUMN[card.rank] ?? -1;
+    row = spriteSheet.rows - 1;
+  } else {
+    column = CARD_SPRITE_RANK_ORDER.indexOf(card.rank);
+    row = CARD_SPRITE_SUIT_ROW[card.suit] ?? -1;
+  }
+
+  if (column < 0 || row < 0) return null;
+
+  return {
+    column,
+    row,
+    xPercent: spriteSheet.columns === 1 ? 0 : (column / (spriteSheet.columns - 1)) * 100,
+    yPercent: spriteSheet.rows === 1 ? 0 : (row / (spriteSheet.rows - 1)) * 100,
+  };
+}
+
 // 随机打乱数组顺序。
 function shuffle(items) {
   const copy = [...items];

@@ -67,6 +67,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-mobile-ui-isolation.js"),
   },
   {
+    name: "PC card-face sprite regression",
+    file: path.join(__dirname, "check-card-face-sprite.js"),
+  },
+  {
     name: "PC compact UI regression",
     file: path.join(__dirname, "check-hand-panel-snapshot.js"),
   },

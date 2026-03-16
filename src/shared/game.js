@@ -223,17 +223,17 @@ function setupGame() {
   render();
 }
 
-// 返回自动找朋友时优先考虑的点数顺序。
+// 返回自动叫朋友时优先考虑的点数顺序。
 function getFriendAutoRankPriority() {
   return getPlayerLevelRank(state.bankerId) === "A" ? ["K", "A"] : ["A", "K"];
 }
 
-// 返回自动找朋友使用的点数组合。
+// 返回自动叫朋友使用的点数组合。
 function getFriendAutoRankGroups() {
   return [getFriendAutoRankPriority()];
 }
 
-// 返回找朋友目标牌的兜底方案。
+// 返回叫朋友目标牌的兜底方案。
 function getFriendTargetFallback() {
   return {
     target: buildFriendTarget({
@@ -603,7 +603,7 @@ function getDefaultFriendSelection() {
   };
 }
 
-// 开始找朋友阶段并初始化默认选择。
+// 开始叫朋友阶段并初始化默认选择。
 function startCallingFriendPhase() {
   clearTimers();
   const banker = getPlayer(state.bankerId);

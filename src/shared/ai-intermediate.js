@@ -344,7 +344,7 @@ function scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore)
  * 为“打家早期先走掉延迟型朋友牌前置副本”的动作提供中级评分加成。
  *
  * 为什么这样写：
- * 当打家找的是第二张或第三张 `A`，且自己手里已经持有前面的 `A` 时，
+ * 当打家叫的是第二张或第三张 `A`，且自己手里已经持有前面的 `A` 时，
  * 如果前几轮不尽快把这张 `A` 走掉，就容易在中途丢失牌权后被别人抢先亮掉同张，
  * 让整局长时间处于近似 `1 打 4` 的失衡状态。
  * 这条经验应显式进中级评分，而不是只停留在 beginner 入口的直觉规则里。
@@ -355,7 +355,7 @@ function scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore)
  * @param {Array<object>} handBefore - 出牌前完整手牌。
  *
  * 输出：
- * @returns {number} 返回应加到候选分上的正向奖励；越高表示越应优先做站队前置清理。
+ * @returns {number} 返回应加到候选分上的正向奖励；越高表示越应优先做亮友前置清理。
  *
  * 注意：
  * - 当前先只对单张 `A` 生效，避免把一般高张都一律提前打掉。
@@ -1492,7 +1492,7 @@ function getFollowStructureScore(combo) {
  *
  * 注意：
  * - 这里只处理“当前墩非空”的跟牌主体；首发仍通过局部适配保留现有行为。
- * - 特殊站队、基础跟牌结构和搜索兜底都会按 sourceState 计算。
+ * - 特殊亮友、基础跟牌结构和搜索兜底都会按 sourceState 计算。
  */
 function getBeginnerFollowHintForState(sourceState, playerId) {
   const player = getSimulationPlayer(sourceState, playerId);

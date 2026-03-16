@@ -98,7 +98,7 @@ function getCompactRoleBadgeState(role) {
  * 为什么这样写：
  * 这轮 PC 精修要求左侧玩家面板和中央出牌区都减少文案密度；
  * 统一用一个 helper 产出 `打 / 朋 / 闲` 这类图标徽标，能保证两处视觉语言一致，
- * 同时让“阵营待明确”在需要时直接留空。
+ * 同时让“阵营未明”在需要时直接留空。
  *
  * 输入：
  * @param {{kind: string, label: string}} role - 当前对玩家可见的身份信息。
@@ -108,7 +108,7 @@ function getCompactRoleBadgeState(role) {
  * @returns {string} 可直接插入 DOM 的徽标 HTML；若当前身份不应展示则返回空字符串。
  *
  * 注意：
- * - `unknown` 必须返回空字符串，避免继续显示“阵营待明确”。
+ * - `unknown` 必须返回空字符串，避免继续显示“阵营未明”。
  * - 这里只负责徽标，不负责外层布局。
  */
 function buildCompactRoleBadgeMarkup(role, className) {
@@ -156,7 +156,7 @@ function getPcSeatStatusText(player) {
     return player.id === state.bankerId ? "整理底牌" : "等待开打";
   }
   if (state.phase === "callingFriend") {
-    return player.id === state.bankerId ? "找朋友中" : "等待找朋友";
+    return player.id === state.bankerId ? "叫朋友中" : "等待叫朋友";
   }
   if (state.phase === "pause") {
     return "本轮结算";
@@ -185,7 +185,7 @@ function getPcSeatStatusText(player) {
  * @returns {string} 供桌面端左侧玩家面板直接使用的 HTML 片段。
  *
  * 注意：
- * - 未明确阵营必须继续留空，不回退成解释性文案。
+ * - 未站队阵营必须继续留空，不回退成解释性文案。
  * - 玩家1 面板只显示短状态，不重新展示手牌或个人分数。
  */
 function buildPcSeatMarkup(player, role, avatar) {
@@ -607,7 +607,7 @@ function getCompactTopbarBankerLabel() {
   if (state.phase === "bottomReveal") return "翻底定主";
   if (state.phase === "countering") return `玩家${state.currentTurnId}反主`;
   if (state.phase === "burying") return playerIdLabel(state.bankerId, "扣底中");
-  if (state.phase === "callingFriend") return playerIdLabel(state.bankerId, "找朋友");
+  if (state.phase === "callingFriend") return playerIdLabel(state.bankerId, "叫朋友");
   return `打 ${getPlayer(state.bankerId).name}`;
 }
 
@@ -636,7 +636,7 @@ function getCompactTopbarRoundLabel() {
   if (state.phase === "bottomReveal") return "翻底公示";
   if (state.phase === "countering") return `玩家${state.currentTurnId}反主`;
   if (state.phase === "burying") return state.bankerId === 1 ? "你在扣底" : "打家扣底";
-  if (state.phase === "callingFriend") return state.bankerId === 1 ? "你在找朋友" : "打家找朋友";
+  if (state.phase === "callingFriend") return state.bankerId === 1 ? "你在叫朋友" : "打家叫朋友";
   if (state.phase === "ending") return "结算中";
   if (state.phase === "pause") return "本轮暂停";
   return `玩家${state.currentTurnId}行动`;
@@ -986,7 +986,7 @@ function getPcTrickSpotTitle(player) {
  *
  * 注意：
  * - 这里只显示 `打` 和 `朋` 两种高优先级短签，其他身份保持留空。
- * - `unknown` 必须返回空字符串，避免重新出现“阵营待明确”。
+ * - `unknown` 必须返回空字符串，避免重新出现“阵营未明”。
  */
 function buildPcTrickSpotRoleTag(role) {
   if (role?.kind === "banker") {
@@ -1608,7 +1608,7 @@ function renderLastTrick() {
     .join("");
 }
 
-// 获取花色对应的找朋友点数选项。
+// 获取花色对应的叫朋友点数选项。
 function getFriendPickerRanksForSuit(suit) {
   if (suit === "joker") {
     return [

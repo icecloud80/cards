@@ -91,7 +91,7 @@
   <text x="68" y="146" style="font:700 40px serif; fill:#1C1C1C;">♣</text>
   <text x="124" y="108" class="label">朋友牌</text>
   <text x="124" y="130" class="heading" style="font-size:16px;">第一张梅花 A</text>
-  <text x="124" y="149" class="copy">已站队 · 玩家5</text>
+  <text x="124" y="149" class="copy">已揭晓 · 玩家5</text>
 
   <!-- 顶部关键状态三联卡 -->
   <rect x="388" y="52" width="184" height="82" rx="16" fill="rgba(255,255,255,.66)"/>

@@ -119,7 +119,7 @@ function runFriendStrategySuite(context) {
       };
     }
 
-    // 搭建目标朋友已被锁定的测试场景。
+    // 搭建叫死朋友的测试场景。
     function setupCalledDeadFriendScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -140,7 +140,7 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
-    // 搭建第三张朋友牌已被锁定的测试场景。
+    // 搭建第三张朋友牌叫死的测试场景。
     function setupThirdAceCalledDeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -332,7 +332,7 @@ function runFriendStrategySuite(context) {
       ];
     }
 
-    // 搭建“找第二张 A 且自己持有第一张 A，应尽快先打出去”的测试场景。
+    // 搭建“叫第二张 A 且自己持有第一张 A，应尽快先打出去”的测试场景。
     function setupBankerFriendSetupLeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;

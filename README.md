@@ -50,6 +50,7 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 
 ## Docs
 
+- Basic rules and tutorial: [basic-play-rules-tutorial.md](basic-play-rules-tutorial.md)
 - Five-friends play guide: [five-friends-play-guide.md](five-friends-play-guide.md)
 - AI roadmap: [ai-roadmap.md](ai-roadmap.md)
 - AI declaration plan: [ai-plan-declaration.md](ai-plan-declaration.md)

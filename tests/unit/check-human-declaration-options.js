@@ -296,12 +296,12 @@ function seedDeclarationScenario(context, hand, declaration = null) {
 
 /**
  * 作用：
- * 执行“亮牌候选项必须完整列出且支持手动改选”的回归断言。
+ * 执行“亮牌候选项必须完整列出且可直接点击执行”的回归断言。
  *
  * 为什么这样写：
  * 这次改动的核心风险有两个：
  * 一是 3 张同花色级牌时，UI 只给 3 张方案、不把 2 张方案列出来；
- * 二是列表虽然渲染出来了，但点击后主按钮仍偷偷执行默认最高档，而不是玩家选中的方案。
+ * 二是列表虽然渲染出来了，但点击亮牌按钮后仍保留旧的二次确认，而不是直接按所点方案亮主。
  *
  * 输入：
  * @param {void} - 无额外输入。
@@ -310,7 +310,7 @@ function seedDeclarationScenario(context, hand, declaration = null) {
  * @returns {void} 所有断言通过后正常退出。
  *
  * 注意：
- * - 断言同时覆盖“完整列项”“只列合法覆盖项”“小王无主可手动选中并执行”三件事。
+ * - 断言同时覆盖“完整列项”“只列合法覆盖项”“小王无主可直接点击执行”三件事。
  * - 这里用 mobile 上下文验证，因为用户反馈和目标交互都直接来自手机版。
  */
 function main() {
@@ -338,12 +338,15 @@ function main() {
   context.renderCenterPanel();
   const handSummary = context.document.getElementById("handSummary");
   const setupOptions = context.document.getElementById("setupOptions");
+  const declareBtn = context.document.getElementById("declareBtn");
   assert.equal(handSummary.textContent.includes("黑桃 2 x3"), true, "手牌摘要应列出 3 张级牌亮主选项");
   assert.equal(handSummary.textContent.includes("黑桃 2 x2"), true, "手牌摘要应列出同花色级牌的 2 张亮主选项");
   assert.equal(handSummary.textContent.includes("2张小王"), true, "手牌摘要应列出小王无主选项");
   assert.equal(setupOptions.hidden, false, "有可亮方案时应显示候选列表");
-  assert.equal(setupOptions.innerHTML.includes("黑桃 2 x2"), true, "候选列表应展示 2 张同花色级牌方案");
-  assert.equal(setupOptions.innerHTML.includes("2张小王"), true, "候选列表应展示小王无主方案");
+  assert.equal(setupOptions.innerHTML.includes("亮黑桃 2 x2"), true, "候选按钮应直接写出可点击的亮主动作");
+  assert.equal(setupOptions.innerHTML.includes("亮2张小王无主"), true, "候选按钮应直接写出小王无主动作");
+  assert.equal(setupOptions.innerHTML.includes("可亮选项"), false, "亮主阶段不应再额外显示“可亮选项”标题");
+  assert.equal(declareBtn.hidden, true, "亮主阶段不应再保留单独的确认亮主按钮");
 
   seedDeclarationScenario(context, [
     makeCard("spade-1", "spades", "2"),
@@ -382,11 +385,6 @@ function main() {
     },
   });
 
-  const declareBtn = context.document.getElementById("declareBtn");
-  assert.equal(context.state.selectedSetupOptionKey, smallJokerKey, "点击候选项后应记住玩家改选的小王无主方案");
-  assert.equal(declareBtn.textContent.includes("2张小王无主"), true, "主按钮文案应切换到玩家当前选中的小王无主方案");
-
-  declareBtn.trigger("click");
   assert.equal(context.state.declaration?.suit, "notrump", "确认亮主后应按玩家改选结果落成无主");
   assert.equal(context.state.declaration?.count, 2, "确认亮主后应保留玩家选择的 2 张无主档位");
   assert.equal(

@@ -71,6 +71,7 @@ function main() {
   assert.equal(html.includes("./poker.png"), true, "静态模板页默认牌面应支持 poker.png 整图 sprite");
   assert.equal(html.includes("STATIC_CARD_FACES"), true, "静态模板页应定义可切换的牌面列表");
   assert.equal(html.includes('cardFaceKey: "sprite"'), true, "静态模板页应默认启用 sprite 牌面");
+  assert.equal(html.includes("spot-role-chip managed"), true, "静态模板页应支持把托管胶囊并到出牌区身份短签旁边");
   assert.equal(mockPage.topbarStatus[0].key, "本局", "静态模板页顶部应改用“本局”标签");
   assert.equal(mockPage.topbarStatus[1].key, "主牌", "静态模板页顶部应改用“主牌”标签");
   assert.equal(mockPage.topbarStatus[2].key, "朋友", "静态模板页顶部应改用“朋友”标签");

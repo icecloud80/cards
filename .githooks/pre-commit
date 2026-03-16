@@ -2,36 +2,45 @@
 set -eu
 
 # 作用：
-# 在提交前先跑快速回归，并仅在 JS 改动规模较大时追加 headless full-game。
+# 在提交前先跑快速回归，并在大改动时追加更重的回归门禁。
 #
 # 为什么这样写：
-# headless full-game 约 28 秒，适合作为“大改动防回归”门禁，不适合所有提交都阻塞。
+# headless full-game 和 UI smoke 都适合作为“大改动防回归”门禁，
+# 但不适合所有提交都一律阻塞；按改动规模分层触发，可以兼顾反馈速度和真实页面覆盖。
 #
 # 输入：
-# - 读取暂存区里 `.js` 文件的增删行数总和。
+# - 读取暂存区里 `.js` 文件与应用层文件的增删行数总和。
 #
 # 输出：
 # - 快速回归始终执行。
 # - 当 JS 改动总行数大于 200 时，额外执行 headless full-game。
+# - 当应用层改动总行数大于 500 时，额外执行浏览器 UI smoke。
 #
 # 注意：
 # - 只统计已暂存改动，避免工作区未暂存内容误触发。
 # - 这里的“修改行数”按新增 + 删除合计计算。
+# - UI smoke 的应用层范围按 `.js / .html / .css` 统计，不包含文档改动。
 
 HEADLESS_JS_THRESHOLD=200
+UI_SMOKE_APP_THRESHOLD=500
 
 printf '%s\n' 'Running fast unit regression tests before commit...'
 npm run test:unit:fast
 
-# 统计暂存区 `.js` 文件的总改动行数，二进制或异常项用 `-` 表示时直接跳过。
-JS_CHANGED_LINES=$(
-  git diff --cached --numstat -- '*.js' \
-    | awk 'BEGIN { total = 0 } $1 != "-" && $2 != "-" { total += $1 + $2 } END { print total + 0 }'
-)
+# 统一复用可测试的 staged-change helper，避免 shell 和单测口径分叉。
+JS_CHANGED_LINES=$(node scripts/staged-change-lines.js --scope=js)
+APP_CHANGED_LINES=$(node scripts/staged-change-lines.js --scope=app)
 
 if [ "$JS_CHANGED_LINES" -gt "$HEADLESS_JS_THRESHOLD" ]; then
   printf '%s\n' "Detected ${JS_CHANGED_LINES} staged JS line changes (> ${HEADLESS_JS_THRESHOLD}); running headless full-game regression..."
   npm run test:headless
 else
   printf '%s\n' "Staged JS line changes: ${JS_CHANGED_LINES}. Skipping headless full-game regression."
+fi
+
+if [ "$APP_CHANGED_LINES" -gt "$UI_SMOKE_APP_THRESHOLD" ]; then
+  printf '%s\n' "Detected ${APP_CHANGED_LINES} staged app line changes (> ${UI_SMOKE_APP_THRESHOLD}); running browser UI smoke regression..."
+  npm run test:ui-smoke
+else
+  printf '%s\n' "Staged app line changes: ${APP_CHANGED_LINES}. Skipping browser UI smoke regression."
 fi

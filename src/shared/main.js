@@ -245,24 +245,24 @@ dom.hintBtn.addEventListener("click", () => {
 dom.setupOptions?.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-setup-option-key]");
   if (!button || state.gameOver || (state.phase !== "dealing" && state.phase !== "countering")) return;
-  const selected = selectSetupOptionForPlayer(1, button.dataset.setupOptionKey, state.phase);
+  const selected = getAvailableSetupOptionsForPlayer(1, state.phase)
+    .find((entry) => getSetupOptionKey(entry) === button.dataset.setupOptionKey) || null;
   if (!selected) return;
-  renderCenterPanel();
-  updateActionHint();
-});
-
-dom.declareBtn.addEventListener("click", () => {
-  if (state.gameOver) return;
   if (state.phase === "dealing") {
-    const selectedOption = getSelectedSetupOptionForPlayer(1, "dealing");
-    if (!selectedOption || !canOverrideDeclaration(selectedOption)) return;
-    if (!declareTrump(1, selectedOption, "manual")) return;
+    if (!declareTrump(1, selected, "manual")) return;
     if (state.dealIndex >= state.dealCards.length) {
       clearTimers();
       finishDealingPhase();
     }
     return;
   }
+  selectSetupOptionForPlayer(1, button.dataset.setupOptionKey, state.phase);
+  renderCenterPanel();
+  updateActionHint();
+});
+
+dom.declareBtn.addEventListener("click", () => {
+  if (state.gameOver) return;
   if (state.phase === "countering") {
     if (state.currentTurnId !== 1) return;
     const selectedOption = getSelectedSetupOptionForPlayer(1, "countering");

@@ -24,8 +24,15 @@ Run the headless full-game regression explicitly:
 npm run test:headless
 ```
 
+Run the browser UI smoke regression explicitly:
+
+```bash
+npm run test:ui-smoke
+```
+
 Git commits are blocked by `.githooks/pre-commit` until the fast regression suite passes.
 The hook only runs the headless full-game regression when staged `.js` changes exceed 200 total lines.
+The same hook now also runs a real browser UI smoke regression when staged app-layer `.js / .html / .css` changes exceed 500 total lines.
 
 ## Recent Updates
 
@@ -38,6 +45,7 @@ The hook only runs the headless full-game regression when staged `.js` changes e
 - 移除了旧的结果胶囊标签，避免“胜负结果、升级降级、阵营变化”继续分散在多个小标签里阅读。
 - 新增 `慢 / 中 / 快 / 瞬` 四档对局节奏设置，PC 开始界面、PC 局内菜单、手游开始页和手游设置页已统一接入。
 - 修复了 AI 出牌节奏只能写死为慢速的问题；现在节奏只影响等待与过渡，不改变 AI 难度和玩法逻辑。
+- 新增基于 Playwright 的真实浏览器 UI smoke：会分别打开 PC 和 mobile 页面，切到 `瞬` 档并开启托管，确认两端都能自动打完整一局。
 
 ## Docs
 

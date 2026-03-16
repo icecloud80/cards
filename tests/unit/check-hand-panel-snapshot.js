@@ -117,7 +117,7 @@ function createElementStub(identifier) {
  * @param {void} - 通过内部固定脚本路径加载 PC 环境。
  *
  * 输出：
- * @returns {{setupGame: Function, getPlayer: Function, buildCompactRoleBadgeMarkup: Function, buildTrickSpotMetricChips: Function, buildFaceDownDisplayCardNode: Function, getPcHandOverlap: Function, getPcSingleLaneHandOverlap: Function, getPcTrickSpotTitle: Function, buildPcTrickSpotRoleTag: Function, render: Function, renderHand: Function, state: object, document: object}} 当前测试需要的真实接口集合。
+ * @returns {{setupGame: Function, getPlayer: Function, buildCompactRoleBadgeMarkup: Function, buildTrickSpotMetricChips: Function, buildFaceDownDisplayCardNode: Function, getPcHandOverlap: Function, getPcSingleLaneHandOverlap: Function, getPcTrickSpotTitle: Function, buildPcTrickSpotRoleTag: Function, buildPcTrickSpotHeaderTags: Function, render: Function, renderHand: Function, state: object, document: object}} 当前测试需要的真实接口集合。
  *
  * 注意：
  * - 这里只加载 PC 平台脚本，避免把移动端分支带进来。
@@ -217,7 +217,7 @@ function loadUiContext() {
     }
   `, context);
 
-  return vm.runInContext("({ setupGame, getPlayer, buildCompactRoleBadgeMarkup, buildTrickSpotMetricChips, buildFaceDownDisplayCardNode, getPcHandOverlap, getPcSingleLaneHandOverlap, getPcTrickSpotTitle, buildPcTrickSpotRoleTag, render, renderHand, state, document })", context);
+  return vm.runInContext("({ setupGame, getPlayer, buildCompactRoleBadgeMarkup, buildTrickSpotMetricChips, buildFaceDownDisplayCardNode, getPcHandOverlap, getPcSingleLaneHandOverlap, getPcTrickSpotTitle, buildPcTrickSpotRoleTag, buildPcTrickSpotHeaderTags, render, renderHand, state, document })", context);
 }
 
 /**
@@ -261,6 +261,13 @@ function main() {
   const friendSpotTag = context.buildPcTrickSpotRoleTag({ kind: "friend", label: "朋友" });
   assert.equal(friendSpotTag.includes("朋"), true, "桌面端出牌区应能渲染朋友短签");
 
+  const headerTags = context.buildPcTrickSpotHeaderTags(
+    { id: 1, isHuman: false },
+    { kind: "friend", label: "朋友" }
+  );
+  assert.equal(headerTags.includes("朋"), true, "桌面端出牌区标题行应继续保留朋友短签");
+  assert.equal(headerTags.includes("托管"), true, "桌面端出牌区应把托管胶囊并到身份短签旁边");
+
   const winningChips = context.buildTrickSpotMetricChips(
     { id: 3, level: 4, hand: [{ id: "c1" }], capturedPoints: 40, isHuman: false },
     { kind: "banker", label: "打家" },
@@ -300,6 +307,7 @@ function main() {
   assert.equal(chips.includes("Lv:4"), false, "出牌区不应再显示等级信息");
   assert.equal(chips.includes("剩"), false, "出牌区不应再显示剩余手牌数量");
   assert.equal(chips.includes("分"), false, "出牌区不应再显示个人分数");
+  assert.equal(chips.includes("托管"), false, "出牌区不应再把托管胶囊放在右侧指标列");
 }
 
 main();

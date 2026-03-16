@@ -67,8 +67,16 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-pace-settings.js"),
   },
   {
+    name: "Staged change threshold regression",
+    file: path.join(__dirname, "check-staged-change-lines.js"),
+  },
+  {
     name: "Start lobby regression",
     file: path.join(__dirname, "check-start-lobby.js"),
+  },
+  {
+    name: "UI smoke config regression",
+    file: path.join(__dirname, "check-ui-smoke-config.js"),
   },
   {
     name: "Mobile UI isolation regression",

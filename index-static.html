@@ -478,6 +478,11 @@
         color: #8fdfbb;
       }
 
+      .spot-role-chip.managed {
+        background: rgba(104, 159, 191, 0.24);
+        color: #d7ecff;
+      }
+
       .spot-winning-badge {
         position: absolute;
         right: 12px;
@@ -1497,6 +1502,7 @@
                 <div class="spot-name-row">
                   <span class="spot-name">${spot.name}</span>
                   ${spot.role ? `<span class="spot-role-chip ${spot.role}">${spot.role === "banker" ? "打" : "朋"}</span>` : ""}
+                  ${spot.position === "bottom" && STATIC_STATE.autoManaged ? '<span class="spot-role-chip managed">托管</span>' : ""}
                 </div>
               </div>
             </div>

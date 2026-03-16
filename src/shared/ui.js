@@ -928,7 +928,8 @@ function getVisibleRole(playerId) {
  *
  * 为什么这样写：
  * 新 PC 方案要求出牌区头部只保留必要状态，避免把等级、手牌数和个人分数重新堆回去；
- * 统一从这里出标签，可以避免不同玩家卡片各写一套拼接逻辑。
+ * 现在出牌区右侧不再保留独立指标列，托管状态会和身份短签并排显示在标题行；
+ * 这里继续保留 helper，方便后续若要补别的极简标签时仍有统一出口。
  *
  * 输入：
  * @param {object} player - 当前玩家对象。
@@ -936,20 +937,14 @@ function getVisibleRole(playerId) {
  * @param {boolean} isWinning - 当前玩家是否是本轮实时最大。
  *
  * 输出：
- * @returns {string} 可直接插入到出牌区头部的 HTML 字符串。
+ * @returns {string} 可直接插入到出牌区头部指标区的 HTML 字符串。
  *
  * 注意：
- * - 这里只输出紧凑标签，不负责决定卡片整体布局。
- * - 朋友和打家身份仍通过头部短签体现；“当前最大”统一交给角标，避免重复出现两个“大”。
+ * - 当前 PC 方案默认返回空字符串，避免重新出现独立的右侧胶囊列。
+ * - 朋友、打家和托管统一通过标题行短签体现；“当前最大”统一交给角标，避免重复出现两个“大”。
  */
 function buildTrickSpotMetricChips(player, role, isWinning) {
-  const chips = [];
-
-  if (player.id === 1 && !player.isHuman) {
-    chips.push('<span class="spot-chip">托管</span>');
-  }
-
-  return chips.join("");
+  return "";
 }
 
 /**
@@ -1001,6 +996,40 @@ function buildPcTrickSpotRoleTag(role) {
     return '<span class="spot-role-chip friend">朋</span>';
   }
   return "";
+}
+
+/**
+ * 作用：
+ * 生成桌面端出牌区标题行右侧的全部短签。
+ *
+ * 为什么这样写：
+ * 用户希望把 `托管` 胶囊直接并到玩家身份旁边，
+ * 这样出牌区头部只保留一组紧凑标签，不再分裂成“身份在左、托管在右”的两套视觉焦点。
+ *
+ * 输入：
+ * @param {object} player - 当前玩家对象。
+ * @param {{kind: string, label: string}} role - 当前玩家可见身份。
+ *
+ * 输出：
+ * @returns {string} 可直接插入标题行的紧凑短签 HTML。
+ *
+ * 注意：
+ * - 这里只给 PC 出牌区使用，mobile 仍保留自己的旧标签结构。
+ * - `托管` 只在玩家1进入托管时显示，避免错误地挂到其他 AI 身上。
+ */
+function buildPcTrickSpotHeaderTags(player, role) {
+  const tags = [];
+  const roleTag = buildPcTrickSpotRoleTag(role);
+
+  if (roleTag) {
+    tags.push(roleTag);
+  }
+
+  if (player.id === 1 && !player.isHuman) {
+    tags.push('<span class="spot-role-chip managed">托管</span>');
+  }
+
+  return tags.join("");
 }
 
 /**
@@ -1131,17 +1160,18 @@ function renderTrickSpots() {
       spot.onclick = null;
       continue;
     }
+    const metricChips = buildTrickSpotMetricChips(player, role, isWinning);
     spot.innerHTML = `
       <div class="spot-head">
         <div class="spot-player">
           <div class="spot-info">
             <div class="spot-name-row">
               <span class="spot-name">${getPcTrickSpotTitle(player)}</span>
-              ${buildPcTrickSpotRoleTag(role)}
+              ${buildPcTrickSpotHeaderTags(player, role)}
             </div>
           </div>
         </div>
-        <div class="spot-metrics">${buildTrickSpotMetricChips(player, role, isWinning)}</div>
+        ${metricChips ? `<div class="spot-metrics">${metricChips}</div>` : ""}
       </div>
       <div class="spot-row">
         ${cardsHtml || (getPcTrickSpotEmptyText(state.phase)
@@ -1843,7 +1873,7 @@ function renderDebugDecisionPanel(player) {
  *
  * 注意：
  * - 没有可选项时必须清空并隐藏，避免残留上一阶段内容。
- * - 列表按钮只负责选择方案，真正执行仍由主按钮触发。
+ * - 发牌阶段的候选项按钮会直接执行亮主；最后反主阶段仍保留“先选再确认”。
  */
 function renderSetupOptions(options, selectedOption) {
   if (!dom.setupOptions) return;
@@ -1853,20 +1883,25 @@ function renderSetupOptions(options, selectedOption) {
     return;
   }
 
+  const isDealingPhase = state.phase === "dealing";
   const selectedKey = getSetupOptionKey(selectedOption);
-  const sectionLabel = state.phase === "countering" ? TEXT.setupOptions.counter : TEXT.setupOptions.declare;
   dom.setupOptions.hidden = false;
   dom.setupOptions.innerHTML = `
-    <div class="setup-options-label">${sectionLabel}</div>
+    ${isDealingPhase ? "" : `<div class="setup-options-label">${TEXT.setupOptions.counter}</div>`}
     ${options.map((entry) => {
       const optionKey = getSetupOptionKey(entry);
+      const actionLabel = isDealingPhase
+        ? (entry.suit === "notrump"
+          ? `${state.declaration ? "抢亮" : "亮"}${getNoTrumpDeclarationLabel(entry)}无主`
+          : `${state.declaration ? "抢亮" : "亮"}${formatDeclaration(entry)}`)
+        : formatDeclaration(entry);
       return `
         <button
           type="button"
-          class="setup-option-btn${optionKey === selectedKey ? " active" : ""}"
+          class="setup-option-btn${isDealingPhase ? " primary" : ""}${optionKey === selectedKey ? " active" : ""}"
           data-setup-option-key="${optionKey}"
-          aria-pressed="${optionKey === selectedKey ? "true" : "false"}"
-        >${formatDeclaration(entry)}</button>
+          aria-pressed="${isDealingPhase ? "false" : (optionKey === selectedKey ? "true" : "false")}"
+        >${actionLabel}</button>
       `;
     }).join("")}
   `;
@@ -1876,10 +1911,8 @@ function renderSetupOptions(options, selectedOption) {
 function renderCenterPanel() {
   const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
   const humanSetupOptions = isOpeningPhase ? getAvailableSetupOptionsForPlayer(1, state.phase) : [];
-  const selectedSetupOption = isOpeningPhase ? getSelectedSetupOptionForPlayer(1, state.phase) : null;
-  const canDeclareNow = state.phase === "dealing"
-    ? !!selectedSetupOption
-    : state.phase === "countering"
+  const selectedSetupOption = state.phase === "countering" ? getSelectedSetupOptionForPlayer(1, state.phase) : null;
+  const canDeclareNow = state.phase === "countering"
       ? state.currentTurnId === 1 && !!selectedSetupOption
       : false;
   const selected = state.selectedCardIds
@@ -1950,19 +1983,11 @@ function renderCenterPanel() {
         : `反${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`)
       : TEXT.buttons.counter;
   } else if (state.phase === "dealing") {
-    if (selectedSetupOption) {
-      dom.declareBtn.textContent = selectedSetupOption.suit === "notrump"
-        ? (state.declaration ? `抢亮${getNoTrumpDeclarationLabel(selectedSetupOption)}无主` : `亮${getNoTrumpDeclarationLabel(selectedSetupOption)}无主`)
-        : (state.declaration
-          ? `抢亮${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`
-          : `亮${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`);
-    } else {
-      dom.declareBtn.textContent = state.declaration ? TEXT.buttons.redeclare : TEXT.buttons.declare;
-    }
+    dom.declareBtn.textContent = state.declaration ? TEXT.buttons.redeclare : TEXT.buttons.declare;
   } else {
     dom.declareBtn.textContent = TEXT.buttons.declare;
   }
-  dom.declareBtn.hidden = !isOpeningPhase;
+  dom.declareBtn.hidden = state.phase !== "countering";
   dom.declareBtn.disabled = state.gameOver || !canDeclareNow;
   dom.declareBtn.classList.toggle("primary", canDeclareNow);
   const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!selectedSetupOption;

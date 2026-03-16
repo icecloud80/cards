@@ -375,7 +375,7 @@ function getCardsForFriendSuit(cards, suit) {
   return cards.filter((card) => (suit === "joker" ? card.suit === "joker" : card.suit === suit));
 }
 
-// 返回手动找朋友推荐使用的点数顺序。
+// 返回手动叫朋友推荐使用的点数顺序。
 function getFriendRecommendationRankPriority() {
   return getFriendAutoRankPriority();
 }
@@ -456,7 +456,7 @@ function scoreFriendRecommendationCandidate(target, meta) {
     reasons.push("这门已经空掉了，但你对它的主动控制会更少");
   }
   if (target.suit === state.trumpSuit) {
-    reasons.push("这张是主牌，找人会更稳，但通常也更慢一些");
+    reasons.push("这张是主牌，叫这张通常更稳，但朋友往往也会来得更慢一些");
   }
   if (target.suit === "joker") {
     reasons.push("王张够硬，但朋友往往会出现得更晚");
@@ -471,7 +471,7 @@ function scoreFriendRecommendationCandidate(target, meta) {
   };
 }
 
-// 返回玩家手动找朋友时的推荐方案。
+// 返回玩家手动叫朋友时的推荐方案。
 function getFriendPickerRecommendation() {
   const banker = getPlayer(state.bankerId);
   if (!banker) {

@@ -65,7 +65,7 @@ function loadGameContext() {
   return context;
 }
 
-// 运行找朋友 AI 策略测试套件。
+// 运行“叫朋友 / 找朋友 / 站队”AI 策略测试套件。
 function runFriendStrategySuite(context) {
   const testSource = `
     // 断言测试条件是否成立。
@@ -590,68 +590,68 @@ function runFriendStrategySuite(context) {
     for (const difficulty of ["beginner", "intermediate"]) {
       setupCalledDeadFriendScenario(difficulty);
       assert(isAiCertainFriend(3) === true, difficulty + ": player 3 should be identified as certain friend");
-      assert(canAiRevealFriendNow(3) === true, difficulty + ": player 3 should be able to reveal now");
+      assert(canAiRevealFriendNow(3) === true, difficulty + ": player 3 should be able to stand now");
       const hint = getLegalHintForPlayer(3);
-      assert(hint.length === 1, difficulty + ": reveal hint should be a single card");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": certain friend should lead hearts A to reveal");
-      results.push(difficulty + " certain-friend reveal ok");
+      assert(hint.length === 1, difficulty + ": stand hint should be a single card");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": certain friend should lead hearts A to stand");
+      results.push(difficulty + " certain-friend stand ok");
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupThirdAceCalledDeadScenario(difficulty);
       assert(isAiCertainFriend(3) === true, difficulty + ": third-A holder should be identified as certain friend");
-      assert(canAiRevealFriendNow(3) === true, difficulty + ": third-A holder should be able to reveal now");
+      assert(canAiRevealFriendNow(3) === true, difficulty + ": third-A holder should be able to stand now");
       const hint = getLegalHintForPlayer(3);
-      assert(hint.length === 1, difficulty + ": third-A reveal should be a single card");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": third-A holder should lead hearts A to reveal");
-      results.push(difficulty + " third-A called-dead reveal ok");
+      assert(hint.length === 1, difficulty + ": third-A stand should be a single card");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": third-A holder should lead hearts A to stand");
+      results.push(difficulty + " third-A called-dead stand ok");
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupDelayRevealOpeningLeadScenario(difficulty);
       assert(isAiCertainFriend(3) === false, difficulty + ": opening-lead probe case should not mark player 3 as certain friend");
       const hint = getLegalHintForPlayer(3);
-      assert(hint.length === 1, difficulty + ": delayed reveal should still choose a single follow card");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": opening-lead probe should delay reveal and play low heart");
-      results.push(difficulty + " opening-probe delay reveal ok");
+      assert(hint.length === 1, difficulty + ": delayed stand should still choose a single follow card");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": opening-lead probe should delay standing and play low heart");
+      results.push(difficulty + " opening-probe delay stand ok");
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupDelayRevealOnBankerAceLeadScenario(difficulty);
-      assert(canAiRevealFriendNow(3) === true, difficulty + ": banker-A lead case should still be a reveal opportunity");
+      assert(canAiRevealFriendNow(3) === true, difficulty + ": banker-A lead case should still be a stand opportunity");
       const hint = getLegalHintForPlayer(3);
       assert(hint.length === 1, difficulty + ": banker-A lead delay should still choose a single follow card");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": should delay revealing second K when banker already leads A");
-      results.push(difficulty + " banker-A delay reveal ok");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": should delay standing on second K when banker already leads A");
+      results.push(difficulty + " banker-A delay stand ok");
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupDelayRevealOnSecondBankerAceScenario(difficulty);
-      assert(canAiRevealFriendNow(3) === true, difficulty + ": second banker-A lead should still be a reveal opportunity");
+      assert(canAiRevealFriendNow(3) === true, difficulty + ": second banker-A lead should still be a stand opportunity");
       const hint = getLegalHintForPlayer(3);
       assert(hint.length === 1, difficulty + ": second banker-A delay should still choose a single follow card");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": should delay revealing third A when banker leads another A that still keeps control");
-      results.push(difficulty + " second banker-A delay reveal ok");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": should delay standing on third A when banker leads another A that still keeps control");
+      results.push(difficulty + " second banker-A delay stand ok");
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupBankerFriendSetupLeadScenario(difficulty);
       const hint = chooseAiLeadPlay(5);
       assert(hint.length === 1, difficulty + ": banker friend-setup scenario should choose a single heuristic lead");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": banker should heuristically lead held hearts A early to set up delayed friend reveal");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": banker should heuristically lead held hearts A early to set up delayed friend standing");
       results.push(difficulty + " banker friend-setup lead ok");
     }
 
     setupRevealTakeoverScenario("beginner");
     const beginnerRevealTakeover = getLegalHintForPlayer(3);
-    assert(beginnerRevealTakeover.length === 1, "beginner: reveal-takeover scenario should choose a single follow card");
-    results.push("beginner reveal-takeover baseline -> " + beginnerRevealTakeover[0].suit + "-" + beginnerRevealTakeover[0].rank);
+    assert(beginnerRevealTakeover.length === 1, "beginner: stand-takeover scenario should choose a single follow card");
+    results.push("beginner stand-takeover baseline -> " + beginnerRevealTakeover[0].suit + "-" + beginnerRevealTakeover[0].rank);
 
     setupRevealTakeoverScenario("intermediate");
     const intermediateRevealTakeover = getLegalHintForPlayer(3);
-    assert(intermediateRevealTakeover.length === 1, "intermediate: reveal-takeover scenario should choose a single follow card");
-    assert(intermediateRevealTakeover[0].suit === "hearts" && intermediateRevealTakeover[0].rank === "K", "intermediate: should reveal and take over when friend card can beat banker lead");
-    results.push("intermediate reveal-takeover ok");
+    assert(intermediateRevealTakeover.length === 1, "intermediate: stand-takeover scenario should choose a single follow card");
+    assert(intermediateRevealTakeover[0].suit === "hearts" && intermediateRevealTakeover[0].rank === "K", "intermediate: should stand and take over when friend card can beat banker lead");
+    results.push("intermediate stand-takeover ok");
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupAutoFriendScenario(difficulty);

@@ -1118,7 +1118,7 @@ function compareSingle(candidate, current, leadSuit) {
  * 注意：
  * - 无主时任意级牌都按主扣处理
  * - 非无主时只有主级牌能触发成功扣底降级
- * - 王不能触发主级/副级扣底判定
+ * - 王可以赢下末手扣底，但王本身不是有效级牌，不能单独触发降级判定
  */
 function getBottomPenaltyModeForCard(card) {
   const currentLevelRank = getCurrentLevelRank();

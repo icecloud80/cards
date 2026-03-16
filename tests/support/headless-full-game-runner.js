@@ -190,13 +190,13 @@ function summarizeFriendTarget(friendTarget) {
  *
  * 为什么这样写：
  * headless 结构化事件需要记录“这一步发生时朋友是否已经站队”，
- * 这样后续才能在批量复盘里判断策略是否已从“找朋友”切到“协同 / 清主 / 保先手”。
+ * 这样后续才能在批量复盘里判断策略是否已从“找朋友推进”切到“协同 / 清主 / 保先手”。
  *
  * 输入：
  * @param {object|null} friendTarget - 当前状态中的朋友目标牌摘要或原始对象。
  *
  * 输出：
- * @returns {"not_called"|"revealed"|"failed"|"unrevealed"} 当前朋友状态标签。
+ * @returns {"not_called"|"revealed"|"failed"|"unrevealed"} 当前朋友状态标签；这里沿用内部字段名，不额外重命名。
  *
  * 注意：
  * - 这里不推导阵营强弱，只忠实反映状态机公开出来的信息。

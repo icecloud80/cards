@@ -1862,6 +1862,10 @@
         line-height: 1.5;
       }
 
+      .result-action-row {
+        margin-top: 12px;
+      }
+
       @media (max-width: 1260px) {
         body {
           overflow: auto;
@@ -2391,54 +2395,141 @@
         position: fixed;
       }
 
-      .result-card {
-        width: min(calc(100vw - 24px), 420px);
-        padding: 20px 18px;
+      /* 手游结算弹窗需要在单手握持场景里保持更短、更紧凑，避免结果层把整屏拉得过高。 */
+      body.mobile-index2 .result-overlay {
+        padding:
+          max(10px, env(safe-area-inset-top))
+          8px
+          max(10px, env(safe-area-inset-bottom));
       }
 
-      .result-card h2 {
-        font-size: 40px;
-        letter-spacing: 2px;
+      body.mobile-index2 .result-card {
+        --mobile-result-bottom-card-width: clamp(27px, 7.4vw, 33px);
+        width: min(calc(100vw - 16px), 392px);
+        max-height: calc(100vh - max(20px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom)));
+        padding: 16px 14px 14px;
+        border-radius: 20px;
+        overflow-y: auto;
       }
 
-      .result-subinfo {
-        margin-top: 14px;
-        padding: 14px;
+      body.mobile-index2 .result-card h2 {
+        font-size: clamp(28px, 9vw, 40px);
+        line-height: 1.08;
+        letter-spacing: 1px;
       }
 
-      .result-level-item {
-        gap: 8px;
-        padding: 9px 10px;
+      body.mobile-index2 .result-card .result-body {
+        margin-top: 10px;
+        font-size: 12px;
+        line-height: 1.48;
       }
 
-      .result-level-main {
+      body.mobile-index2 .result-subinfo {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 14px;
+      }
+
+      body.mobile-index2 .result-level-head {
         gap: 6px;
       }
 
-      .result-level-player {
-        font-size: 13px;
-      }
-
-      .result-camp-chip,
-      .result-level-tag {
-        min-height: 20px;
-        padding: 0 8px;
-        font-size: 10px;
-      }
-
-      .result-level-change {
-        min-height: 28px;
-        padding: 0 8px;
-        gap: 5px;
-      }
-
-      .result-level-value {
+      body.mobile-index2 .result-level-title {
         font-size: 12px;
       }
 
-      .result-level-arrow {
-        width: 16px;
-        height: 16px;
+      body.mobile-index2 .result-level-caption {
+        font-size: 11px;
+      }
+
+      body.mobile-index2 .result-level-list {
+        margin-top: 8px;
+        gap: 6px;
+      }
+
+      body.mobile-index2 .result-level-item {
+        gap: 6px;
+        padding: 8px 9px;
+        border-radius: 12px;
+      }
+
+      body.mobile-index2 .result-level-main {
+        gap: 5px;
+      }
+
+      body.mobile-index2 .result-level-player {
+        font-size: 12px;
+      }
+
+      body.mobile-index2 .result-camp-chip,
+      body.mobile-index2 .result-level-tag {
+        min-height: 18px;
+        padding: 0 7px;
+        font-size: 10px;
+      }
+
+      body.mobile-index2 .result-level-change {
+        min-height: 24px;
+        padding: 0 7px;
+        gap: 4px;
+      }
+
+      body.mobile-index2 .result-level-value {
+        font-size: 11px;
+      }
+
+      body.mobile-index2 .result-level-arrow {
+        width: 14px;
+        height: 14px;
+      }
+
+      body.mobile-index2 .result-bottom {
+        margin-top: 12px;
+        padding: 10px 10px 8px;
+        border-radius: 14px;
+      }
+
+      body.mobile-index2 .result-bottom .label {
+        font-size: 12px;
+      }
+
+      body.mobile-index2 .result-bottom .bottom-cards {
+        min-height: 60px;
+        margin-top: 8px;
+      }
+
+      body.mobile-index2 .result-bottom .bottom-cards .played-card {
+        width: var(--mobile-result-bottom-card-width);
+        height: calc(var(--mobile-result-bottom-card-width) * 1.42);
+        margin-left: -9px;
+      }
+
+      body.mobile-index2 .result-bottom .bottom-cards .played-card:first-child {
+        margin-left: 0;
+      }
+
+      body.mobile-index2 .result-countdown {
+        margin-top: 10px;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      body.mobile-index2 .result-action-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      body.mobile-index2 .result-action-row:first-of-type {
+        margin-top: 10px;
+      }
+
+      body.mobile-index2 .result-action-row button.action-btn {
+        min-height: 34px;
+        padding: 5px 6px;
+        border-radius: 14px;
+        font-size: 11px;
       }
 
       #friendHint,
@@ -4335,11 +4426,11 @@
               <div id="resultBottomCards" class="bottom-cards"></div>
             </div>
             <p id="resultCountdown" class="result-countdown">30 秒后自动开局：30</p>
-            <div class="action-row" style="margin-top: 12px;">
+            <div class="action-row result-action-row">
               <button id="copyResultLogBtn" class="action-btn" type="button">复制日志</button>
               <button id="downloadResultLogBtn" class="action-btn" type="button">下载日志</button>
             </div>
-            <div class="action-row" style="margin-top: 18px;">
+            <div class="action-row result-action-row">
               <button id="restartBtn" class="action-btn primary">再来一局</button>
               <button id="closeResultBtn" class="action-btn" type="button">关闭</button>
             </div>

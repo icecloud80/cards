@@ -6,6 +6,7 @@ const UI_SMOKE_SCENARIOS = Object.freeze([
     name: "pc",
     pagePath: "/index1.html",
     viewport: { width: 1560, height: 960 },
+    paceButtonSelector: "#aiPaceButtons [data-ai-pace-value='instant']",
     paceSelector: "#aiPaceSelect",
     startSelector: "#startLobbyStartBtn",
     autoSelector: "#autoManagedBtn",

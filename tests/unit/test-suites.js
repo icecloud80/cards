@@ -98,6 +98,11 @@ const UNIT_TEST_SUITES = [
     name: "Mobile auto-manage regression",
     file: path.join(__dirname, "check-mobile-auto-manage.js"),
   },
+  // 锁住手游结算弹窗的紧凑布局，避免再次回退成高留白版本。
+  {
+    name: "Mobile result overlay UI regression",
+    file: path.join(__dirname, "check-mobile-result-overlay-ui.js"),
+  },
   // 锁住手游翻底公示层的读秒关闭胶囊和卡位渲染结构。
   {
     name: "Mobile bottom reveal UI regression",

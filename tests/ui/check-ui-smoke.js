@@ -40,6 +40,39 @@ async function waitForResultOverlay(page, timeoutMs) {
 
 /**
  * 作用：
+ * 把当前 smoke 场景的对局节奏切到 `瞬` 档。
+ *
+ * 为什么这样写：
+ * PC 开始界面现在优先展示可见按钮组，隐藏 `select` 只保留给共享状态同步；
+ * UI smoke 如果仍强依赖隐藏控件，就会在真实页面里卡住。
+ * 这里优先点击可见按钮，再回退到 `select`，能同时兼容新版 PC 和仍用下拉框的 mobile。
+ *
+ * 输入：
+ * @param {import("playwright").Page} page - 当前场景对应的 Playwright 页面。
+ * @param {{paceButtonSelector?: string, paceSelector: string}} scenario - 当前场景配置。
+ *
+ * 输出：
+ * @returns {Promise<void>} 成功后页面应已切到 `瞬` 档。
+ *
+ * 注意：
+ * - 只有按钮真实可见时才优先点击，避免误点隐藏节点。
+ * - 回退到 `select` 的逻辑不能删，mobile 仍然依赖它。
+ */
+async function setScenarioPaceToInstant(page, scenario) {
+  if (scenario.paceButtonSelector) {
+    const paceButton = page.locator(scenario.paceButtonSelector).first();
+    const buttonVisible = await paceButton.isVisible().catch(() => false);
+    if (buttonVisible) {
+      await paceButton.click();
+      return;
+    }
+  }
+
+  await page.locator(scenario.paceSelector).selectOption("instant");
+}
+
+/**
+ * 作用：
  * 在页面里启用最快节奏并切换为自动托管。
  *
  * 为什么这样写：
@@ -58,7 +91,7 @@ async function waitForResultOverlay(page, timeoutMs) {
  * - 点击托管后要等待 `aria-pressed=true`，避免误判点击未生效。
  */
 async function startScenarioGame(page, scenario) {
-  await page.locator(scenario.paceSelector).selectOption("instant");
+  await setScenarioPaceToInstant(page, scenario);
   await page.locator(scenario.startSelector).click();
   await page.locator(scenario.autoSelector).waitFor({ state: "visible" });
   await page.locator(scenario.autoSelector).click();
@@ -200,6 +233,7 @@ module.exports = {
   getMimeType,
   startStaticServer,
   waitForResultOverlay,
+  setScenarioPaceToInstant,
   startScenarioGame,
   runUiSmokeScenario,
   main,

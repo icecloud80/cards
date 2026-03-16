@@ -37,7 +37,12 @@ function runUiSmokeConfigChecks() {
   assert.equal(DEFAULT_UI_SMOKE_PORT, 3721, "default ui smoke port should stay stable");
   assert.equal(DEFAULT_UI_SMOKE_TIMEOUT_MS, 120000, "default timeout should stay stable");
   assert.deepEqual(UI_SMOKE_SCENARIOS.map((scenario) => scenario.name), ["pc", "mobile"], "ui smoke should cover pc and mobile");
-  assert.equal(UI_SMOKE_SCENARIOS[0].paceSelector, "#aiPaceSelect", "pc scenario should drive the shared pace select");
+  assert.equal(
+    UI_SMOKE_SCENARIOS[0].paceButtonSelector,
+    "#aiPaceButtons [data-ai-pace-value='instant']",
+    "pc scenario should prefer the visible instant-pace button"
+  );
+  assert.equal(UI_SMOKE_SCENARIOS[0].paceSelector, "#aiPaceSelect", "pc scenario should keep the shared pace select as fallback");
   assert.equal(UI_SMOKE_SCENARIOS[1].autoSelector, "#mobileAutoBtn", "mobile scenario should toggle the mobile auto button");
   results.push("scenario list keeps pc and mobile coverage");
 

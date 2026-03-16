@@ -269,6 +269,43 @@ function getBottomRevealVisibleCount() {
 
 /**
  * 作用：
+ * 读取当前 sprite 牌面在不同平台下应使用的可视缩放参数。
+ *
+ * 为什么这样写：
+ * `m_cards_sprite.svg` 的牌面主体比 `poker.png` 更铺满整张卡；
+ * 在 mobile 的手牌区、朋友牌和亮主候选里，如果继续按 100% 填满容器，
+ * 会显得牌面过大、边缘过紧，容易出现“像被切坏”的观感。
+ * 把这套缩放参数集中成 helper 后，就能只对 mobile 新牌整图做局部收口，
+ * 同时不影响 PC 和 `poker.png` 的现有显示口径。
+ *
+ * 输入：
+ * @param {{src?: string}|null} spriteSheet - 当前正在使用的 sprite 配置。
+ *
+ * 输出：
+ * @returns {{width: string, height: string, margin: string}} 当前 sprite 节点应使用的尺寸样式。
+ *
+ * 注意：
+ * - 这里只缩放 `mobile + m_cards_sprite.svg` 这一种组合，其余主题保持 100% 不变。
+ * - 返回的是可直接赋给内联样式的字符串，不额外包含背景定位或背景尺寸。
+ */
+function getCardSpriteDisplayMetrics(spriteSheet) {
+  if (APP_PLATFORM === "mobile" && spriteSheet?.src === "./m_cards_sprite.svg") {
+    return {
+      width: "90%",
+      height: "90%",
+      margin: "5% auto 0",
+    };
+  }
+
+  return {
+    width: "100%",
+    height: "100%",
+    margin: "0",
+  };
+}
+
+/**
+ * 作用：
  * 为当前牌对象创建具体的牌面内容节点。
  *
  * 为什么这样写：
@@ -290,12 +327,14 @@ function createCardFaceContent(card) {
   const spriteSheet = getCardFaceSpriteSheet();
   const spritePosition = getCardSpriteSheetPosition(card, spriteSheet);
   if (spriteSheet && spritePosition) {
+    const spriteMetrics = getCardSpriteDisplayMetrics(spriteSheet);
     const sprite = document.createElement("span");
     sprite.className = "card-face-sprite";
     sprite.setAttribute("aria-hidden", "true");
     sprite.style.display = "block";
-    sprite.style.width = "100%";
-    sprite.style.height = "100%";
+    sprite.style.width = spriteMetrics.width;
+    sprite.style.height = spriteMetrics.height;
+    sprite.style.margin = spriteMetrics.margin;
     sprite.style.backgroundImage = `url("${spriteSheet.src}")`;
     sprite.style.backgroundRepeat = "no-repeat";
     sprite.style.backgroundSize = `${spriteSheet.columns * 100}% ${spriteSheet.rows * 100}%`;
@@ -362,12 +401,14 @@ function createCardBackContent() {
   const spriteSheet = getCardFaceSpriteSheet()
     || getCardFaceSpriteSheet(CARD_FACE_OPTIONS.find((option) => option?.spriteSheet?.src));
   if (spriteSheet?.columns >= 3 && spriteSheet?.rows >= 1) {
+    const spriteMetrics = getCardSpriteDisplayMetrics(spriteSheet);
     const sprite = document.createElement("span");
     sprite.className = "card-face-sprite";
     sprite.setAttribute("aria-hidden", "true");
     sprite.style.display = "block";
-    sprite.style.width = "100%";
-    sprite.style.height = "100%";
+    sprite.style.width = spriteMetrics.width;
+    sprite.style.height = spriteMetrics.height;
+    sprite.style.margin = spriteMetrics.margin;
     sprite.style.backgroundImage = `url("${spriteSheet.src}")`;
     sprite.style.backgroundRepeat = "no-repeat";
     sprite.style.backgroundSize = `${spriteSheet.columns * 100}% ${spriteSheet.rows * 100}%`;
@@ -518,6 +559,29 @@ function renderResultBottomCards() {
     .join("");
 }
 
+/**
+ * 作用：
+ * 生成顶部朋友牌在可重改窗口内应展示的短提示文案。
+ *
+ * 为什么这样写：
+ * 玩家现在可以在 30 秒窗口内点顶部朋友牌再编辑一次；
+ * 顶部状态区本身很紧凑，需要一条短文案同时提示“还能改”和“还剩多久”，避免只能靠用户猜。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态中的朋友重改窗口剩余秒数。
+ *
+ * 输出：
+ * @returns {string} 顶部朋友牌区域应显示的短提示文案。
+ *
+ * 注意：
+ * - 这里只在确实可重改时返回文案，普通阶段仍沿用原有 `待站队 / 已站队 / 1打4`。
+ * - 文案必须保持足够短，避免顶栏因为一句长提示撑破布局。
+ */
+function getFriendRetargetStateLabel() {
+  const countdown = getFriendRetargetCountdownSeconds();
+  return countdown > 0 ? `可改 ${countdown}秒` : "待站队";
+}
+
 // 渲染朋友面板。
 function renderFriendPanel() {
   if (!state.friendTarget) {
@@ -528,16 +592,24 @@ function renderFriendPanel() {
     dom.friendState.textContent = state.phase === "callingFriend" ? "待选择" : "未开始";
     dom.friendOwner.textContent = "--/--";
     dom.friendCardMount.innerHTML = "";
+    dom.friendCardMount.classList.remove("editable");
+    dom.friendCardMount.setAttribute("role", "img");
+    dom.friendCardMount.setAttribute("tabindex", "-1");
+    dom.friendCardMount.setAttribute("aria-label", "当前还未确定朋友牌");
+    dom.friendCardMount.title = "朋友牌待定";
     return;
   }
 
   dom.friendHint.textContent = TEXT.friend.fixedHint;
   dom.friendLabel.textContent = state.friendTarget.label;
+  const canRetarget = typeof canRetargetFriendSelection === "function" && canRetargetFriendSelection();
   dom.friendState.textContent = state.friendTarget.failed
     ? "1打4"
     : state.friendTarget.revealed
       ? "已站队"
-      : "待站队";
+      : canRetarget
+        ? getFriendRetargetStateLabel()
+        : "待站队";
   dom.friendOwner.textContent = state.friendTarget.failed
     ? "0/0"
     : `${state.friendTarget.revealed
@@ -545,6 +617,15 @@ function renderFriendPanel() {
       : Math.min(state.friendTarget.matchesSeen || 0, state.friendTarget.occurrence || 1)}/${state.friendTarget.occurrence || 1}`;
   dom.friendCardMount.innerHTML = "";
   dom.friendCardMount.appendChild(buildCardNode(state.friendTarget, "friend-card"));
+  dom.friendCardMount.classList.toggle("editable", canRetarget);
+  dom.friendCardMount.setAttribute("role", canRetarget ? "button" : "img");
+  dom.friendCardMount.setAttribute("tabindex", canRetarget ? "0" : "-1");
+  dom.friendCardMount.setAttribute("aria-label", canRetarget
+    ? `当前朋友牌 ${state.friendTarget.label}，点击可再次编辑一次`
+    : `当前朋友牌 ${state.friendTarget.label}`);
+  dom.friendCardMount.title = canRetarget
+    ? `剩余 ${getFriendRetargetCountdownSeconds()} 秒，可点击再次编辑一次`
+    : state.friendTarget.label;
 }
 
 /**
@@ -848,6 +929,39 @@ function renderToolbarMenu() {
     dom.layoutEditBtn.textContent = state.layoutEditMode ? "完成布局" : "布局编辑";
     dom.layoutEditBtn.classList.toggle("alert", state.layoutEditMode);
   }
+  if (dom.menuHomeBtn) {
+    dom.menuHomeBtn.textContent = "回到首页";
+  }
+  syncAiPaceButtonGroup(dom.menuAiPaceButtons, state.aiPace);
+}
+
+/**
+ * 作用：
+ * 同步一组节奏按钮的选中态和辅助语义。
+ *
+ * 为什么这样写：
+ * PC 顶部更多菜单和开始界面都把节奏切换改成四档按钮组；
+ * 用一个 helper 统一更新激活态后，两处控件就能始终保持一致，不会出现一个是“快”另一个还停在“中”。
+ *
+ * 输入：
+ * @param {?HTMLElement} container - 当前节奏按钮组容器。
+ * @param {string} value - 当前已选节奏键值。
+ *
+ * 输出：
+ * @returns {void} 只更新按钮状态，不返回额外结果。
+ *
+ * 注意：
+ * - 这里只同步视觉和 aria，不负责写回共享状态。
+ * - 容器不存在时必须安全跳过，避免影响其他平台或旧测试桩。
+ */
+function syncAiPaceButtonGroup(container, value) {
+  if (!container) return;
+  const normalizedValue = normalizeAiPace(value);
+  for (const button of container.querySelectorAll("[data-ai-pace-value]")) {
+    const active = button.dataset.aiPaceValue === normalizedValue;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  }
 }
 
 /**
@@ -879,6 +993,7 @@ function renderStartLobby() {
     : "当前没有可继续的进度，开始游戏会从默认等级重新开局。";
   dom.startLobbyStartBtn.disabled = false;
   dom.startLobbyContinueBtn.disabled = !state.hasSavedProgress;
+  syncAiPaceButtonGroup(dom.aiPaceButtons, state.aiPace);
 }
 
 /**
@@ -1643,6 +1758,9 @@ function updateActionHint() {
 // 渲染上一轮回顾内容。
 function renderLastTrick() {
   dom.lastTrickPanel.classList.toggle("hidden", !state.showLastTrick);
+  if (dom.toggleLastTrickBtn) {
+    dom.toggleLastTrickBtn.classList.toggle("alert", !!state.showLastTrick);
+  }
   if (!state.lastTrick) {
     dom.lastTrickMeta.textContent = TEXT.lastTrick.empty;
     dom.lastTrickCards.innerHTML = "";
@@ -1736,7 +1854,13 @@ function renderFriendPicker() {
     <div>${buildCardNode(previewTarget, "friend-card").outerHTML}</div>
   `;
   if (dom.autoFriendBtn) {
-    dom.autoFriendBtn.textContent = recommendation ? `用推荐：${recommendation.target.label}` : "用推荐";
+    const countdown = typeof getFriendRetargetCountdownSeconds === "function"
+      ? getFriendRetargetCountdownSeconds()
+      : 0;
+    const countdownSuffix = countdown > 0 ? ` (${countdown}秒)` : "";
+    dom.autoFriendBtn.textContent = recommendation
+      ? `用推荐：${recommendation.target.label}${countdownSuffix}`
+      : `用推荐${countdownSuffix}`;
   }
 }
 
@@ -2051,11 +2175,16 @@ function buildSetupOptionCardFaceHtml(card) {
   const spriteSheet = getCardFaceSpriteSheet();
   const spritePosition = getCardSpriteSheetPosition(card, spriteSheet);
   if (spriteSheet && spritePosition) {
+    const spriteMetrics = getCardSpriteDisplayMetrics(spriteSheet);
     return `
       <span
         class="setup-option-card-face card-face-sprite"
         aria-hidden="true"
         style="
+          display:block;
+          width:${spriteMetrics.width};
+          height:${spriteMetrics.height};
+          margin:${spriteMetrics.margin};
           background-image:url('${spriteSheet.src}');
           background-repeat:no-repeat;
           background-size:${spriteSheet.columns * 100}% ${spriteSheet.rows * 100}%;
@@ -2232,7 +2361,9 @@ function renderCenterPanel() {
   if (dom.autoManagedBtn) {
     dom.autoManagedBtn.hidden = state.phase === "ready";
     dom.autoManagedBtn.disabled = state.gameOver || state.phase === "ready";
-    syncIconButtonLabel(dom.autoManagedBtn, TEXT.buttons.autoManage);
+    if (typeof syncAutoManagedButton === "function") {
+      syncAutoManagedButton();
+    }
   }
   if (dom.toggleDebugBtn) {
     dom.toggleDebugBtn.textContent = TEXT.buttons.debug;

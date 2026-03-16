@@ -1,2 +1,11 @@
+# macOS Finder metadata is always local machine noise and should never be committed.
+.DS_Store
+**/.DS_Store
+
+# Keep local preview exports out of git while preserving documented artifact folders.
+artifacts/*
+!artifacts/README.md
+!artifacts/headless-regression/
+
 artifacts/headless-regression/*
 !artifacts/headless-regression/.gitkeep

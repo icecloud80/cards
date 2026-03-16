@@ -625,6 +625,59 @@ function runFriendStrategySuite(context) {
       state.currentTurnId = 4;
     }
 
+    /**
+     * 作用：
+     * 搭建“缺首门贴副时，应优先保住副牌对子而不是把它直接贴掉”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户补充了一个容易被误解的点：
+     * 当自己没有首门、主上也没有成型可毙时，规则并不要求继续拿另一门对子来贴同型。
+     * 这里固定成“对梅花 A、红桃为主、跟牌方没有梅花也没有主对”，验证 AI 会优先贴两张散副，
+     * 而不是把手里仅有的一对副牌直接送出去。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入跟牌状态，供 getLegalHintForPlayer(2) 使用。
+     *
+     * 注意：
+     * - 玩家 2 没有梅花，也没有主牌，因此这里只验证“贴牌保结构”，不验证毙牌选择。
+     * - 方块 6,6 是待保护的副牌对子；黑桃 3,4 是更应优先贴掉的两张散牌。
+     */
+    function setupOffSuitPairDiscardPreservationScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "hearts";
+      state.players = [
+        basePlayer(1, [
+          makeCard("discard-p1-c-a-1", "clubs", "A"),
+          makeCard("discard-p1-c-a-2", "clubs", "A"),
+        ], true),
+        basePlayer(2, [
+          makeCard("discard-p2-d-6-1", "diamonds", "6"),
+          makeCard("discard-p2-d-6-2", "diamonds", "6"),
+          makeCard("discard-p2-s-3", "spades", "3"),
+          makeCard("discard-p2-s-4", "spades", "4"),
+        ]),
+        basePlayer(3, [makeCard("discard-p3-h-9", "hearts", "9")]),
+        basePlayer(4, [makeCard("discard-p4-d-8", "diamonds", "8")]),
+        basePlayer(5, [makeCard("discard-p5-s-k", "spades", "K")]),
+      ];
+      state.currentTrick = [
+        {
+          playerId: 1,
+          cards: [
+            makeCard("discard-lead-c-a-1", "clubs", "A"),
+            makeCard("discard-lead-c-a-2", "clubs", "A"),
+          ],
+        },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 1;
+      state.currentTurnId = 2;
+    }
+
     // 搭建清主控场的测试场景。
     function setupTrumpClearControlScenario(difficulty) {
       resetCommonState();
@@ -755,6 +808,138 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
       state.exposedSuitVoid[1].hearts = true;
       state.exposedSuitVoid[2].hearts = true;
+    }
+
+    /**
+     * 作用：
+     * 搭建“朋友刚亮后，打家应立刻切到清主控局”的测试场景。
+     *
+     * 为什么这样写：
+     * 这轮要验证新 heuristic 会在朋友刚亮后的短窗口里优先清主，
+     * 而不是继续拿副牌去试探或送节奏。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前测试状态。
+     *
+     * 注意：
+     * - revealedTrickNumber=2，当前来到第 4 轮，仍在控局窗口内。
+     * - 打家手里同时有主对子和副牌 A，用来确认它会优先走主。
+     */
+    function setupRevealedFriendControlModeScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.trickNumber = 4;
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-s-k-1", "spades", "K"),
+          makeCard("b-s-k-2", "spades", "K"),
+          makeCard("b-s-7-1", "spades", "7"),
+          makeCard("b-s-7-2", "spades", "7"),
+          makeCard("b-c-a", "clubs", "A"),
+          makeCard("b-h-3", "hearts", "3"),
+        ], true),
+        basePlayer(2, [makeCard("p2-d-9", "diamonds", "9")]),
+        basePlayer(3, [makeCard("p3-c-8", "clubs", "8")]),
+        basePlayer(4, [makeCard("p4-h-9", "hearts", "9")]),
+        basePlayer(5, [makeCard("p5-d-8", "diamonds", "8")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.friendTarget.revealedTrickNumber = 2;
+      state.hiddenFriendId = 3;
+    }
+
+    /**
+     * 作用：
+     * 搭建“无主打家前几轮应先打控制线，不急着探朋友门”的测试场景。
+     *
+     * 为什么这样写：
+     * 数据里无主打家经常被 friend-setup lead 抢先，先把朋友牌 A 打出去；
+     * 这里用双王和高主资源验证，新规则会先清控制而不是先摸朋友门。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前测试状态。
+     *
+     * 注意：
+     * - 朋友目标是第二张红桃 A，旧逻辑会直接先打红桃 A。
+     * - 现在应优先打双王，确认“少探朋友门”已经生效。
+     */
+    function setupNoTrumpProbeDeferralScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "notrump";
+      state.trickNumber = 2;
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-h-a", "hearts", "A"),
+          makeCard("b-h-3", "hearts", "3"),
+          makeCard("b-bj-1", "joker", "BJ"),
+          makeCard("b-bj-2", "joker", "BJ"),
+          makeCard("b-c-k", "clubs", "K"),
+          makeCard("b-s-4", "spades", "4"),
+        ], true),
+        basePlayer(2, [makeCard("p2-d-8", "diamonds", "8")]),
+        basePlayer(3, [makeCard("p3-c-8", "clubs", "8")]),
+        basePlayer(4, [makeCard("p4-h-8", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-d-7", "diamonds", "7")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 2 });
+      state.friendTarget.matchesSeen = 0;
+    }
+
+    /**
+     * 作用：
+     * 搭建“朋友到第 6 轮仍未亮，打家应切 solo fallback”的测试场景。
+     *
+     * 为什么这样写：
+     * 这条 heuristic 要验证打家不会在晚亮友局面继续死摸目标门，
+     * 而是先转成更保守的主控 / 低风险首发。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前测试状态。
+     *
+     * 注意：
+     * - 朋友目标仍是第二张红桃 A，旧逻辑在这种牌里很容易先出红桃 A 或红桃 3。
+     * - 现在应优先走梅花主对子，避免继续透支打家节奏。
+     */
+    function setupLateUnrevealedFriendFallbackScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.trickNumber = 6;
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-h-a-late", "hearts", "A"),
+          makeCard("b-h-3-late", "hearts", "3"),
+          makeCard("b-c-7-1", "clubs", "7"),
+          makeCard("b-c-7-2", "clubs", "7"),
+          makeCard("b-d-4", "diamonds", "4"),
+          makeCard("b-s-6", "spades", "6"),
+        ], true),
+        basePlayer(2, [makeCard("p2-d-8-late", "diamonds", "8")]),
+        basePlayer(3, [makeCard("p3-c-9-late", "clubs", "9")]),
+        basePlayer(4, [makeCard("p4-h-8-late", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-d-7-late", "diamonds", "7")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 2 });
+      state.friendTarget.matchesSeen = 0;
     }
 
     const results = [];
@@ -903,6 +1088,30 @@ function runFriendStrategySuite(context) {
     assert(intermediateDefenderFollowBeat[0].suit === "hearts" && intermediateDefenderFollowBeat[0].rank === "A", "intermediate: should beat banker lead to reclaim control for defender side");
     results.push("intermediate defender-follow beat ok");
 
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupOffSuitPairDiscardPreservationScenario(difficulty);
+      const legalDiscardChoices = getLegalSelectionsForPlayer(2);
+      const protectedPair = [
+        state.players[1].hand.find((card) => card.id === "discard-p2-d-6-1"),
+        state.players[1].hand.find((card) => card.id === "discard-p2-d-6-2"),
+      ];
+      const preferredLooseDiscard = [
+        state.players[1].hand.find((card) => card.id === "discard-p2-s-3"),
+        state.players[1].hand.find((card) => card.id === "discard-p2-s-4"),
+      ];
+      assert(
+        legalDiscardChoices.some((combo) => getComboKey(combo) === getComboKey(protectedPair)),
+        difficulty + ": off-suit pair discard scenario should include the side-suit pair as a legal baseline candidate"
+      );
+      const discardChoice = getLegalHintForPlayer(2);
+      assert(discardChoice.length === 2, difficulty + ": off-suit pair discard scenario should choose two follow cards");
+      assert(
+        getComboKey(discardChoice) === getComboKey(preferredLooseDiscard),
+        difficulty + ": should keep the side-suit pair instead of pasting it away while void on the lead suit"
+      );
+      results.push(difficulty + " off-suit discard preserves side pair ok");
+    }
+
     setupHandoffReceiveScenario();
     const intermediateHandoffReceive = getLegalHintForPlayer(4);
     assert(intermediateHandoffReceive.length === 1, "intermediate: handoff receive scenario should choose a single card");
@@ -919,6 +1128,31 @@ function runFriendStrategySuite(context) {
     assert(intermediateTrumpClearControl.length >= 2, "intermediate: trump-clear control scenario should choose a structured trump lead");
     assert(intermediateTrumpClearControl.every((card) => card.suit === "spades"), "intermediate: should clear trump first when control is strong");
     results.push("intermediate trump-clear control ok");
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupRevealedFriendControlModeScenario(difficulty);
+      const controlModeLead = chooseAiLeadPlay(1);
+      assert(controlModeLead.length >= 2, difficulty + ": revealed-friend control mode should choose a structured trump lead");
+      assert(controlModeLead.every((card) => card.suit === "spades"), difficulty + ": revealed-friend control mode should clear trump before side-suit probing");
+      results.push(difficulty + " revealed-friend control mode ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupNoTrumpProbeDeferralScenario(difficulty);
+      const deferredProbeLead = chooseAiLeadPlay(1);
+      assert(deferredProbeLead.length >= 1, difficulty + ": no-trump probe deferral should still choose a legal lead");
+      assert(!(deferredProbeLead[0].suit === "hearts"), difficulty + ": no-trump banker should not probe friend suit first when control line is strong");
+      assert(deferredProbeLead.every((card) => card.suit === "joker"), difficulty + ": no-trump banker should clear joker control before probing friend suit");
+      results.push(difficulty + " no-trump friend-probe deferral ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupLateUnrevealedFriendFallbackScenario(difficulty);
+      const lateFallbackLead = chooseAiLeadPlay(1);
+      assert(lateFallbackLead.length >= 2, difficulty + ": late-unrevealed friend fallback should prefer a structured safety lead");
+      assert(lateFallbackLead.every((card) => card.suit === "clubs"), difficulty + ": late-unrevealed friend fallback should stop leading friend suit and return to trump control");
+      results.push(difficulty + " late-unrevealed friend fallback ok");
+    }
 
     setupTrumpClearForPairSafetyScenario("beginner");
     const beginnerTrumpClearSafety = getLegalHintForPlayer(3);

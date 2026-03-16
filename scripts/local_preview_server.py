@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 DEFAULT_PREVIEW_HOST = "127.0.0.1"
-DEFAULT_PREVIEW_PORT = 4173
+DEFAULT_PREVIEW_PORT = 3721
 DEFAULT_PREVIEW_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PREVIEW_INDEX = "/index.html"
 

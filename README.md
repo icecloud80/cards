@@ -14,9 +14,9 @@ npm run serve:python
 
 The server prints the exact URLs after startup. Common pages are:
 
-- `http://127.0.0.1:4173/index1.html` for PC
-- `http://127.0.0.1:4173/index2.html` for mobile
-- `http://127.0.0.1:4173/index-static.html` for the PC static mock
+- `http://127.0.0.1:3721/index1.html` for PC
+- `http://127.0.0.1:3721/index2.html` for mobile
+- `http://127.0.0.1:3721/index-static.html` for the PC static mock
 
 After each file change, refresh the page in the browser to check the latest effect.
 
@@ -64,6 +64,12 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 
 ## Recent Updates
 
+- 2026-03-16 - 【工具】 - 仓库根目录现已把 `artifacts/` 统一纳入忽略规则：默认不再跟踪本地预览截图、SVG 和其他临时导出物，仅保留 `artifacts/README.md` 与 `artifacts/headless-regression/.gitkeep` 这类说明或目录占位文件。
+- 2026-03-16 - 【Bug修复】 - 手游顶部托管现已改成 `关闭 / 本局托管 / 跨局托管` 三态循环；第一次点击只托管当前局，第二次点击进入跨局持续托管，第三次点击回到关闭，并补上了独立的“跨局托管”高亮态。
+- 2026-03-16 - 【UI增强】 - PC 顶部托管按钮的默认文案与高亮语义已和 mobile 对齐：默认显示 `托管：关闭`，`本局托管` 维持红色高亮，`跨局托管` 继续使用蓝色高亮表示跨局保留。
+- 2026-03-16 - 【工具】 - 仓库现已把 `.DS_Store` 统一加入 `.gitignore`，并在本地预览工作流文档里补充“临时产物与仓库清理约定”，后续清理时可先忽略 macOS 元数据，再单独确认是否删除历史已跟踪文件。
+- 2026-03-16 - 【UI增强】 - PC 的“找朋友”面板已统一改成“叫朋友”：`用推荐` 按钮新增 30 秒倒计时，首次确认后可在读秒内点击顶部朋友牌再编辑一次；用掉这次机会后，首轮首手会恢复普通 15 秒出牌倒计时。
+- 2026-03-16 - 【资源增强】 - 新增 `m_cards_sprite.svg` 生成链路：可通过 `npm run build:m-card-sprite` 把 `m_cards/` 里的单张 SVG 按 `poker.png` 同款 `13x5` 网格拼成一张整图 SVG；mobile 默认牌面已切到这套 `新牌整图`，PC 也保留该选项，同时移除了旧的逐张 `m_cards` 牌面模式。
 - 2026-03-16 - 【规划文档】 - 新增 App 化与联机资料包：补齐 `移动 App 产品需求`、`App 与多人在线技术设计`、`移动 / 联机 / 广告路线图`，统一首发范围、免费运营边界、广告位策略以及好友房到匹配的阶段目标。
 - 2026-03-16 - 【工具】 - 新增统一的本地 HTTP 预览工作流：可通过 `npm run serve` 启动仓库静态预览服务，通过浏览器访问 `index1.html / index2.html / index-static.html` 看修改效果；同时保留 `npm run serve:python` 作为未来 Python 工作流入口，并让 UI smoke 复用同一套静态服务 helper。
 - 2026-03-15 - 【AI改进】 - 初级 AI 的叫朋友与扣底 heuristic 已重新对齐：现在会优先找最短副牌门的 `A`，并在扣底时尽量保留该门的 `A + 1 张回手牌`；若手里还有 `K`，也会尽量保留，方便按 `A -> K` 继续把短门打穿。

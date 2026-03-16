@@ -284,6 +284,219 @@ function chooseStrongLeadFromCards(cards) {
 
 /**
  * 作用：
+ * 返回朋友正式亮相时记录的轮次。
+ *
+ * 为什么这样写：
+ * 这轮要在“朋友刚亮后的 2-3 轮”切到打家控局模式，
+ * 因此需要一份稳定的亮相轮次来源，避免每个 heuristic 自己猜测当前是否还在窗口内。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前全局朋友状态。
+ *
+ * 输出：
+ * @returns {number|null} 朋友亮相轮次；不存在时返回 `null`。
+ *
+ * 注意：
+ * - 只有真正亮相的朋友才会写入，`failed` 或未亮相都返回 `null`。
+ * - 老局数据或旧测试若没有该字段，上层必须自己兜底。
+ */
+function getAiFriendRevealTrickNumber() {
+  if (!state.friendTarget?.revealed) return null;
+  return Number.isInteger(state.friendTarget.revealedTrickNumber)
+    ? state.friendTarget.revealedTrickNumber
+    : null;
+}
+
+/**
+ * 作用：
+ * 判断当前是否处于“朋友刚亮后应优先控局”的短窗口。
+ *
+ * 为什么这样写：
+ * 数据显示打家并不是不会赢，而是经常在朋友亮相后没有立刻切到清主与续控模式；
+ * 这里把这段时间抽成统一窗口，供首发和后续保守 fallback 共用。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前仍处于亮友后控局窗口。
+ *
+ * 注意：
+ * - 只对打家方启用，闲家不走这条模式。
+ * - 窗口默认覆盖朋友亮相后的当前轮到后续 3 轮，避免只触发 1 手太短。
+ */
+function shouldAiUseBankerRevealedFriendControlMode(playerId) {
+  const revealedTrickNumber = getAiFriendRevealTrickNumber();
+  if (revealedTrickNumber == null || !isFriendTeamResolved()) return false;
+  if (!areSameSide(playerId, state.bankerId)) return false;
+  const currentTrickNumber = state.trickNumber || 1;
+  return currentTrickNumber <= revealedTrickNumber + 3;
+}
+
+/**
+ * 作用：
+ * 判断无主打家当前是否应先打控制线，而不是急着探朋友门。
+ *
+ * 为什么这样写：
+ * 最近样本里，无主打家经常一上来就继续摸朋友门，结果还没形成稳定控轮就把节奏送掉；
+ * 这条规则让它在前几轮先评估自己是不是已经有足够主控资源，若有则先打控制线。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应延后探朋友门。
+ *
+ * 注意：
+ * - 只在无主、朋友未亮、打家首发的前中盘启用。
+ * - 若朋友牌已经接近“叫死”，仍允许保留原本的探朋友逻辑，不强行拦截。
+ */
+function shouldAiDeferNoTrumpFriendProbe(playerId, player) {
+  if (!player || playerId !== state.bankerId || state.trumpSuit !== "notrump") return false;
+  if (!state.friendTarget || isFriendTeamResolved() || state.currentTrick.length !== 0) return false;
+  if ((state.trickNumber || 1) > 4) return false;
+
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  const remainingBeforeReveal = neededOccurrence - currentSeen;
+  if (remainingBeforeReveal <= 1) return false;
+
+  const trumpCards = player.hand.filter((card) => effectiveSuit(card) === "trump");
+  const controlTrumpCount = trumpCards.filter((card) => card.suit === "joker" || ["A", "K"].includes(card.rank)).length;
+  const trumpStructures = getStructureCombosFromHand(trumpCards)
+    .filter((combo) => ["pair", "tractor", "train", "bulldozer"].includes(classifyPlay(combo).type));
+  return controlTrumpCount >= 2 || trumpStructures.length > 0 || trumpCards.length >= 6;
+}
+
+/**
+ * 作用：
+ * 判断打家在朋友长期未亮时，是否应切到“solo banker survival”保守模式。
+ *
+ * 为什么这样写：
+ * 样本里有不少局面是朋友到第 5-6 轮后仍未亮，打家却还在按双人协同脚本找朋友，
+ * 结果实际体感更像 1 打 4。这里让打家在拖太久时先保住控轮和保底。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应按晚亮友 fallback 打。
+ *
+ * 注意：
+ * - 当前只让打家自己切 fallback，不假设未亮友方也会同步理解这个模式。
+ * - 一旦朋友已经亮相或失败，这条 fallback 立即失效。
+ */
+function shouldAiUseBankerSoloFallback(playerId) {
+  if (playerId !== state.bankerId || !state.friendTarget || isFriendTeamResolved()) return false;
+  return (state.trickNumber || 1) >= 6;
+}
+
+/**
+ * 作用：
+ * 为“朋友刚亮后”的打家方提供更明确的控局首发。
+ *
+ * 为什么这样写：
+ * 这条 heuristic 对应“亮友后 2-3 轮优先清主、续控、保分”。
+ * 如果这段窗口内还继续弱门试探，打家经常会把已经到手的双人节奏重新送回给闲家。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中控局模式则返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 先尝试可消耗主，其次才回退到对敌方绝门施压和安全零分侧门。
+ * - 这里只负责“亮友后立刻切档”，不取代常规末局保底逻辑。
+ */
+function chooseAiBankerRevealedFriendControlLead(playerId, player) {
+  if (!player || state.currentTrick.length !== 0 || !shouldAiUseBankerRevealedFriendControlMode(playerId)) {
+    return [];
+  }
+
+  const levelRank = getCurrentLevelRank();
+  const trumpCards = player.hand.filter((card) => effectiveSuit(card) === "trump");
+  const expendableTrumpCards = trumpCards.filter((card) => card.suit !== "joker" && card.rank !== levelRank);
+  if (expendableTrumpCards.length > 0) {
+    return chooseStrongLeadFromCards(expendableTrumpCards);
+  }
+  if (trumpCards.length > 0) {
+    return chooseStrongLeadFromCards(trumpCards);
+  }
+
+  const pressureLead = chooseAiVoidPressureLead(playerId, player);
+  if (pressureLead.length > 0) return pressureLead;
+
+  const safeZeroPointSideCards = player.hand.filter((card) => !isTrump(card) && scoreValue(card) === 0);
+  if (safeZeroPointSideCards.length > 0) {
+    return chooseStrongLeadFromCards(safeZeroPointSideCards);
+  }
+
+  const safeSideCards = player.hand.filter((card) => !isTrump(card));
+  if (safeSideCards.length > 0) {
+    return [lowestCard(safeSideCards)];
+  }
+
+  return [];
+}
+
+/**
+ * 作用：
+ * 为“朋友迟迟未亮”的打家提供更保守的 fallback 首发。
+ *
+ * 为什么这样写：
+ * 当牌局已经来到第 5-6 轮，朋友仍未亮时，打家继续机械找朋友往往是在透支自己的保底质量。
+ * 这里让它先转成“我先自己活下去”的模式，减少再去摸目标门和再去送分。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中晚亮友 fallback 则返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 优先走主和零分安全牌，尽量不先手找朋友门。
+ * - 若没有更安全的选择，才回退到普通低成本单张。
+ */
+function chooseAiBankerSoloFallbackLead(playerId, player) {
+  if (!player || state.currentTrick.length !== 0 || !shouldAiUseBankerSoloFallback(playerId)) return [];
+
+  const levelRank = getCurrentLevelRank();
+  const targetSuit = state.friendTarget?.suit;
+  const trumpCards = player.hand.filter((card) => effectiveSuit(card) === "trump");
+  const expendableTrumpCards = trumpCards.filter((card) =>
+    card.suit !== "joker" && card.rank !== levelRank && scoreValue(card) === 0
+  );
+  if (expendableTrumpCards.length > 0) {
+    return chooseStrongLeadFromCards(expendableTrumpCards);
+  }
+  if (trumpCards.length > 0) {
+    const nonCriticalTrumpCards = trumpCards.filter((card) => card.suit !== "joker");
+    if (nonCriticalTrumpCards.length > 0) {
+      return chooseStrongLeadFromCards(nonCriticalTrumpCards);
+    }
+  }
+
+  const safeSideCards = player.hand.filter((card) =>
+    !isTrump(card) && scoreValue(card) === 0 && (!targetSuit || card.suit !== targetSuit)
+  );
+  if (safeSideCards.length > 0) {
+    return [lowestCard(safeSideCards)];
+  }
+
+  const nonTargetSideCards = player.hand.filter((card) => !isTrump(card) && (!targetSuit || card.suit !== targetSuit));
+  if (nonTargetSideCards.length > 0) {
+    return [lowestCard(nonTargetSideCards)];
+  }
+
+  return [];
+}
+
+/**
+ * 作用：
  * 为初级非打家生成一份“我有没有级牌扣底潜力”的轻量画像。
  *
  * 为什么这样写：
@@ -910,6 +1123,8 @@ function chooseAiBankerFriendSetupLead(playerId, player) {
   if (state.currentTrick.length !== 0 || state.currentTurnId !== playerId) return [];
   if (state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") return [];
   if ((state.trickNumber || 1) > 4) return [];
+  if (shouldAiDeferNoTrumpFriendProbe(playerId, player)) return [];
+  if (shouldAiUseBankerSoloFallback(playerId)) return [];
 
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
@@ -1139,6 +1354,75 @@ function getStructureCombosFromHand(hand) {
   }
 
   return combos;
+}
+
+/**
+ * 作用：
+ * 估算一手牌里“副牌结构资源”还剩多少。
+ *
+ * 为什么这样写：
+ * 用户补充的规则点不是“缺门后永远不能出对子”，而是“贴副时不要把宝贵的副牌结构白白送掉”。
+ * 这里把副牌对子、刻子、拖拉机、火车、推土机统一折算成一个库存分，便于跟牌排序时比较
+ * “这手贴出去以后，手里还剩多少可继续利用的副牌结构”。
+ *
+ * 输入：
+ * @param {Array<object>} hand - 当前评估使用的整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回当前副牌结构库存分；数值越高表示副牌结构越完整。
+ *
+ * 注意：
+ * - 这里只统计有效花色不是 `trump` 的结构，主牌结构不走这条保护逻辑。
+ * - 这是启发式库存分，不等于真实胜率或完整残局价值。
+ */
+function getSideStructureInventoryScore(hand) {
+  if (!Array.isArray(hand) || hand.length === 0) return 0;
+  const sideCards = hand.filter((card) => effectiveSuit(card) !== "trump");
+  if (sideCards.length === 0) return 0;
+  const pairs = findPairs(sideCards).length;
+  const triples = findTriples(sideCards).length;
+  const tractors = findSerialTuples(sideCards, 2).filter((combo) => classifyPlay(combo).type === "tractor").length;
+  const trains = findSerialTuples(sideCards, 2).filter((combo) => classifyPlay(combo).type === "train").length;
+  const bulldozers = findSerialTuples(sideCards, 3).length;
+  return pairs * 42 + triples * 60 + tractors * 88 + trains * 104 + bulldozers * 128;
+}
+
+/**
+ * 作用：
+ * 评估“缺门贴副”时，这手牌是否不必要地消耗了副牌结构资源。
+ *
+ * 为什么这样写：
+ * 当玩家已经没有首门、又没有选择用主成型毙牌时，规则上并不要求继续拿别门对子或连对去“贴同型”。
+ * 如果排序器继续奖励这种出法，AI 就会把后续很可能还要用的副牌对子、连对提前贴掉。
+ * 这里把这种误判显式变成一条负分规则，优先保住未来可回手、可续牌的副牌结构。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<object>} combo - 当前待评估的合法跟牌组合。
+ * @param {Array<object>|null} handBefore - 出这手牌前的完整手牌；为空时回退读取当前玩家手牌。
+ * @param {object|null} leadSpec - 当前首家牌型描述；为空时回退读取全局 `state.leadSpec`。
+ *
+ * 输出：
+ * @returns {number} 返回结构保留修正分；负数表示这手贴牌消耗了不该轻易送掉的副牌结构。
+ *
+ * 注意：
+ * - 只在“当前组合既不是跟同门，也不是主牌结构”时启用。
+ * - 这条规则不会阻止 AI 合法毙牌；若当前组合本身是主牌结构，应交给上层继续判断是否值得上主。
+ */
+function scoreOffSuitDiscardStructurePreservation(playerId, combo, handBefore = null, leadSpec = state.leadSpec) {
+  if (!leadSpec || !Array.isArray(combo) || combo.length === 0) return 0;
+  const player = getPlayer(playerId);
+  const sourceHand = Array.isArray(handBefore) ? handBefore : player?.hand;
+  if (!Array.isArray(sourceHand) || sourceHand.length === 0) return 0;
+
+  const pattern = classifyPlay(combo);
+  const comboSuit = pattern.suit || effectiveSuit(combo[0]);
+  if (comboSuit === leadSpec.suit || comboSuit === "trump") return 0;
+
+  const handAfter = getHandAfterCombo(sourceHand, combo);
+  const structureLoss = getSideStructureInventoryScore(sourceHand) - getSideStructureInventoryScore(handAfter);
+  if (structureLoss <= 0) return 0;
+  return -structureLoss;
 }
 
 function isMemorableHighCard(card) {

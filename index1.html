@@ -1254,10 +1254,9 @@
       }
 
       .last-trick {
-        right: var(--edge-gap);
-        bottom: 27%;
-        width: 232px;
-        min-height: 170px;
+        right: calc(var(--edge-gap) + 66px);
+        width: min(428px, 33vw);
+        min-height: 190px;
         padding: 14px 16px;
         z-index: 7;
       }
@@ -1345,20 +1344,20 @@
       }
 
       .log-panel {
-        right: var(--edge-gap);
-        top: calc(var(--edge-gap) + var(--score-panel-height) + var(--panel-gap) + 22px);
-        width: var(--score-panel-width);
+        right: calc(var(--edge-gap) + 8px);
+        width: min(412px, 31vw);
         min-height: 96px;
         padding: 14px 16px;
-        background: rgba(255, 251, 242, 0.76);
       }
 
       .log-list {
         margin: 8px 0 0;
         padding-left: 16px;
-        color: var(--muted);
+        color: rgba(248, 240, 220, 0.88);
         font-size: 12px;
         line-height: 1.6;
+        max-height: 400px;
+        overflow: auto;
         overflow-wrap: anywhere;
         word-break: break-word;
       }
@@ -2290,6 +2289,20 @@
         min-width: 0;
       }
 
+      .topbar-friend-card.editable {
+        cursor: pointer;
+      }
+
+      .topbar-friend-card.editable .friend-card {
+        transition: transform 140ms ease, filter 140ms ease;
+      }
+
+      .topbar-friend-card.editable:hover .friend-card,
+      .topbar-friend-card.editable:focus-within .friend-card {
+        transform: translateY(-3px);
+        filter: drop-shadow(0 10px 18px rgba(30, 87, 128, 0.22));
+      }
+
       .topbar-friend-card .friend-card,
       .topbar-friend-card .played-card {
         width: 40px;
@@ -2363,7 +2376,7 @@
 
       .toolbar-icon-row {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 8px;
       }
 
@@ -2412,10 +2425,16 @@
         filter: brightness(0) saturate(100%) opacity(0.92);
       }
 
+      .icon-btn.persistent {
+        border-color: rgba(124, 187, 222, 0.36);
+        background:
+          linear-gradient(180deg, rgba(223, 242, 253, 0.98), rgba(190, 220, 240, 0.94));
+      }
+
       .toolbar-menu {
         top: 154px;
         right: var(--edge-gap);
-        width: 316px;
+        width: 328px;
         padding: 14px;
         z-index: 12;
         border-radius: 20px;
@@ -2457,6 +2476,31 @@
         margin-top: 12px;
       }
 
+      .segmented-choice {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .segmented-choice-btn {
+        min-height: 38px;
+        border: 1px solid rgba(116, 82, 40, 0.12);
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 232, 221, 0.92));
+        color: #31414a;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .segmented-choice-btn.active {
+        border-color: rgba(102, 160, 205, 0.28);
+        background: linear-gradient(180deg, rgba(170, 208, 241, 0.96), rgba(84, 132, 183, 0.92));
+        color: #f7fbff;
+        box-shadow: inset 0 1px 0 rgba(230, 244, 255, 0.72), 0 10px 16px rgba(21, 67, 105, 0.14);
+      }
+
       .toolbar-menu-field {
         grid-column: 1 / -1;
         display: grid;
@@ -2473,11 +2517,57 @@
         min-height: 40px;
       }
 
+      .toolbar-menu-field .score-select.hidden-select,
+      .start-lobby-select .score-select.hidden-select {
+        display: none;
+      }
+
       .toolbar-menu-btn {
         min-height: 42px;
         padding: 10px 12px;
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 232, 221, 0.92));
+      }
+
+      .topbar-drawer {
+        top: calc(var(--edge-gap) + var(--score-panel-height) - 8px);
+        right: calc(var(--edge-gap) + 18px);
+        width: min(438px, 34vw);
+        max-height: 520px;
+        padding: 14px 16px 16px;
+        border-radius: 0 0 26px 26px;
+        background: linear-gradient(180deg, rgba(25, 43, 52, 0.98), rgba(11, 25, 33, 0.96));
+        border: 1px solid rgba(227, 206, 155, 0.16);
+        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.24);
+        z-index: 10;
+      }
+
+      .topbar-drawer::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 18px;
+        right: 18px;
+        height: 1px;
+        background: rgba(242, 231, 202, 0.1);
+      }
+
+      .topbar-drawer .panel-drag {
+        cursor: default;
+      }
+
+      .topbar-drawer .panel-close {
+        background: rgba(255, 255, 255, 0.1);
+        color: #f8f0dc;
+      }
+
+      .topbar-drawer .label,
+      .topbar-drawer .last-trick-entry-name {
+        color: #f8f0dc;
+      }
+
+      .topbar-drawer .subtle {
+        color: rgba(248, 240, 220, 0.72);
       }
 
       /* PC v2：玩家面板退化成轻量身份条，关键信息并到出牌区。 */
@@ -3067,7 +3157,7 @@
             </div>
             <div class="topbar-tools">
               <div class="toolbar-icon-row">
-                <button id="autoManagedBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-pressed="false" aria-label="本局托管" title="本局托管">
+                <button id="autoManagedBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-pressed="false" aria-label="托管：关闭" title="托管：关闭">
                   <img src="./icons/icon_robot.png" alt="" aria-hidden="true" />
                 </button>
                 <button id="toggleLogBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="信息" title="信息">
@@ -3075,9 +3165,6 @@
                 </button>
                 <button id="toggleLastTrickBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="上一轮回看" title="上一轮回看">
                   <img src="./icons/icon_back.png" alt="" aria-hidden="true" />
-                </button>
-                <button id="newGameBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="新游戏" title="新游戏">
-                  <img src="./icons/icon_new_game.png" alt="" aria-hidden="true" />
                 </button>
                 <button id="toggleRulesBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="更多设置" title="更多设置">
                   <img src="./icons/icon_menu.png" alt="" aria-hidden="true" />
@@ -3096,19 +3183,25 @@
           <div class="toolbar-menu-grid">
             <label class="toolbar-menu-field" for="menuAiPaceSelect">
               <span>对局节奏</span>
-              <select id="menuAiPaceSelect" class="score-select">
+              <select id="menuAiPaceSelect" class="score-select hidden-select">
                 <option value="slow">慢</option>
                 <option value="medium">中</option>
                 <option value="fast">快</option>
                 <option value="instant">瞬</option>
               </select>
+              <div id="menuAiPaceButtons" class="segmented-choice" role="group" aria-label="对局节奏">
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="slow">慢</button>
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="medium">中</button>
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="fast">快</button>
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="instant">瞬</button>
+              </div>
             </label>
             <button id="menuRulesBtn" class="tiny-btn toolbar-menu-btn" type="button">规则帮助</button>
             <button id="toggleBottomBtn" class="tiny-btn toolbar-menu-btn" type="button">查看底牌</button>
             <button id="toggleDebugBtn" class="tiny-btn toolbar-menu-btn" type="button">调试信息</button>
             <button id="toggleCardFaceBtn" class="tiny-btn toolbar-menu-btn" type="button">切换牌面</button>
             <button id="layoutEditBtn" class="tiny-btn toolbar-menu-btn" type="button">布局编辑</button>
-            <button id="menuNewRoundBtn" class="tiny-btn toolbar-menu-btn" type="button">重新开局</button>
+            <button id="menuHomeBtn" class="tiny-btn toolbar-menu-btn" type="button">回到首页</button>
           </div>
         </section>
 
@@ -3150,7 +3243,7 @@
           <div id="bottomRevealCards" class="bottom-reveal-cards"></div>
         </section>
 
-        <section id="logPanel" class="panel floating-panel log-panel" data-layout-id="log-panel">
+        <section id="logPanel" class="panel floating-panel log-panel topbar-drawer" data-layout-id="log-panel">
           <div id="logPanelDrag" class="panel-head panel-drag">
             <div class="label">信息</div>
             <div class="panel-controls">
@@ -3201,6 +3294,9 @@
             <div id="setupOptions" class="setup-options" hidden></div>
           </div>
           <div class="hidden">
+            <button id="newGameBtn" class="tiny-btn icon-btn icon-image-btn" type="button" hidden aria-label="新游戏" title="新游戏">
+              <img src="./icons/icon_new_game.png" alt="" aria-hidden="true" />
+            </button>
             <button id="beatBtn" class="action-btn" hidden>毙牌</button>
             <button id="newProgressBtn" class="action-btn" hidden>新的游戏</button>
             <button id="continueGameBtn" class="action-btn" hidden>继续游戏</button>
@@ -3232,12 +3328,18 @@
             </label>
             <label class="start-lobby-select" for="aiPaceSelect">
               <span>对局节奏</span>
-              <select id="aiPaceSelect" class="score-select">
+              <select id="aiPaceSelect" class="score-select hidden-select">
                 <option value="slow">慢</option>
                 <option value="medium">中</option>
                 <option value="fast">快</option>
                 <option value="instant">瞬</option>
               </select>
+              <div id="aiPaceButtons" class="segmented-choice" role="group" aria-label="开始界面对局节奏">
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="slow">慢</button>
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="medium">中</button>
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="fast">快</button>
+                <button type="button" class="segmented-choice-btn" data-ai-pace-value="instant">瞬</button>
+              </div>
             </label>
             <div class="start-lobby-actions">
               <button id="startLobbyStartBtn" class="action-btn primary" type="button">开始游戏</button>
@@ -3248,7 +3350,7 @@
         </section>
 
         <section id="friendPickerPanel" class="panel friend-picker hidden">
-          <div class="label">找朋友</div>
+          <div class="label">叫朋友</div>
           <div id="friendPickerHint" class="subtle"></div>
           <div class="friend-picker-actions">
             <div class="label">先选第几张</div>
@@ -3265,7 +3367,7 @@
           <div id="friendPickerPreview" class="friend-picker-preview"></div>
           <div class="action-row" style="margin-top: 14px;">
             <button id="autoFriendBtn" class="action-btn">用推荐</button>
-            <button id="confirmFriendBtn" class="action-btn primary">确认找朋友</button>
+            <button id="confirmFriendBtn" class="action-btn primary">确认叫朋友</button>
           </div>
         </section>
 
@@ -3305,7 +3407,7 @@
           </ul>
         </section>
 
-        <section id="lastTrickPanel" class="panel dark last-trick hidden" data-layout-id="last-trick-panel">
+        <section id="lastTrickPanel" class="panel dark last-trick topbar-drawer hidden" data-layout-id="last-trick-panel">
           <div class="panel-head" style="padding: 0; margin-bottom: 4px;">
             <strong class="label">上一轮回看</strong>
             <div class="panel-controls">

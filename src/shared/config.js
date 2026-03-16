@@ -84,6 +84,13 @@ const AI_PACE_OPTIONS = [
   { value: "instant", label: "瞬" },
 ];
 const DEFAULT_AI_PACE = AI_PACE_OPTIONS[0].value;
+const AUTO_MANAGE_OPTIONS = [
+  { value: "off", label: "关闭" },
+  { value: "round", label: "本局托管" },
+  { value: "persistent", label: "跨局托管" },
+];
+const DEFAULT_AUTO_MANAGE_MODE = AUTO_MANAGE_OPTIONS[0].value;
+const FRIEND_RETARGET_WINDOW_SECONDS = 30;
 const AI_PACE_PROFILES = {
   slow: {
     dealStartDelay: 140,
@@ -368,6 +375,7 @@ const dom = {
   setupOptions: document.getElementById("setupOptions"),
   aiDifficultySelect: document.getElementById("aiDifficultySelect"),
   aiPaceSelect: document.getElementById("aiPaceSelect"),
+  aiPaceButtons: document.getElementById("aiPaceButtons"),
   centerTag: document.getElementById("centerTag"),
   focusAnnouncement: document.getElementById("focusAnnouncement"),
   centerPanel: document.getElementById("centerPanel"),
@@ -405,7 +413,8 @@ const dom = {
   toolbarMenuPanel: document.getElementById("toolbarMenuPanel"),
   menuRulesBtn: document.getElementById("menuRulesBtn"),
   menuAiPaceSelect: document.getElementById("menuAiPaceSelect"),
-  menuNewRoundBtn: document.getElementById("menuNewRoundBtn"),
+  menuAiPaceButtons: document.getElementById("menuAiPaceButtons"),
+  menuHomeBtn: document.getElementById("menuHomeBtn"),
   layoutEditBtn: document.getElementById("layoutEditBtn"),
   resetLayoutBtn: document.getElementById("resetLayoutBtn"),
   newGameBtn: document.getElementById("newGameBtn"),
@@ -505,13 +514,14 @@ const state = {
   counterPasses: 0,
   phase: "ready",
   showLastTrick: false,
-  showLogPanel: true,
+  showLogPanel: false,
   showDebugPanel: false,
   showToolbarMenu: false,
-  showBottomPanel: true,
+  showBottomPanel: false,
   showRulesPanel: false,
   aiDifficulty: DEFAULT_AI_DIFFICULTY,
   aiPace: DEFAULT_AI_PACE,
+  autoManageMode: DEFAULT_AUTO_MANAGE_MODE,
   cardFaceKey: loadSavedCardFaceKey(),
   logs: [],
   allLogs: [],
@@ -521,6 +531,8 @@ const state = {
   selectedFriendSuit: "hearts",
   selectedFriendRank: "A",
   friendRetargetUsed: false,
+  friendRetargetCountdown: 0,
+  friendRetargetTimer: null,
   nextFirstDealPlayerId: 1,
   bottomRevealMessage: "",
   bottomRevealCount: 0,

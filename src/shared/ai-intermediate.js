@@ -902,6 +902,7 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
   let score = 0;
 
   score += getFollowStructureScore(combo) * 0.7;
+  score += scoreOffSuitDiscardStructurePreservation(playerId, combo, handBefore);
   score += scoreHandContinuity(playerId, handAfter) - scoreHandContinuity(playerId, handBefore) * 0.1;
   score -= scoreComboResourceUse(combo) * (allyWinning ? 1.1 : 0.8);
 
@@ -1663,9 +1664,20 @@ function chooseAiLeadPlay(playerId) {
   if (forcedReveal.length > 0) return forcedReveal;
   const friendSetupLead = chooseAiBankerFriendSetupLead(playerId, player);
   if (friendSetupLead.length > 0) return friendSetupLead;
+  const revealedFriendControlLead = chooseAiBankerRevealedFriendControlLead(playerId, player);
+  if (revealedFriendControlLead.length > 0) return revealedFriendControlLead;
   const noTrumpPowerLead = chooseAiNoTrumpBankerPowerLead(playerId, player);
   if (noTrumpPowerLead.length > 0) return noTrumpPowerLead;
-  if (playerId === state.bankerId && state.friendTarget && !isFriendTeamResolved() && state.friendTarget.suit !== "joker") {
+  const bankerSoloFallbackLead = chooseAiBankerSoloFallbackLead(playerId, player);
+  if (bankerSoloFallbackLead.length > 0) return bankerSoloFallbackLead;
+  if (
+    playerId === state.bankerId
+    && state.friendTarget
+    && !isFriendTeamResolved()
+    && state.friendTarget.suit !== "joker"
+    && !shouldAiDeferNoTrumpFriendProbe(playerId, player)
+    && !shouldAiUseBankerSoloFallback(playerId)
+  ) {
     const targetCopies = player.hand.filter(
       (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
     );
@@ -1729,6 +1741,9 @@ function chooseAiFollowPlay(playerId, candidates) {
     return safeBeatingCandidates.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
       if (structureDiff !== 0) return structureDiff;
+      const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
+        - scoreOffSuitDiscardStructurePreservation(playerId, a);
+      if (preserveDiff !== 0) return preserveDiff;
       const aPattern = classifyPlay(a);
       const bPattern = classifyPlay(b);
       const powerDiff = aPattern.power - bPattern.power;
@@ -1753,6 +1768,9 @@ function chooseAiFollowPlay(playerId, candidates) {
     return feedChoices.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
       if (structureDiff !== 0) return structureDiff;
+      const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
+        - scoreOffSuitDiscardStructurePreservation(playerId, a);
+      if (preserveDiff !== 0) return preserveDiff;
       const scoreDiff = b.reduce((sum, card) => sum + scoreValue(card), 0) - a.reduce((sum, card) => sum + scoreValue(card), 0);
       if (scoreDiff !== 0) return scoreDiff;
       return classifyPlay(a).power - classifyPlay(b).power;
@@ -1766,6 +1784,9 @@ function chooseAiFollowPlay(playerId, candidates) {
   return candidates.sort((a, b) => {
     const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
     if (structureDiff !== 0) return structureDiff;
+    const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
+      - scoreOffSuitDiscardStructurePreservation(playerId, a);
+    if (preserveDiff !== 0) return preserveDiff;
     const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;
@@ -1786,22 +1807,20 @@ function getFollowStructureScore(combo) {
       score += 1000;
     } else if (comboSuit === "trump") {
       score += 120;
-    } else {
-      score += 40;
     }
   }
 
   if (state.leadSpec.type === "pair") {
-    score += getForcedPairUnits(combo) * (followsLeadSuit ? 120 : comboSuit === "trump" ? 18 : 6);
+    score += getForcedPairUnits(combo) * (followsLeadSuit ? 120 : comboSuit === "trump" ? 18 : 0);
   } else if (state.leadSpec.type === "triple") {
-    score += getTripleUnits(combo) * (followsLeadSuit ? 150 : comboSuit === "trump" ? 24 : 8);
-    score += getForcedPairUnits(combo) * (followsLeadSuit ? 40 : comboSuit === "trump" ? 10 : 4);
+    score += getTripleUnits(combo) * (followsLeadSuit ? 150 : comboSuit === "trump" ? 24 : 0);
+    score += getForcedPairUnits(combo) * (followsLeadSuit ? 40 : comboSuit === "trump" ? 10 : 0);
   } else if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train") {
-    score += getForcedPairUnits(combo) * (followsLeadSuit ? 140 : comboSuit === "trump" ? 20 : 8);
+    score += getForcedPairUnits(combo) * (followsLeadSuit ? 140 : comboSuit === "trump" ? 20 : 0);
   } else if (state.leadSpec.type === "bulldozer") {
     const tripleUnits = getTripleUnits(combo);
-    score += tripleUnits * (followsLeadSuit ? 160 : comboSuit === "trump" ? 26 : 10);
-    score += getForcedPairUnitsWithReservedTriples(combo, tripleUnits) * (followsLeadSuit ? 50 : comboSuit === "trump" ? 12 : 5);
+    score += tripleUnits * (followsLeadSuit ? 160 : comboSuit === "trump" ? 26 : 0);
+    score += getForcedPairUnitsWithReservedTriples(combo, tripleUnits) * (followsLeadSuit ? 50 : comboSuit === "trump" ? 12 : 0);
   }
 
   return score;

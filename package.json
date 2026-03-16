@@ -2,6 +2,7 @@
   "name": "cards",
   "private": true,
   "scripts": {
+    "build:m-card-sprite": "node scripts/build-m-card-sprite.js",
     "serve": "node scripts/local-preview-server.js",
     "serve:js": "node scripts/local-preview-server.js",
     "serve:python": "python3 scripts/local_preview_server.py",

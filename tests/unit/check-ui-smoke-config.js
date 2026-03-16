@@ -34,7 +34,7 @@ const {
 function runUiSmokeConfigChecks() {
   const results = [];
 
-  assert.equal(DEFAULT_UI_SMOKE_PORT, 4173, "default ui smoke port should stay stable");
+  assert.equal(DEFAULT_UI_SMOKE_PORT, 3721, "default ui smoke port should stay stable");
   assert.equal(DEFAULT_UI_SMOKE_TIMEOUT_MS, 120000, "default timeout should stay stable");
   assert.deepEqual(UI_SMOKE_SCENARIOS.map((scenario) => scenario.name), ["pc", "mobile"], "ui smoke should cover pc and mobile");
   assert.equal(UI_SMOKE_SCENARIOS[0].paceSelector, "#aiPaceSelect", "pc scenario should drive the shared pace select");

@@ -3,7 +3,7 @@ const http = require("node:http");
 const path = require("node:path");
 
 const DEFAULT_PREVIEW_HOST = "127.0.0.1";
-const DEFAULT_PREVIEW_PORT = 4173;
+const DEFAULT_PREVIEW_PORT = 3721;
 const DEFAULT_PREVIEW_ROOT = path.resolve(__dirname, "..");
 const DEFAULT_PREVIEW_INDEX = "/index.html";
 const MIME_TYPES = Object.freeze({

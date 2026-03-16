@@ -94,6 +94,10 @@ const UNIT_TEST_SUITES = [
     name: "Mobile UI isolation regression",
     file: path.join(__dirname, "check-mobile-ui-isolation.js"),
   },
+  {
+    name: "Mobile auto-manage regression",
+    file: path.join(__dirname, "check-mobile-auto-manage.js"),
+  },
   // 锁住手游翻底公示层的读秒关闭胶囊和卡位渲染结构。
   {
     name: "Mobile bottom reveal UI regression",
@@ -114,6 +118,10 @@ const UNIT_TEST_SUITES = [
   {
     name: "PC compact UI regression",
     file: path.join(__dirname, "check-hand-panel-snapshot.js"),
+  },
+  {
+    name: "PC friend retarget UI regression",
+    file: path.join(__dirname, "check-pc-friend-retarget-ui.js"),
   },
   {
     name: "Static template regression",

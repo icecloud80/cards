@@ -2698,6 +2698,11 @@
         box-shadow: inset 0 0 0 1px rgba(216, 92, 76, 0.28);
       }
 
+      body.mobile-index2 .mobile-icon-btn.persistent {
+        background: rgba(68, 105, 179, 0.2);
+        box-shadow: inset 0 0 0 1px rgba(68, 105, 179, 0.34);
+      }
+
       body.mobile-index2 .mobile-topbar-actions {
         display: flex;
         align-items: center;
@@ -2800,28 +2805,35 @@
         height: 120px;
       }
 
-      body.mobile-index2 .mobile-card-fan img {
+      body.mobile-index2 .mobile-card-fan-face {
         position: absolute;
         width: 72px;
+        height: 96px;
         border-radius: 10px;
         box-shadow: 0 12px 20px rgba(0, 0, 0, 0.28);
+        background-image: url("./m_cards_sprite.svg");
+        background-repeat: no-repeat;
+        background-size: 1300% 500%;
       }
 
-      body.mobile-index2 .mobile-card-fan img:nth-child(1) {
+      body.mobile-index2 .mobile-card-fan-face:nth-child(1) {
         left: 0;
         top: 22px;
+        background-position: 0% 50%;
         transform: rotate(-14deg);
       }
 
-      body.mobile-index2 .mobile-card-fan img:nth-child(2) {
+      body.mobile-index2 .mobile-card-fan-face:nth-child(2) {
         left: 28px;
         top: 0;
+        background-position: 100% 0%;
         transform: rotate(-2deg);
       }
 
-      body.mobile-index2 .mobile-card-fan img:nth-child(3) {
+      body.mobile-index2 .mobile-card-fan-face:nth-child(3) {
         left: 60px;
         top: 20px;
+        background-position: 0% 100%;
         transform: rotate(13deg);
       }
 
@@ -3965,7 +3977,7 @@
             </div>
           </div>
           <div class="mobile-topbar-actions">
-            <button id="mobileAutoBtn" class="mobile-icon-btn" type="button" aria-label="本局托管" title="本局托管">
+            <button id="mobileAutoBtn" class="mobile-icon-btn" type="button" aria-label="托管：关闭" title="托管：关闭">
               <img src="./icons/icon_robot.png" alt="" />
             </button>
             <button id="mobileInfoBtn" class="mobile-icon-btn" type="button" aria-label="查看信息" title="查看信息">
@@ -3987,9 +3999,9 @@
             <div class="mobile-setup-visual" aria-hidden="true">
               <div class="mobile-visual-badge">WELCOME</div>
               <div class="mobile-card-fan">
-                <img src="./m_cards/ace_of_spades.svg" alt="" />
-                <img src="./m_cards/king_of_hearts.svg" alt="" />
-                <img src="./m_cards/red_joker.svg" alt="" />
+                <span class="mobile-card-fan-face"></span>
+                <span class="mobile-card-fan-face"></span>
+                <span class="mobile-card-fan-face"></span>
               </div>
               <div class="mobile-tractor">
                 <div class="mobile-tractor-engine"></div>
@@ -4074,7 +4086,7 @@
               </label>
               <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">重开此局</button>
               <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
-              <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌面</button>
+              <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌整图</button>
               <button id="mobileMenuLayoutBtn" class="mobile-menu-btn" type="button">布局编辑</button>
               <button id="mobileMenuBottomBtn" class="mobile-menu-btn" type="button">底牌</button>
               <button id="mobileMenuRulesBtn" class="mobile-menu-btn" type="button">规则帮助</button>
@@ -4154,7 +4166,7 @@
             <button id="toggleLogBtn" class="tiny-btn">播报</button>
             <button id="toggleBottomBtn" class="tiny-btn">底牌</button>
             <button id="toggleRulesBtn" class="tiny-btn">规则帮助</button>
-            <button id="toggleCardFaceBtn" class="tiny-btn">牌面：新牌面</button>
+            <button id="toggleCardFaceBtn" class="tiny-btn">牌面：新牌整图</button>
             <button id="layoutEditBtn" class="tiny-btn">布局编辑</button>
             <button id="newGameBtn" class="tiny-btn">新牌局</button>
           </div>
@@ -4759,78 +4771,41 @@
           mobileDom.menuRulesBtn.textContent = originalDom.toggleRulesBtn.textContent.trim() || "规则帮助";
         }
 
-        function syncAutoManagedButton() {
-          if (typeof getPlayer !== "function") return;
-          const human = getPlayer(1);
-          const managed = !!human && !human.isHuman;
-          mobileDom.autoBtn.classList.toggle("active", managed);
-          mobileDom.autoBtn.setAttribute("aria-pressed", managed ? "true" : "false");
-        }
-
-        function applyAutoManagedState(enabled) {
-          if (typeof getPlayer !== "function") return;
-          const human = getPlayer(1);
-          if (!human) return;
-
-          human.isHuman = !enabled;
-          if (enabled && state?.selectedCardIds) {
-            state.selectedCardIds = [];
-          }
-          if (typeof render === "function") {
-            render();
-          }
-          syncAutoManagedButton();
-
-          if (!enabled) {
-            if (typeof clearTimers === "function" && typeof startTurn === "function" && state?.phase === "playing" && state.currentTurnId === 1) {
-              clearTimers();
-              startTurn();
-            }
-            return;
-          }
-
-          if (state?.phase === "dealing" && state.awaitingHumanDeclaration && typeof getBestDeclarationForPlayer === "function" && typeof canOverrideDeclaration === "function" && typeof declareTrump === "function") {
-            const best = getBestDeclarationForPlayer(1);
-            if (best && canOverrideDeclaration(best)) {
-              declareTrump(1, best, "auto");
-              if (state.dealIndex >= state.dealCards.length && typeof clearTimers === "function" && typeof finishDealingPhase === "function") {
-                clearTimers();
-                finishDealingPhase();
-              }
-            }
-            return;
-          }
-
-          if (state?.phase === "countering" && state.currentTurnId === 1 && typeof getCounterDeclarationForPlayer === "function") {
-            const counter = getCounterDeclarationForPlayer(1);
-            if (counter && typeof counterDeclare === "function") {
-              counterDeclare(1, counter);
-            } else if (typeof passCounterForCurrentPlayer === "function") {
-              passCounterForCurrentPlayer();
-            }
-            return;
-          }
-
-          if (state?.phase === "burying" && state.bankerId === 1 && typeof getBuryHintForPlayer === "function" && typeof completeBurying === "function") {
-            const buryCards = getBuryHintForPlayer(1);
-            if (buryCards.length === 7) {
-              completeBurying(1, buryCards.map((card) => card.id));
-            }
-            return;
-          }
-
-          if (state?.phase === "callingFriend" && state.bankerId === 1 && typeof confirmFriendTargetSelection === "function") {
-            const best = typeof chooseFriendTarget === "function" ? chooseFriendTarget()?.target : null;
-            if (best) {
-              confirmFriendTargetSelection(best);
-            }
-            return;
-          }
-
-          if (state?.phase === "playing" && state.currentTurnId === 1 && typeof clearTimers === "function" && typeof autoPlayCurrentTurn === "function") {
-            clearTimers();
-            autoPlayCurrentTurn();
-          }
+        /**
+         * 作用：
+         * 同步手游顶部托管按钮的三态样式和文案。
+         *
+         * 为什么这样写：
+         * mobile 端的托管按钮是壳层单独渲染的图标，不会直接走 shared 的 `dom.autoManagedBtn`；
+         * 这里补一层桥接后，手游也能和共享状态机统一成 `关闭 / 本局托管 / 跨局托管` 三态，
+         * 并且能给跨局托管展示独立视觉反馈。
+         *
+         * 输入：
+         * @param {void} - 直接读取共享层托管模式。
+         *
+         * 输出：
+         * @returns {void} 只同步按钮表现，不返回额外结果。
+         *
+         * 注意：
+         * - shared helper 未挂载时必须安全回退到 `关闭`。
+         * - `persistent` 需要保留独立 class，避免和“本局托管”视觉上完全一样。
+         */
+        function syncMobileAutoManagedButton() {
+          const mode = typeof getAutoManageMode === "function" ? getAutoManageMode() : "off";
+          const label = typeof getAutoManageModeLabel === "function"
+            ? getAutoManageModeLabel(mode)
+            : ({
+              off: "关闭",
+              round: "本局托管",
+              persistent: "跨局托管",
+            })[mode] || "关闭";
+          const enabled = mode !== "off";
+          mobileDom.autoBtn.classList.toggle("active", enabled);
+          mobileDom.autoBtn.classList.toggle("persistent", mode === "persistent");
+          mobileDom.autoBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+          mobileDom.autoBtn.setAttribute("data-mode", mode);
+          mobileDom.autoBtn.title = `托管：${label}`;
+          mobileDom.autoBtn.setAttribute("aria-label", `托管：${label}`);
         }
 
         let handLayoutQueued = false;
@@ -4979,7 +4954,7 @@
           syncTopbarStats(snapshot);
           syncTrumpStatus(snapshot);
           syncFriendCard(snapshot);
-          syncAutoManagedButton();
+          syncMobileAutoManagedButton();
           syncTrickSpotDecorations(snapshot);
           renderInfoSheet(snapshot);
           syncLastTrickSheet();
@@ -5039,7 +5014,13 @@
           if (typeof getPlayer !== "function") return;
           const human = getPlayer(1);
           if (!human || state?.gameOver || state?.phase === "ready") return;
-          applyAutoManagedState(human.isHuman);
+          if (typeof applyAutoManagedState !== "function") return;
+          const nextMode = typeof getNextAutoManageMode === "function"
+            ? getNextAutoManageMode()
+            : human.isHuman
+              ? "round"
+              : "off";
+          applyAutoManagedState(nextMode);
         });
         mobileDom.lastTrickBtn.addEventListener("click", () => {
           mobileDom.infoSheet.classList.remove("show");
@@ -5169,7 +5150,7 @@
           syncTopbarStats();
           syncTrumpStatus(window.__fiveFriendsSnapshot || null);
           syncFriendCard(window.__fiveFriendsSnapshot || null);
-          syncAutoManagedButton();
+          syncMobileAutoManagedButton();
           syncMenuLabels();
           syncBroadcast();
           scheduleHandLayout();

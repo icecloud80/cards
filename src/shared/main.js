@@ -29,10 +29,100 @@ function closeToolbarMenu() {
 // 同步托管按钮的显示和状态。
 function syncAutoManagedButton() {
   if (!dom.autoManagedBtn || typeof getPlayer !== "function") return;
-  const human = getPlayer(1);
-  const managed = !!human && !human.isHuman;
-  dom.autoManagedBtn.classList.toggle("alert", managed);
-  dom.autoManagedBtn.setAttribute("aria-pressed", managed ? "true" : "false");
+  const mode = getAutoManageMode();
+  dom.autoManagedBtn.classList.toggle("alert", mode !== "off");
+  dom.autoManagedBtn.classList.toggle("persistent", mode === "persistent");
+  dom.autoManagedBtn.setAttribute("aria-pressed", mode === "off" ? "false" : "true");
+  dom.autoManagedBtn.setAttribute("data-mode", mode);
+  dom.autoManagedBtn.title = `托管：${getAutoManageModeLabel(mode)}`;
+  dom.autoManagedBtn.setAttribute("aria-label", `托管：${getAutoManageModeLabel(mode)}`);
+}
+
+/**
+ * 作用：
+ * 规范化当前托管模式键值。
+ *
+ * 为什么这样写：
+ * 托管现在扩展成 `关闭 / 本局托管 / 跨局托管` 三态；
+ * 统一做一次校验后，按钮循环、跨局保留和开局重置都能共享同一套合法取值。
+ *
+ * 输入：
+ * @param {string} value - 当前要写入的托管模式键值。
+ *
+ * 输出：
+ * @returns {"off"|"round"|"persistent"} 合法托管模式；非法输入统一回退到关闭。
+ *
+ * 注意：
+ * - `persistent` 表示跨局保留。
+ * - `round` 只在当前牌局有效，`setupGame()` 会在新局开始时重置。
+ */
+function normalizeAutoManageMode(value) {
+  return AUTO_MANAGE_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AUTO_MANAGE_MODE;
+}
+
+/**
+ * 作用：
+ * 返回当前托管模式键值。
+ *
+ * 为什么这样写：
+ * 顶部机器人按钮、跨局重置逻辑和自动出牌流程都要读取同一份托管状态；
+ * 用 helper 统一读取后，后续新增来源时不需要到处写兜底判断。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态。
+ *
+ * 输出：
+ * @returns {"off"|"round"|"persistent"} 当前托管模式。
+ *
+ * 注意：
+ * - 未初始化或旧状态值都必须安全回落到关闭。
+ */
+function getAutoManageMode() {
+  return normalizeAutoManageMode(state.autoManageMode);
+}
+
+/**
+ * 作用：
+ * 把托管模式转换成用户能直接看懂的中文标签。
+ *
+ * 为什么这样写：
+ * 顶部机器人按钮现在只显示图标；
+ * 文案需要通过 tooltip 和 aria 暴露给用户，因此必须有一份稳定、短小的中文标签。
+ *
+ * 输入：
+ * @param {"off"|"round"|"persistent"} mode - 当前托管模式键值。
+ *
+ * 输出：
+ * @returns {string} 对应的中文标签。
+ *
+ * 注意：
+ * - 未知值必须回退到“关闭”。
+ */
+function getAutoManageModeLabel(mode = getAutoManageMode()) {
+  return AUTO_MANAGE_OPTIONS.find((option) => option.value === normalizeAutoManageMode(mode))?.label || "关闭";
+}
+
+/**
+ * 作用：
+ * 计算顶部托管按钮下一次点击后应切换到的模式。
+ *
+ * 为什么这样写：
+ * 用户要求托管在一个图标按钮里切换 `关闭 / 本局托管 / 跨局托管` 三个状态；
+ * 固定循环顺序后，点击体验会稳定且容易记忆。
+ *
+ * 输入：
+ * @param {"off"|"round"|"persistent"} mode - 当前托管模式。
+ *
+ * 输出：
+ * @returns {"off"|"round"|"persistent"} 下一次点击后应切换到的模式。
+ *
+ * 注意：
+ * - 循环顺序固定为 `关闭 -> 本局托管 -> 跨局托管 -> 关闭`。
+ */
+function getNextAutoManageMode(mode = getAutoManageMode()) {
+  if (mode === "off") return "round";
+  if (mode === "round") return "persistent";
+  return "off";
 }
 
 /**
@@ -105,12 +195,33 @@ function setAiPace(value) {
   }
 }
 
-// 应用托管状态。
-function applyAutoManagedState(enabled) {
+/**
+ * 作用：
+ * 切换当前人类玩家的托管模式，并在必要时立刻接管当前阶段动作。
+ *
+ * 为什么这样写：
+ * 托管已经从简单开关扩展成三态模式；
+ * 统一在一个入口里同时处理“写回模式、刷新玩家身份、必要时立刻自动执行当前阶段”，
+ * 才能保证点击顶部机器人按钮后界面和实际行为始终一致。
+ *
+ * 输入：
+ * @param {"off"|"round"|"persistent"} mode - 目标托管模式。
+ *
+ * 输出：
+ * @returns {void} 只更新共享状态并按需触发自动动作，不返回额外数据。
+ *
+ * 注意：
+ * - `persistent` 会跨局保留，`round` 只在当前局有效。
+ * - 关闭托管时，如果当前正轮到玩家1出牌，需要重新启动该回合的人类倒计时。
+ */
+function applyAutoManagedState(mode) {
   if (typeof getPlayer !== "function") return;
   const human = getPlayer(1);
   if (!human) return;
+  const normalizedMode = normalizeAutoManageMode(mode);
+  const enabled = normalizedMode !== "off";
 
+  state.autoManageMode = normalizedMode;
   human.isHuman = !enabled;
   if (enabled && state.selectedCardIds) {
     state.selectedCardIds = [];
@@ -225,7 +336,7 @@ dom.autoManagedBtn?.addEventListener("click", () => {
   if (typeof getPlayer !== "function") return;
   const human = getPlayer(1);
   if (!human || state.gameOver || state.phase === "ready") return;
-  applyAutoManagedState(human.isHuman);
+  applyAutoManagedState(getNextAutoManageMode());
 });
 
 dom.aiDifficultySelect?.addEventListener("change", () => {
@@ -239,6 +350,36 @@ dom.aiPaceSelect?.addEventListener("change", () => {
 dom.menuAiPaceSelect?.addEventListener("change", () => {
   setAiPace(dom.menuAiPaceSelect.value);
 });
+
+/**
+ * 作用：
+ * 绑定一组节奏按钮里的点击事件，并把点击结果同步到共享节奏状态。
+ *
+ * 为什么这样写：
+ * PC 顶部更多菜单和开始界面都改成了四档按钮组；
+ * 统一用事件代理处理后，两处控件只要约定 `data-ai-pace-value` 就能共用同一套逻辑。
+ *
+ * 输入：
+ * @param {?HTMLElement} container - 当前按钮组容器。
+ *
+ * 输出：
+ * @returns {void} 只绑定点击事件，不返回额外结果。
+ *
+ * 注意：
+ * - 容器不存在时必须安全跳过，避免影响其他平台。
+ * - 这里只负责节奏状态，不处理视觉激活态；视觉由 `render` 同步。
+ */
+function bindAiPaceButtons(container) {
+  if (!container) return;
+  container.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-ai-pace-value]");
+    if (!button) return;
+    setAiPace(button.dataset.aiPaceValue);
+  });
+}
+
+bindAiPaceButtons(dom.aiPaceButtons);
+bindAiPaceButtons(dom.menuAiPaceButtons);
 
 dom.hintBtn.addEventListener("click", () => {
   if (state.selectedCardIds.length > 0) {
@@ -333,6 +474,41 @@ dom.friendOccurrenceOptions.addEventListener("click", (event) => {
   renderFriendPicker();
 });
 
+/**
+ * 作用：
+ * 在顶部朋友牌仍处于一次性重改窗口时，重新打开叫朋友编辑面板。
+ *
+ * 为什么这样写：
+ * 这轮 PC 交互要求玩家确认后还能在读秒内点顶部朋友牌再改一次；
+ * 统一封装成一个 handler 后，鼠标点击和键盘回车都能复用同一套入口。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态并尝试重开编辑面板。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示本次成功重开；否则返回 `false`。
+ *
+ * 注意：
+ * - 只允许成功一次，之后顶部朋友牌应恢复为纯展示态。
+ * - 不满足窗口条件时必须静默失败，避免误打断正常出牌流程。
+ */
+function reopenFriendPickerFromTopbar() {
+  if (typeof reopenFriendSelection !== "function") return false;
+  return reopenFriendSelection();
+}
+
+dom.friendCardMount?.addEventListener("click", () => {
+  reopenFriendPickerFromTopbar();
+});
+
+dom.friendCardMount?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const reopened = reopenFriendPickerFromTopbar();
+  if (reopened) {
+    event.preventDefault();
+  }
+});
+
 dom.confirmFriendBtn.addEventListener("click", () => {
   if (state.phase !== "callingFriend" || state.bankerId !== 1) return;
   confirmFriendTargetSelection();
@@ -371,8 +547,12 @@ document.addEventListener("click", (event) => {
 });
 
 dom.toggleLastTrickBtn.addEventListener("click", () => {
+  closeToolbarMenu();
+  state.showLogPanel = false;
   state.showLastTrick = !state.showLastTrick;
   renderLastTrick();
+  renderLogs();
+  renderToolbarMenu?.();
   renderScorePanel();
 });
 
@@ -384,8 +564,12 @@ dom.closeLastTrickBtn.addEventListener("click", () => {
 });
 
 dom.toggleLogBtn.addEventListener("click", () => {
+  closeToolbarMenu();
+  state.showLastTrick = false;
+  renderLastTrick();
   state.showLogPanel = !state.showLogPanel;
   renderLogs();
+  renderScorePanel();
 });
 
 dom.toggleDebugBtn?.addEventListener("click", () => {
@@ -406,7 +590,11 @@ dom.toggleBottomBtn.addEventListener("click", () => {
 });
 
 dom.toggleRulesBtn.addEventListener("click", () => {
+  state.showLogPanel = false;
+  state.showLastTrick = false;
   state.showToolbarMenu = !state.showToolbarMenu;
+  renderLastTrick();
+  renderLogs();
   renderToolbarMenu?.();
   renderScorePanel?.();
 });
@@ -437,6 +625,7 @@ dom.layoutEditBtn.addEventListener("click", () => {
 dom.closeLogBtn.addEventListener("click", () => {
   state.showLogPanel = false;
   renderLogs();
+  renderScorePanel();
 });
 
 dom.debugPlayerTabs?.addEventListener("click", (event) => {
@@ -480,11 +669,11 @@ dom.closeRulesBtn.addEventListener("click", () => {
   renderLogs();
 });
 
-dom.newGameBtn.addEventListener("click", startNewProgress);
+dom.newGameBtn?.addEventListener("click", startNewProgress);
 
-dom.menuNewRoundBtn?.addEventListener("click", () => {
+dom.menuHomeBtn?.addEventListener("click", () => {
   closeToolbarMenu();
-  startNewProgress();
+  goToMainMenu();
 });
 
 dom.restartBtn.addEventListener("click", () => {
@@ -503,7 +692,9 @@ dom.closeResultBtn?.addEventListener("click", () => {
   goToMainMenu();
 });
 
-makeFloatingPanel(dom.logPanel, dom.logPanelDrag);
+if (APP_PLATFORM !== "pc") {
+  makeFloatingPanel(dom.logPanel, dom.logPanelDrag);
+}
 makeFloatingPanel(dom.debugPanel, dom.debugPanelDrag);
 makeFloatingPanel(dom.bottomPanel, dom.bottomPanelDrag);
 makeFloatingPanel(dom.rulesPanel, dom.rulesPanelDrag);

@@ -49,7 +49,11 @@ function runLocalPreviewServerChecks() {
 
   assert.equal(resolveStaticFilePath("/index1.html"), `${DEFAULT_PREVIEW_ROOT}/index1.html`, "preview path resolver should map files under the project root");
   assert.equal(getMimeType("/tmp/demo.txt"), "text/plain; charset=utf-8", "preview mime helper should recognize txt files");
-  assert.equal(buildPreviewOrigin("0.0.0.0", 4173), "http://127.0.0.1:4173", "0.0.0.0 should be rewritten for browser usage");
+  assert.equal(
+    buildPreviewOrigin("0.0.0.0", DEFAULT_PREVIEW_PORT),
+    `http://127.0.0.1:${DEFAULT_PREVIEW_PORT}`,
+    "0.0.0.0 should be rewritten for browser usage"
+  );
   assert.throws(() => resolveStaticFilePath("/../outside.txt"), /非法静态资源路径/, "preview path resolver should block traversal");
   results.push("node preview path safety and mime rules stay stable");
 
@@ -64,7 +68,7 @@ import local_preview_server as preview_server
 defaults = preview_server.parse_preview_server_args([])
 custom = preview_server.parse_preview_server_args(["--host=0.0.0.0", "--port=4301", "--root=docs"])
 resolved = str(preview_server.resolve_static_file_path("/index2.html"))
-origin = preview_server.build_preview_origin("0.0.0.0", 4173)
+origin = preview_server.build_preview_origin("0.0.0.0", ${DEFAULT_PREVIEW_PORT})
 
 print(json.dumps({
     "default_host": defaults.host,
@@ -91,7 +95,11 @@ print(json.dumps({
   assert.equal(pythonResult.custom_port, 4301, "python preview custom port should parse");
   assert.equal(pythonResult.custom_root, path.resolve(process.cwd(), "docs"), "python preview custom root should resolve from cwd");
   assert.equal(pythonResult.resolved, `${DEFAULT_PREVIEW_ROOT}/index2.html`, "python preview resolver should map files inside the project");
-  assert.equal(pythonResult.origin, "http://127.0.0.1:4173", "python preview origin should rewrite 0.0.0.0");
+  assert.equal(
+    pythonResult.origin,
+    `http://127.0.0.1:${DEFAULT_PREVIEW_PORT}`,
+    "python preview origin should rewrite 0.0.0.0"
+  );
   results.push("python preview entry stays aligned with node defaults");
 
   return { results };

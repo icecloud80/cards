@@ -143,12 +143,15 @@ function setupGame() {
   clearTimers();
   clearCenterAnnouncement(true);
   refreshSavedProgressAvailability();
+  if (state.autoManageMode !== "persistent") {
+    state.autoManageMode = DEFAULT_AUTO_MANAGE_MODE;
+  }
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
   state.players = PLAYER_ORDER.map((id) => ({
     id,
     name: `玩家${id}`,
-    isHuman: id === 1,
+    isHuman: id === 1 ? state.autoManageMode === "off" : false,
     hand: [],
     played: [],
     capturedPoints: 0,
@@ -179,7 +182,7 @@ function setupGame() {
   state.counterPasses = 0;
   state.phase = "ready";
   state.showLastTrick = false;
-  state.showLogPanel = true;
+  state.showLogPanel = false;
   state.showDebugPanel = false;
   state.showToolbarMenu = false;
   state.showBottomPanel = false;
@@ -194,6 +197,7 @@ function setupGame() {
   state.selectedFriendSuit = "hearts";
   state.selectedFriendRank = "A";
   state.friendRetargetUsed = false;
+  state.friendRetargetCountdown = 0;
   state.resultCountdownValue = 30;
   state.exposedTrumpVoid = PLAYER_ORDER.reduce((acc, id) => {
     acc[id] = false;
@@ -724,6 +728,7 @@ function setFriendTarget(target) {
     failed: false,
     revealed: false,
     revealedBy: null,
+    revealedTrickNumber: null,
   };
   state.hiddenFriendId = null;
 }
@@ -740,6 +745,138 @@ function getDefaultFriendSelection() {
   };
 }
 
+/**
+ * 作用：
+ * 返回当前“叫朋友后可再修改一次”窗口还剩多少秒。
+ *
+ * 为什么这样写：
+ * 这轮 PC 交互要求把 30 秒窗口同时用于：
+ * 1. 叫朋友面板里的推荐按钮读秒；
+ * 2. 首轮正式出牌前的顶部朋友牌二次编辑入口；
+ * 统一通过一个 helper 读秒，UI 和计时逻辑才能保持同一口径。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态中的剩余秒数。
+ *
+ * 输出：
+ * @returns {number} 当前窗口剩余秒数；没有窗口时返回 `0`。
+ *
+ * 注意：
+ * - 返回值必须是非负整数，避免 UI 出现 `-1 秒`。
+ * - 这里只返回剩余秒数，不负责判断当前是否允许重新编辑。
+ */
+function getFriendRetargetCountdownSeconds() {
+  return Math.max(0, Number(state.friendRetargetCountdown) || 0);
+}
+
+/**
+ * 作用：
+ * 判断当前是否处于“首轮首手前、且还能再改一次朋友牌”的窗口。
+ *
+ * 为什么这样写：
+ * 玩家要求确认叫朋友后，仍可在读秒内点顶部朋友牌再改一次；
+ * 这个判断会同时被顶部点击入口、首轮计时和按钮文案复用，需要集中收口。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前对局状态。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前仍在一次性重改窗口内。
+ *
+ * 注意：
+ * - 只允许打家本人使用，因此这里只对 `玩家1` 生效。
+ * - 一旦已经出过首轮第一手，或已经使用过一次重改机会，就必须立即失效。
+ */
+function hasFriendRetargetWindow() {
+  return state.bankerId === 1
+    && !state.gameOver
+    && !!state.friendTarget
+    && !state.friendRetargetUsed
+    && state.trickNumber === 1
+    && state.currentTurnId === state.bankerId
+    && state.currentTrick.length === 0
+    && getFriendRetargetCountdownSeconds() > 0;
+}
+
+/**
+ * 作用：
+ * 清理“叫朋友后可再修改一次”的独立读秒窗口。
+ *
+ * 为什么这样写：
+ * 这个窗口会跨越 `callingFriend -> playing` 两个阶段；
+ * 不能和普通回合倒计时混在一起清理，否则一进入首轮就会把修改机会误删掉。
+ *
+ * 输入：
+ * @param {void} - 直接操作共享状态里的独立计时器和剩余秒数。
+ *
+ * 输出：
+ * @returns {void} 只清理读秒窗口，不返回额外结果。
+ *
+ * 注意：
+ * - 这里不会改 `friendRetargetUsed`，避免把“已经用过一次”的状态误重置。
+ * - 调用后剩余秒数必须归零，保证 UI 不再继续显示旧读秒。
+ */
+function clearFriendRetargetWindow() {
+  if (state.friendRetargetTimer) {
+    window.clearInterval(state.friendRetargetTimer);
+    state.friendRetargetTimer = null;
+  }
+  state.friendRetargetCountdown = 0;
+}
+
+/**
+ * 作用：
+ * 启动或续接“叫朋友 30 秒确认 / 可改一次”读秒窗口。
+ *
+ * 为什么这样写：
+ * 用户现在既要在叫朋友面板里看到推荐按钮倒计时，
+ * 又要在确认后把同一个读秒延续到顶部朋友牌的二次编辑入口；
+ * 因此需要一条独立于普通回合计时器的窗口计时链路。
+ *
+ * 输入：
+ * @param {number} seconds - 本次窗口应保留的剩余秒数。
+ *
+ * 输出：
+ * @returns {void} 只更新共享状态和计时器，不返回额外结果。
+ *
+ * 注意：
+ * - 人类打家首次进入 `callingFriend` 时应传入固定的 `30` 秒。
+ * - 重新打开编辑面板时必须续接剩余秒数，不能重新涨回 30 秒。
+ */
+function startFriendRetargetWindow(seconds = FRIEND_RETARGET_WINDOW_SECONDS) {
+  clearFriendRetargetWindow();
+  state.friendRetargetCountdown = Math.max(0, Math.ceil(Number(seconds) || 0));
+  render();
+  if (state.friendRetargetCountdown <= 0) return;
+
+  state.friendRetargetTimer = window.setInterval(() => {
+    const shouldAutoPlayFromRetargetWindow = state.phase === "playing"
+      && state.bankerId === 1
+      && !!state.friendTarget
+      && !state.friendRetargetUsed
+      && state.trickNumber === 1
+      && state.currentTurnId === state.bankerId
+      && state.currentTrick.length === 0
+      && getFriendRetargetCountdownSeconds() > 0;
+    state.friendRetargetCountdown = Math.max(0, state.friendRetargetCountdown - 1);
+    if (shouldAutoPlayFromRetargetWindow) {
+      state.countdown = state.friendRetargetCountdown;
+    }
+    render();
+    if (state.friendRetargetCountdown > 0) return;
+
+    clearFriendRetargetWindow();
+    if (state.phase === "callingFriend" && state.bankerId === 1) {
+      confirmFriendTargetSelection();
+      return;
+    }
+    if (shouldAutoPlayFromRetargetWindow) {
+      clearTimers();
+      autoPlayCurrentTurn();
+    }
+  }, 1000);
+}
+
 // 开始叫朋友阶段并初始化默认选择。
 function startCallingFriendPhase() {
   clearTimers();
@@ -754,7 +891,10 @@ function startCallingFriendPhase() {
   appendLog(TEXT.log.startCallingFriend(banker.name));
   render();
 
-  if (banker.isHuman) return;
+  if (banker.isHuman) {
+    startFriendRetargetWindow(FRIEND_RETARGET_WINDOW_SECONDS);
+    return;
+  }
 
   state.aiTimer = window.setTimeout(() => {
     confirmFriendTargetSelection(defaults);
@@ -769,26 +909,27 @@ function confirmFriendTargetSelection(selection = {
 }) {
   if (state.phase !== "callingFriend") return;
   if (!selection?.suit || !selection?.rank) return;
+  const shouldKeepRetargetWindow = state.bankerId === 1
+    && !state.friendRetargetUsed
+    && getFriendRetargetCountdownSeconds() > 0;
   setFriendTarget(selection);
   appendLog(TEXT.log.friendCalled(state.friendTarget.label));
+  if (!shouldKeepRetargetWindow) {
+    clearFriendRetargetWindow();
+  }
   enterPlayingPhase();
 }
 
 // 判断当前是否允许重新选择朋友目标牌。
 function canRetargetFriendSelection() {
-  return state.bankerId === 1
-    && !state.gameOver
-    && !!state.friendTarget
-    && !state.friendRetargetUsed
-    && state.phase === "playing"
-    && state.trickNumber === 1
-    && state.currentTrick.length === 0;
+  return state.phase === "playing" && hasFriendRetargetWindow();
 }
 
 // 重新打开朋友选牌。
 function reopenFriendSelection() {
   if (!canRetargetFriendSelection()) return false;
-  clearTimers();
+  const remainingSeconds = getFriendRetargetCountdownSeconds();
+  clearTimers({ preserveFriendRetarget: true });
   state.selectedFriendOccurrence = state.friendTarget.occurrence || 1;
   state.selectedFriendSuit = state.friendTarget.suit;
   state.selectedFriendRank = state.friendTarget.rank;
@@ -797,6 +938,9 @@ function reopenFriendSelection() {
   state.leaderId = state.bankerId;
   state.friendRetargetUsed = true;
   appendLog("打家重新选择了朋友牌。");
+  if (remainingSeconds > 0) {
+    startFriendRetargetWindow(remainingSeconds);
+  }
   render();
   return true;
 }
@@ -2499,10 +2643,34 @@ function shouldShowHumanBottomButton() {
   return state.bankerId === 1 && canHumanViewBottomCards() && !state.gameOver && state.phase !== "bottomReveal";
 }
 
-// 开始回合。
+/**
+ * 作用：
+ * 启动当前行动玩家的回合计时与自动出牌流程。
+ *
+ * 为什么这样写：
+ * 正常回合默认是 15 秒，但 PC 的“叫朋友后可改一次”窗口需要把首轮首手临时接管成同一套 30 秒读秒；
+ * 因此这里要先判断是否仍在改牌窗口内，再决定走普通回合计时还是沿用朋友重改窗口。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前行动玩家和共享对局状态。
+ *
+ * 输出：
+ * @returns {void} 只启动对应计时流程，不返回额外结果。
+ *
+ * 注意：
+ * - 仍在朋友重改窗口内时，不应再额外启动 15 秒回合倒计时，避免两套读秒打架。
+ * - AI 玩家仍继续使用既有的自动出牌延迟，不走朋友重改窗口。
+ */
 function startTurn() {
-  clearTimers();
+  const shouldUseFriendRetargetWindow = hasFriendRetargetWindow();
+  clearTimers({ preserveFriendRetarget: shouldUseFriendRetargetWindow });
   if (state.gameOver) return;
+
+  if (shouldUseFriendRetargetWindow) {
+    state.countdown = getFriendRetargetCountdownSeconds();
+    render();
+    return;
+  }
 
   state.countdown = 15;
   render();
@@ -2512,20 +2680,43 @@ function startTurn() {
     renderScorePanel();
     if (state.countdown <= 0) {
       clearTimers();
-      autoPlayCurrentTurn();
+      if (typeof autoPlayCurrentTurn === "function") {
+        autoPlayCurrentTurn();
+      }
     }
   }, 1000);
 
   const player = getPlayer(state.currentTurnId);
   if (!player.isHuman) {
     state.aiTimer = window.setTimeout(() => {
-      autoPlayCurrentTurn();
+      if (typeof autoPlayCurrentTurn === "function") {
+        autoPlayCurrentTurn();
+      }
     }, getAiPaceDelay("turnDelay"));
   }
 }
 
-// 清理所有进行中的计时器。
-function clearTimers() {
+/**
+ * 作用：
+ * 清理当前牌局里所有共用计时器。
+ *
+ * 为什么这样写：
+ * 发牌、反主、出牌、暂停和结果页都共用这条清理链路；
+ * 但“叫朋友后可改一次”的独立窗口需要在个别场景跨阶段保留，
+ * 因此这里补上可选参数，让调用方决定是否保留那条窗口计时器。
+ *
+ * 输入：
+ * @param {{preserveFriendRetarget?: boolean}} [options={}] - 是否保留朋友重改窗口计时器。
+ *
+ * 输出：
+ * @returns {void} 只清理计时器状态，不返回额外结果。
+ *
+ * 注意：
+ * - 默认会连朋友重改窗口一起清理，避免旧读秒残留到下一阶段。
+ * - 只有从 `callingFriend` 进入首轮首手，或首轮重新打开编辑面板时，才应保留该窗口。
+ */
+function clearTimers(options = {}) {
+  const preserveFriendRetarget = !!options.preserveFriendRetarget;
   if (state.countdownTimer) {
     window.clearInterval(state.countdownTimer);
     state.countdownTimer = null;
@@ -2545,6 +2736,9 @@ function clearTimers() {
   if (state.resultCountdownTimer) {
     window.clearInterval(state.resultCountdownTimer);
     state.resultCountdownTimer = null;
+  }
+  if (!preserveFriendRetarget) {
+    clearFriendRetargetWindow();
   }
 }
 
@@ -2807,6 +3001,7 @@ function maybeRevealFriend(playerId, cards) {
       }
       state.friendTarget.revealed = true;
       state.friendTarget.revealedBy = playerId;
+      state.friendTarget.revealedTrickNumber = state.trickNumber || 1;
       state.hiddenFriendId = playerId;
       state.defenderPoints = recalcDefenderPoints();
       for (const seatPlayer of state.players) {

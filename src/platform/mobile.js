@@ -1,8 +1,7 @@
 window.APP_PLATFORM = "mobile";
 window.CARD_ASSET_DIR = "./m_cards";
-window.DEFAULT_CARD_FACE_KEY = "modern";
+window.DEFAULT_CARD_FACE_KEY = "modern-sprite";
 window.CARD_FACE_OPTIONS = [
-  { key: "modern", label: "新牌面", dir: "./m_cards" },
   { key: "classic", label: "经典", dir: "./cards" },
   {
     key: "sprite",
@@ -10,6 +9,17 @@ window.CARD_FACE_OPTIONS = [
     dir: "./m_cards",
     spriteSheet: {
       src: "./poker.png",
+      columns: 13,
+      rows: 5,
+    },
+  },
+  // 复用 m_cards 单张 SVG 生成的整图牌面，保持与 poker.png 相同的裁切网格。
+  {
+    key: "modern-sprite",
+    label: "新牌整图",
+    dir: "./m_cards",
+    spriteSheet: {
+      src: "./m_cards_sprite.svg",
       columns: 13,
       rows: 5,
     },

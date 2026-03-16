@@ -229,7 +229,7 @@
 
       .toolbar-icon-row {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 8px;
       }
 
@@ -255,6 +255,11 @@
       .icon-btn.active {
         border-color: rgba(173, 112, 64, 0.24);
         background: linear-gradient(180deg, rgba(243, 224, 214, 0.96), rgba(233, 207, 190, 0.92));
+      }
+
+      .icon-btn.persistent {
+        border-color: rgba(124, 187, 222, 0.36);
+        background: linear-gradient(180deg, rgba(223, 242, 253, 0.98), rgba(190, 220, 240, 0.94));
       }
 
       .seat-rail {
@@ -545,16 +550,18 @@
 
       .log-panel {
         position: absolute;
-        right: 24px;
-        top: 290px;
-        width: 172px;
-        min-height: 232px;
+        right: 32px;
+        top: 148px;
+        width: 404px;
+        min-height: 220px;
+        max-height: 520px;
         padding: 14px 16px;
-        border-radius: 18px;
-        background: rgba(255, 251, 242, 0.78);
-        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
-        color: #6d7b82;
-        z-index: 2;
+        border-radius: 0 0 24px 24px;
+        border: 1px solid rgba(227, 206, 155, 0.16);
+        background: linear-gradient(180deg, rgba(25, 43, 52, 0.98), rgba(11, 25, 33, 0.96));
+        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.24);
+        color: rgba(248, 240, 220, 0.88);
+        z-index: 6;
       }
 
       .hidden {
@@ -565,7 +572,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        color: #1b252c;
+        color: #f8f0dc;
         font-weight: 800;
       }
 
@@ -576,8 +583,8 @@
         place-items: center;
         border-radius: 10px;
         border: 0;
-        background: rgba(16, 44, 54, 0.08);
-        color: #8c99a0;
+        background: rgba(255, 255, 255, 0.1);
+        color: #f8f0dc;
         font-weight: 800;
         cursor: pointer;
       }
@@ -587,6 +594,8 @@
         padding-left: 16px;
         font-size: 12px;
         line-height: 1.55;
+        max-height: 420px;
+        overflow: auto;
       }
 
       .version-badge {
@@ -607,7 +616,7 @@
         position: absolute;
         top: 152px;
         right: 24px;
-        width: 268px;
+        width: 328px;
         padding: 14px;
         border: 1px solid rgba(132, 96, 43, 0.12);
         border-radius: 20px;
@@ -637,6 +646,37 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
         margin-top: 12px;
+      }
+
+      .toolbar-menu-field {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: 6px;
+      }
+
+      .segmented-choice {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .segmented-choice-btn {
+        min-height: 38px;
+        border: 1px solid rgba(116, 82, 40, 0.12);
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 232, 221, 0.92));
+        color: #31414a;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .segmented-choice-btn.active {
+        border-color: rgba(102, 160, 205, 0.28);
+        background: linear-gradient(180deg, rgba(170, 208, 241, 0.96), rgba(84, 132, 183, 0.92));
+        color: #f7fbff;
+        box-shadow: inset 0 1px 0 rgba(230, 244, 255, 0.72), 0 10px 16px rgba(21, 67, 105, 0.14);
       }
 
       .toolbar-menu-btn {
@@ -823,17 +863,18 @@
 
       .last-trick-panel {
         position: absolute;
-        right: 212px;
-        bottom: 204px;
-        width: 286px;
+        right: 102px;
+        top: 148px;
+        width: 420px;
         min-height: 188px;
+        max-height: 520px;
         padding: 14px 16px;
         border: 1px solid rgba(225, 185, 111, 0.14);
-        border-radius: 18px;
-        background: rgba(10, 22, 29, 0.78);
+        border-radius: 0 0 24px 24px;
+        background: linear-gradient(180deg, rgba(25, 43, 52, 0.98), rgba(11, 25, 33, 0.96));
         color: #f8f0dc;
-        box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
-        z-index: 3;
+        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.24);
+        z-index: 6;
       }
 
       .last-trick-meta {
@@ -898,10 +939,19 @@
           <button id="closeToolbarMenuBtn" class="log-close" type="button">×</button>
         </div>
         <div class="toolbar-menu-grid">
+          <div class="toolbar-menu-field">
+            <div class="toolbar-menu-subtle" style="margin-bottom:6px;">对局节奏</div>
+            <div id="menuAiPaceButtons" class="segmented-choice" role="group" aria-label="静态页对局节奏">
+              <button type="button" class="segmented-choice-btn" data-ai-pace-value="slow">慢</button>
+              <button type="button" class="segmented-choice-btn" data-ai-pace-value="medium">中</button>
+              <button type="button" class="segmented-choice-btn" data-ai-pace-value="fast">快</button>
+              <button type="button" class="segmented-choice-btn" data-ai-pace-value="instant">瞬</button>
+            </div>
+          </div>
           <button id="toggleInfoMenuBtn" class="toolbar-menu-btn" type="button">信息面板</button>
           <button id="toggleLastTrickMenuBtn" class="toolbar-menu-btn" type="button">上一局回看</button>
           <button id="toggleCardFaceBtn" class="toolbar-menu-btn" type="button">切换牌面</button>
-          <button id="resetMockBtn" class="toolbar-menu-btn" type="button">恢复模板</button>
+          <button id="menuHomeBtn" class="toolbar-menu-btn" type="button">回到首页</button>
         </div>
       </section>
 
@@ -980,7 +1030,6 @@
           { id: "autoManageBtn", src: "./icons/icon_robot.png", label: "托管" },
           { id: "toggleLogBtn", src: "./icons/info-button.svg", label: "信息" },
           { id: "toggleLastTrickBtn", src: "./icons/icon_back.png", label: "回看上轮" },
-          { id: "newMockBtn", src: "./icons/icon_new_game.png", label: "新游戏" },
           { id: "toggleToolbarMenuBtn", src: "./icons/icon_menu.png", label: "设置" },
         ],
         seats: [
@@ -1110,8 +1159,8 @@
        * 提供静态模板页可切换的第二套 mock 数据。
        *
        * 为什么这样写：
-       * 顶部 `新游戏` 按钮在静态页里不接真实开局逻辑，
-       * 但仍应能切到另一套局面，方便验证按钮本身和布局对不同内容的承载能力。
+       * 这页会保留两套 mock 局面数据，方便验证同一版布局在不同牌桌内容下是否仍然稳定；
+       * 即使顶部不再保留 `新游戏` 图标，也可以通过“回到首页”等入口快速回到标准样例。
        *
        * 输入：
        * @param {void} - 由模板页交互脚本按需读取。
@@ -1174,7 +1223,7 @@
        * 描述静态模板页当前的轻量交互状态。
        *
        * 为什么这样写：
-       * 这页要让 `信息 / 上一局 / 牌面切换 / 设置菜单 / 新游戏` 这些入口可用，
+       * 这页要让 `信息 / 上一局 / 牌面切换 / 设置菜单 / 回到首页` 这些入口可用，
        * 但又不能接入真实规则状态机；用一份独立的模板状态对象，
        * 就能只管理展示层交互，而不污染生产逻辑。
        *
@@ -1182,7 +1231,7 @@
        * @param {void} - 由当前页面脚本直接读写。
        *
        * 输出：
-       * @returns {{pageKey: string, cardFaceKey: string, showLogPanel: boolean, showLastTrick: boolean, showToolbarMenu: boolean, autoManaged: boolean}} 模板页展示状态。
+       * @returns {{pageKey: string, cardFaceKey: string, showLogPanel: boolean, showLastTrick: boolean, showToolbarMenu: boolean, autoManageMode: string, aiPace: string}} 模板页展示状态。
        *
        * 注意：
        * - 这里只保存展示状态，不参与玩法计算。
@@ -1191,11 +1240,14 @@
       const STATIC_STATE = {
         pageKey: "default",
         cardFaceKey: "sprite",
-        showLogPanel: true,
+        showLogPanel: false,
         showLastTrick: false,
         showToolbarMenu: false,
-        autoManaged: false,
+        autoManageMode: "off",
+        aiPace: "slow",
       };
+
+      const STATIC_AI_PACE_OPTIONS = ["slow", "medium", "fast", "instant"];
 
       /**
        * 作用：
@@ -1203,7 +1255,7 @@
        *
        * 为什么这样写：
        * 用户希望静态页里的“换牌面”入口也能真正可用；
-       * 明确列出两套牌面目录后，模板就可以在不依赖真实配置脚本的前提下完成切换。
+       * 明确列出运行态仍保留的几套牌面后，模板就可以在不依赖真实配置脚本的前提下完成切换。
        *
        * 输入：
        * @param {void} - 由模板页交互脚本直接读取。
@@ -1226,7 +1278,16 @@
             rows: 5,
           },
         },
-        { key: "modern", label: "新牌面", dir: "./m_cards" },
+        {
+          key: "modern-sprite",
+          label: "新牌整图",
+          dir: "./m_cards",
+          spriteSheet: {
+            src: "./m_cards_sprite.svg",
+            columns: 13,
+            rows: 5,
+          },
+        },
         { key: "classic", label: "经典", dir: "./cards" },
       ];
 
@@ -1465,7 +1526,7 @@
        * 读取当前静态页应该展示的 mock 局面数据。
        *
        * 为什么这样写：
-       * `新游戏` 在静态模板里通过切换两套 mock 局面来模拟状态变化；
+       * 静态模板仍保留两套 mock 局面，方便在同一份 HTML 里验证不同牌局内容；
        * 用 helper 统一读取当前页数据后，渲染入口就不用关心具体切到哪一套。
        *
        * 输入：
@@ -1532,7 +1593,7 @@
         `).join("");
 
         document.getElementById("toolbarIcons").innerHTML = page.toolbarIcons.map((item) => `
-          <button id="${item.id}" class="icon-btn${isToolbarButtonActive(item.id) ? " active" : ""}" type="button" title="${item.label}" aria-label="${item.label}">
+          <button id="${item.id}" class="icon-btn${isToolbarButtonActive(item.id) ? " active" : ""}${item.id === "autoManageBtn" && STATIC_STATE.autoManageMode === "persistent" ? " persistent" : ""}" type="button" title="${item.id === "autoManageBtn" ? `托管：${getStaticAutoManageLabel(STATIC_STATE.autoManageMode)}` : item.label}" aria-label="${item.id === "autoManageBtn" ? `托管：${getStaticAutoManageLabel(STATIC_STATE.autoManageMode)}` : item.label}">
             <img src="${item.src}" alt="${item.label}" />
           </button>
         `).join("");
@@ -1561,7 +1622,7 @@
                 <div class="spot-name-row">
                   <span class="spot-name">${spot.name}</span>
                   ${spot.role ? `<span class="spot-role-chip ${spot.role}">${spot.role === "banker" ? "打" : "朋"}</span>` : ""}
-                  ${spot.position === "bottom" && STATIC_STATE.autoManaged ? '<span class="spot-role-chip managed">托管</span>' : ""}
+                  ${spot.position === "bottom" && STATIC_STATE.autoManageMode !== "off" ? '<span class="spot-role-chip managed">托管</span>' : ""}
                 </div>
               </div>
             </div>
@@ -1588,6 +1649,8 @@
         document.getElementById("toggleInfoMenuBtn").classList.toggle("active", STATIC_STATE.showLogPanel);
         document.getElementById("toggleLastTrickMenuBtn").classList.toggle("active", STATIC_STATE.showLastTrick);
         document.getElementById("toggleCardFaceBtn").textContent = `牌面：${page.cardFaceLabel || getActiveCardFaceLabel()}`;
+        document.getElementById("menuHomeBtn").textContent = "回到首页";
+        syncStaticAiPaceButtons();
 
         const allHandCards = page.handGroups.flatMap((group) => group.cards);
         document.getElementById("handStatsRail").innerHTML = buildStaticHandStatsMarkup(page.handGroups, allHandCards.length);
@@ -1627,6 +1690,77 @@
 
       /**
        * 作用：
+       * 同步静态模板页节奏按钮组的激活态。
+       *
+       * 为什么这样写：
+       * 静态页的更多菜单也改成了四档按钮组；
+       * 统一在渲染阶段同步激活态后，视觉就能和运行态保持一致。
+       *
+       * 输入：
+       * @param {void} - 直接读取静态页当前状态。
+       *
+       * 输出：
+       * @returns {void} 只更新按钮样式，不返回额外数据。
+       *
+       * 注意：
+       * - 这里只同步按钮状态，不参与真实对局节奏计算。
+       */
+      function syncStaticAiPaceButtons() {
+        for (const button of document.querySelectorAll("#menuAiPaceButtons [data-ai-pace-value]")) {
+          const active = button.dataset.aiPaceValue === STATIC_STATE.aiPace;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", active ? "true" : "false");
+        }
+      }
+
+      /**
+       * 作用：
+       * 计算静态模板页机器人按钮下一次点击后应切换到的托管模式。
+       *
+       * 为什么这样写：
+       * 实机顶部托管已经改成 `关闭 / 本局托管 / 跨局托管` 三态循环；
+       * 静态页也用同样顺序，才能让视觉验收页和运行态保持一致。
+       *
+       * 输入：
+       * @param {string} mode - 当前静态页托管模式。
+       *
+       * 输出：
+       * @returns {string} 下一次点击后应切换到的托管模式。
+       *
+       * 注意：
+       * - 循环顺序固定为 `off -> round -> persistent -> off`。
+       */
+      function getNextStaticAutoManageMode(mode) {
+        if (mode === "off") return "round";
+        if (mode === "round") return "persistent";
+        return "off";
+      }
+
+      /**
+       * 作用：
+       * 把静态模板页当前托管模式转换成按钮提示文案。
+       *
+       * 为什么这样写：
+       * 静态页顶部机器人按钮只有图标，没有显式文本；
+       * 把状态文案写进 title 和 aria 后，视觉验收时才能确认三态是否切换正确。
+       *
+       * 输入：
+       * @param {string} mode - 当前静态页托管模式。
+       *
+       * 输出：
+       * @returns {string} 适合 tooltip 与 aria 的中文标签。
+       *
+       * 注意：
+       * - 未知值统一回退到“关闭”。
+       */
+      function getStaticAutoManageLabel(mode) {
+        if (mode === "round") return "本局托管";
+        if (mode === "persistent") return "跨局托管";
+        return "关闭";
+      }
+
+      /**
+       * 作用：
        * 计算顶部工具按钮在静态页里的激活态样式。
        *
        * 为什么这样写：
@@ -1646,7 +1780,7 @@
         if (buttonId === "toggleLogBtn") return STATIC_STATE.showLogPanel;
         if (buttonId === "toggleLastTrickBtn") return STATIC_STATE.showLastTrick;
         if (buttonId === "toggleToolbarMenuBtn") return STATIC_STATE.showToolbarMenu;
-        if (buttonId === "autoManageBtn") return STATIC_STATE.autoManaged;
+        if (buttonId === "autoManageBtn") return STATIC_STATE.autoManageMode !== "off";
         return false;
       }
 
@@ -1655,7 +1789,7 @@
        * 让静态模板页顶部的功能入口具备可点击行为。
        *
        * 为什么这样写：
-       * 这页需要模拟 `信息 / 上一局 / 换牌面 / 新游戏 / 设置` 等高频入口，
+       * 这页需要模拟 `信息 / 上一局 / 换牌面 / 回到首页 / 设置` 等高频入口，
        * 但页面每次重渲染都会重建按钮 DOM，所以需要统一在渲染结束后重新绑定事件。
        *
        * 输入：
@@ -1670,6 +1804,8 @@
        */
       function bindStaticInteractions() {
         document.getElementById("toggleLogBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showToolbarMenu = false;
+          STATIC_STATE.showLastTrick = false;
           STATIC_STATE.showLogPanel = !STATIC_STATE.showLogPanel;
           renderCurrentStaticPage();
         });
@@ -1678,6 +1814,8 @@
           renderCurrentStaticPage();
         });
         document.getElementById("toggleLastTrickBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showToolbarMenu = false;
+          STATIC_STATE.showLogPanel = false;
           STATIC_STATE.showLastTrick = !STATIC_STATE.showLastTrick;
           renderCurrentStaticPage();
         });
@@ -1686,6 +1824,8 @@
           renderCurrentStaticPage();
         });
         document.getElementById("toggleToolbarMenuBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showLogPanel = false;
+          STATIC_STATE.showLastTrick = false;
           STATIC_STATE.showToolbarMenu = !STATIC_STATE.showToolbarMenu;
           renderCurrentStaticPage();
         });
@@ -1695,10 +1835,20 @@
         });
         document.getElementById("toggleInfoMenuBtn")?.addEventListener("click", () => {
           STATIC_STATE.showLogPanel = !STATIC_STATE.showLogPanel;
+          STATIC_STATE.showLastTrick = false;
           renderCurrentStaticPage();
         });
         document.getElementById("toggleLastTrickMenuBtn")?.addEventListener("click", () => {
           STATIC_STATE.showLastTrick = !STATIC_STATE.showLastTrick;
+          STATIC_STATE.showLogPanel = false;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("menuAiPaceButtons")?.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-ai-pace-value]");
+          if (!button) return;
+          STATIC_STATE.aiPace = STATIC_AI_PACE_OPTIONS.includes(button.dataset.aiPaceValue)
+            ? button.dataset.aiPaceValue
+            : "slow";
           renderCurrentStaticPage();
         });
         document.getElementById("toggleCardFaceBtn")?.addEventListener("click", () => {
@@ -1707,21 +1857,18 @@
           STATIC_STATE.cardFaceKey = STATIC_CARD_FACES[nextIndex].key;
           renderCurrentStaticPage();
         });
-        document.getElementById("resetMockBtn")?.addEventListener("click", () => {
+        document.getElementById("menuHomeBtn")?.addEventListener("click", () => {
           STATIC_STATE.pageKey = "default";
           STATIC_STATE.cardFaceKey = "sprite";
-          STATIC_STATE.showLogPanel = true;
+          STATIC_STATE.showLogPanel = false;
           STATIC_STATE.showLastTrick = false;
           STATIC_STATE.showToolbarMenu = false;
-          STATIC_STATE.autoManaged = false;
-          renderCurrentStaticPage();
-        });
-        document.getElementById("newMockBtn")?.addEventListener("click", () => {
-          STATIC_STATE.pageKey = STATIC_STATE.pageKey === "default" ? "alt" : "default";
+          STATIC_STATE.autoManageMode = "off";
+          STATIC_STATE.aiPace = "slow";
           renderCurrentStaticPage();
         });
         document.getElementById("autoManageBtn")?.addEventListener("click", () => {
-          STATIC_STATE.autoManaged = !STATIC_STATE.autoManaged;
+          STATIC_STATE.autoManageMode = getNextStaticAutoManageMode(STATIC_STATE.autoManageMode);
           renderCurrentStaticPage();
         });
       }

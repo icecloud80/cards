@@ -244,7 +244,14 @@ function main() {
   const indexHtml = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
   const uiSource = fs.readFileSync(path.join(__dirname, "../../src/shared/ui.js"), "utf8");
   const actionRowMatch = indexHtml.match(/<div class="bottom-action-row">([\s\S]*?)<\/div>/);
+  const toolbarRowMatch = indexHtml.match(/<div class="toolbar-icon-row">([\s\S]*?)<\/div>/);
   assert.match(indexHtml, /playerSeat-2[\s\S]*playerSeat-3[\s\S]*playerSeat-4[\s\S]*playerSeat-5[\s\S]*playerSeat-1/, "PC 左侧玩家面板 DOM 顺序应为 2, 3, 4, 5, 1");
+  assert.notEqual(toolbarRowMatch, null, "PC 顶部应保留工具按钮行");
+  assert.equal(toolbarRowMatch[1].includes('id="newGameBtn"'), false, "PC 顶部工具按钮行不应再显示新游戏图标");
+  assert.match(toolbarRowMatch[1], /id="autoManagedBtn"[^>]*aria-label="托管：关闭"[^>]*title="托管：关闭"/, "PC 顶部托管按钮默认文案应回到关闭状态");
+  assert.equal(indexHtml.includes('id="menuAiPaceButtons"'), true, "PC 更多菜单应提供四档节奏按钮组");
+  assert.equal(indexHtml.includes('id="menuHomeBtn"'), true, "PC 更多菜单应提供回到首页按钮");
+  assert.equal(indexHtml.includes('id="aiPaceButtons"'), true, "PC 开始界面应提供四档节奏按钮组");
   assert.notEqual(actionRowMatch, null, "PC 页面应保留底部可见操作区容器");
   assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="declareBtn"[\s\S]*id="passCounterBtn"/, "PC 可见操作区应只保留当前仍在使用的按钮");
   assert.equal(actionRowMatch[1].includes('id="beatBtn"'), false, "PC 可见操作区不应再放入毙牌按钮");
@@ -252,10 +259,12 @@ function main() {
   assert.equal(actionRowMatch[1].includes('id="continueGameBtn"'), false, "PC 可见操作区不应再放入继续游戏按钮");
   assert.equal(actionRowMatch[1].includes('id="startGameBtn"'), false, "PC 可见操作区不应再放入开始发牌按钮");
   assert.equal(indexHtml.includes("right: calc(50% - (var(--hand-panel-width) / 2) + 26px);"), false, "PC 操作区不应继续锚到右侧战场边缘");
+  assert.equal(indexHtml.includes(".icon-btn.persistent"), true, "PC 顶部托管按钮应为跨局托管保留独立蓝色高亮样式");
   assert.equal(uiSource.includes("function syncIconButtonLabel"), true, "PC 顶部图标按钮应通过专用 helper 同步文案，避免删掉图标节点");
   assert.equal(uiSource.includes("toggleLastTrickBtn.textContent"), false, "顶部回看按钮不应再用 textContent 覆盖图标");
   assert.equal(uiSource.includes("autoManagedBtn.textContent"), false, "顶部托管按钮不应再用 textContent 覆盖图标");
   assert.equal(uiSource.includes('data-setup-pass="true"'), true, "PC 最后反主应把“不反主”并到下方直选候选里");
+  assert.equal(uiSource.includes("function syncAiPaceButtonGroup"), true, "PC 节奏按钮组应通过共享 helper 同步激活态");
 
   const context = loadUiContext();
   context.setupGame();
@@ -340,6 +349,13 @@ function main() {
   assert.equal(context.document.getElementById("passCounterBtn").hidden, true, "PC 最后反主不应继续显示上方不反主按钮");
   assert.equal(context.document.getElementById("setupOptions").innerHTML.includes('data-setup-pass="true"'), true, "PC 最后反主应在下方候选区直接提供不反主按钮");
   assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("反无主"), false, "PC 最后反主下方直选项不应再回退成整句文案");
+
+  context.state.autoManageMode = "persistent";
+  context.setupGame();
+  assert.equal(context.getPlayer(1).isHuman, false, "PC 跨局托管应在新一局开始后继续保持托管");
+  context.state.autoManageMode = "round";
+  context.setupGame();
+  assert.equal(context.getPlayer(1).isHuman, true, "PC 本局托管在进入新一局时应自动回到关闭");
 
   const chips = context.buildTrickSpotMetricChips(
     { id: 3, level: 4, hand: [{ id: "c1" }], capturedPoints: 40, isHuman: false },

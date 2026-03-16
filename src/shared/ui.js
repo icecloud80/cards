@@ -340,6 +340,47 @@ function buildDisplayCardNode(card, className) {
 
 /**
  * 作用：
+ * 为当前牌面主题创建一张只读的牌背内容节点。
+ *
+ * 为什么这样写：
+ * 用户要求翻底定主阶段的未翻开底牌也走 `poker.png` 里的统一牌背，
+ * 这样翻底公示区就不会再和正面牌风格脱节；同时保留回退逻辑，
+ * 可以保证将来换回逐张资源目录时仍有稳定的牌背表现。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前牌面配置。
+ *
+ * 输出：
+ * @returns {{content: HTMLElement, usesSprite: boolean}} 当前牌背节点和是否使用 sprite 的标记。
+ *
+ * 注意：
+ * - 当前默认取 sprite 最后一行第 3 列的牌背样式。
+ * - 若当前牌面不支持 sprite，则回退到旧的几何牌背。
+ */
+function createCardBackContent() {
+  const spriteSheet = getCardFaceSpriteSheet();
+  if (spriteSheet?.columns >= 3 && spriteSheet?.rows >= 1) {
+    const sprite = document.createElement("span");
+    sprite.className = "card-face-sprite";
+    sprite.setAttribute("aria-hidden", "true");
+    sprite.style.display = "block";
+    sprite.style.width = "100%";
+    sprite.style.height = "100%";
+    sprite.style.backgroundImage = `url("${spriteSheet.src}")`;
+    sprite.style.backgroundRepeat = "no-repeat";
+    sprite.style.backgroundSize = `${spriteSheet.columns * 100}% ${spriteSheet.rows * 100}%`;
+    sprite.style.backgroundPosition = `${(2 / (spriteSheet.columns - 1)) * 100}% 100%`;
+    sprite.style.boxShadow = "0 10px 18px rgba(0, 0, 0, 0.14)";
+    return { content: sprite, usesSprite: true };
+  }
+
+  const core = document.createElement("span");
+  core.className = "face-down-core";
+  return { content: core, usesSprite: false };
+}
+
+/**
+ * 作用：
  * 创建翻底公示里尚未翻开的底牌背面节点。
  *
  * 为什么这样写：
@@ -362,9 +403,11 @@ function buildFaceDownDisplayCardNode(className, ariaLabel) {
   node.className = className;
   node.setAttribute("role", "img");
   node.setAttribute("aria-label", ariaLabel);
-  const core = document.createElement("span");
-  core.className = "face-down-core";
-  node.appendChild(core);
+  const back = createCardBackContent();
+  if (back.usesSprite) {
+    node.classList.add("sprite-back");
+  }
+  node.appendChild(back.content);
   return node;
 }
 
@@ -450,8 +493,8 @@ function renderFriendPanel() {
       ? TEXT.friend.hintCalling
       : TEXT.friend.hintBeforeCall;
     dom.friendLabel.textContent = TEXT.friend.pendingLabel;
-    dom.friendState.textContent = state.phase === "callingFriend" ? TEXT.friend.stateCalling : TEXT.friend.stateNotStarted;
-    dom.friendOwner.textContent = TEXT.friend.ownerHidden;
+    dom.friendState.textContent = state.phase === "callingFriend" ? "待选择" : "未开始";
+    dom.friendOwner.textContent = "--/--";
     dom.friendCardMount.innerHTML = "";
     return;
   }
@@ -459,15 +502,15 @@ function renderFriendPanel() {
   dom.friendHint.textContent = TEXT.friend.fixedHint;
   dom.friendLabel.textContent = state.friendTarget.label;
   dom.friendState.textContent = state.friendTarget.failed
-    ? TEXT.friend.stateNoFriend
+    ? "1打4"
     : state.friendTarget.revealed
-      ? TEXT.friend.stateRevealed
-      : TEXT.friend.stateWaiting(state.friendTarget.occurrence, state.friendTarget.matchesSeen || 0);
+      ? "已揭晓"
+      : "待现身";
   dom.friendOwner.textContent = state.friendTarget.failed
-    ? TEXT.friend.oneVsFour
-    : state.friendTarget.revealed
-    ? TEXT.friend.ownerRevealed(getPlayer(state.friendTarget.revealedBy).name)
-    : TEXT.friend.ownerHidden;
+    ? "0/0"
+    : `${state.friendTarget.revealed
+      ? (state.friendTarget.occurrence || 1)
+      : Math.min(state.friendTarget.matchesSeen || 0, state.friendTarget.occurrence || 1)}/${state.friendTarget.occurrence || 1}`;
   dom.friendCardMount.innerHTML = "";
   dom.friendCardMount.appendChild(buildCardNode(state.friendTarget, "friend-card"));
 }
@@ -1874,8 +1917,8 @@ function renderCenterPanel() {
   dom.focusAnnouncement.classList.toggle("friend", state.centerAnnouncement?.tone === "friend");
   updateActionHint();
   const humanTurn = isHumanTurnActive();
-  dom.beatBtn.hidden = state.phase !== "playing" || !selectedBeat;
-  dom.beatBtn.disabled = !humanTurn || !selectedBeat;
+  dom.beatBtn.hidden = true;
+  dom.beatBtn.disabled = true;
   if (dom.autoManagedBtn) {
     dom.autoManagedBtn.hidden = state.phase === "ready";
     dom.autoManagedBtn.disabled = state.gameOver || state.phase === "ready";
@@ -1943,12 +1986,12 @@ function renderCenterPanel() {
   dom.newProgressBtn.hidden = true;
   dom.newProgressBtn.disabled = true;
   dom.newProgressBtn.classList.remove("primary");
-  dom.continueGameBtn.hidden = state.phase !== "ready";
-  dom.continueGameBtn.disabled = state.gameOver || state.phase !== "ready" || !state.hasSavedProgress;
+  dom.continueGameBtn.hidden = true;
+  dom.continueGameBtn.disabled = true;
   dom.continueGameBtn.classList.toggle("primary", false);
   dom.continueGameBtn.textContent = "继续游戏";
-  dom.startGameBtn.hidden = state.phase !== "ready";
-  dom.startGameBtn.disabled = state.gameOver || state.phase !== "ready";
+  dom.startGameBtn.hidden = true;
+  dom.startGameBtn.disabled = true;
   dom.startGameBtn.textContent = "开始游戏";
   if (dom.centerPanel && typeof shouldShowPcReadyLobby === "function") {
     dom.centerPanel.classList.toggle("hidden", shouldShowPcReadyLobby());

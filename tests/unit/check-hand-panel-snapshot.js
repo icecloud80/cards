@@ -117,7 +117,7 @@ function createElementStub(identifier) {
  * @param {void} - 通过内部固定脚本路径加载 PC 环境。
  *
  * 输出：
- * @returns {{setupGame: Function, getPlayer: Function, buildCompactRoleBadgeMarkup: Function, buildTrickSpotMetricChips: Function, getPcHandOverlap: Function, getPcSingleLaneHandOverlap: Function, getPcTrickSpotTitle: Function, buildPcTrickSpotRoleTag: Function, renderHand: Function, state: object, document: object}} 当前测试需要的真实接口集合。
+ * @returns {{setupGame: Function, getPlayer: Function, buildCompactRoleBadgeMarkup: Function, buildTrickSpotMetricChips: Function, buildFaceDownDisplayCardNode: Function, getPcHandOverlap: Function, getPcSingleLaneHandOverlap: Function, getPcTrickSpotTitle: Function, buildPcTrickSpotRoleTag: Function, render: Function, renderHand: Function, state: object, document: object}} 当前测试需要的真实接口集合。
  *
  * 注意：
  * - 这里只加载 PC 平台脚本，避免把移动端分支带进来。
@@ -217,7 +217,7 @@ function loadUiContext() {
     }
   `, context);
 
-  return vm.runInContext("({ setupGame, getPlayer, buildCompactRoleBadgeMarkup, buildTrickSpotMetricChips, getPcHandOverlap, getPcSingleLaneHandOverlap, getPcTrickSpotTitle, buildPcTrickSpotRoleTag, renderHand, state, document })", context);
+  return vm.runInContext("({ setupGame, getPlayer, buildCompactRoleBadgeMarkup, buildTrickSpotMetricChips, buildFaceDownDisplayCardNode, getPcHandOverlap, getPcSingleLaneHandOverlap, getPcTrickSpotTitle, buildPcTrickSpotRoleTag, render, renderHand, state, document })", context);
 }
 
 /**
@@ -267,6 +267,14 @@ function main() {
     true
   );
   assert.equal(winningChips.includes("大"), false, "桌面端出牌区不应再通过底部信息重复渲染“大”标签");
+
+  context.render();
+  assert.equal(context.document.getElementById("beatBtn").hidden, true, "PC 操作区不应再显示毙牌按钮");
+  assert.equal(context.document.getElementById("continueGameBtn").hidden, true, "PC 操作区不应再显示继续游戏按钮");
+  assert.equal(context.document.getElementById("startGameBtn").hidden, true, "PC 操作区不应再显示开始游戏按钮");
+
+  const faceDownNode = context.buildFaceDownDisplayCardNode("played-card face-down", "未翻开底牌");
+  assert.equal(faceDownNode.children[0]?.className, "card-face-sprite", "翻底定主的牌背在 sprite 牌面下应复用整图牌背");
 
   const heavyOverlap = context.getPcHandOverlap(13, 31);
   assert.equal(heavyOverlap >= 30, true, "拿到底牌后的长手牌应适度加大重叠量，避免出现滚动条");

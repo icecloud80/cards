@@ -95,6 +95,12 @@
         align-content: center;
       }
 
+      .topbar-summary-item {
+        display: grid;
+        gap: 6px;
+        align-content: center;
+      }
+
       .topbar-summary-block {
         display: flex;
         align-items: center;
@@ -151,15 +157,17 @@
       }
 
       .topbar-key {
-        width: 32px;
-        height: 32px;
+        min-width: 48px;
+        height: 24px;
+        padding: 0 10px;
         display: grid;
         place-items: center;
         border-radius: 11px;
         background: rgba(120, 74, 24, 0.1);
         color: #85541d;
-        font-size: 15px;
+        font-size: 11px;
         font-weight: 900;
+        letter-spacing: 0.04em;
       }
 
       .topbar-key.friend {
@@ -925,21 +933,21 @@
         ],
         topbarStatus: [
           {
-            key: "局",
+            key: "本局",
             title: "第1轮",
             subline: "玩家1行动",
             meta: ["出牌中", "当前首家：玩家1"],
           },
           {
-            key: "主",
+            key: "主牌",
             title: "红桃 2",
             subline: "打 玩家3",
             badge: { type: "trump", value: "♥" },
           },
           {
-            key: "朋",
+            key: "朋友",
             title: "第二张梅花 A",
-            subline: "等第2张 · 已出1",
+            subline: "1/2 · 已出1",
             keyClass: "friend",
             badge: { type: "card", src: "./cards/ace_of_clubs.svg" },
           },
@@ -1099,21 +1107,21 @@
         ],
         topbarStatus: [
           {
-            key: "局",
+            key: "本局",
             title: "第6轮",
             subline: "玩家3行动",
             meta: ["出牌中", "当前首家：玩家3"],
           },
           {
-            key: "主",
+            key: "主牌",
             title: "黑桃 3",
             subline: "打 玩家2",
             badge: { type: "trump", value: "♠" },
           },
           {
-            key: "朋",
+            key: "朋友",
             title: "第一张方块 K",
-            subline: "已现身 · 玩家5",
+            subline: "1/1 · 玩家5",
             keyClass: "friend",
             badge: { type: "card", src: "./cards/king_of_diamonds.svg" },
           },
@@ -1429,11 +1437,13 @@
        */
       function renderStaticPage(page) {
         document.getElementById("topbarSummary").innerHTML = page.topbarSummary.map((item) => `
-          <div class="topbar-summary-block">
+          <div class="topbar-summary-item">
             <span class="topbar-summary-label">${item.label}</span>
-            <div class="${item.tone}-value">
-              <strong>${item.main}</strong>
-              ${item.suffix ? `<span>${item.suffix}</span>` : ""}
+            <div class="topbar-summary-block">
+              <div class="${item.tone}-value">
+                <strong>${item.main}</strong>
+                ${item.suffix ? `<span>${item.suffix}</span>` : ""}
+              </div>
             </div>
           </div>
         `).join("");

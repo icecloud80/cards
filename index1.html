@@ -939,6 +939,14 @@
         box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
       }
 
+      .played-card.face-down.sprite-back {
+        background: transparent;
+      }
+
+      .played-card.face-down.sprite-back::before {
+        content: none;
+      }
+
       .played-card.face-down::before {
         content: "";
         position: absolute;
@@ -957,6 +965,10 @@
             rgba(147, 44, 33, 0.9) 4px 8px
           );
         box-shadow: inset 0 0 0 2px rgba(255, 247, 228, 0.3);
+      }
+
+      .played-card.face-down.sprite-back .card-face-sprite {
+        box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
       }
 
       /* PC v2：底部右侧改成独立操作区，和左侧手牌区并排。 */
@@ -1764,6 +1776,69 @@
         line-height: 1.6;
       }
 
+      .result-body {
+        margin: 14px 0 0 !important;
+      }
+
+      .result-subinfo {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(125, 83, 32, 0.08);
+      }
+
+      .result-subinfo:empty {
+        display: none;
+      }
+
+      .result-level-title {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: #7d5320;
+      }
+
+      .result-level-list {
+        margin: 10px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+
+      .result-level-list li {
+        color: #3a3f44;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .result-level-tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 0 10px;
+        margin-left: 6px;
+        border-radius: 999px;
+        background: rgba(120, 74, 24, 0.1);
+        font-weight: 800;
+        color: #7d5320;
+        font-size: 12px;
+        line-height: 1;
+        vertical-align: middle;
+      }
+
+      .result-card.win .result-level-tag {
+        background: rgba(181, 48, 45, 0.12);
+        color: #a72a27;
+      }
+
+      .result-card.loss .result-level-tag {
+        background: rgba(21, 25, 29, 0.08);
+        color: #30373d;
+      }
+
       .result-countdown {
         margin-top: 14px;
         font-size: 13px;
@@ -1812,6 +1887,12 @@
         align-content: center;
         gap: 8px;
         min-width: 0;
+      }
+
+      .topbar-summary-item {
+        display: grid;
+        gap: 6px;
+        align-content: center;
       }
 
       .topbar-summary-block {
@@ -1871,15 +1952,17 @@
 
       .topbar-state-key {
         flex: 0 0 auto;
-        width: 30px;
-        height: 30px;
+        min-width: 48px;
+        height: 24px;
+        padding: 0 10px;
         border-radius: 11px;
         display: grid;
         place-items: center;
         background: rgba(120, 74, 24, 0.1);
         color: #85541d;
-        font-size: 14px;
+        font-size: 11px;
         font-weight: 900;
+        letter-spacing: 0.04em;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
       }
 
@@ -2644,21 +2727,25 @@
         <section class="panel topbar" data-layout-id="topbar-panel">
           <div class="topbar-main">
             <div class="topbar-summary">
-              <div class="topbar-summary-block timer">
+              <div class="topbar-summary-item">
                 <span class="topbar-summary-label">计时</span>
-                <div class="timer-ring">
-                  <strong id="turnTimer">15</strong>
-                  <span class="subtle">秒</span>
+                <div class="topbar-summary-block timer">
+                  <div class="timer-ring">
+                    <strong id="turnTimer">15</strong>
+                    <span class="subtle">秒</span>
+                  </div>
                 </div>
               </div>
-              <div class="topbar-summary-block score">
+              <div class="topbar-summary-item">
                 <span class="topbar-summary-label">总分</span>
-                <div id="defenderScore" class="score-big">0</div>
+                <div class="topbar-summary-block score">
+                  <div id="defenderScore" class="score-big">0</div>
+                </div>
               </div>
             </div>
             <div class="topbar-status-row">
               <div class="topbar-state-card">
-                <div class="topbar-state-key">局</div>
+                <div class="topbar-state-key">本局</div>
                 <div class="topbar-state-copy">
                   <strong id="trickLabel"></strong>
                   <span id="timerHint"></span>
@@ -2669,7 +2756,7 @@
                 </div>
               </div>
               <div class="topbar-state-card">
-                <div class="topbar-state-key">主</div>
+                <div class="topbar-state-key">主牌</div>
                 <div id="topbarTrumpBadge" class="topbar-trump-badge"></div>
                 <div class="topbar-state-copy">
                   <strong id="trumpLabel"></strong>
@@ -2677,7 +2764,7 @@
                 </div>
               </div>
               <div class="topbar-state-card friend">
-                <div class="topbar-state-key friend">朋</div>
+                <div class="topbar-state-key friend">朋友</div>
                 <div id="friendCardMount" class="topbar-friend-card"></div>
                 <div class="topbar-state-copy">
                   <strong id="friendLabel"></strong>
@@ -2970,7 +3057,8 @@
         <div id="resultOverlay" class="result-overlay">
           <div id="resultCard" class="result-card">
             <h2 id="resultTitle"></h2>
-            <p id="resultBody"></p>
+            <p id="resultBody" class="result-body"></p>
+            <div id="resultSubinfo" class="result-subinfo"></div>
             <div id="resultCountdown" class="result-countdown">30 秒后自动开局：30</div>
             <div class="result-bottom">
               <div class="label">底牌亮出</div>

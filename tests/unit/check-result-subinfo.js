@@ -96,12 +96,12 @@ function runSuite(context) {
 
     const headlineCases = [
       {
-        name: "banker win shows level-up headline",
+        name: "banker big win shows headline flavor",
         outcome: { winner: "banker", bankerLevels: 3, defenderLevels: 0 },
         humanWon: true,
         humanLevelBefore: "2",
         humanLevelAfter: "5",
-        expected: "升3级",
+        expected: "大光 - 打家升3级",
       },
       {
         name: "defender win without level-up shows banker down",
@@ -112,12 +112,28 @@ function runSuite(context) {
         expected: "打家下台",
       },
       {
+        name: "defender level-up win shows defender headline",
+        outcome: { winner: "defender", bankerLevels: 0, defenderLevels: 1 },
+        humanWon: true,
+        humanLevelBefore: "6",
+        humanLevelAfter: "7",
+        expected: "闲家升1级",
+      },
+      {
         name: "banker loss without self level drop shows banker level-up summary",
         outcome: { winner: "banker", bankerLevels: 1, defenderLevels: 0 },
         humanWon: false,
         humanLevelBefore: "6",
         humanLevelAfter: "6",
         expected: "打家升1级",
+      },
+      {
+        name: "banker small loss shows small-win headline",
+        outcome: { winner: "banker", bankerLevels: 2, defenderLevels: 0 },
+        humanWon: false,
+        humanLevelBefore: "6",
+        humanLevelAfter: "6",
+        expected: "小光 - 打家升2级",
       },
       {
         name: "bottom-penalty loss shows level drop headline",

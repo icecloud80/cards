@@ -2911,27 +2911,19 @@ function getResultCampLabel(playerId) {
  * @returns {string} 直接拼到标题后的短结果摘要。
  *
  * 注意：
- * - 标题优先显示真人玩家自己最关心的信息：先看自己升降级，再看打家是否下台。
- * - 若命中保级位导致等级数字未变，但己方确实赢得升级结果，仍保留“升 x 级”的摘要。
+ * - 结算标题优先表达整局结果：`打家下台 / 闲家升级 / 打家升级 / 小光 / 大光`。
+ * - 只有真人玩家自己实际降级时，才用 `降 x 级` 覆盖团队结果，避免漏掉个人损失。
  */
 function getResultHeadlineDetail(outcome, humanWon, humanLevelBefore, humanLevelAfter) {
   const levelDelta = getLevelDelta(humanLevelBefore, humanLevelAfter);
-  if (humanWon) {
-    if (levelDelta > 0) return `升${levelDelta}级`;
-    if (outcome.winner === "banker" && outcome.bankerLevels > 0) {
-      return `升${outcome.bankerLevels}级`;
-    }
-    if (outcome.winner === "defender" && outcome.defenderLevels > 0) {
-      return `升${outcome.defenderLevels}级`;
-    }
-    if (outcome.winner === "defender") return "打家下台";
-    return "守级";
+  if (!humanWon && levelDelta < 0) return `降${Math.abs(levelDelta)}级`;
+  if (outcome.winner === "defender") {
+    if (outcome.defenderLevels > 0) return `闲家升${outcome.defenderLevels}级`;
+    return "打家下台";
   }
-  if (levelDelta < 0) return `降${Math.abs(levelDelta)}级`;
-  if (outcome.winner === "banker" && outcome.bankerLevels > 0) {
-    return `打家升${outcome.bankerLevels}级`;
-  }
-  if (outcome.winner === "defender") return "打家下台";
+  if (outcome.bankerLevels >= 3) return `大光 - 打家升${outcome.bankerLevels}级`;
+  if (outcome.bankerLevels === 2) return `小光 - 打家升${outcome.bankerLevels}级`;
+  if (outcome.bankerLevels > 0) return `打家升${outcome.bankerLevels}级`;
   return "守级";
 }
 

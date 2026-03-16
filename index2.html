@@ -2618,7 +2618,8 @@
         gap: 10px;
         min-width: 0;
         justify-self: center;
-        transform: translateX(-36px);
+        /* 新增“重置本局”图标后，右侧按钮组更宽；把主/朋状态块整体往右收，避免和“难度”统计挤在一起。 */
+        transform: translateX(-8px);
       }
 
       body.mobile-index2 .mobile-stat {
@@ -4077,6 +4078,9 @@
             <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮" title="查看上一轮">
               <img src="./icons/icon_back.png" alt="" />
             </button>
+            <button id="newGameBtn" class="mobile-icon-btn" type="button" aria-label="重置本局" title="重置本局">
+              <img src="./icons/icon_new_game.png" alt="" />
+            </button>
             <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单" title="打开设置菜单">
               <img src="./icons/icon_menu.png" alt="" />
             </button>
@@ -4175,7 +4179,7 @@
                   <option value="instant">瞬</option>
                 </select>
               </label>
-              <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">重开此局</button>
+              <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">重置本局</button>
               <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
               <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌整图</button>
               <button id="mobileMenuLayoutBtn" class="mobile-menu-btn" type="button">布局编辑</button>
@@ -4259,7 +4263,6 @@
             <button id="toggleRulesBtn" class="tiny-btn">规则帮助</button>
             <button id="toggleCardFaceBtn" class="tiny-btn">牌面：新牌整图</button>
             <button id="layoutEditBtn" class="tiny-btn">布局编辑</button>
-            <button id="newGameBtn" class="tiny-btn">新牌局</button>
           </div>
         </section>
 

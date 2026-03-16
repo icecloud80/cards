@@ -2376,7 +2376,7 @@
 
       .toolbar-icon-row {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 8px;
       }
 
@@ -3166,6 +3166,9 @@
                 <button id="toggleLastTrickBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="上一轮回看" title="上一轮回看">
                   <img src="./icons/icon_back.png" alt="" aria-hidden="true" />
                 </button>
+                <button id="newGameBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="重置本局" title="重置本局">
+                  <img src="./icons/icon_new_game.png" alt="" aria-hidden="true" />
+                </button>
                 <button id="toggleRulesBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="更多设置" title="更多设置">
                   <img src="./icons/icon_menu.png" alt="" aria-hidden="true" />
                 </button>
@@ -3294,9 +3297,6 @@
             <div id="setupOptions" class="setup-options" hidden></div>
           </div>
           <div class="hidden">
-            <button id="newGameBtn" class="tiny-btn icon-btn icon-image-btn" type="button" hidden aria-label="新游戏" title="新游戏">
-              <img src="./icons/icon_new_game.png" alt="" aria-hidden="true" />
-            </button>
             <button id="beatBtn" class="action-btn" hidden>毙牌</button>
             <button id="newProgressBtn" class="action-btn" hidden>新的游戏</button>
             <button id="continueGameBtn" class="action-btn" hidden>继续游戏</button>

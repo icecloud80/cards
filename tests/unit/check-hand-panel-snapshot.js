@@ -247,7 +247,7 @@ function main() {
   const toolbarRowMatch = indexHtml.match(/<div class="toolbar-icon-row">([\s\S]*?)<\/div>/);
   assert.match(indexHtml, /playerSeat-2[\s\S]*playerSeat-3[\s\S]*playerSeat-4[\s\S]*playerSeat-5[\s\S]*playerSeat-1/, "PC 左侧玩家面板 DOM 顺序应为 2, 3, 4, 5, 1");
   assert.notEqual(toolbarRowMatch, null, "PC 顶部应保留工具按钮行");
-  assert.equal(toolbarRowMatch[1].includes('id="newGameBtn"'), false, "PC 顶部工具按钮行不应再显示新游戏图标");
+  assert.match(toolbarRowMatch[1], /id="toggleLastTrickBtn"[\s\S]*id="newGameBtn"[\s\S]*id="toggleRulesBtn"/, "PC 顶部工具按钮行应把重置本局图标放在上一轮与设置之间");
   assert.match(toolbarRowMatch[1], /id="autoManagedBtn"[^>]*aria-label="托管：关闭"[^>]*title="托管：关闭"/, "PC 顶部托管按钮默认文案应回到关闭状态");
   assert.equal(indexHtml.includes('id="menuAiPaceButtons"'), true, "PC 更多菜单应提供四档节奏按钮组");
   assert.equal(indexHtml.includes('id="menuHomeBtn"'), true, "PC 更多菜单应提供回到首页按钮");

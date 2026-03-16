@@ -229,7 +229,7 @@
 
       .toolbar-icon-row {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 8px;
       }
 
@@ -1030,6 +1030,7 @@
           { id: "autoManageBtn", src: "./icons/icon_robot.png", label: "托管" },
           { id: "toggleLogBtn", src: "./icons/info-button.svg", label: "信息" },
           { id: "toggleLastTrickBtn", src: "./icons/icon_back.png", label: "回看上轮" },
+          { id: "newGameBtn", src: "./icons/icon_new_game.png", label: "重置本局" },
           { id: "toggleToolbarMenuBtn", src: "./icons/icon_menu.png", label: "设置" },
         ],
         seats: [
@@ -1817,6 +1818,12 @@
           STATIC_STATE.showToolbarMenu = false;
           STATIC_STATE.showLogPanel = false;
           STATIC_STATE.showLastTrick = !STATIC_STATE.showLastTrick;
+          renderCurrentStaticPage();
+        });
+        document.getElementById("newGameBtn")?.addEventListener("click", () => {
+          STATIC_STATE.showToolbarMenu = false;
+          STATIC_STATE.showLogPanel = false;
+          STATIC_STATE.showLastTrick = false;
           renderCurrentStaticPage();
         });
         document.getElementById("closeLastTrickBtn")?.addEventListener("click", () => {

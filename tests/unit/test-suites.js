@@ -91,12 +91,20 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-start-lobby.js"),
   },
   {
+    name: "Round reset button regression",
+    file: path.join(__dirname, "check-round-reset-button.js"),
+  },
+  {
     name: "UI smoke config regression",
     file: path.join(__dirname, "check-ui-smoke-config.js"),
   },
   {
     name: "Mobile UI isolation regression",
     file: path.join(__dirname, "check-mobile-ui-isolation.js"),
+  },
+  {
+    name: "Mobile topbar layout regression",
+    file: path.join(__dirname, "check-mobile-topbar-layout.js"),
   },
   {
     name: "Mobile auto-manage regression",

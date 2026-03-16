@@ -866,6 +866,7 @@ function renderScorePanel() {
   const visibleDefenderPoints = getVisibleDefenderPoints();
   dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
   syncIconButtonLabel(dom.toggleLastTrickBtn, state.showLastTrick ? TEXT.buttons.toggleLastTrickClose : TEXT.buttons.toggleLastTrickOpen);
+  syncIconButtonLabel(dom.newGameBtn, "重置本局");
   if (dom.toggleCardFaceBtn) {
     dom.toggleCardFaceBtn.textContent = TEXT.buttons.cardFace(getCurrentCardFaceOption().label);
     dom.toggleCardFaceBtn.disabled = CARD_FACE_OPTIONS.length <= 1;

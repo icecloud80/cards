@@ -76,7 +76,25 @@ function continueSavedProgress(autoStart = false) {
   }
 }
 
-// 按当前等级重新开始这一轮牌局。
+/**
+ * 作用：
+ * 重置当前这局牌并立刻重新发牌，但保留现有等级进度。
+ *
+ * 为什么这样写：
+ * 用户需要一个“本局重来”的快捷入口，既能把当前发牌、叫主和出牌过程全部清空，
+ * 又不能把长期升级进度误重置回 `2`；复用 `setupGame() + startDealing()` 后，
+ * 可以继续沿用当前首抓人、共享洗牌流程和各平台一致的开局状态机。
+ *
+ * 输入：
+ * @param {void} - 直接读取并重置当前共享状态。
+ *
+ * 输出：
+ * @returns {void} 只重建本局牌面并进入发牌阶段，不返回额外结果。
+ *
+ * 注意：
+ * - 这里只重置当前牌局，不重置 `state.playerLevels`。
+ * - 结果弹窗若仍打开，必须先收起，避免旧结算遮住新发牌流程。
+ */
 function restartCurrentRound() {
   dom.resultOverlay.classList.remove("show");
   setupGame();

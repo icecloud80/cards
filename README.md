@@ -70,6 +70,8 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 
 ## Recent Updates
 
+- 2026-03-16 - 【UI增强】 - 手游顶栏里的 `主 / 朋` 状态块已向右回收，避开左侧 `难度` 统计；在加入 `重置本局` 图标后，顶部不再出现主牌信息和难度文案互相压住的问题。
+- 2026-03-16 - 【UI增强】 - PC 与 mobile 顶栏现已补回 `重置本局` 图标按钮：统一使用 `icon_new_game.png`，固定放在 `上一轮回看` 与 `设置` 之间；点击后会按当前级别重新洗牌并立刻发牌，不再把长期等级误清回 `2`。
 - 2026-03-16 - 【工具】 - 本地 HTTP 预览已补上“进入项目目录时自动确保服务已启动”的 helper：新增 `npm run serve:ensure` 和 `scripts/ensure-preview-server.js`，可供 shell 钩子在进入 cards 工作区时自动拉起 `3721` 端口预览服务。
 - 2026-03-16 - 【Bug修复】 - 修复了 pre-commit 浏览器 UI smoke 会卡在 PC 开始界面隐藏节奏 `select` 的问题；smoke 现在会优先点击用户真实可见的 `慢 / 中 / 快 / 瞬` 按钮，仍保留对 mobile 下拉框的兜底兼容。
 - 2026-03-16 - 【工具】 - 仓库根目录现已把 `artifacts/` 统一纳入忽略规则：默认不再跟踪本地预览截图、SVG 和其他临时导出物，仅保留 `artifacts/README.md` 与 `artifacts/headless-regression/.gitkeep` 这类说明或目录占位文件。

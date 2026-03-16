@@ -669,7 +669,7 @@ dom.closeRulesBtn.addEventListener("click", () => {
   renderLogs();
 });
 
-dom.newGameBtn?.addEventListener("click", startNewProgress);
+dom.newGameBtn?.addEventListener("click", restartCurrentRound);
 
 dom.menuHomeBtn?.addEventListener("click", () => {
   closeToolbarMenu();

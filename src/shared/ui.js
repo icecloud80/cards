@@ -697,6 +697,37 @@ function playerIdLabel(playerId, suffix) {
   return `玩家${playerId}${suffix}`;
 }
 
+/**
+ * 作用：
+ * 同步顶部图标按钮的可访问文案，同时保留按钮内部图标节点。
+ *
+ * 为什么这样写：
+ * PC 顶部按钮是“图标显示、文案走 aria/title”的结构；
+ * 之前直接改 `textContent` 会把内部 `<img>` 一起清掉，最后页面上就出现空白按钮。
+ * 统一收成 helper 后，状态文案还能继续更新，但图标 DOM 不会再被误删。
+ *
+ * 输入：
+ * @param {?HTMLElement} button - 当前要更新的顶部图标按钮。
+ * @param {string} label - 当前按钮应暴露的辅助文案。
+ *
+ * 输出：
+ * @returns {void} 只更新按钮属性，不返回额外结果。
+ *
+ * 注意：
+ * - 只有按钮内部没有 `<img>` 时才回退到纯文字，避免真图标按钮被覆盖。
+ * - 这里只服务于顶部图标按钮，不影响菜单里的普通文本按钮。
+ */
+function syncIconButtonLabel(button, label) {
+  if (!button) return;
+
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  button.dataset.label = label;
+  if (!button.querySelector("img")) {
+    button.textContent = label;
+  }
+}
+
 // 渲染顶部信息栏和阶段信息。
 function renderHud() {
   dom.phaseLabel.textContent = state.gameOver
@@ -753,7 +784,7 @@ function renderHud() {
 function renderScorePanel() {
   const visibleDefenderPoints = getVisibleDefenderPoints();
   dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
-  dom.toggleLastTrickBtn.textContent = state.showLastTrick ? TEXT.buttons.toggleLastTrickClose : TEXT.buttons.toggleLastTrickOpen;
+  syncIconButtonLabel(dom.toggleLastTrickBtn, state.showLastTrick ? TEXT.buttons.toggleLastTrickClose : TEXT.buttons.toggleLastTrickOpen);
   if (dom.toggleCardFaceBtn) {
     dom.toggleCardFaceBtn.textContent = TEXT.buttons.cardFace(getCurrentCardFaceOption().label);
     dom.toggleCardFaceBtn.disabled = CARD_FACE_OPTIONS.length <= 1;
@@ -2134,7 +2165,7 @@ function renderCenterPanel() {
   if (dom.autoManagedBtn) {
     dom.autoManagedBtn.hidden = state.phase === "ready";
     dom.autoManagedBtn.disabled = state.gameOver || state.phase === "ready";
-    dom.autoManagedBtn.textContent = TEXT.buttons.autoManage;
+    syncIconButtonLabel(dom.autoManagedBtn, TEXT.buttons.autoManage);
   }
   if (dom.toggleDebugBtn) {
     dom.toggleDebugBtn.textContent = TEXT.buttons.debug;

@@ -242,7 +242,12 @@ function loadUiContext() {
  */
 function main() {
   const indexHtml = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
+  const uiSource = fs.readFileSync(path.join(__dirname, "../../src/shared/ui.js"), "utf8");
   assert.match(indexHtml, /playerSeat-2[\s\S]*playerSeat-3[\s\S]*playerSeat-4[\s\S]*playerSeat-5[\s\S]*playerSeat-1/, "PC 左侧玩家面板 DOM 顺序应为 2, 3, 4, 5, 1");
+  assert.equal(indexHtml.includes("right: calc(50% - (var(--hand-panel-width) / 2) + 26px);"), false, "PC 操作区不应继续锚到右侧战场边缘");
+  assert.equal(uiSource.includes("function syncIconButtonLabel"), true, "PC 顶部图标按钮应通过专用 helper 同步文案，避免删掉图标节点");
+  assert.equal(uiSource.includes("toggleLastTrickBtn.textContent"), false, "顶部回看按钮不应再用 textContent 覆盖图标");
+  assert.equal(uiSource.includes("autoManagedBtn.textContent"), false, "顶部托管按钮不应再用 textContent 覆盖图标");
 
   const context = loadUiContext();
   context.setupGame();

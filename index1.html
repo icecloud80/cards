@@ -30,7 +30,7 @@
         --player1-seat-width: 204px;
         --player1-seat-height: 162px;
         --hand-panel-width: 1188px;
-        --hand-panel-height: 204px;
+        --hand-panel-height: 188px;
         --action-panel-width: 188px;
       }
 
@@ -975,16 +975,18 @@
       /* PC v2：底部右侧改成独立操作区，和左侧手牌区并排。 */
       .center-panel {
         position: absolute;
-        right: var(--edge-gap);
-        bottom: var(--edge-gap);
-        width: var(--action-panel-width);
-        min-height: var(--hand-panel-height);
-        height: var(--hand-panel-height);
+        left: 50%;
+        right: auto;
+        bottom: calc(var(--edge-gap) + 132px);
+        width: min(520px, 46vw);
+        min-height: 0;
+        height: auto;
         padding: 0;
         background: transparent;
         border: 0;
         box-shadow: none;
         backdrop-filter: none;
+        transform: translateX(-50%);
       }
 
       .friend-picker {
@@ -1015,7 +1017,10 @@
       }
 
       .center-panel-shell {
-        height: 100%;
+        height: auto;
+        display: grid;
+        justify-items: center;
+        gap: 8px;
       }
 
       .focus-announcement {
@@ -1074,11 +1079,12 @@
       }
 
       .bottom-action-row {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-content: start;
-        gap: 10px;
-        height: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        width: auto;
+        height: auto;
       }
 
       .bottom-action-row::-webkit-scrollbar {
@@ -1093,8 +1099,9 @@
       .setup-options {
         display: flex;
         flex-wrap: wrap;
+        justify-content: center;
         gap: 8px;
-        margin-top: 12px;
+        margin-top: 0;
       }
 
       .setup-options-label {
@@ -1226,10 +1233,10 @@
       }
 
       .center-panel button.action-btn {
-        width: 100%;
-        min-width: 0;
-        min-height: 44px;
-        padding: 10px 12px;
+        width: auto;
+        min-width: 88px;
+        min-height: 34px;
+        padding: 7px 10px;
         border-radius: 14px;
         white-space: nowrap;
       }
@@ -1514,7 +1521,7 @@
         width: var(--hand-panel-width);
         min-height: var(--hand-panel-height);
         height: var(--hand-panel-height);
-        padding: 12px 16px 10px;
+        padding: 10px 16px 8px;
         background: linear-gradient(180deg, rgba(11, 27, 35, 0.08), rgba(8, 21, 28, 0.05));
         border: 1px solid rgba(232, 219, 183, 0.2);
         border-radius: 22px;
@@ -1545,9 +1552,10 @@
 
       .hand-lane {
         display: grid;
-        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-rows: auto auto auto;
+        align-content: start;
         min-width: 0;
-        padding: 8px 16px 0 14px;
+        padding: 6px 16px 0 14px;
         border: 0;
         border-radius: 0;
         background: transparent;
@@ -1556,10 +1564,10 @@
 
       .hand-toolbar {
         display: flex;
-        justify-content: flex-end;
+        justify-content: center;
         align-items: center;
         min-height: 28px;
-        padding: 0 4px 2px 0;
+        padding: 0 0 2px;
       }
 
       .actions-grid {
@@ -1571,8 +1579,8 @@
 
       .hand-stats-rail {
         position: relative;
-        min-height: 18px;
-        margin-top: -10px;
+        min-height: 14px;
+        margin-top: 0;
         padding: 0;
       }
 
@@ -1678,7 +1686,7 @@
         display: block;
         min-width: 0;
         overflow: hidden;
-        padding: 10px 0 0;
+        padding: 4px 0 0;
       }
 
       .hand-group {
@@ -1728,8 +1736,8 @@
         align-items: end;
         width: auto;
         min-width: 0;
-        min-height: 126px;
-        padding: 20px 6px 16px 16px;
+        min-height: 104px;
+        padding: 8px 6px 4px 16px;
         border-radius: 0;
         background: transparent;
         border: 0;
@@ -2320,9 +2328,9 @@
       .battle-range {
         position: absolute;
         left: 198px;
-        top: 176px;
+        top: 168px;
         width: 1244px;
-        height: 510px;
+        height: 460px;
         border-radius: 32px;
         background: linear-gradient(180deg, rgba(12, 28, 36, 0.2), rgba(9, 24, 31, 0.14));
         border: 1px solid rgba(239, 224, 181, 0.14);
@@ -2343,9 +2351,9 @@
       .battle-range-route {
         position: absolute;
         left: 244px;
-        top: 44px;
-        width: 770px;
-        height: 410px;
+        top: 38px;
+        width: 694px;
+        height: 370px;
         border: 1px dashed rgba(244, 232, 198, 0.14);
         background: rgba(255, 255, 255, 0.018);
         clip-path: polygon(50% 0%, 100% 39%, 81% 100%, 19% 100%, 0% 39%);
@@ -2830,25 +2838,32 @@
       }
 
       .center-panel {
-        left: auto;
-        right: calc(50% - (var(--hand-panel-width) / 2) + 26px);
-        bottom: calc(var(--edge-gap) + 148px);
+        left: 50%;
+        right: auto;
+        bottom: calc(var(--edge-gap) + 132px);
+        width: min(520px, 46vw);
+        min-height: 0;
+        height: auto;
         padding: 0;
         border: 0;
         background: transparent;
         box-shadow: none;
         backdrop-filter: none;
         z-index: 2;
+        transform: translateX(-50%);
       }
 
       .center-panel-shell {
         height: auto;
-        display: flex;
-        align-items: flex-start;
-        width: var(--action-panel-width);
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        width: 100%;
       }
 
       .center-panel button.action-btn {
+        width: auto;
+        min-width: 88px;
         min-height: 34px;
         padding: 7px 10px;
         border: 1px solid rgba(117, 160, 196, 0.24);
@@ -2872,9 +2887,12 @@
       }
 
       .bottom-action-row {
-        width: 100%;
-        gap: 6px;
-        align-self: flex-start;
+        width: auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        align-self: center;
       }
 
       /* PC v2：ready 阶段增加独立开始界面。 */

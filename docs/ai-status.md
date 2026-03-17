@@ -8,7 +8,11 @@
 
 如果需要从设计视角理解“中级 AI 具体怎么想、各个 objective 分别是什么意思、像 `chooseAiVoidPressureLead` 这样的策略 helper 为什么存在”，可配合阅读 [intermediate-ai-design.md](intermediate-ai-design.md)。
 
-## 2026-03-16 最新复核
+术语补充：
+
+- `危险带分领牌` 不是泛指“任何带分首发”，而是特指那种“主动把 `5 / 10 / K` 这类分牌，或 `A / 高主 / 王` 这类高价值高张领出来试探争轮，但这手并不能稳定续控，反而可能同时送分、送先手，或白白交掉关键控制资源”的高风险首发。
+
+## 2026-03-17 最新复核
 
 这次复核额外补跑了当前工作区里的快速单测与 headless 全游戏回归，目的是把“路线图判断”重新对齐到现时代码，而不是只复述前一轮文档结论。
 
@@ -16,14 +20,14 @@
 
 - `中级仍然是当前最值得投入的一档`，因为它已经具备完整的候选、模拟、评估和 objective 骨架，但仍有明显的残局续控收口空间。
 - `高级` 依旧不是路线图定义里的“会读牌”阶段，而是“完整记牌 + 复用中级搜索框架”的过渡档。
-- `危险带分领牌` 在最新 mixed 样本里已经压到 `0`，说明这一轮调权方向有效；但 `turn_access_risk / point_run_risk` 仍然存在，说明“牌权续控 / 失先手代价”还没有完全收稳。
+- `危险带分领牌` 与 `point_run_risk` 都出现了继续下降：这轮全桌 smoke 里，`dangerous_point_lead` 从上一轮观察到的 `4` 次降到 `2` 次，`point_run_risk` 从 `13` 次降到 `9` 次，说明“控制型高风险领牌二次否决”方向有效；但 mixed 小样本里仍有 `1` 次危险带分领牌，说明这条线还没有收官。
 - 当前最准确的工程判断不是“AI 还不够聪明”，而是“中级搜索框架已经站住，接下来应该继续做评估函数第二版和 legacy 规则下沉”。
 
 这次额外复核使用的现时证据：
 
-- 快速单测 `29 / 29` 通过，说明目前共享层与 AI 专项回归处于稳定状态。
+- 快速单测 `34 / 34` 通过，说明目前共享层与 AI 专项回归处于稳定状态。
 - 最新无 UI 全游戏回归 `3 / 3` 完局、`0` 告警，见 [artifacts/headless-regression/latest/analysis.md](../artifacts/headless-regression/latest/analysis.md)。
-- 最新 mixed 验证 `2 / 2` 完局、`0` 告警，且 `dangerous_point_lead = 0`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
+- 最新 mixed 验证 `2 / 2` 完局、`0` 告警，当前样本里 `turn_access_risk = 2`、`point_run_risk = 3`、`dangerous_point_lead = 1`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
 
 需要明确保留的边界：
 
@@ -56,10 +60,14 @@
   `beginner` 会在公开绝门已经明确、且自己没有明显主控手时，把小牌递给同伴接手；
   `intermediate` 则额外支持“公开高张已经被敌方花掉后的软递牌”与“接同伴递牌时用更大的主/王稳接”。
 - 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- `危险带分领牌` 现在新增了一层 rollout 后的“控制型硬否决”：
+  当 objective 已经切到 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 一类控制目标，且候选本身已经被识别为高风险带分领牌，同时 rollout 又继续暴露 `turn_access_risk / point_run_risk`、下一拍不安全或未来收益不足时，这类候选会被二次明显降权，而不再只吃一层 heuristic 惩罚。
+- 对应回归已补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
 - 修复了一个初级和中级共用的跟牌误判：
   当 AI 已经缺首门、又没有成型主可毙时，旧排序会把“另一门正好成对”误当成更顺手的贴牌，导致把副牌对子白白贴掉。
 - 当前实现已改成：缺门贴副时不再奖励“别门同型”，并显式优先保留副牌对子、连对等后续资源；对应回归同样写入 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - 牌面资源层新增了 `m_cards_sprite.svg`：把 `m_cards/` 的单张 SVG 按 `poker.png` 同款 `13x5` 网格生成成整图 SVG；mobile 默认牌面现已切到这套 `新牌整图`，PC 保留该选项，旧的逐张 `m_cards` 模式已移除。这次只改渲染资源，不改变 AI 的规则边界、难度差异和评分逻辑。
+- `m_cards_sprite.svg` 现已修正少数窄画布牌面的 tile 留边：`hearts-3/4/5` 与大小王在整图里会直接贴满统一卡格，避免手游小牌位上出现“单张更瘦、更偏”的错位观感；这仍然只是渲染资源修复，不改变 AI 输入与 heuristic。
 - PC 与 mobile 顶栏现已补回 `重置本局` 图标入口，并明确限定为“保级重洗当前局”；这次变更只影响共享状态机与 UI 入口，不改变任何 AI 评估和 heuristic。
 
 ## 本轮规则复核结论
@@ -359,3 +367,9 @@
 1. 先把中级搜索框架彻底做实。
 2. 再在这个框架上长出高级 belief。
 3. 最后才谈更深搜索或训练式评估。
+
+## 2026-03-16 人类声明交互同步
+
+- 本次改动只修正人类玩家的声明 UI：补亮窗口新增 `不亮`，PC 最后反主的跳过按钮恢复成 `不反主` 正常文案。
+- AI 亮主 / 反主策略没有调整；AI 仍按现有规则自行决定亮主、反主或放弃。
+- 这意味着本轮不需要改 AI 强度定位，但后续凡是继续改声明阶段交互，仍要验证不会误导用户理解 AI 真实决策能力。

@@ -15,6 +15,7 @@ const UI_SMOKE_SCENARIOS = Object.freeze([
     name: "mobile",
     pagePath: "/index2.html",
     viewport: { width: 430, height: 932 },
+    paceButtonSelector: "#mobileAiPaceButtons [data-ai-pace-value='instant']",
     paceSelector: "#mobileAiPaceSelect",
     startSelector: "#mobileStartBtn",
     autoSelector: "#mobileAutoBtn",

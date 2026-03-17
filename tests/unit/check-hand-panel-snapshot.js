@@ -263,7 +263,7 @@ function main() {
   assert.equal(uiSource.includes("function syncIconButtonLabel"), true, "PC 顶部图标按钮应通过专用 helper 同步文案，避免删掉图标节点");
   assert.equal(uiSource.includes("toggleLastTrickBtn.textContent"), false, "顶部回看按钮不应再用 textContent 覆盖图标");
   assert.equal(uiSource.includes("autoManagedBtn.textContent"), false, "顶部托管按钮不应再用 textContent 覆盖图标");
-  assert.equal(uiSource.includes('data-setup-pass="true"'), true, "PC 最后反主应把“不反主”并到下方直选候选里");
+  assert.equal(uiSource.includes("function buildSetupPassOptionButtonHtml"), true, "PC 最后反主应通过共享 helper 生成下方“不反主 / 不亮”跳过按钮");
   assert.equal(uiSource.includes("function syncAiPaceButtonGroup"), true, "PC 节奏按钮组应通过共享 helper 同步激活态");
 
   const context = loadUiContext();
@@ -347,7 +347,9 @@ function main() {
   context.render();
   assert.equal(context.document.getElementById("declareBtn").hidden, true, "PC 最后反主不应继续显示上方确认反主按钮");
   assert.equal(context.document.getElementById("passCounterBtn").hidden, true, "PC 最后反主不应继续显示上方不反主按钮");
-  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes('data-setup-pass="true"'), true, "PC 最后反主应在下方候选区直接提供不反主按钮");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes('data-setup-pass="counter"'), true, "PC 最后反主应在下方候选区直接提供不反主按钮");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("不反主"), true, "PC 最后反主下方直选项应显示明确的“不反主”文案");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("undefined"), false, "PC 最后反主下方直选项不应再渲染成 undefined");
   assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("反无主"), false, "PC 最后反主下方直选项不应再回退成整句文案");
 
   context.state.autoManageMode = "persistent";

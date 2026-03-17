@@ -109,6 +109,7 @@
   - `turnAccess / 失先手代价 / 残局安全起手值` 仍是这一里程碑的主要未完成部分，也就是文档里的 `牌权续控 / 失先手代价 / 残局安全起手值`。
   - `朋友已站队后的控制型切换` 已能在 headless 对局里稳定出现，但仍有一部分来自入口短路规则，尚未完全评分化。
   - `Friend Belief Lite` 第一版已落地，并已补基础回归验证“持有目标牌的自己更像朋友”“公开断门的座位更像闲家”。
+  - `dangerous_point_lead` 现已从“heuristic 扣分”补到“rollout 后二次否决”：在 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 这类控制目标下，若分牌首发，或 `A / 高主 / 王` 这类高价值高张首发继续暴露 `turn_access_risk / point_run_risk` 且未来收益不足，会被再次显著降权。
 - 验收：
   - `evaluateState` 输出可解释 breakdown
   - 至少能解释这 3 类局面：
@@ -142,7 +143,8 @@
 - 当前结果：
   - `check-ai-intermediate-foundation.js` 已覆盖“AI 不得透视甩牌成败”和“公开信息下的甩牌安全边界”。
   - `Friend Belief Lite` 的基础场景已补进 `check-ai-intermediate-foundation.js`。
-  - 失先手连续跑分、固定 seed 异常候选摘要仍待补到更专项的搜索/整局回归里。
+- `check-ai-intermediate-search.js` 已新增“控制型目标下危险带分领牌会被 rollout 二次否决”的专项回归。
+- 失先手连续跑分、固定 seed 异常候选摘要仍待补到更专项的搜索/整局回归里。
 - 验收：
   - 复盘过的问题都能被至少一条单测或回归覆盖。
   - 回归失败时能直接看到是哪类问题回退，而不是只有“本局输了”。

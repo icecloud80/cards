@@ -101,6 +101,7 @@
 - 把当前 `cookie / localStorage` 持久化逻辑迁移到 App 可控存储。
 - 建议拆成：
   - `Preferences`：设置、牌面、节奏、是否看过引导。
+  - `Preferences` 里的节奏字段继续统一沿用 `slow / medium / fast / instant` 四档枚举，保证 mobile App、当前 Web mobile 壳层和 PC 入口都能共用同一份配置值，不因为 UI 形态从下拉改成按钮组就分叉数据结构。
   - `SQLite` 或本地数据库：长日志、对局回放、可恢复进度。
 
 ### 4.2 生命周期

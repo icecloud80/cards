@@ -43,9 +43,9 @@ async function waitForResultOverlay(page, timeoutMs) {
  * 把当前 smoke 场景的对局节奏切到 `瞬` 档。
  *
  * 为什么这样写：
- * PC 开始界面现在优先展示可见按钮组，隐藏 `select` 只保留给共享状态同步；
+ * 现在 PC 和 mobile 的节奏入口都优先展示可见按钮组，隐藏 `select` 只保留给共享状态同步；
  * UI smoke 如果仍强依赖隐藏控件，就会在真实页面里卡住。
- * 这里优先点击可见按钮，再回退到 `select`，能同时兼容新版 PC 和仍用下拉框的 mobile。
+ * 这里优先点击可见按钮，再回退到 `select`，能同时兼容新版按钮组和历史兜底节点。
  *
  * 输入：
  * @param {import("playwright").Page} page - 当前场景对应的 Playwright 页面。
@@ -56,7 +56,7 @@ async function waitForResultOverlay(page, timeoutMs) {
  *
  * 注意：
  * - 只有按钮真实可见时才优先点击，避免误点隐藏节点。
- * - 回退到 `select` 的逻辑不能删，mobile 仍然依赖它。
+ * - 回退到 `select` 的逻辑不能删，隐藏镜像节点仍是最后兜底。
  */
 async function setScenarioPaceToInstant(page, scenario) {
   if (scenario.paceButtonSelector) {

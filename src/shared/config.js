@@ -369,6 +369,7 @@ const dom = {
   trickLabel: document.getElementById("trickLabel"),
   defenderScore: document.getElementById("defenderScore"),
   turnTimer: document.getElementById("turnTimer"),
+  topbarDifficulty: document.getElementById("topbarDifficulty"),
   timerHint: document.getElementById("timerHint"),
   logList: document.getElementById("logList"),
   actionHint: document.getElementById("actionHint"),

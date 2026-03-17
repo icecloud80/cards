@@ -1172,6 +1172,36 @@ function startAwaitingHumanDeclaration() {
   }, 1000);
 }
 
+/**
+ * 作用：
+ * 处理玩家1在补亮等待窗口里主动选择“不亮”的操作。
+ *
+ * 为什么这样写：
+ * 之前补亮阶段只能等待 15 秒超时或直接亮主，缺少一个明确的“我决定不亮”入口；
+ * 把这条跳过动作收成独立 helper 后，PC 和 mobile 都可以复用同一条流程，
+ * 并且能在点击后立刻进入翻底定主，而不是继续被迫等倒计时走完。
+ *
+ * 输入：
+ * @param {number} playerId - 当前尝试执行“不亮”的玩家 ID。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示本次点击已成功结束补亮等待；否则返回 `false`。
+ *
+ * 注意：
+ * - 只允许在 `dealing + awaitingHumanDeclaration` 且玩家1本人操作时生效。
+ * - 这里不会生成新的亮主声明，而是直接沿用原有“无人亮主 -> 翻底定主”流程。
+ */
+function passDeclarationForPlayer(playerId) {
+  if (state.gameOver || state.phase !== "dealing" || !state.awaitingHumanDeclaration || playerId !== 1) {
+    return false;
+  }
+
+  clearTimers();
+  appendLog(TEXT.log.passDeclare(getPlayer(playerId).name));
+  finishDealingPhase();
+  return true;
+}
+
 // 开始翻底展示阶段。
 function startBottomRevealPhase() {
   clearTimers();

@@ -249,6 +249,9 @@ function assertModernSpriteAsset() {
   const spriteContent = fs.readFileSync(spritePath, "utf8");
   assert.match(spriteContent, /<svg[^>]+width="1170"[^>]+height="600"[^>]+viewBox="0 0 1170 600"/, "m_cards SVG sprite 应保持与 poker.png 对齐的整体尺寸");
   assert.doesNotMatch(spriteContent, /<svg[^>]+fill="none"/, "m_cards SVG sprite 根节点不能带 fill=none，否则黑色花色会被继承成透明");
+  assert.match(spriteContent, /<svg[^>]+data-card-id="hearts-3"[^>]+preserveAspectRatio="none"|<svg[^>]+preserveAspectRatio="none"[^>]+data-card-id="hearts-3"/, "新牌整图里的心 3 tile 应贴满卡格，避免手游小卡位里出现左右留白漂移");
+  assert.match(spriteContent, /<svg[^>]+data-card-id="joker-RJ"[^>]+preserveAspectRatio="none"|<svg[^>]+preserveAspectRatio="none"[^>]+data-card-id="joker-RJ"/, "大小王 tile 也应贴满卡格，避免最后一行在 mobile 上看起来比普通牌更窄");
+  assert.doesNotMatch(spriteContent, /preserveAspectRatio="xMidYMid meet"/, "m_cards SVG sprite 不应再保留会导致少数牌留边的 meet 缩放");
   assert.match(spriteContent, /<svg[^>]+x="0"[^>]+y="0"[^>]+data-card-id="hearts-A"/, "红桃 A 应位于首行首列");
   assert.match(spriteContent, /<svg[^>]+x="1080"[^>]+y="360"[^>]+data-card-id="clubs-K"/, "梅花 K 应位于第 4 行最后一列");
   assert.match(spriteContent, /<svg[^>]+x="0"[^>]+y="480"[^>]+data-card-id="joker-RJ"/, "红王应位于最后一行首列");

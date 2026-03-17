@@ -409,8 +409,15 @@ dom.hintBtn.addEventListener("click", () => {
 dom.setupOptions?.addEventListener("click", (event) => {
   const passButton = event.target.closest("button[data-setup-pass]");
   if (passButton) {
-    if (state.gameOver || !isPcDirectCounterChoiceMode()) return;
-    passCounterForCurrentPlayer();
+    if (state.gameOver) return;
+    if (passButton.dataset.setupPass === "counter") {
+      if (!isPcDirectCounterChoiceMode()) return;
+      passCounterForCurrentPlayer();
+      return;
+    }
+    if (passButton.dataset.setupPass === "declare") {
+      passDeclarationForPlayer(1);
+    }
     return;
   }
 

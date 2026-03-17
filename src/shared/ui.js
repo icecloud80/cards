@@ -809,6 +809,34 @@ function syncIconButtonLabel(button, label) {
   }
 }
 
+/**
+ * 作用：
+ * 把当前 AI 难度转换成顶栏紧凑短标签。
+ *
+ * 为什么这样写：
+ * 手游顶栏已经稳定使用 `初 / 中 / 高` 这组短写；
+ * PC 这次补入难度信息时直接复用同一套缩写，能让两端顶部状态阅读方式保持一致，
+ * 同时避免完整“初级 / 中级 / 高级”把桌面顶栏左侧统计撑得过宽。
+ *
+ * 输入：
+ * @param {string} value - 当前 AI 难度键值。
+ *
+ * 输出：
+ * @returns {string} 顶栏应显示的紧凑难度短标签。
+ *
+ * 注意：
+ * - 非法值必须回退到 `初`，避免顶栏出现空白。
+ * - 这里只负责顶栏短标签，不替代日志和设置页里的完整难度文案。
+ */
+function getCompactAiDifficultyLabel(value) {
+  return ({
+    beginner: "初",
+    intermediate: "中",
+    advanced: "高",
+    master: "师",
+  })[value] || "初";
+}
+
 // 渲染顶部信息栏和阶段信息。
 function renderHud() {
   dom.phaseLabel.textContent = state.gameOver
@@ -865,6 +893,12 @@ function renderHud() {
 function renderScorePanel() {
   const visibleDefenderPoints = getVisibleDefenderPoints();
   dom.defenderScore.textContent = visibleDefenderPoints === null ? "--" : String(visibleDefenderPoints);
+  if (dom.topbarDifficulty) {
+    const difficultyLabel = typeof getAiDifficultyLogLabel === "function" ? getAiDifficultyLogLabel() : "初级";
+    dom.topbarDifficulty.textContent = getCompactAiDifficultyLabel(state.aiDifficulty);
+    dom.topbarDifficulty.title = `AI难度：${difficultyLabel}`;
+    dom.topbarDifficulty.setAttribute("aria-label", `AI难度：${difficultyLabel}`);
+  }
   syncIconButtonLabel(dom.toggleLastTrickBtn, state.showLastTrick ? TEXT.buttons.toggleLastTrickClose : TEXT.buttons.toggleLastTrickOpen);
   syncIconButtonLabel(dom.newGameBtn, "重置本局");
   if (dom.toggleCardFaceBtn) {
@@ -2228,31 +2262,31 @@ function shouldUseDirectSetupChoiceMode(options) {
 
 /**
  * 作用：
- * 生成 PC 最后反主阶段使用的“放弃反主”直选按钮 HTML。
+ * 生成亮主 / 反主候选区里使用的“跳过当前动作”按钮 HTML。
  *
  * 为什么这样写：
- * 现在 PC 最后反主不再走上方“先选再确认”的旧流程，
- * 需要把“不反主”并到下方候选区里，和 2 王 / 3 王等方案并列展示；
- * 单独封装后，候选列表渲染可以保持统一结构。
+ * 现在最后反主已经把“不反主”并进了下方直选区，而补亮等待窗口也需要一个明确的“不亮”入口；
+ * 用一个通用 helper 统一生成“跳过”按钮，能让不同阶段共用同一套 DOM 结构和事件绑定。
  *
  * 输入：
- * @param {void} - 不依赖额外输入，直接使用固定文案。
+ * @param {"counter"|"declare"} passMode - 当前要生成哪种跳过动作按钮。
  *
  * 输出：
  * @returns {string} 可直接拼进 `setupOptions` 的按钮 HTML 字符串。
  *
  * 注意：
- * - 这里只服务于 PC 最后反主直选模式。
- * - 不要复用旧 `passCounterBtn`，避免又把上方旧流程带回来。
+ * - `counter` 对应“不反主”，`declare` 对应“不亮”。
+ * - 不要复用上方旧按钮，避免把已收起的旧流程重新带回界面。
  */
-function buildPcCounterPassOptionButtonHtml() {
+function buildSetupPassOptionButtonHtml(passMode) {
+  const label = passMode === "counter" ? TEXT.buttons.counterPass : TEXT.buttons.passDeclare;
   return `
     <button
       type="button"
       class="setup-option-btn setup-option-pass-btn"
-      data-setup-pass="true"
-      aria-label="${TEXT.buttons.passCounter}"
-    >${TEXT.buttons.passCounter}</button>
+      data-setup-pass="${passMode}"
+      aria-label="${label}"
+    >${label}</button>
   `;
 }
 
@@ -2279,8 +2313,9 @@ function buildPcCounterPassOptionButtonHtml() {
 function renderSetupOptions(options, selectedOption) {
   if (!dom.setupOptions) return;
   const normalizedOptions = Array.isArray(options) ? options : [];
-  const pcCounterPassOnly = APP_PLATFORM === "pc" && state.phase === "countering" && state.currentTurnId === 1;
-  if (normalizedOptions.length === 0 && !pcCounterPassOnly) {
+  const showCounterPassChoice = APP_PLATFORM === "pc" && state.phase === "countering" && state.currentTurnId === 1;
+  const showDeclarePassChoice = state.phase === "dealing" && state.awaitingHumanDeclaration;
+  if (normalizedOptions.length === 0 && !showCounterPassChoice && !showDeclarePassChoice) {
     dom.setupOptions.hidden = true;
     dom.setupOptions.innerHTML = "";
     return;
@@ -2289,7 +2324,6 @@ function renderSetupOptions(options, selectedOption) {
   const isDealingPhase = state.phase === "dealing";
   const selectedKey = getSetupOptionKey(selectedOption);
   const directChoiceMode = shouldUseDirectSetupChoiceMode(normalizedOptions);
-  const appendPassChoice = pcCounterPassOnly;
   dom.setupOptions.hidden = false;
   dom.setupOptions.innerHTML = `
     ${isDealingPhase
@@ -2309,7 +2343,8 @@ function renderSetupOptions(options, selectedOption) {
         >${actionLabel}</button>
       `;
     }).join("")}
-    ${appendPassChoice ? buildPcCounterPassOptionButtonHtml() : ""}
+    ${showCounterPassChoice ? buildSetupPassOptionButtonHtml("counter") : ""}
+    ${showDeclarePassChoice ? buildSetupPassOptionButtonHtml("declare") : ""}
   `;
 }
 

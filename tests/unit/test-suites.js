@@ -90,6 +90,11 @@ const UNIT_TEST_SUITES = [
     name: "Start lobby regression",
     file: path.join(__dirname, "check-start-lobby.js"),
   },
+  // 锁住 PC 开始页和手游开始页共用同一套主视觉插画，避免桌面端回退到旧静态图。
+  {
+    name: "PC start lobby hero regression",
+    file: path.join(__dirname, "check-pc-start-lobby-hero.js"),
+  },
   {
     name: "Round reset button regression",
     file: path.join(__dirname, "check-round-reset-button.js"),
@@ -135,6 +140,10 @@ const UNIT_TEST_SUITES = [
   {
     name: "PC compact UI regression",
     file: path.join(__dirname, "check-hand-panel-snapshot.js"),
+  },
+  {
+    name: "PC topbar difficulty regression",
+    file: path.join(__dirname, "check-pc-topbar-difficulty.js"),
   },
   {
     name: "PC friend retarget UI regression",

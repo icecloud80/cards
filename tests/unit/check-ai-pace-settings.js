@@ -319,8 +319,10 @@ function main() {
 
   assert(pcHtml.includes('id="aiPaceSelect"'), "PC 开始界面应提供节奏选择");
   assert(pcHtml.includes('id="menuAiPaceSelect"'), "PC 更多菜单应提供节奏选择");
-  assert(mobileHtml.includes('id="mobileAiPaceSelect"'), "手游开始页应提供节奏选择");
-  assert(mobileHtml.includes('id="mobileMenuAiPaceSelect"'), "手游设置菜单应提供节奏选择");
+  assert(mobileHtml.includes('id="mobileAiPaceButtons"'), "手游开始页应提供和 PC 一样的节奏按钮组");
+  assert(mobileHtml.includes('id="mobileMenuAiPaceButtons"'), "手游设置页应提供和 PC 一样的节奏按钮组");
+  assert(mobileHtml.includes('id="mobileAiPaceSelect"'), "手游开始页应保留隐藏节奏镜像节点");
+  assert(mobileHtml.includes('id="mobileMenuAiPaceSelect"'), "手游设置页应保留隐藏节奏镜像节点");
   assert(mobileHtml.includes('id="aiPaceSelect"'), "手游壳层应保留共享节奏选择镜像节点");
 }
 

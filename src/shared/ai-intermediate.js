@@ -1124,6 +1124,9 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
       structureControlPenalty: typeof entry.structureControlPenalty === "number"
         ? entry.structureControlPenalty
         : null,
+      riskyPointLeadVetoPenalty: typeof entry.riskyPointLeadVetoPenalty === "number"
+        ? entry.riskyPointLeadVetoPenalty
+        : null,
       rolloutScore: typeof entry.rolloutScore === "number" ? entry.rolloutScore : null,
       rolloutFutureDelta: typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : null,
       rolloutDepth: entry.rolloutDepth ?? 0,
@@ -1165,6 +1168,9 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
       : null,
     selectedStructureControlPenalty: typeof bestEntry?.structureControlPenalty === "number"
       ? bestEntry.structureControlPenalty
+      : null,
+    selectedRiskyPointLeadVetoPenalty: typeof bestEntry?.riskyPointLeadVetoPenalty === "number"
+      ? bestEntry.riskyPointLeadVetoPenalty
       : null,
     selectedRolloutTriggerFlags: Array.isArray(bestEntry?.rolloutTriggerFlags) ? [...bestEntry.rolloutTriggerFlags] : [],
     selectedCards: cloneCardsForSimulation(bestEntry?.cards || []),
@@ -1433,6 +1439,74 @@ function scoreIntermediateStructureControlPenalty(entry, objective = null) {
   return penalty;
 }
 
+/**
+ * 作用：
+ * 对“控制目标下仍主动领高分高张”的首发候选追加更硬的否决惩罚。
+ *
+ * 为什么这样写：
+ * 当前 `dangerousPointLeadPenalty` 已经能在 heuristic 阶段识别高风险带分领牌，
+ * 但它还不够像路线图要求的“硬否决”。
+ * 真正的问题通常出现在 rollout 之后：
+ * 候选虽然短期看似顺手，但未来两拍已经暴露出 `turn_access_risk / point_run_risk`，
+ * 这时如果 objective 又是 `clear_trump / keep_control` 一类控制型目标，就不应该继续让高分高张领牌靠近榜首。
+ *
+ * 输入：
+ * @param {object|null} entry - 已带有 heuristic 与 rollout 结果的首发候选条目。
+ * @param {object|null} objective - 当前首发局面的目标配置。
+ *
+ * 输出：
+ * @returns {number} 返回应从候选总分里额外扣除的否决惩罚。
+ *
+ * 注意：
+ * - 这里只针对“已经被识别为危险带分领牌”的候选，不影响普通低分探路。
+ * - 若 rollout 明确给出下一拍续控收益，例如 `turn_access_hold` 或较高 `futureDelta`，惩罚会显著降低。
+ * - 该惩罚只用于首发排序，不改变合法性和规则结算。
+ */
+function scoreIntermediateRiskyPointLeadVetoPenalty(entry, objective = null) {
+  if (!entry || !Array.isArray(entry.cards) || entry.cards.length === 0) return 0;
+  const dangerousPointLeadPenalty = typeof entry.dangerousPointLeadPenalty === "number"
+    ? entry.dangerousPointLeadPenalty
+    : 0;
+  if (dangerousPointLeadPenalty <= 0) return 0;
+
+  const comboPoints = getComboPointValue(entry.cards);
+  if (comboPoints <= 0) return 0;
+
+  const primary = objective?.primary || null;
+  const secondary = objective?.secondary || null;
+  const controlFocusedObjectives = new Set(["keep_control", "clear_trump", "pressure_void", "protect_bottom", "grade_bottom"]);
+  const controlFocused = controlFocusedObjectives.has(primary) || controlFocusedObjectives.has(secondary);
+  if (!controlFocused) return 0;
+
+  const pattern = classifyPlay(entry.cards);
+  const triggerFlags = Array.isArray(entry.rolloutTriggerFlags) ? entry.rolloutTriggerFlags : [];
+  const hasTurnAccessRisk = triggerFlags.includes("turn_access_risk");
+  const hasPointRunRisk = triggerFlags.includes("point_run_risk");
+  const hasSafeAccessHold = triggerFlags.includes("turn_access_hold");
+  const futureDelta = typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : 0;
+  const futureBreakdown = entry.rolloutFutureEvaluation?.breakdown || {};
+  const carriesHighPointHonor = entry.cards.some((card) => ["10", "K", "A"].includes(card.rank) && scoreValue(card) > 0);
+  const explicitControlGain = hasSafeAccessHold || futureDelta >= 12;
+  let penalty = Math.min(54, Math.round(dangerousPointLeadPenalty * 0.85));
+
+  if (pattern.type === "single") penalty += 16;
+  if (pattern.type === "pair") penalty += 24;
+  if (carriesHighPointHonor) penalty += 18;
+  if (primary === "clear_trump") penalty += 10;
+  if (primary === "keep_control" || secondary === "keep_control") penalty += 8;
+  if (isFriendTeamResolved()) penalty += 10;
+  if (hasTurnAccessRisk) penalty += 22;
+  if (hasPointRunRisk) penalty += 24;
+  if (hasTurnAccessRisk && hasPointRunRisk) penalty += 18;
+  if ((futureBreakdown.turnAccess || 0) <= 0) penalty += 12;
+  if ((futureBreakdown.safeLead || 0) < 0) penalty += 8;
+  if ((futureBreakdown.pointRunRisk || 0) <= -12) penalty += 12;
+  if (!explicitControlGain) penalty += 18;
+  if (explicitControlGain) penalty -= 26;
+
+  return Math.max(0, penalty);
+}
+
 function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginnerChoice, baselineEvaluation = null) {
   if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return [];
   const baseEvaluation = baselineEvaluation || evaluateState(
@@ -1463,10 +1537,12 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
         rolloutFutureEvaluation: rollout.futureEvaluation,
       };
       const structureControlPenalty = scoreIntermediateStructureControlPenalty(rolloutEntry, baseEvaluation?.objective);
+      const riskyPointLeadVetoPenalty = scoreIntermediateRiskyPointLeadVetoPenalty(rolloutEntry, baseEvaluation?.objective);
       return {
         ...rolloutEntry,
         structureControlPenalty,
-        score: heuristicScore + rollout.score - structureControlPenalty,
+        riskyPointLeadVetoPenalty,
+        score: heuristicScore + rollout.score - structureControlPenalty - riskyPointLeadVetoPenalty,
       };
     })
     .sort((a, b) => {

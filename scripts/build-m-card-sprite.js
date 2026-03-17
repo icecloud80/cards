@@ -234,6 +234,9 @@ function buildSpriteTiles() {
  * 为什么这样写：
  * 每张牌都需要落在自己的网格坐标上，同时保持原始 SVG 内容完整；
  * 使用嵌套 `<svg>` 能让每个牌面保留自己的视窗，再统一被拉伸进 sprite 的固定格子里。
+ * 这里显式改成铺满卡格，而不是继续使用 `meet` 留边，
+ * 是为了把 `579x800` 这类略窄于标准牌比例的素材也压到和其它牌同一口径，
+ * 避免 mobile 小卡位里出现“少数牌比其它牌更瘦、更偏”的对齐漂移。
  *
  * 输入：
  * @param {{cardId: string, ariaLabel: string, column: number, row: number, viewBox: string, innerMarkup: string}} tile - 当前要输出的单个牌格数据。
@@ -242,11 +245,11 @@ function buildSpriteTiles() {
  * @returns {string} 可直接拼进整图文件的 SVG 片段。
  *
  * 注意：
- * - 这里显式使用 `xMidYMid meet`，让已经裁好的牌面在牌格里保持自然比例。
+ * - 这里显式使用 `preserveAspectRatio="none"`，优先保证所有 tile 都贴满统一卡格，不再为窄画布保留额外边距。
  * - `data-card-id` 会保留下来，方便测试直接定位关键牌位。
  */
 function buildTileMarkup(tile) {
-  return `  <svg x="${tile.column * CELL_WIDTH}" y="${tile.row * CELL_HEIGHT}" width="${CELL_WIDTH}" height="${CELL_HEIGHT}" viewBox="${tile.viewBox}" preserveAspectRatio="xMidYMid meet" data-card-id="${tile.cardId}" aria-label="${tile.ariaLabel}">\n${tile.innerMarkup}\n  </svg>`;
+  return `  <svg x="${tile.column * CELL_WIDTH}" y="${tile.row * CELL_HEIGHT}" width="${CELL_WIDTH}" height="${CELL_HEIGHT}" viewBox="${tile.viewBox}" preserveAspectRatio="none" data-card-id="${tile.cardId}" aria-label="${tile.ariaLabel}">\n${tile.innerMarkup}\n  </svg>`;
 }
 
 /**

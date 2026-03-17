@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1170" height="600" viewBox="0 0 1170 600">
   <title>m_cards SVG sprite sheet</title>
   <desc>Generated from the m_cards single-card SVG assets using the same 13x5 layout as poker.png.</desc>
-  <svg x="0" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-A" aria-label="hearts-A">
+  <svg x="0" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-A" aria-label="hearts-A">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -18,7 +18,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="90" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-2" aria-label="hearts-2">
+  <svg x="90" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-2" aria-label="hearts-2">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -37,14 +37,14 @@
 	</g>
 </g>
   </svg>
-  <svg x="180" y="0" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-3" aria-label="hearts-3">
+  <svg x="180" y="0" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="none" data-card-id="hearts-3" aria-label="hearts-3">
 <rect width="579" height="800" fill="#F5F5F5"/>
 <path d="M554.723 0H30.5859C15.3453 0 3 12.3453 3 27.5859V772.414C3 787.655 15.3453 800 30.5859 800H554.723C569.964 800 582.309 787.655 582.309 772.414V27.5859C582.309 12.3453 569.966 0 554.723 0Z" fill="#E6EEF4"/>
 <path d="M85.7594 151.723C116.233 151.723 140.931 127.023 140.931 96.5515C140.931 66.0796 116.231 41.3796 85.7594 41.3796C79.4187 41.3796 73.2219 42.4515 67.3562 44.5312C59.15 47.4203 52.0031 52.375 45.1656 59.2125C39.7797 64.5984 39.7797 73.3328 45.1656 78.7187C50.5516 84.1046 59.2859 84.1046 64.6719 78.7187C68.8156 74.575 72.6609 71.9093 76.5469 70.5406C79.4891 69.4968 82.5687 68.9656 85.7594 68.9656C100.997 68.9656 113.345 81.314 113.345 96.5515C113.345 111.789 100.997 124.137 85.7594 124.137H72.0078C64.3906 124.137 58.214 130.312 58.214 137.931C58.214 145.548 64.3891 151.725 72.0078 151.725L85.7594 151.723Z" fill="#D71E00"/>
 <path d="M85.7625 234.48C116.236 234.48 140.934 209.78 140.934 179.308C140.934 148.836 116.234 124.136 85.7625 124.136H71.9688C64.3516 124.136 58.175 130.311 58.175 137.93C58.175 145.547 64.35 151.723 71.9688 151.723H85.7625C101 151.723 113.348 164.072 113.348 179.309C113.348 194.547 101 206.895 85.7625 206.895C78.25 206.895 71.0031 203.484 64.7156 197.197C59.3297 191.811 50.5953 191.811 45.2094 197.197C39.8234 202.583 39.8234 211.317 45.2094 216.703C56.3812 227.875 70.4172 234.48 85.7625 234.48Z" fill="#D71E00"/>
 <path d="M293.437 371.967C308.292 334.133 339.726 303.002 379.188 303.002C412.403 303.002 442.002 318.616 461.948 344.381C486.968 376.713 504.651 448.684 449.893 503.444C422.113 531.222 293.437 661.622 293.437 661.622C293.437 661.622 164.76 531.222 136.982 503.442C82.2228 448.683 99.9056 376.711 124.928 344.38C144.873 318.614 174.473 303 207.687 303C247.148 303.002 278.582 334.133 293.437 371.967Z" fill="#D71E00"/>
   </svg>
-  <svg x="270" y="0" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-4" aria-label="hearts-4">
+  <svg x="270" y="0" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="none" data-card-id="hearts-4" aria-label="hearts-4">
 <rect width="579" height="800" fill="#F5F5F5"/>
 <path d="M551.723 0H27.5859C12.3453 0 0 12.3453 0 27.5859V772.414C0 787.655 12.3453 800 27.5859 800H551.723C566.964 800 579.309 787.655 579.309 772.414V27.5859C579.309 12.3453 566.966 0 551.723 0Z" fill="#E6EEF4"/>
 <path d="M44.1375 157.241C39.5672 163.334 40.8015 171.98 46.8968 176.551C52.9906 181.122 61.6359 179.887 66.2078 173.792L148.967 63.4468C153.537 57.353 152.303 48.7077 146.208 44.1358C140.114 39.5655 131.469 40.7999 126.897 46.8952L44.1375 157.241Z" fill="#D71E00"/>
@@ -53,7 +53,7 @@
 <path d="M165.517 234.483C173.134 234.483 179.311 228.308 179.311 220.689C179.311 213.07 173.136 206.895 165.517 206.895H110.345C102.728 206.895 96.5516 213.07 96.5516 220.689C96.5516 228.308 102.727 234.483 110.345 234.483H165.517Z" fill="#D71E00"/>
 <path d="M290.437 371.967C305.292 334.133 336.726 303.002 376.188 303.002C409.403 303.002 439.002 318.616 458.948 344.381C483.968 376.713 501.651 448.684 446.893 503.444C419.113 531.222 290.437 661.622 290.437 661.622C290.437 661.622 161.76 531.222 133.982 503.442C79.2228 448.683 96.9056 376.711 121.928 344.38C141.873 318.614 171.473 303 204.687 303C244.148 303.002 275.582 334.133 290.437 371.967Z" fill="#D71E00"/>
   </svg>
-  <svg x="360" y="0" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-5" aria-label="hearts-5">
+  <svg x="360" y="0" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="none" data-card-id="hearts-5" aria-label="hearts-5">
 <rect width="579" height="800" fill="#F5F5F5"/>
 <path d="M551.723 0H27.5859C12.3453 0 0 12.3453 0 27.5859V772.414C0 787.655 12.3453 800 27.5859 800H551.723C566.964 800 579.309 787.655 579.309 772.414V27.5859C579.309 12.3453 566.966 0 551.723 0Z" fill="#E6EEF4"/>
 <path d="M124.137 68.9657C131.755 68.9657 137.931 62.7907 137.931 55.1719C137.931 47.5532 131.756 41.3782 124.137 41.3782H55.1719C47.5547 41.3782 41.3781 47.5532 41.3781 55.1719C41.3781 62.7907 47.5531 68.9657 55.1719 68.9657H124.137Z" fill="#D71E00"/>
@@ -61,7 +61,7 @@
 <path d="M87.3656 209.963C118.68 209.963 144.069 184.574 144.069 153.26C144.069 121.945 118.68 96.5564 87.3656 96.5564C70.889 96.5564 55.514 103.639 44.8297 115.749C39.789 121.461 40.3344 130.177 46.0469 135.217C51.7594 140.258 60.475 139.713 65.5156 134C71.014 127.769 78.8844 124.144 87.3656 124.144C103.444 124.144 116.483 137.183 116.483 153.261C116.483 169.339 103.444 182.378 87.3656 182.378C78.8844 182.378 71.0234 178.75 65.5156 172.508C60.475 166.795 51.7594 166.252 46.0469 171.291C40.3344 176.331 39.7906 185.047 44.8297 190.76C55.5187 202.874 70.8828 209.963 87.3656 209.963Z" fill="#D71E00"/>
 <path d="M290.437 371.967C305.292 334.133 336.726 303.002 376.188 303.002C409.403 303.002 439.002 318.616 458.948 344.381C483.968 376.713 501.651 448.684 446.893 503.444C419.113 531.222 290.437 661.622 290.437 661.622C290.437 661.622 161.76 531.222 133.982 503.442C79.2228 448.683 96.9056 376.711 121.928 344.38C141.873 318.614 171.473 303 204.687 303C244.148 303.002 275.582 334.133 290.437 371.967Z" fill="#D71E00"/>
   </svg>
-  <svg x="450" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-6" aria-label="hearts-6">
+  <svg x="450" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-6" aria-label="hearts-6">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -79,7 +79,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="540" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-7" aria-label="hearts-7">
+  <svg x="540" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-7" aria-label="hearts-7">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -98,7 +98,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="630" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-8" aria-label="hearts-8">
+  <svg x="630" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-8" aria-label="hearts-8">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -116,7 +116,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="720" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-9" aria-label="hearts-9">
+  <svg x="720" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-9" aria-label="hearts-9">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -134,7 +134,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="810" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-10" aria-label="hearts-10">
+  <svg x="810" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-10" aria-label="hearts-10">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -153,7 +153,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="900" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-J" aria-label="hearts-J">
+  <svg x="900" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-J" aria-label="hearts-J">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -170,7 +170,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="990" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-Q" aria-label="hearts-Q">
+  <svg x="990" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-Q" aria-label="hearts-Q">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -187,7 +187,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="1080" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="hearts-K" aria-label="hearts-K">
+  <svg x="1080" y="0" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="hearts-K" aria-label="hearts-K">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -205,7 +205,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="0" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-A" aria-label="diamonds-A">
+  <svg x="0" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-A" aria-label="diamonds-A">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -219,7 +219,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="90" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-2" aria-label="diamonds-2">
+  <svg x="90" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-2" aria-label="diamonds-2">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0L423.724,0z"/>
@@ -235,7 +235,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="180" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-3" aria-label="diamonds-3">
+  <svg x="180" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-3" aria-label="diamonds-3">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -253,7 +253,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="270" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-4" aria-label="diamonds-4">
+  <svg x="270" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-4" aria-label="diamonds-4">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -270,7 +270,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="360" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-5" aria-label="diamonds-5">
+  <svg x="360" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-5" aria-label="diamonds-5">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -288,7 +288,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="450" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-6" aria-label="diamonds-6">
+  <svg x="450" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-6" aria-label="diamonds-6">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -303,7 +303,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="540" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-7" aria-label="diamonds-7">
+  <svg x="540" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-7" aria-label="diamonds-7">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -319,7 +319,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="630" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-8" aria-label="diamonds-8">
+  <svg x="630" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-8" aria-label="diamonds-8">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -334,7 +334,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="720" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-9" aria-label="diamonds-9">
+  <svg x="720" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-9" aria-label="diamonds-9">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -350,7 +350,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="810" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-10" aria-label="diamonds-10">
+  <svg x="810" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-10" aria-label="diamonds-10">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -364,7 +364,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="900" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-J" aria-label="diamonds-J">
+  <svg x="900" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-J" aria-label="diamonds-J">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -378,7 +378,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="990" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-Q" aria-label="diamonds-Q">
+  <svg x="990" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-Q" aria-label="diamonds-Q">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -392,7 +392,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="1080" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="diamonds-K" aria-label="diamonds-K">
+  <svg x="1080" y="120" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="diamonds-K" aria-label="diamonds-K">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -407,7 +407,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="0" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-A" aria-label="spades-A">
+  <svg x="0" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-A" aria-label="spades-A">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -424,7 +424,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="90" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-2" aria-label="spades-2">
+  <svg x="90" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-2" aria-label="spades-2">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -443,7 +443,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="180" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-3" aria-label="spades-3">
+  <svg x="180" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-3" aria-label="spades-3">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -463,7 +463,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="270" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-4" aria-label="spades-4">
+  <svg x="270" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-4" aria-label="spades-4">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -483,7 +483,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="360" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-5" aria-label="spades-5">
+  <svg x="360" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-5" aria-label="spades-5">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -504,7 +504,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="450" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-6" aria-label="spades-6">
+  <svg x="450" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-6" aria-label="spades-6">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -521,7 +521,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="540" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-7" aria-label="spades-7">
+  <svg x="540" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-7" aria-label="spades-7">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -540,7 +540,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="630" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-8" aria-label="spades-8">
+  <svg x="630" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-8" aria-label="spades-8">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -558,7 +558,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="720" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-9" aria-label="spades-9">
+  <svg x="720" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-9" aria-label="spades-9">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -577,7 +577,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="810" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-10" aria-label="spades-10">
+  <svg x="810" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-10" aria-label="spades-10">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -596,7 +596,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="900" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-J" aria-label="spades-J">
+  <svg x="900" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-J" aria-label="spades-J">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -613,7 +613,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="990" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-Q" aria-label="spades-Q">
+  <svg x="990" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-Q" aria-label="spades-Q">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -630,7 +630,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="1080" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="spades-K" aria-label="spades-K">
+  <svg x="1080" y="240" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="spades-K" aria-label="spades-K">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -648,7 +648,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="0" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-A" aria-label="clubs-A">
+  <svg x="0" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-A" aria-label="clubs-A">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -667,7 +667,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="90" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-2" aria-label="clubs-2">
+  <svg x="90" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-2" aria-label="clubs-2">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -688,7 +688,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="180" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-3" aria-label="clubs-3">
+  <svg x="180" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-3" aria-label="clubs-3">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -710,7 +710,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="270" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-4" aria-label="clubs-4">
+  <svg x="270" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-4" aria-label="clubs-4">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -732,7 +732,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="360" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-5" aria-label="clubs-5">
+  <svg x="360" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-5" aria-label="clubs-5">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -755,7 +755,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="450" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-6" aria-label="clubs-6">
+  <svg x="450" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-6" aria-label="clubs-6">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -774,7 +774,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="540" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-7" aria-label="clubs-7">
+  <svg x="540" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-7" aria-label="clubs-7">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -795,7 +795,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="630" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-8" aria-label="clubs-8">
+  <svg x="630" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-8" aria-label="clubs-8">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -815,7 +815,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="720" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-9" aria-label="clubs-9">
+  <svg x="720" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-9" aria-label="clubs-9">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -836,7 +836,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="810" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-10" aria-label="clubs-10">
+  <svg x="810" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-10" aria-label="clubs-10">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -855,7 +855,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="900" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-J" aria-label="clubs-J">
+  <svg x="900" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-J" aria-label="clubs-J">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -874,7 +874,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="990" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-Q" aria-label="clubs-Q">
+  <svg x="990" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-Q" aria-label="clubs-Q">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -893,7 +893,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="1080" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="clubs-K" aria-label="clubs-K">
+  <svg x="1080" y="360" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="clubs-K" aria-label="clubs-K">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>
@@ -913,7 +913,7 @@
 	</g>
 </g>
   </svg>
-  <svg x="0" y="480" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="xMidYMid meet" data-card-id="joker-RJ" aria-label="红王">
+  <svg x="0" y="480" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="none" data-card-id="joker-RJ" aria-label="红王">
 <rect width="579" height="800" fill="#F5F5F5"/>
 <path d="M551.723 0H27.5859C12.3453 0 0 12.3453 0 27.5859V772.414C0 787.655 12.3453 800 27.5859 800H551.723C566.964 800 579.309 787.655 579.309 772.414V27.5859C579.309 12.3453 566.966 0 551.723 0Z" fill="#E6EEF4"/>
 <path d="M17.6785 19.4996H28.7978V24.0686C25.8576 24.1881 23.6878 24.6929 22.3154 25.5961C20.9314 26.5059 20.2472 27.8805 20.2472 29.6935C20.2472 32.0045 21.4162 33.6181 23.7581 34.5345C26.0962 35.451 30.4867 35.896 36.9222 35.896H99.4154V28.0067H105.159V56.6489H99.4154V49.8022H36.5468C28.8954 49.8022 23.3124 48.348 19.7858 45.4326C16.267 42.5239 14.4999 37.855 14.4999 31.4532C14.4999 29.4676 14.7658 27.4953 15.2936 25.5229C15.8292 23.5373 16.6268 21.5384 17.6785 19.4996ZM33.3174 91.3213C33.3174 82.3296 36.5663 75.2835 43.0526 70.1766C49.539 65.0698 58.4842 62.5128 69.8852 62.5128C81.2861 62.5128 90.2353 65.0765 96.7412 70.1766C103.247 75.2768 106.5 82.3296 106.5 91.3213C106.5 100.359 103.255 107.432 96.7646 112.539C90.2822 117.653 81.3174 120.203 69.8852 120.203C58.4842 120.203 49.5351 117.633 43.0526 112.499C36.5624 107.366 33.3174 100.306 33.3174 91.3213ZM39.0609 91.3213C39.0609 95.9101 41.5942 99.3168 46.6574 101.528C51.7283 103.74 59.4695 104.849 69.8852 104.849C80.3321 104.849 88.0888 103.74 93.1598 101.528C98.223 99.3168 100.757 95.9101 100.757 91.3213C100.757 86.7789 98.1996 83.412 93.0817 81.194C87.9716 78.9759 80.2383 77.8735 69.8813 77.8735C59.5556 77.8735 51.8379 78.9759 46.7278 81.194C41.6177 83.4054 39.0609 86.7789 39.0609 91.3213ZM34.6624 126.817H40.4057V133.664H99.4193V126.817H105.163V154.211H99.4193V147.364H73.709L99.4193 170.023V164.318H105.163V184.227H99.4193V177.082L77.6694 157.896L40.4057 184.055V189.281H34.6624L34.6624 171.158L68.8961 147.357H40.4057V154.204H34.6624V126.817ZM34.6624 190.569H40.4057V197.416H99.4193L99.4193 190.569H105.163L105.163 238.509H88.5464V233.529H98.6882V211.116H76.0861L76.0861 225.022H85.0042V230.003H60.6896V225.022H69.6076L69.6076 211.116H41.1407V234.153H51.2826V239.134H34.6663L34.6624 190.569ZM69.0408 282.126C68.6342 284.204 67.7114 285.971 66.2687 287.432C64.826 288.893 62.7422 290.155 60.0131 291.217L40.4019 298.96V304.499H34.6585V286.914L55.9548 278.327C60.3533 276.641 63.1526 275.22 64.3608 274.057C65.5689 272.895 66.1787 271.295 66.1787 269.243V267.012H40.3979V273.858H34.6546V246.465H40.3979V253.312H99.4116V246.465H105.155V276.999C105.155 283.228 103.505 288.03 100.213 291.41C96.921 294.79 92.2489 296.483 86.2005 296.483C81.282 296.483 77.3958 295.275 74.5495 292.891C71.6993 290.493 69.8658 286.914 69.0408 282.126ZM71.8049 267.018V271.713C71.8049 275.1 73.0051 277.716 75.4018 279.589C77.7907 281.442 81.2116 282.378 85.657 282.378C90.1024 282.378 93.5117 281.449 95.8732 279.589C98.2347 277.73 99.4154 275.1 99.4154 271.713V267.018H71.8049Z" fill="#FF0000"/>
@@ -935,7 +935,7 @@
 <path d="M298.249 637.66C293.394 634.96 290.711 637.037 286.146 637.257C292.696 631.419 296.712 634.06 300.017 628.066C306.63 616.07 288.055 605.721 281.442 617.711C278.163 623.655 282.535 626.022 281.159 634.61C280.51 633.486 279.954 632.26 279.559 630.931C277.001 621.934 264.657 620.144 260.138 628.34C255.599 636.568 263.663 646.083 272.854 643.409C274.691 642.875 276.527 642.753 278.246 642.809C276.326 645.73 268.762 656.121 260.823 651.727L282.446 663.779C275.987 660.173 277.594 651.123 280.639 644.339C283.726 649.079 283.005 652.861 288.256 655.785C300.544 662.635 310.534 644.513 298.249 637.66ZM228.36 483.546C225.328 473.023 207.398 469.937 200.396 462.962C198.171 472.644 184.623 484.852 187.618 495.355C190.146 504.223 204.175 503.953 207.684 495.012C208.695 501.645 209.218 512.527 202.302 514.532L226.022 507.658C219.186 509.639 213.846 500.432 211.029 493.852C218.672 499.772 230.95 492.533 228.36 483.546Z" fill="black"/>
 <path d="M367.777 518.758C368.146 522.918 369.9 533.811 366.286 536.794C363.129 539.399 356.345 538.199 352.477 538.706C340.65 540.259 328.141 540.885 316.199 541.199C312.565 541.291 307.088 543.144 303.651 541.442C298.875 539.079 304.721 530.181 307.907 529.063C319.573 524.969 332.928 524.6 344.883 520.752C354.054 517.802 366.842 508.169 367.777 518.758Z" fill="#E6180A"/>
   </svg>
-  <svg x="90" y="480" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="xMidYMid meet" data-card-id="joker-BJ" aria-label="黑王">
+  <svg x="90" y="480" width="90" height="120" viewBox="0 0 579 800" preserveAspectRatio="none" data-card-id="joker-BJ" aria-label="黑王">
 <rect width="579" height="800" fill="#F5F5F5"/>
 <path d="M550.723 0H26.5859C11.3453 0 -1 12.3453 -1 27.5859V772.414C-1 787.655 11.3453 800 26.5859 800H550.723C565.964 800 578.309 787.655 578.309 772.414V27.5859C578.309 12.3453 565.966 0 550.723 0Z" fill="#E6EEF4"/>
 <path d="M16.6785 19.4996H27.7978V24.0686C24.8576 24.1881 22.6878 24.6929 21.3154 25.5961C19.9314 26.5059 19.2472 27.8805 19.2472 29.6935C19.2472 32.0045 20.4162 33.6181 22.7581 34.5345C25.0962 35.451 29.4867 35.896 35.9222 35.896H98.4154V28.0067H104.159V56.6489H98.4154V49.8022H35.5468C27.8954 49.8022 22.3124 48.348 18.7858 45.4326C15.267 42.5239 13.4999 37.855 13.4999 31.4532C13.4999 29.4676 13.7658 27.4953 14.2936 25.5229C14.8292 23.5373 15.6268 21.5384 16.6785 19.4996ZM32.3174 91.3213C32.3174 82.3296 35.5663 75.2835 42.0526 70.1766C48.539 65.0698 57.4842 62.5128 68.8852 62.5128C80.2861 62.5128 89.2353 65.0765 95.7412 70.1766C102.247 75.2768 105.5 82.3296 105.5 91.3213C105.5 100.359 102.255 107.432 95.7646 112.539C89.2822 117.653 80.3174 120.203 68.8852 120.203C57.4842 120.203 48.5351 117.633 42.0526 112.499C35.5624 107.366 32.3174 100.306 32.3174 91.3213ZM38.0609 91.3213C38.0609 95.9101 40.5942 99.3168 45.6574 101.528C50.7283 103.74 58.4695 104.849 68.8852 104.849C79.3321 104.849 87.0888 103.74 92.1598 101.528C97.223 99.3168 99.7565 95.9101 99.7565 91.3213C99.7565 86.7789 97.1996 83.412 92.0817 81.194C86.9716 78.9759 79.2383 77.8735 68.8813 77.8735C58.5556 77.8735 50.8379 78.9759 45.7278 81.194C40.6177 83.4054 38.0609 86.7789 38.0609 91.3213ZM33.6624 126.817H39.4057V133.664H98.4193V126.817H104.163V154.211H98.4193V147.364H72.709L98.4193 170.023V164.318H104.163V184.227H98.4193V177.082L76.6694 157.896L39.4057 184.055V189.281H33.6624L33.6624 171.158L67.8961 147.357H39.4057V154.204H33.6624V126.817ZM33.6624 190.569H39.4057V197.416H98.4193L98.4193 190.569H104.163L104.163 238.509H87.5464V233.529H97.6882V211.116H75.0861L75.0861 225.022H84.0042V230.003H59.6896V225.022H68.6076L68.6076 211.116H40.1407V234.153H50.2826V239.134H33.6663L33.6624 190.569ZM68.0408 282.126C67.6342 284.204 66.7114 285.971 65.2687 287.432C63.826 288.893 61.7422 290.155 59.0131 291.217L39.4019 298.96V304.499H33.6585V286.914L54.9548 278.327C59.3533 276.641 62.1526 275.22 63.3608 274.057C64.5689 272.895 65.1787 271.295 65.1787 269.243V267.012H39.3979V273.858H33.6546V246.465H39.3979V253.312H98.4116V246.465H104.155V276.999C104.155 283.228 102.505 288.03 99.213 291.41C95.921 294.79 91.2489 296.483 85.2005 296.483C80.282 296.483 76.3958 295.275 73.5495 292.891C70.6993 290.493 68.8658 286.914 68.0408 282.126ZM70.8049 267.018V271.713C70.8049 275.1 72.0051 277.716 74.4018 279.589C76.7907 281.442 80.2116 282.378 84.657 282.378C89.1024 282.378 92.5117 281.449 94.8732 279.589C97.2347 277.73 98.4154 275.1 98.4154 271.713V267.018H70.8049Z" fill="black"/>
@@ -964,7 +964,7 @@
 </clipPath>
 </defs>
   </svg>
-  <svg x="180" y="480" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="xMidYMid meet" data-card-id="back-red" aria-label="红背牌">
+  <svg x="180" y="480" width="90" height="120" viewBox="64 0 384 512" preserveAspectRatio="none" data-card-id="back-red" aria-label="红背牌">
 <g>
 	<path style="fill:#E6EEF4;" d="M423.724,0H88.276c-9.754,0-17.655,7.901-17.655,17.655v476.69c0,9.754,7.901,17.655,17.655,17.655
 		h335.448c9.754,0,17.655-7.901,17.655-17.655V17.655C441.379,7.901,433.479,0,423.724,0"/>

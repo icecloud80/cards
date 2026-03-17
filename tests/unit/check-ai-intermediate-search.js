@@ -394,6 +394,94 @@ function runIntermediateSearchSuite(context) {
     assert(riskyStructureEntry.structureControlPenalty > 0, "buildScoredIntermediateLeadEntries: risky structure leads should receive an explicit structureControlPenalty");
     assert(riskyStructureEntry.score < safeLeadEntry.score, "buildScoredIntermediateLeadEntries: structure leads that imply immediate control loss should rank below safer leads");
 
+    resetPositiveSafeLeadState();
+    state.bankerId = 3;
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    const riskyPointLead = [makeCard("point-risk-h-k", "hearts", "K")];
+    const saferLowLead = [makeCard("point-safe-c-3", "clubs", "3")];
+    const originalPointLeadScorer = scoreIntermediateLeadCandidate;
+    const originalPointRolloutSummary = getIntermediateRolloutSummary;
+    scoreIntermediateLeadCandidate = function mockedPointLeadScorer(playerId, combo, beginnerChoice, candidateEntry) {
+      if (getComboKey(combo) === getComboKey(riskyPointLead)) {
+        candidateEntry.dangerousPointLeadPenalty = 30;
+        return 52;
+      }
+      candidateEntry.dangerousPointLeadPenalty = 0;
+      return 30;
+    };
+    getIntermediateRolloutSummary = function mockedPointRolloutSummary(playerId, combo) {
+      if (getComboKey(combo) === getComboKey(riskyPointLead)) {
+        return {
+          score: 14,
+          delta: 0,
+          futureDelta: 2,
+          completed: true,
+          nextMode: "lead",
+          winnerId: 3,
+          points: 0,
+          trace: [],
+          depth: 2,
+          reachedOwnTurn: true,
+          futureTrace: [],
+          triggerFlags: ["turn_access_risk", "point_run_risk"],
+          nextEvaluation: {
+            total: 8,
+            breakdown: { turnAccess: 2, controlRisk: -8, safeLead: -2, pointRunRisk: -18 },
+            objective: { primary: "clear_trump", secondary: "keep_control" },
+          },
+          futureEvaluation: {
+            total: -10,
+            breakdown: { turnAccess: -6, controlRisk: -12, safeLead: -10, pointRunRisk: -28 },
+            objective: { primary: "clear_trump", secondary: "keep_control" },
+          },
+        };
+      }
+      return {
+        score: 10,
+        delta: 0,
+        futureDelta: 14,
+        completed: true,
+        nextMode: "lead",
+        winnerId: 3,
+        points: 0,
+        trace: [],
+        depth: 2,
+        reachedOwnTurn: true,
+        futureTrace: [],
+        triggerFlags: ["turn_access_hold"],
+        nextEvaluation: {
+          total: 16,
+          breakdown: { turnAccess: 8, controlRisk: -1, safeLead: 6, pointRunRisk: 0 },
+          objective: { primary: "clear_trump", secondary: "keep_control" },
+        },
+        futureEvaluation: {
+          total: 22,
+          breakdown: { turnAccess: 10, controlRisk: 0, safeLead: 8, pointRunRisk: 0 },
+          objective: { primary: "clear_trump", secondary: "keep_control" },
+        },
+      };
+    };
+    const pointLeadEntries = buildScoredIntermediateLeadEntries(
+      3,
+      [
+        { cards: riskyPointLead, source: "heuristic", tags: ["single", "hearts"] },
+        { cards: saferLowLead, source: "heuristic", tags: ["single", "clubs"] },
+      ],
+      [],
+      {
+        total: 0,
+        breakdown: {},
+        objective: { primary: "clear_trump", secondary: "keep_control", weights: {} },
+      }
+    );
+    scoreIntermediateLeadCandidate = originalPointLeadScorer;
+    getIntermediateRolloutSummary = originalPointRolloutSummary;
+    const riskyPointEntry = pointLeadEntries.find((entry) => getComboKey(entry.cards) === getComboKey(riskyPointLead));
+    const saferPointEntry = pointLeadEntries.find((entry) => getComboKey(entry.cards) === getComboKey(saferLowLead));
+    assert(riskyPointEntry.riskyPointLeadVetoPenalty > 0, "buildScoredIntermediateLeadEntries: dangerous point-carrying leads should receive an explicit riskyPointLeadVetoPenalty");
+    assert(riskyPointEntry.score < saferPointEntry.score, "buildScoredIntermediateLeadEntries: control-focused risky point leads should rank below safer low leads when rollout exposes control loss");
+
     globalThis.__intermediateSearchResults = {
       results: [
         "next-own-turn simulation isolation ok",
@@ -402,6 +490,7 @@ function runIntermediateSearchSuite(context) {
         "turn access risk extension ok",
         "evaluateState turn access breakdown ok",
         "structure lead control penalty ok",
+        "risky point lead veto penalty ok",
       ],
     };
   `;

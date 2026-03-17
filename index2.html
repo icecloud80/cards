@@ -3111,6 +3111,19 @@
         font-weight: 700;
       }
 
+      body.mobile-index2 .mobile-field-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      body.mobile-index2 .mobile-field-note {
+        color: rgba(120, 74, 24, 0.72);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
       body.mobile-index2 .mobile-setup-select {
         width: 100%;
         min-height: 42px;
@@ -3122,6 +3135,49 @@
         font-weight: 700;
         color: var(--text);
         background: rgba(255, 255, 255, 0.92);
+      }
+
+      body.mobile-index2 .mobile-hidden-select {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      body.mobile-index2 .mobile-segmented-choice {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      body.mobile-index2 .mobile-segmented-choice-btn {
+        min-height: 42px;
+        border: 1px solid rgba(120, 74, 24, 0.14);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.72);
+        color: rgba(22, 33, 41, 0.82);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, color 140ms ease;
+      }
+
+      body.mobile-index2 .mobile-segmented-choice-btn.active {
+        border-color: rgba(166, 109, 41, 0.22);
+        background: linear-gradient(180deg, rgba(247, 225, 184, 0.96), rgba(226, 187, 118, 0.94));
+        color: #7a4d16;
+        box-shadow: 0 10px 18px rgba(121, 78, 28, 0.14);
+      }
+
+      body.mobile-index2 .mobile-segmented-choice-btn:active {
+        transform: translateY(1px);
       }
 
       body.mobile-index2 .mobile-menu-field {
@@ -4042,13 +4098,14 @@
       <main class="table">
         <section id="mobileTopbar" class="mobile-topbar">
           <div class="mobile-topbar-main">
-            <div class="mobile-stat">
-              <span>总分</span>
-              <strong id="mobileScore">0</strong>
-            </div>
+            <!-- 把计时放到最左，先给当前动作时效，再读闲家总分。 -->
             <div class="mobile-stat">
               <span>计秒</span>
               <strong id="mobileTimer">--</strong>
+            </div>
+            <div class="mobile-stat">
+              <span>总分</span>
+              <strong id="mobileScore">0</strong>
             </div>
             <div class="mobile-stat">
               <span>难度</span>
@@ -4126,15 +4183,24 @@
                 <option value="advanced">高级</option>
               </select>
             </label>
-            <label class="mobile-setup-field" for="mobileAiPaceSelect">
-              <span>对局节奏</span>
-              <select id="mobileAiPaceSelect" class="mobile-setup-select">
+            <div class="mobile-setup-field">
+              <div class="mobile-field-head">
+                <span>对局节奏</span>
+                <span class="mobile-field-note">与 PC 一致</span>
+              </div>
+              <select id="mobileAiPaceSelect" class="mobile-setup-select mobile-hidden-select" aria-hidden="true" tabindex="-1">
                 <option value="slow">慢</option>
                 <option value="medium">中</option>
                 <option value="fast">快</option>
                 <option value="instant">瞬</option>
               </select>
-            </label>
+              <div id="mobileAiPaceButtons" class="segmented-choice mobile-segmented-choice" role="group" aria-label="手游开始页对局节奏">
+                <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="slow" aria-pressed="false">慢</button>
+                <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="medium" aria-pressed="false">中</button>
+                <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="fast" aria-pressed="false">快</button>
+                <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="instant" aria-pressed="false">瞬</button>
+              </div>
+            </div>
             <div class="mobile-setup-actions">
               <button id="mobileStartBtn" class="mobile-primary-btn" type="button">开始游戏</button>
               <button id="mobileSetupContinueBtn" class="mobile-secondary-btn" type="button">继续游戏</button>
@@ -4170,15 +4236,24 @@
               <button id="mobileCloseMenuBtn" class="mobile-icon-btn" type="button" aria-label="关闭设定菜单">×</button>
             </div>
             <div class="mobile-menu-actions">
-              <label class="mobile-menu-field" for="mobileMenuAiPaceSelect">
-                <span>对局节奏</span>
-                <select id="mobileMenuAiPaceSelect" class="mobile-setup-select">
+              <div class="mobile-menu-field">
+                <div class="mobile-field-head">
+                  <span>对局节奏</span>
+                  <span class="mobile-field-note">与 PC 一致</span>
+                </div>
+                <select id="mobileMenuAiPaceSelect" class="mobile-setup-select mobile-hidden-select" aria-hidden="true" tabindex="-1">
                   <option value="slow">慢</option>
                   <option value="medium">中</option>
                   <option value="fast">快</option>
                   <option value="instant">瞬</option>
                 </select>
-              </label>
+                <div id="mobileMenuAiPaceButtons" class="segmented-choice mobile-segmented-choice" role="group" aria-label="手游设置页对局节奏">
+                  <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="slow" aria-pressed="false">慢</button>
+                  <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="medium" aria-pressed="false">中</button>
+                  <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="fast" aria-pressed="false">快</button>
+                  <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="instant" aria-pressed="false">瞬</button>
+                </div>
+              </div>
               <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">重置本局</button>
               <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
               <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌整图</button>
@@ -4578,7 +4653,9 @@
           setupRulesBtn: document.getElementById("mobileSetupRulesBtn"),
           difficultySelect: document.getElementById("mobileAiDifficultySelect"),
           paceSelect: document.getElementById("mobileAiPaceSelect"),
+          paceButtons: document.getElementById("mobileAiPaceButtons"),
           menuPaceSelect: document.getElementById("mobileMenuAiPaceSelect"),
+          menuPaceButtons: document.getElementById("mobileMenuAiPaceButtons"),
           menuCardFaceBtn: document.getElementById("mobileMenuCardFaceBtn"),
           menuLayoutBtn: document.getElementById("mobileMenuLayoutBtn"),
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
@@ -4865,6 +4942,120 @@
           mobileDom.menuRulesBtn.textContent = originalDom.toggleRulesBtn.textContent.trim() || "规则帮助";
         }
 
+        const MOBILE_AI_PACE_OPTIONS = Object.freeze(["slow", "medium", "fast", "instant"]);
+
+        /**
+         * 作用：
+         * 规范化手游壳层里使用的节奏档位键值。
+         *
+         * 为什么这样写：
+         * 手游开始页和设置弹层现在都改成了和 PC 一样的四档按钮组；
+         * 先在壳层做一次兜底，能避免按钮 dataset、隐藏 select 和共享状态之间出现非法值漂移。
+         *
+         * 输入：
+         * @param {string} value - 当前按钮或隐藏镜像节点传入的节奏键值。
+         *
+         * 输出：
+         * @returns {string} 合法的节奏键值；非法输入统一回落到 `slow`。
+         *
+         * 注意：
+         * - 这里只负责壳层同步，不改 shared 里的节奏定义。
+         * - 档位集合变动时，这里和按钮 DOM 需要一起改。
+         */
+        function normalizeMobilePaceValue(value) {
+          return MOBILE_AI_PACE_OPTIONS.includes(value) ? value : "slow";
+        }
+
+        /**
+         * 作用：
+         * 同步手游节奏按钮组的选中态和 aria 状态。
+         *
+         * 为什么这样写：
+         * 开始页和设置弹层都显示同一组 `慢 / 中 / 快 / 瞬` 按钮；
+         * 把选中态同步收敛成一个 helper 后，两处入口就能始终跟共享层当前节奏保持一致。
+         *
+         * 输入：
+         * @param {?HTMLElement} container - 当前要同步的按钮组容器。
+         * @param {string} value - 当前节奏档位键值。
+         *
+         * 输出：
+         * @returns {void} 只更新按钮组选中态，不返回额外数据。
+         *
+         * 注意：
+         * - 容器不存在时必须安全跳过，避免影响旧测试桩。
+         * - 这里只同步视觉和语义状态，不负责写回共享层。
+         */
+        function syncMobilePaceButtonGroup(container, value) {
+          if (!container) return;
+          const normalizedValue = normalizeMobilePaceValue(value);
+          for (const button of container.querySelectorAll("[data-ai-pace-value]")) {
+            const active = button.dataset.aiPaceValue === normalizedValue;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-pressed", active ? "true" : "false");
+          }
+        }
+
+        /**
+         * 作用：
+         * 把手游壳层选择的节奏档位同步回共享层，并镜像到两处 mobile 入口。
+         *
+         * 为什么这样写：
+         * 真实节奏状态仍由 shared 里的隐藏 `aiPaceSelect` 驱动；
+         * 壳层按钮与隐藏 select 统一走这个入口，才能保证“开始页 / 设置页 / shared 状态”三者永远同档。
+         *
+         * 输入：
+         * @param {string} value - 用户刚在 mobile 入口里选中的节奏键值。
+         *
+         * 输出：
+         * @returns {void} 只同步状态并按需派发共享层 `change` 事件，不返回额外数据。
+         *
+         * 注意：
+         * - 如果 shared 镜像节点不存在，也要先把 mobile 两处按钮状态同步好。
+         * - 重复点击当前已选档位时不重复派发 shared 事件，避免无意义重渲染。
+         */
+        function commitMobilePaceValue(value) {
+          const normalizedValue = normalizeMobilePaceValue(value);
+          if (mobileDom.paceSelect) {
+            mobileDom.paceSelect.value = normalizedValue;
+          }
+          if (mobileDom.menuPaceSelect) {
+            mobileDom.menuPaceSelect.value = normalizedValue;
+          }
+          syncMobilePaceButtonGroup(mobileDom.paceButtons, normalizedValue);
+          syncMobilePaceButtonGroup(mobileDom.menuPaceButtons, normalizedValue);
+          if (!originalDom.aiPaceSelect) return;
+          if (originalDom.aiPaceSelect.value === normalizedValue) return;
+          originalDom.aiPaceSelect.value = normalizedValue;
+          originalDom.aiPaceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+
+        /**
+         * 作用：
+         * 给手游壳层的一组节奏按钮绑定点击桥接。
+         *
+         * 为什么这样写：
+         * 手游现在也和 PC 一样使用 `data-ai-pace-value` 约定的四档按钮组；
+         * 用事件代理统一处理后，无论来自开始页还是设置页，都能复用同一套写回逻辑。
+         *
+         * 输入：
+         * @param {?HTMLElement} container - 要绑定事件的按钮组容器。
+         *
+         * 输出：
+         * @returns {void} 只绑定点击事件，不返回额外数据。
+         *
+         * 注意：
+         * - 容器不存在时必须安全跳过。
+         * - 这里只处理节奏选择，不负责按钮组选中态渲染；渲染由 `handleRender` 和 `commitMobilePaceValue` 统一同步。
+         */
+        function bindMobilePaceButtons(container) {
+          if (!container) return;
+          container.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-ai-pace-value]");
+            if (!button) return;
+            commitMobilePaceValue(button.dataset.aiPaceValue);
+          });
+        }
+
         /**
          * 作用：
          * 同步手游顶部托管按钮的三态样式和文案。
@@ -5045,6 +5236,9 @@
             mobileDom.menuPaceSelect.value = originalDom.aiPaceSelect?.value || snapshot.aiPace || "slow";
             mobileDom.menuPaceSelect.disabled = !!originalDom.aiPaceSelect?.disabled;
           }
+          const currentPaceValue = originalDom.aiPaceSelect?.value || snapshot.aiPace || "slow";
+          syncMobilePaceButtonGroup(mobileDom.paceButtons, currentPaceValue);
+          syncMobilePaceButtonGroup(mobileDom.menuPaceButtons, currentPaceValue);
           syncTopbarStats(snapshot);
           syncTrumpStatus(snapshot);
           syncFriendCard(snapshot);
@@ -5063,20 +5257,18 @@
         mobileDom.startBtn.addEventListener("click", () => clickOriginal(originalDom.startGameBtn));
         mobileDom.setupContinueBtn?.addEventListener("click", () => clickOriginal(originalDom.continueGameBtn));
         mobileDom.setupRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
+        bindMobilePaceButtons(mobileDom.paceButtons);
+        bindMobilePaceButtons(mobileDom.menuPaceButtons);
         mobileDom.difficultySelect?.addEventListener("change", () => {
           if (!originalDom.aiDifficultySelect) return;
           originalDom.aiDifficultySelect.value = mobileDom.difficultySelect.value;
           originalDom.aiDifficultySelect.dispatchEvent(new Event("change", { bubbles: true }));
         });
         mobileDom.paceSelect?.addEventListener("change", () => {
-          if (!originalDom.aiPaceSelect) return;
-          originalDom.aiPaceSelect.value = mobileDom.paceSelect.value;
-          originalDom.aiPaceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          commitMobilePaceValue(mobileDom.paceSelect.value);
         });
         mobileDom.menuPaceSelect?.addEventListener("change", () => {
-          if (!originalDom.aiPaceSelect) return;
-          originalDom.aiPaceSelect.value = mobileDom.menuPaceSelect.value;
-          originalDom.aiPaceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          commitMobilePaceValue(mobileDom.menuPaceSelect.value);
         });
         document.addEventListener("keydown", (event) => {
           if (!mobileDom.infoSheet.classList.contains("show")) return;

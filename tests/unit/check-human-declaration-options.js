@@ -353,6 +353,27 @@ function main() {
   assert.equal(setupOptions.innerHTML.includes("可亮选项"), false, "亮主阶段不应再额外显示“可亮选项”标题");
   assert.equal(declareBtn.hidden, true, "亮主阶段不应再保留单独的确认亮主按钮");
 
+  context.state.awaitingHumanDeclaration = true;
+  context.renderHand();
+  context.renderCenterPanel();
+  assert.equal(
+    context.document.getElementById("setupOptions").innerHTML.includes("不亮"),
+    true,
+    "等待补亮时，候选区应提供明确的“不亮”按钮"
+  );
+
+  context.document.getElementById("setupOptions").trigger("click", {
+    target: {
+      closest(selector) {
+        if (selector !== "button[data-setup-pass]") return null;
+        return { dataset: { setupPass: "declare" } };
+      },
+    },
+  });
+
+  assert.equal(context.state.phase, "bottomReveal", "点击“不亮”后应立即进入翻底定主展示阶段");
+  assert.equal(context.state.awaitingHumanDeclaration, false, "点击“不亮”后应结束补亮等待状态");
+
   seedDeclarationScenario(context, [
     makeCard("spade-1", "spades", "2"),
     makeCard("spade-2", "spades", "2"),

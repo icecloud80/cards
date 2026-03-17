@@ -26,6 +26,11 @@ function main() {
 
   assert.match(
     html,
+    /<div class="mobile-topbar-main">[\s\S]*?<span>计秒<\/span>[\s\S]*?<strong id="mobileTimer">--<\/strong>[\s\S]*?<span>总分<\/span>[\s\S]*?<strong id="mobileScore">0<\/strong>/,
+    "手游顶栏左侧统计应改成先显示计秒，再显示总分"
+  );
+  assert.match(
+    html,
     /body\.mobile-index2 \.mobile-topbar-sub \{[\s\S]*transform:\s*translateX\(-8px\);/,
     "手游顶栏里的主/朋状态块应向右收回，避免继续压住难度统计"
   );

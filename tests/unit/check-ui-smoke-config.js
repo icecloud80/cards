@@ -43,6 +43,12 @@ function runUiSmokeConfigChecks() {
     "pc scenario should prefer the visible instant-pace button"
   );
   assert.equal(UI_SMOKE_SCENARIOS[0].paceSelector, "#aiPaceSelect", "pc scenario should keep the shared pace select as fallback");
+  assert.equal(
+    UI_SMOKE_SCENARIOS[1].paceButtonSelector,
+    "#mobileAiPaceButtons [data-ai-pace-value='instant']",
+    "mobile scenario should prefer the visible instant-pace button"
+  );
+  assert.equal(UI_SMOKE_SCENARIOS[1].paceSelector, "#mobileAiPaceSelect", "mobile scenario should keep the hidden select as fallback");
   assert.equal(UI_SMOKE_SCENARIOS[1].autoSelector, "#mobileAutoBtn", "mobile scenario should toggle the mobile auto button");
   results.push("scenario list keeps pc and mobile coverage");
 

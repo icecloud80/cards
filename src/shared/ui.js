@@ -998,7 +998,7 @@ function renderScorePanel() {
  *
  * 注意：
  * - 仅在 `shouldShowPcToolbarMenu()` 为真时显示。
- * - 菜单入口文案需要反映当前面板的开关状态，避免用户不知道当前是否已展开。
+ * - 大多数菜单入口会反映当前面板的开关状态；`Debug` 入口固定使用统一英文标签，避免不同渲染链路出现中英混用。
  */
 function renderToolbarMenu() {
   if (!dom.toolbarMenuPanel || typeof shouldShowPcToolbarMenu !== "function") return;
@@ -1013,7 +1013,7 @@ function renderToolbarMenu() {
     dom.toggleBottomBtn.textContent = state.showBottomPanel ? "收起底牌" : "查看底牌";
   }
   if (dom.toggleDebugBtn) {
-    dom.toggleDebugBtn.textContent = state.showDebugPanel ? "收起调试" : "调试信息";
+    dom.toggleDebugBtn.textContent = TEXT.buttons.debug;
   }
   if (dom.menuReplayBtn) {
     dom.menuReplayBtn.textContent = state.showReplayPanel ? "收起复盘" : "复盘";

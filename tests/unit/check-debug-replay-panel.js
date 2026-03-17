@@ -283,6 +283,7 @@ function main() {
   assert.match(html, /id="menuReplayBtn"/, "PC 设置菜单里应提供复盘按钮");
   assert.match(html, /id="replaySeedInput"/, "PC 复盘面板应提供回放种子输入框");
   assert.match(html, /id="replayOpeningCodeInput"/, "PC 复盘面板应提供开局码输入框");
+  assert.match(html, />Debug</, "PC 设置菜单里的调试入口初始文案应固定为 Debug");
   assert.match(html, />仅按回放种子重开</, "PC 复盘面板应明确区分 seed-only 重开");
   assert.match(html, />按开局码 \+ 种子重开</, "PC 复盘面板应提供按开局码加种子重开的按钮");
 
@@ -318,6 +319,11 @@ function main() {
   context.state.showToolbarMenu = true;
   context.state.phase = "dealing";
   context.renderToolbarMenu();
+  assert.equal(
+    context.dom.toggleDebugBtn.textContent,
+    "Debug",
+    "设置菜单里的调试入口文案应始终统一为 Debug"
+  );
   assert.equal(
     context.dom.menuReplayBtn.textContent.includes("收起复盘"),
     true,

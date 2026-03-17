@@ -39,7 +39,7 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(198px,\s*30\.5vh,\s*232px\)[\s\S]*clamp\(38px,\s*5\.6svh,\s*46px\);/,
+    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(198px,\s*30\.5vh,\s*232px\)[\s\S]*clamp\(34px,\s*4\.8svh,\s*40px\);/,
     "App 专用页面应把桌面行高改成顶部固定、中部自适应、底部手牌固定、操作区固定",
   );
   assert.match(
@@ -61,6 +61,16 @@ function main() {
     html,
     /body\.mobile-app-shell button\.action-btn \{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/,
     "App 专用页面应把底部操作按钮压短，避免继续顶住手牌区",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.center-panel \{[\s\S]*padding:\s*2px\s+6px\s+2px;/,
+    "App 专用页面的底部操作容器应只保留薄内边距，避免继续把按钮区整体顶高",
+  );
+  assert.doesNotMatch(
+    html,
+    /body\.mobile-app-shell \.center-panel \{[\s\S]*env\(safe-area-inset-bottom\)/,
+    "App 专用页面的底部操作容器不应再次叠加底部安全区留白，否则会继续遮住手牌区",
   );
 }
 

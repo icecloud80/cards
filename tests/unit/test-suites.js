@@ -187,6 +187,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-hand-panel-snapshot.js"),
   },
   {
+    name: "Three-surface UI mock asset regression",
+    file: path.join(__dirname, "check-three-surface-ui-mock-assets.js"),
+  },
+  {
     name: "PC topbar difficulty regression",
     file: path.join(__dirname, "check-pc-topbar-difficulty.js"),
   },

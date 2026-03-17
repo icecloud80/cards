@@ -2592,11 +2592,12 @@
         padding: 6px;
         display: grid;
         grid-template-columns: minmax(0, 1fr);
+        /* App 壳底部只保留一条单行拇指操作轨；安全区已经由 scene / table 吸收，这里不能再把操作区行高撑大。 */
         grid-template-rows:
           clamp(56px, 8.8svh, 64px)
           minmax(0, 1fr)
           clamp(198px, 30.5vh, 232px)
-          clamp(38px, 5.6svh, 46px);
+          clamp(34px, 4.8svh, 40px);
         gap: 8px;
         overflow: hidden;
         align-content: stretch;
@@ -3677,7 +3678,8 @@
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 3px 6px calc(3px + max(4px, env(safe-area-inset-bottom)));
+        /* 底部安全区已在外层容器预留，这里只保留按钮本身需要的薄内边距，避免操作区上顶遮住最后一行手牌。 */
+        padding: 2px 6px 2px;
         border-radius: 12px;
         z-index: 6;
         margin: 0 auto;

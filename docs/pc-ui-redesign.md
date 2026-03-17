@@ -228,6 +228,7 @@
 - 更多功能菜单的进一步分组与收纳
 - 出牌区卡片尺寸和位置的进一步精修
 - 与 mobile 更进一步统一的动效和切换反馈
+- 三端统一主战场母稿的持续细化，详见 [three-surface-ui-mock.md](three-surface-ui-mock.md)
 
 ## 5.1 最近 UI Bug Fix
 

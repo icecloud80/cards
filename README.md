@@ -120,6 +120,7 @@ See [docs/recent-updates.md](docs/recent-updates.md) for the full update log.
 - AI search plan / AI 搜索计划: [ai-plan-search.md](docs/ai-plan-search.md)
 - AI status snapshot / AI 当前状态快照: [ai-status.md](docs/ai-status.md)
 - PC UI redesign brief / PC 界面改版说明: [pc-ui-redesign.md](docs/pc-ui-redesign.md)
+- Three-surface UI mock / 三端主战场界面图: [three-surface-ui-mock.md](docs/three-surface-ui-mock.md)
 - Mobile App product requirements / 移动 App 产品需求: [mobile-app-product-requirements.md](docs/mobile-app-product-requirements.md)
 - Mobile and online architecture / App 与多人在线技术设计: [mobile-online-architecture.md](docs/mobile-online-architecture.md)
 - Mobile, online and ads roadmap / 移动 / 联机 / 广告路线图: [mobile-online-roadmap.md](docs/mobile-online-roadmap.md)

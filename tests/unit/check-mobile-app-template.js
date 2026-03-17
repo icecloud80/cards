@@ -35,7 +35,7 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(188px,\s*29vh,\s*220px\)[\s\S]*clamp\(44px,\s*6\.2svh,\s*54px\);/,
+    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(198px,\s*30\.5vh,\s*232px\)[\s\S]*clamp\(38px,\s*5\.6svh,\s*46px\);/,
     "App 专用页面应把桌面行高改成顶部固定、中部自适应、底部手牌固定、操作区固定",
   );
   assert.match(
@@ -47,6 +47,16 @@ function main() {
     html,
     /function applyViewportMetrics\(\) \{[\s\S]*const bottomClearance = 6;/,
     "App 专用页面应去掉浏览器底栏式的大留白算法，改为原生 WebView 的小底部预留",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.hand-group \{[\s\S]*gap:\s*8px;/,
+    "App 专用页面应把左侧花色标签和第一张手牌之间的间距再拉开一点",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell button\.action-btn \{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/,
+    "App 专用页面应把底部操作按钮压短，避免继续顶住手牌区",
   );
 }
 

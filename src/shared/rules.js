@@ -73,7 +73,7 @@ const CARD_SPRITE_JOKER_COLUMN = {
  * 把一张业务牌对象映射到整图牌面里的网格坐标。
  *
  * 为什么这样写：
- * `poker.png` 是按固定行列排布的 sprite，不再是逐张单文件；
+ * `poker.png` 和 `m_cards_sprite.png` 都按固定行列排布成同一套 sprite 网格，不再是逐张单文件；
  * 先把“红桃 A 在第几格、黑桃 K 在第几格、大小王在哪两格”统一算出来，
  * UI 层才能稳定用同一张图裁出对应牌面。
  *
@@ -460,6 +460,7 @@ function findSerialTuples(cards, tupleSize, exactChainLength = null) {
   }
 
   const results = [];
+  const resultPowers = [];
   for (const entries of bySuit.values()) {
     entries.sort((a, b) => a.index - b.index);
     let runStart = 0;
@@ -471,17 +472,23 @@ function findSerialTuples(cards, tupleSize, exactChainLength = null) {
       if (run.length >= 2 && run.length >= need) {
         if (exactChainLength) {
           for (let j = 0; j <= run.length - exactChainLength; j += 1) {
-            results.push(run.slice(j, j + exactChainLength).flatMap((entry) => entry.cards));
+            const comboEntries = run.slice(j, j + exactChainLength);
+            results.push(comboEntries.flatMap((entry) => entry.cards));
+            resultPowers.push(comboEntries[comboEntries.length - 1].index);
           }
         } else {
           results.push(run.flatMap((entry) => entry.cards));
+          resultPowers.push(run[run.length - 1].index);
         }
       }
       runStart = i;
     }
   }
 
-  return results.sort((a, b) => classifyPlay(a).power - classifyPlay(b).power);
+  return results
+    .map((combo, index) => ({ combo, power: resultPowers[index] ?? -1 }))
+    .sort((a, b) => a.power - b.power)
+    .map((entry) => entry.combo);
 }
 
 // 判断一组牌是否属于同一实际花色。
@@ -853,7 +860,8 @@ function hasMatchingPattern(cards, leadSpec) {
   if (leadSpec.type === "pair") return findPairs(cards).length > 0;
   if (leadSpec.type === "triple") return findTriples(cards).length > 0;
   if (leadSpec.type === "tractor") return findSerialTuples(cards, 2, leadSpec.chainLength).length > 0;
-  if (leadSpec.type === "train") return findSerialTuples(cards, 2, leadSpec.chainLength).some((combo) => classifyPlay(combo).type === "train");
+  if (leadSpec.type === "train") return (leadSpec.chainLength || 0) >= 3
+    && findSerialTuples(cards, 2, leadSpec.chainLength).length > 0;
   if (leadSpec.type === "bulldozer") return findSerialTuples(cards, 3, leadSpec.chainLength).length > 0;
   if (leadSpec.type === "throw") return getPatternCombos(cards, leadSpec).length > 0;
   return false;
@@ -866,7 +874,10 @@ function getPatternCombos(cards, leadSpec) {
   if (leadSpec.type === "pair") return findPairs(cards);
   if (leadSpec.type === "triple") return findTriples(cards);
   if (leadSpec.type === "tractor") return findSerialTuples(cards, 2, leadSpec.chainLength);
-  if (leadSpec.type === "train") return findSerialTuples(cards, 2, leadSpec.chainLength).filter((combo) => classifyPlay(combo).type === "train");
+  if (leadSpec.type === "train") {
+    if ((leadSpec.chainLength || 0) < 3) return [];
+    return findSerialTuples(cards, 2, leadSpec.chainLength);
+  }
   if (leadSpec.type === "bulldozer") return findSerialTuples(cards, 3, leadSpec.chainLength);
   if (leadSpec.type === "throw") {
     return enumerateCombinations(cards, leadSpec.count)

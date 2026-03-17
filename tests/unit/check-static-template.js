@@ -69,10 +69,11 @@ function main() {
   assert.equal(html.includes('id="menuHomeBtn"'), true, "静态模板页设置菜单应提供回到首页按钮");
   assert.equal(html.includes('id="toggleCardFaceBtn"'), true, "静态模板页应保留切换牌面按钮");
   assert.equal(html.includes('id="handStatsRail"'), true, "静态模板页应保留左侧手牌统计列容器");
-  assert.equal(html.includes("./poker.png"), true, "静态模板页应恢复使用 poker.png 整图 sprite 资源");
-  assert.equal(html.includes("./m_cards_sprite.svg"), false, "静态模板页默认配置不应再引用 m_cards_sprite.svg");
+  assert.equal(html.includes("./poker.png"), true, "静态模板页应继续提供 poker.png 整图 sprite 资源");
+  assert.equal(html.includes("./m_cards_sprite.png"), true, "静态模板页应新增 modern-sprite 对应的 m_cards_sprite.png 资源");
   assert.equal(html.includes("STATIC_CARD_FACES"), true, "静态模板页应定义可切换的牌面列表");
   assert.equal(html.includes('cardFaceKey: "sprite"'), true, "静态模板页应默认启用 sprite 牌面");
+  assert.equal(html.includes('label: "现代整图"'), true, "静态模板页应提供现代整图主题标签");
   assert.equal(html.includes("buildStaticHandStatsMarkup"), true, "静态模板页应提供按首牌起点定位花色统计的 helper");
   assert.equal(html.includes("spot-role-chip managed"), true, "静态模板页应支持把托管胶囊并到出牌区身份短签旁边");
   assert.equal(mockPage.toolbarIcons.length, 5, "静态模板页顶部工具区应改成 5 个按钮");

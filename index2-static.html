@@ -1567,6 +1567,16 @@
             rows: 5,
           },
         },
+        {
+          key: "modern-sprite",
+          label: "现代整图",
+          dir: "./cards",
+          spriteSheet: {
+            src: "./m_cards_sprite.png",
+            columns: 13,
+            rows: 5,
+          },
+        },
         { key: "classic", label: "经典牌面", dir: "./cards" },
       ];
 
@@ -1575,7 +1585,8 @@
        * 把 mock 牌资源路径解析成统一的花色与点数字段。
        *
        * 为什么这样写：
-       * 静态页默认使用整图 sprite，但 mock 数据继续沿用单张 SVG 路径；
+       * 静态页默认使用整图 sprite，并允许在 `poker.png` 与 `m_cards_sprite.png` 之间切换；
+       * mock 数据继续沿用单张 SVG 路径后，
        * 先做一次路径解析，后续就能统一复用 sprite 定位逻辑和图片回退逻辑。
        *
        * 输入：
@@ -1611,7 +1622,7 @@
        * 计算某张牌在整图 sprite 里的背景定位百分比。
        *
        * 为什么这样写：
-       * `index2-static.html` 需要和运行态一样默认走 `poker.png`；
+       * `index2-static.html` 默认仍走 `poker.png`，但新增的“现代整图”也共用相同格子规则；
        * 这层本地映射能让静态模板独立工作，不依赖外部共享脚本。
        *
        * 输入：

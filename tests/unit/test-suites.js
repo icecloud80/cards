@@ -67,6 +67,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-follow-candidate-limit.js"),
   },
   {
+    name: "Trump tractor auto-select performance regression",
+    file: path.join(__dirname, "check-trump-tractor-hint-performance.js"),
+  },
+  {
     name: "Play announcement regression",
     file: path.join(__dirname, "check-play-announcements.js"),
   },

@@ -34,7 +34,7 @@ function main() {
   assert.equal(html.includes('class="mobile-tractor"'), true, "PC 开始界面应保留手游主视觉的拖拉机结构");
   assert.equal(html.includes('class="mobile-train"'), true, "PC 开始界面应保留手游主视觉的火车结构");
   assert.equal(
-    html.includes('<img src="./poker.png" alt="游戏主视觉" />'),
+    html.includes('<img src="./images/poker.png" alt="游戏主视觉" />'),
     false,
     "PC 开始界面不应再回退到旧的 poker.png 静态主视觉图"
   );

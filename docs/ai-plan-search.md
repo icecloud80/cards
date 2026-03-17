@@ -218,6 +218,81 @@ function chooseIntermediatePlay(playerId, mode) {}
 建议目标集合：
 
 - `find_friend`
+
+### A7. 做搜索链路性能硬化
+
+目标：
+
+- 在不回退当前中级行为的前提下，把 rollout、评估和候选生成里的重复开销压到可继续扩展的范围内。
+
+任务：
+
+- 为同一轮决策里的 `combo pattern / combo key / current winning play / baseline evaluation` 增加可复用缓存。
+- 为 `Friend Belief Lite`、`grade_bottom profile`、`turnAccess reserve`、`safeLead summary` 这类 `evaluateState(...)` 内的共享派生结果增加 state 级 memo。
+- 复查 `buildScoredIntermediateLeadEntries(...)` 与 `buildScoredIntermediateFollowEntries(...)`，减少对 `cloneSimulationState(...)` 的重复调用。
+- 复查 `getIntermediateRolloutSummary(...)` 的“合法复验 -> rollout -> 扩展 rollout”链路，优先消除能直接复用上一步结果的重复克隆。
+
+建议实现方向：
+
+- 先做“单轮决策内 memo”，不要一开始就引入跨局全局缓存。
+- memo key 优先使用 `getComboKey(cards)`、当前 `playerId`、当前 `trickNumber` 和必要的 `objective mode`。
+- 对 rollout 结果只缓存“只读摘要”，避免把可变状态对象直接挂进缓存里。
+
+验收标准：
+
+- 同一轮决策里，`evaluateState(...)` 不再为同一 `simState` 重复构造同一批派生画像。
+- 中级 AI 在常见对局中不出现明显回合卡顿。
+
+本轮已补的一条硬约束：
+
+- 对 `follow` 模式里的复杂多张跟牌，不能再默认把 shortlist 里的所有候选都送进 rollout。
+- 当合法候选已经很多、而且单手跟牌张数达到 `4-5` 张时，应先用 heuristic 做 shortlist，再只让极少数候选进入 rollout；最重样本允许直接退回“纯 heuristic shortlist”。
+- 验收口径不是“理论上还会不会更准”，而是“浏览器和 headless 里都不能再出现一次跟牌卡数秒到十几秒”的体验级红线。
+
+### A8. 收紧跟牌候选枚举成本
+
+目标：
+
+- 让 `getLegalSelectionsForState(...)` 在常见局面里更依赖结构直达，而不是过多回落到通用组合枚举。
+
+任务：
+
+- 为 `single / pair / triple / tractor / train / bulldozer` 进一步区分“必须完整枚举”和“可以直接由结构候选覆盖”的分支。
+- 减少 `hand.filter(...suited.some(...))` 这类在候选热路径里的重复扫描。
+- 让 hint、fallback、simulation 尽量复用同一份候选结果，而不是在同一状态里各自再枚举一次。
+
+建议实现方向：
+
+- 优先保留现有“直接牌型优先注入”的规则语义。
+- 对 `4-5` 张复杂跟牌，候选层即使还会先产出几十手合法解，后续评分层也必须提供稳定的 rollout 预算，不得让候选数线性放大成秒级卡顿。
+- 在保证合法性的前提下，把“先枚举很多组合再过滤”的路径尽量缩到只剩兜底分支。
+
+验收标准：
+
+- 常见跟牌局面的合法候选数量保持稳定可控。
+- headless mixed 样本里，候选层不会成为中级决策的主要耗时来源。
+
+### A9. 建立牌型识别热路径缓存
+
+目标：
+
+- 把 `classifyPlay(...)`、`findSerialTuples(...)` 和甩牌拆解从“到处重复算”收敛成“同一轮尽量只算一次”。
+
+任务：
+
+- 给同一 `combo` 的 `classifyPlay(...)` 结果建立决策期缓存。
+- 在需要排序的地方，尽量先产出带 pattern 的条目，再排序，避免 comparator 内重复识别。
+- 复查甩牌风险评估，减少对同一组件的重复 `classifyPlay(...)` 与签名构造。
+
+建议实现方向：
+
+- 缓存只服务当前一轮决策，避免因为规则态变化导致脏读。
+- 先覆盖 `ai-intermediate.js / ai-candidates.js / ai-evaluate.js` 里的热点调用点，再考虑是否下沉到 `rules.js` 做统一 helper。
+
+验收标准：
+
+- 候选排序、rollout 后评分和 debug 汇总中的重复牌型识别次数显著下降。
+- 现有合法性与牌型语义不发生漂移。
 - `run_points`
 - `protect_bottom`
 - `clear_trump`

@@ -355,6 +355,7 @@ function loadHeadlessGameContext(options = {}) {
   const context = {
     console: capturedConsole,
     Math: math,
+    __FIVE_FRIENDS_DEFAULT_REPLAY_SEED: seed,
     performance,
     setTimeout: timers.setTimeout,
     clearTimeout: timers.clearTimeout,
@@ -435,7 +436,9 @@ function loadHeadlessGameContext(options = {}) {
     getPlayer,
     getBottomResultSummary,
     getOutcome,
-    getResultLogText
+    getResultLogText,
+    buildOpeningCode,
+    decodeOpeningCode
   })`, context);
 
   return {

@@ -661,6 +661,22 @@ dom.debugDecisionNextBtn?.addEventListener("click", () => {
   renderDebugPanel();
 });
 
+dom.debugReplaySeedInput?.addEventListener("input", (event) => {
+  state.debugReplaySeedDraft = event.target.value;
+});
+
+dom.debugOpeningCodeInput?.addEventListener("input", (event) => {
+  state.debugOpeningCodeDraft = event.target.value;
+});
+
+dom.debugReplaySeedApplyBtn?.addEventListener("click", () => {
+  applyDebugReplaySeedReplay(state.debugReplaySeedDraft);
+});
+
+dom.debugOpeningCodeApplyBtn?.addEventListener("click", () => {
+  applyDebugOpeningCodeReplay(state.debugOpeningCodeDraft, state.debugReplaySeedDraft);
+});
+
 dom.closeDebugBtn?.addEventListener("click", () => {
   state.showDebugPanel = false;
   renderDebugPanel();

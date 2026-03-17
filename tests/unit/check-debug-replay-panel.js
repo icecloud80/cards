@@ -1,0 +1,312 @@
+const fs = require("fs");
+const path = require("path");
+const vm = require("vm");
+const assert = require("node:assert/strict");
+
+/**
+ * 作用：
+ * 创建一个最小可用的类名集合桩对象。
+ *
+ * 为什么这样写：
+ * debug 面板渲染会频繁切换类名状态；
+ * 用统一桩对象就能在不引入完整浏览器的前提下，稳定复用真实共享脚本。
+ *
+ * 输入：
+ * @param {void} - 无额外输入。
+ *
+ * 输出：
+ * @returns {{add: Function, remove: Function, toggle: Function, contains: Function}} 类名读写桩。
+ *
+ * 注意：
+ * - `toggle` 需要兼容带第二个布尔参数的浏览器语义。
+ * - 这里只实现本测试会触达的最小接口。
+ */
+function createClassListStub() {
+  const values = new Set();
+  return {
+    add(...tokens) {
+      tokens.forEach((token) => values.add(token));
+    },
+    remove(...tokens) {
+      tokens.forEach((token) => values.delete(token));
+    },
+    toggle(token, force) {
+      if (typeof force === "boolean") {
+        if (force) {
+          values.add(token);
+        } else {
+          values.delete(token);
+        }
+        return force;
+      }
+      if (values.has(token)) {
+        values.delete(token);
+        return false;
+      }
+      values.add(token);
+      return true;
+    },
+    contains(token) {
+      return values.has(token);
+    },
+  };
+}
+
+/**
+ * 作用：
+ * 创建一个足够支撑共享 UI 渲染的 DOM 元素桩。
+ *
+ * 为什么这样写：
+ * 这条回归既要看静态 HTML，也要调用真实的 debug 重开 helper 和 `renderDebugPanel()`；
+ * 元素桩需要同时兼容 `value / textContent / classList / style.setProperty` 这些最常用接口。
+ *
+ * 输入：
+ * @param {string} identifier - 当前元素的 ID 或标签名。
+ *
+ * 输出：
+ * @returns {object} 最小可用的元素桩对象。
+ *
+ * 注意：
+ * - `setAttribute` 需要把值同步回对象字段，方便断言读取。
+ * - 这里只做最小兼容，不扩展成完整 DOM。
+ */
+function createElementStub(identifier) {
+  return {
+    id: identifier,
+    dataset: {},
+    style: {
+      setProperty(name, value) {
+        this[name] = value;
+      },
+    },
+    children: [],
+    textContent: "",
+    innerHTML: "",
+    value: "",
+    disabled: false,
+    hidden: false,
+    title: "",
+    classList: createClassListStub(),
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+    setAttribute(name, value) {
+      this[name] = value;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+    querySelector() {
+      return null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+    closest() {
+      return null;
+    },
+  };
+}
+
+/**
+ * 作用：
+ * 加载包含真实 PC 共享脚本的 debug 重开测试上下文。
+ *
+ * 为什么这样写：
+ * 这次要验证的是“debug 面板入口 + 开局恢复 helper + 面板反馈文案”整条链路；
+ * 直接在 VM 里跑生产脚本，才能确保断言覆盖到真实初始化与渲染逻辑。
+ *
+ * 输入：
+ * @param {void} - 通过固定脚本路径加载 PC 运行时所需文件。
+ *
+ * 输出：
+ * @returns {{setupGame: Function, applyDebugReplaySeedReplay: Function, applyDebugOpeningCodeReplay: Function, renderDebugPanel: Function, state: object, dom: object}} 当前回归需要的真实接口。
+ *
+ * 注意：
+ * - `dispatchEvent` 需要提供空实现，兼容共享 `render()` 的快照广播。
+ * - 这里只加载 PC 分支，不覆盖 mobile。
+ */
+function loadDebugReplayContext() {
+  const elements = new Map();
+
+  function getElement(identifier) {
+    if (!elements.has(identifier)) {
+      elements.set(identifier, createElementStub(identifier));
+    }
+    return elements.get(identifier);
+  }
+
+  const document = {
+    cookie: "",
+    body: getElement("body"),
+    getElementById(identifier) {
+      return getElement(identifier);
+    },
+    querySelector(selector) {
+      return selector === ".table" ? getElement("table") : null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+    createElement(tagName) {
+      return createElementStub(tagName);
+    },
+    addEventListener() {},
+    removeEventListener() {},
+    execCommand() {
+      return true;
+    },
+  };
+
+  const context = {
+    console,
+    document,
+    window: null,
+    globalThis: null,
+    CustomEvent: function CustomEvent(type, eventOptions = {}) {
+      return { type, detail: eventOptions.detail };
+    },
+    localStorage: {
+      getItem() {
+        return null;
+      },
+      setItem() {},
+      removeItem() {},
+    },
+    navigator: {
+      clipboard: {
+        async writeText() {},
+      },
+    },
+    URL: {
+      createObjectURL() {
+        return "blob:test";
+      },
+      revokeObjectURL() {},
+    },
+    Blob: class BlobStub {},
+    setTimeout() {
+      return 1;
+    },
+    clearTimeout() {},
+    setInterval() {
+      return 1;
+    },
+    clearInterval() {},
+    dispatchEvent() {},
+    Math,
+  };
+  context.window = context;
+  context.globalThis = context;
+
+  vm.createContext(context);
+
+  const files = [
+    path.join(__dirname, "../../src/platform/pc.js"),
+    path.join(__dirname, "../../src/shared/config.js"),
+    path.join(__dirname, "../../src/shared/rules.js"),
+    path.join(__dirname, "../../src/shared/text.js"),
+    path.join(__dirname, "../../src/shared/game.js"),
+    path.join(__dirname, "../../src/shared/ui.js"),
+  ];
+
+  for (const file of files) {
+    vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
+  }
+
+  vm.runInContext(`
+    function isHumanTurnActive() {
+      return !state.gameOver && state.phase === "playing" && state.currentTurnId === 1;
+    }
+  `, context);
+
+  return vm.runInContext(`({
+    setupGame,
+    applyDebugReplaySeedReplay,
+    applyDebugOpeningCodeReplay,
+    renderDebugPanel,
+    state,
+    dom
+  })`, context);
+}
+
+/**
+ * 作用：
+ * 执行 PC debug 面板“按 seed / 按开局码重开”的专项回归断言。
+ *
+ * 为什么这样写：
+ * 这次需求不只是往 HTML 里加两个输入框，而是要真的能从 debug 面板恢复一局的初始状态；
+ * 需要一条回归把静态入口、helper 行为和关键反馈文案一起锁住，避免后续只剩空壳 UI。
+ *
+ * 输入：
+ * @param {void} - 无额外输入。
+ *
+ * 输出：
+ * @returns {void} 断言全部通过后正常退出。
+ *
+ * 注意：
+ * - “按回放种子重开”只保证随机链路重置到同一 seed，不保证一定和旧开局码一致。
+ * - “按开局码重开”必须把首抓玩家与玩家等级一并恢复。
+ */
+function main() {
+  const html = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
+  const context = loadDebugReplayContext();
+
+  assert.match(html, /id="debugReplaySeedInput"/, "PC debug 面板应提供回放种子输入框");
+  assert.match(html, /id="debugOpeningCodeInput"/, "PC debug 面板应提供开局码输入框");
+  assert.match(html, />按回放种子重开</, "PC debug 面板应提供按种子重开的按钮");
+  assert.match(html, />按开局码重开</, "PC debug 面板应提供按开局码重开的按钮");
+
+  context.setupGame("debug-panel-source");
+  const sourceOpeningCode = context.state.openingCode;
+  const sourceFirstDealPlayerId = context.state.nextFirstDealPlayerId;
+  const sourcePlayerLevels = { ...context.state.playerLevels };
+
+  context.state.showDebugPanel = true;
+  context.renderDebugPanel();
+  assert.equal(
+    context.dom.debugReplayCurrentSeed.textContent.includes("debug-panel-source"),
+    true,
+    "debug 面板应显示当前局使用的回放种子"
+  );
+  assert.equal(
+    context.dom.debugReplayCurrentOpeningCode.textContent.includes("当前开局码"),
+    true,
+    "debug 面板应显示当前局开局码摘要"
+  );
+
+  assert.equal(context.applyDebugReplaySeedReplay("debug-panel-manual-seed"), true, "按回放种子重开应成功");
+  assert.equal(context.state.phase, "ready", "按回放种子重开后应回到初始 ready 阶段");
+  assert.equal(context.state.replaySeed, "debug-panel-manual-seed", "按回放种子重开应写入显式 seed");
+  assert.equal(context.state.showDebugPanel, true, "按回放种子重开后应重新打开 debug 面板");
+  assert.equal(
+    context.state.debugReplayStatusText.includes("debug-panel-manual-seed"),
+    true,
+    "按回放种子重开后应写入成功反馈"
+  );
+
+  context.state.playerLevels = { 1: "A", 2: "K", 3: "Q", 4: "J", 5: "10" };
+  context.state.nextFirstDealPlayerId = 5;
+
+  assert.equal(
+    context.applyDebugOpeningCodeReplay(sourceOpeningCode, "debug-panel-opening-seed"),
+    true,
+    "按开局码重开应成功"
+  );
+  assert.equal(context.state.phase, "ready", "按开局码重开后应回到初始 ready 阶段");
+  assert.equal(context.state.openingCode, sourceOpeningCode, "按开局码重开后应恢复原开局码");
+  assert.equal(context.state.replaySeed, "debug-panel-opening-seed", "按开局码重开时应接入显式回放种子");
+  assert.equal(
+    JSON.stringify(context.state.playerLevels),
+    JSON.stringify(sourcePlayerLevels),
+    "按开局码重开后应恢复 5 位玩家等级"
+  );
+  assert.equal(context.state.nextFirstDealPlayerId, sourceFirstDealPlayerId, "按开局码重开后应恢复首抓玩家");
+  assert.equal(
+    context.state.debugReplayStatusText.includes("已按开局码重建初始状态"),
+    true,
+    "按开局码重开后应写入成功反馈"
+  );
+}
+
+main();

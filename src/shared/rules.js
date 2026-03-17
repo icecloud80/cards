@@ -56,6 +56,238 @@ function resolveCardImage(card) {
   return card.img || "";
 }
 
+/**
+ * 作用：
+ * 把单个 0~255 数值编码成两位十六进制字节文本。
+ *
+ * 为什么这样写：
+ * 开局码会把元信息和整副牌顺序都压成连续 hex 文本；
+ * 把字节格式统一收口后，编码和解码都能共享同一套长度约束，避免出现大小写或补零不一致。
+ *
+ * 输入：
+ * @param {number} value - 需要编码的字节数值。
+ *
+ * 输出：
+ * @returns {string} 两位大写十六进制文本；非法输入时返回空串。
+ *
+ * 注意：
+ * - 只接受 `0~255` 的整数。
+ * - 返回值固定补齐两位，不能省略前导 `0`。
+ */
+function toOpeningCodeHexByte(value) {
+  if (!Number.isInteger(value) || value < 0 || value > 255) return "";
+  return value.toString(16).toUpperCase().padStart(2, "0");
+}
+
+/**
+ * 作用：
+ * 把玩家等级映射成开局码里使用的 4 bit 索引。
+ *
+ * 为什么这样写：
+ * 开局码需要在少量元信息里同时带上 5 位玩家等级；
+ * 当前等级集合固定为 `-2 / -A / 2..A` 共 15 档，刚好可以压进半字节。
+ *
+ * 输入：
+ * @param {string} level - 当前玩家等级文本。
+ *
+ * 输出：
+ * @returns {number} 对应的半字节索引；非法值统一回退到 `2`。
+ *
+ * 注意：
+ * - 这里和 UI 展示等级共用同一份原始等级文本，不额外做业务翻译。
+ * - 兜底值必须稳定，避免旧日志因为脏值无法解码。
+ */
+function getOpeningCodeLevelIndex(level) {
+  const normalizedLevel = String(level ?? "");
+  const levelIndex = OPENING_CODE_LEVEL_ORDER.indexOf(normalizedLevel);
+  return levelIndex >= 0 ? levelIndex : OPENING_CODE_LEVEL_ORDER.indexOf("2");
+}
+
+/**
+ * 作用：
+ * 把业务牌对象映射成开局码里的唯一牌序编号。
+ *
+ * 为什么这样写：
+ * 这局游戏使用 3 副共 162 张牌，最稳的记录方式不是“按玩家分组列牌”，
+ * 而是直接把完整发牌顺序压成 `0..161` 的固定编号流；这样未来既能还原 5 家手牌，也能还原逐张发牌过程。
+ *
+ * 输入：
+ * @param {{pack?: number, suit?: string, rank?: string}} card - 当前需要编码的牌对象。
+ *
+ * 输出：
+ * @returns {number} 唯一牌编号；牌对象无效时返回 `-1`。
+ *
+ * 注意：
+ * - 编号顺序固定为“每副牌内按 `clubs -> diamonds -> spades -> hearts -> BJ -> RJ`”。
+ * - 这里必须和 `createDeck()` 的原始牌构造顺序保持一致，否则旧日志无法稳定重放。
+ */
+function getOpeningCodeCardIndex(card) {
+  if (!card || !Number.isInteger(card.pack) || card.pack < 0 || card.pack > 2) return -1;
+  let localIndex = -1;
+
+  if (card.suit === "joker") {
+    if (card.rank === "BJ") {
+      localIndex = 52;
+    } else if (card.rank === "RJ") {
+      localIndex = 53;
+    }
+  } else {
+    const suitIndex = SUITS.indexOf(card.suit);
+    const rankIndex = RANKS.indexOf(card.rank);
+    if (suitIndex >= 0 && rankIndex >= 0) {
+      localIndex = suitIndex * RANKS.length + rankIndex;
+    }
+  }
+
+  if (localIndex < 0) return -1;
+  return card.pack * 54 + localIndex;
+}
+
+/**
+ * 作用：
+ * 根据开局码里的唯一牌编号反解出可直接参与规则层的牌对象。
+ *
+ * 为什么这样写：
+ * 未来“按开局码重开”需要把日志里的 hex 文本还原回真实牌堆；
+ * 先在共享规则层补齐解码函数，后续无论是测试还是 UI 入口都能复用这一份还原逻辑。
+ *
+ * 输入：
+ * @param {number} cardIndex - 开局码里的唯一牌编号。
+ *
+ * 输出：
+ * @returns {{id:string,suit:string,rank:string,pack:number,img:string}|null} 对应牌对象；编号非法时返回 `null`。
+ *
+ * 注意：
+ * - 返回对象会重新生成 `id` 和 `img`，不依赖历史运行态引用。
+ * - 这里还原的是“牌身份”，不是某一时刻的手牌归属。
+ */
+function createCardFromOpeningCodeIndex(cardIndex) {
+  if (!Number.isInteger(cardIndex) || cardIndex < 0 || cardIndex >= 162) return null;
+  const pack = Math.floor(cardIndex / 54);
+  const localIndex = cardIndex % 54;
+
+  if (localIndex === 52 || localIndex === 53) {
+    const rank = localIndex === 52 ? "BJ" : "RJ";
+    return {
+      id: `opening-code-${pack}-joker-${rank}-${cardIndex}`,
+      suit: "joker",
+      rank,
+      pack,
+      img: getJokerImage(rank),
+    };
+  }
+
+  const suitIndex = Math.floor(localIndex / RANKS.length);
+  const rankIndex = localIndex % RANKS.length;
+  const suit = SUITS[suitIndex];
+  const rank = RANKS[rankIndex];
+  if (!suit || !rank) return null;
+
+  return {
+    id: `opening-code-${pack}-${suit}-${rank}-${cardIndex}`,
+    suit,
+    rank,
+    pack,
+    img: getCardImage(suit, rank),
+  };
+}
+
+/**
+ * 作用：
+ * 把当前牌局开局信息编码成单行十六进制开局码。
+ *
+ * 为什么这样写：
+ * 调试日志需要一个“足够短、能直接复制、能完整还原开局”的载体；
+ * 这里把首抓玩家、5 位玩家等级和完整 162 张牌顺序压成纯 hex，后续既方便写日志，也方便人工排查时复制回放。
+ *
+ * 输入：
+ * @param {Array<object>} deckCards - 本局完整牌堆顺序，长度必须为 162。
+ * @param {{firstDealPlayerId?: number, playerLevels?: Record<number, string>}} [options={}] - 开局元信息。
+ *
+ * 输出：
+ * @returns {string} 当前牌局的开局码；输入无效时返回空串。
+ *
+ * 注意：
+ * - 这里记录的是“完整发牌顺序”，而不是已经分好家的 5 份手牌。
+ * - 版本号目前固定为 `1`；后续升级格式时只能新增版本，不能直接改旧版含义。
+ */
+function buildOpeningCode(deckCards, options = {}) {
+  const cards = Array.isArray(deckCards) ? deckCards : [];
+  if (cards.length !== 162) return "";
+
+  const firstDealPlayerId = PLAYER_ORDER.includes(options.firstDealPlayerId) ? options.firstDealPlayerId : 1;
+  const playerLevels = normalizePlayerLevels(options.playerLevels);
+  const encodedCardBytes = cards.map((card) => getOpeningCodeCardIndex(card));
+  if (encodedCardBytes.some((value) => value < 0)) return "";
+
+  const metaBytes = [
+    ((1 & 0x0f) << 4) | (firstDealPlayerId & 0x0f),
+    (getOpeningCodeLevelIndex(playerLevels[1]) << 4) | getOpeningCodeLevelIndex(playerLevels[2]),
+    (getOpeningCodeLevelIndex(playerLevels[3]) << 4) | getOpeningCodeLevelIndex(playerLevels[4]),
+    (getOpeningCodeLevelIndex(playerLevels[5]) << 4),
+  ];
+
+  return [...metaBytes, ...encodedCardBytes].map((value) => toOpeningCodeHexByte(value)).join("");
+}
+
+/**
+ * 作用：
+ * 把十六进制开局码还原成可读的元信息和完整牌堆顺序。
+ *
+ * 为什么这样写：
+ * 当前这轮先把开局码写进日志，下一轮就会需要把日志里的码真正解开回放；
+ * 提前把解码器落进共享层后，测试可以直接做 round-trip 校验，后续 UI 入口也不必再重复写一套解析逻辑。
+ *
+ * 输入：
+ * @param {string} openingCode - 日志中的开局码文本。
+ *
+ * 输出：
+ * @returns {{version:number,firstDealPlayerId:number,playerLevels:Record<number,string>,deckCards:Array<object>}|null} 解码结果；文本非法时返回 `null`。
+ *
+ * 注意：
+ * - 当前只接受 `1` 号版本、固定 166 字节长度。
+ * - 解码后会校验 162 张牌编号必须唯一，避免脏日志伪造出重复牌。
+ */
+function decodeOpeningCode(openingCode) {
+  const normalizedCode = String(openingCode ?? "").trim().toUpperCase();
+  if (!normalizedCode || normalizedCode.length !== 332 || normalizedCode.length % 2 !== 0) return null;
+  if (!/^[0-9A-F]+$/.test(normalizedCode)) return null;
+
+  const bytes = [];
+  for (let index = 0; index < normalizedCode.length; index += 2) {
+    bytes.push(Number.parseInt(normalizedCode.slice(index, index + 2), 16));
+  }
+  if (bytes.length !== 166) return null;
+
+  const version = (bytes[0] >> 4) & 0x0f;
+  const firstDealPlayerId = bytes[0] & 0x0f;
+  if (version !== 1 || !PLAYER_ORDER.includes(firstDealPlayerId)) return null;
+
+  const playerLevels = {
+    1: OPENING_CODE_LEVEL_ORDER[(bytes[1] >> 4) & 0x0f],
+    2: OPENING_CODE_LEVEL_ORDER[bytes[1] & 0x0f],
+    3: OPENING_CODE_LEVEL_ORDER[(bytes[2] >> 4) & 0x0f],
+    4: OPENING_CODE_LEVEL_ORDER[bytes[2] & 0x0f],
+    5: OPENING_CODE_LEVEL_ORDER[(bytes[3] >> 4) & 0x0f],
+  };
+  if (PLAYER_ORDER.some((playerId) => !playerLevels[playerId])) return null;
+
+  const cardIndexes = bytes.slice(4);
+  if (cardIndexes.length !== 162) return null;
+  const uniqueCardIndexCount = new Set(cardIndexes).size;
+  if (uniqueCardIndexCount !== 162) return null;
+
+  const deckCards = cardIndexes.map((cardIndex) => createCardFromOpeningCodeIndex(cardIndex));
+  if (deckCards.some((card) => !card)) return null;
+
+  return {
+    version,
+    firstDealPlayerId,
+    playerLevels,
+    deckCards,
+  };
+}
+
 const CARD_SPRITE_RANK_ORDER = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 const CARD_SPRITE_SUIT_ROW = {
   hearts: 0,
@@ -116,7 +348,7 @@ function getCardSpriteSheetPosition(card, spriteSheet = getCardFaceSpriteSheet()
 function shuffle(items) {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(getSharedRandomNumber() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;

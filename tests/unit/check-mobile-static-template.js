@@ -68,8 +68,8 @@ function main() {
   assert.equal(html.includes('id="mobileSetupScreen"'), true, "手游静态模板页应提供开始页 mock");
   assert.equal(html.includes("STATIC_CARD_FACES"), true, "手游静态模板页应定义可切换的牌面列表");
   assert.equal(html.includes('cardFaceKey: "sprite"'), true, "手游静态模板页应默认启用 sprite 牌面");
-  assert.equal(html.includes("./poker.png"), true, "手游静态模板页应继续提供 poker.png 整图 sprite 资源");
-  assert.equal(html.includes("./m_cards_sprite.png"), true, "手游静态模板页应新增 modern-sprite 对应的 m_cards_sprite.png 资源");
+  assert.equal(html.includes("./images/poker.png"), true, "手游静态模板页应继续提供 poker.png 整图 sprite 资源");
+  assert.equal(html.includes("./images/m_cards_sprite.png"), true, "手游静态模板页应新增 modern-sprite 对应的 m_cards_sprite.png 资源");
   assert.equal(html.includes('label: "现代整图"'), true, "手游静态模板页应提供现代整图主题标签");
 
   assert.equal(mockPage.trickSpots.length, 5, "手游静态模板页应保留完整的 5 个中央出牌位");

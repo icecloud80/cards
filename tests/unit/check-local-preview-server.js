@@ -48,6 +48,7 @@ function runLocalPreviewServerChecks() {
   results.push("node preview cli validates custom args");
 
   assert.equal(resolveStaticFilePath("/index1.html"), `${DEFAULT_PREVIEW_ROOT}/index1.html`, "preview path resolver should map files under the project root");
+  assert.equal(resolveStaticFilePath("/index-app.html"), `${DEFAULT_PREVIEW_ROOT}/index-app.html`, "preview path resolver should also map the App-specific mobile page");
   assert.equal(getMimeType("/tmp/demo.txt"), "text/plain; charset=utf-8", "preview mime helper should recognize txt files");
   assert.equal(
     buildPreviewOrigin("0.0.0.0", DEFAULT_PREVIEW_PORT),

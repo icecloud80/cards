@@ -837,7 +837,7 @@
 
       .card-face-sprite {
         border-radius: 8px;
-        background-image: url("./poker.png");
+        background-image: url("./images/poker.png");
         background-repeat: no-repeat;
         background-size: 1300% 500%;
         box-shadow: 0 10px 18px rgba(0, 0, 0, 0.14);
@@ -1023,55 +1023,55 @@
             title: "第二张梅花 A",
             subline: "1/2 · 已出1",
             keyClass: "friend",
-            badge: { type: "card", src: "./cards/ace_of_clubs.svg" },
+            badge: { type: "card", src: "./images/cards/ace_of_clubs.svg" },
           },
         ],
         toolbarIcons: [
-          { id: "autoManageBtn", src: "./icons/icon_robot.png", label: "托管" },
-          { id: "toggleLogBtn", src: "./icons/info-button.svg", label: "信息" },
-          { id: "toggleLastTrickBtn", src: "./icons/icon_back.png", label: "回看上轮" },
-          { id: "newGameBtn", src: "./icons/icon_new_game.png", label: "重置本局" },
-          { id: "toggleToolbarMenuBtn", src: "./icons/icon_menu.png", label: "设置" },
+          { id: "autoManageBtn", src: "./images/icons/icon_robot.png", label: "托管" },
+          { id: "toggleLogBtn", src: "./images/icons/info-button.svg", label: "信息" },
+          { id: "toggleLastTrickBtn", src: "./images/icons/icon_back.png", label: "回看上轮" },
+          { id: "newGameBtn", src: "./images/icons/icon_new_game.png", label: "重置本局" },
+          { id: "toggleToolbarMenuBtn", src: "./images/icons/icon_menu.png", label: "设置" },
         ],
         seats: [
-          { id: 2, name: "玩家2", level: "Lv:2", avatar: "./avatars/owl.svg" },
-          { id: 3, name: "玩家3", level: "Lv:2", avatar: "./avatars/bear.svg", role: "banker" },
-          { id: 4, name: "玩家4", level: "Lv:2", avatar: "./avatars/tiger.svg" },
-          { id: 5, name: "玩家5", level: "Lv:2", avatar: "./avatars/wolf.svg" },
-          { id: 1, name: "玩家1", level: "Lv:2", avatar: "./avatars/fox.svg", self: true, tag: "自己", note: "当前出牌" },
+          { id: 2, name: "玩家2", level: "Lv:2", avatar: "./images/avatars/owl.svg" },
+          { id: 3, name: "玩家3", level: "Lv:2", avatar: "./images/avatars/bear.svg", role: "banker" },
+          { id: 4, name: "玩家4", level: "Lv:2", avatar: "./images/avatars/tiger.svg" },
+          { id: 5, name: "玩家5", level: "Lv:2", avatar: "./images/avatars/wolf.svg" },
+          { id: 1, name: "玩家1", level: "Lv:2", avatar: "./images/avatars/fox.svg", self: true, tag: "自己", note: "当前出牌" },
         ],
         focusText: "玩家3 刻子",
         trickSpots: [
           {
             position: "top-left",
             name: "玩家4",
-            avatar: "./avatars/tiger.svg",
-            cards: ["./cards/4_of_clubs.svg", "./cards/4_of_clubs.svg", "./cards/6_of_clubs.svg"],
+            avatar: "./images/avatars/tiger.svg",
+            cards: ["./images/cards/4_of_clubs.svg", "./images/cards/4_of_clubs.svg", "./images/cards/6_of_clubs.svg"],
           },
           {
             position: "top-right",
             name: "玩家3",
-            avatar: "./avatars/bear.svg",
+            avatar: "./images/avatars/bear.svg",
             role: "banker",
             winning: true,
-            cards: ["./cards/jack_of_clubs.svg", "./cards/jack_of_clubs.svg", "./cards/jack_of_clubs.svg"],
+            cards: ["./images/cards/jack_of_clubs.svg", "./images/cards/jack_of_clubs.svg", "./images/cards/jack_of_clubs.svg"],
           },
           {
             position: "left",
             name: "玩家5",
-            avatar: "./avatars/wolf.svg",
-            cards: ["./cards/3_of_clubs.svg", "./cards/6_of_clubs.svg", "./cards/ace_of_clubs.svg"],
+            avatar: "./images/avatars/wolf.svg",
+            cards: ["./images/cards/3_of_clubs.svg", "./images/cards/6_of_clubs.svg", "./images/cards/ace_of_clubs.svg"],
           },
           {
             position: "right",
             name: "玩家2",
-            avatar: "./avatars/owl.svg",
+            avatar: "./images/avatars/owl.svg",
             cards: [],
           },
           {
             position: "bottom",
             name: "我的本轮",
-            avatar: "./avatars/fox.svg",
+            avatar: "./images/avatars/fox.svg",
             cards: [],
           },
         ],
@@ -1087,11 +1087,11 @@
         lastTrick: {
           title: "第 0 轮 · 玩家4 获胜",
           plays: [
-            { name: "玩家4", cards: ["./cards/10_of_clubs.svg", "./cards/10_of_clubs.svg"] },
-            { name: "玩家3", cards: ["./cards/9_of_clubs.svg", "./cards/9_of_clubs.svg"] },
-            { name: "玩家5", cards: ["./cards/8_of_clubs.svg", "./cards/8_of_clubs.svg"] },
-            { name: "玩家2", cards: ["./cards/7_of_clubs.svg", "./cards/7_of_clubs.svg"] },
-            { name: "玩家1", cards: ["./cards/6_of_clubs.svg", "./cards/6_of_clubs.svg"] },
+            { name: "玩家4", cards: ["./images/cards/10_of_clubs.svg", "./images/cards/10_of_clubs.svg"] },
+            { name: "玩家3", cards: ["./images/cards/9_of_clubs.svg", "./images/cards/9_of_clubs.svg"] },
+            { name: "玩家5", cards: ["./images/cards/8_of_clubs.svg", "./images/cards/8_of_clubs.svg"] },
+            { name: "玩家2", cards: ["./images/cards/7_of_clubs.svg", "./images/cards/7_of_clubs.svg"] },
+            { name: "玩家1", cards: ["./images/cards/6_of_clubs.svg", "./images/cards/6_of_clubs.svg"] },
           ],
         },
         handGroups: [
@@ -1099,53 +1099,53 @@
             label: "主牌",
             red: true,
             cards: [
-              "./cards/red_joker.svg",
-              "./cards/king_of_hearts.svg",
-              "./cards/jack_of_hearts.svg",
-              "./cards/2_of_clubs.svg",
-              "./cards/2_of_spades.svg",
-              "./cards/2_of_hearts.svg",
+              "./images/cards/red_joker.svg",
+              "./images/cards/king_of_hearts.svg",
+              "./images/cards/jack_of_hearts.svg",
+              "./images/cards/2_of_clubs.svg",
+              "./images/cards/2_of_spades.svg",
+              "./images/cards/2_of_hearts.svg",
             ],
           },
           {
             label: "梅花",
             cards: [
-              "./cards/queen_of_clubs.svg",
-              "./cards/jack_of_clubs.svg",
-              "./cards/10_of_clubs.svg",
-              "./cards/9_of_clubs.svg",
-              "./cards/8_of_clubs.svg",
-              "./cards/7_of_clubs.svg",
-              "./cards/6_of_clubs.svg",
-              "./cards/5_of_clubs.svg",
+              "./images/cards/queen_of_clubs.svg",
+              "./images/cards/jack_of_clubs.svg",
+              "./images/cards/10_of_clubs.svg",
+              "./images/cards/9_of_clubs.svg",
+              "./images/cards/8_of_clubs.svg",
+              "./images/cards/7_of_clubs.svg",
+              "./images/cards/6_of_clubs.svg",
+              "./images/cards/5_of_clubs.svg",
             ],
           },
           {
             label: "方块",
             red: true,
             cards: [
-              "./cards/ace_of_diamonds.svg",
-              "./cards/king_of_diamonds.svg",
-              "./cards/9_of_diamonds.svg",
-              "./cards/7_of_diamonds.svg",
-              "./cards/6_of_diamonds.svg",
-              "./cards/6_of_diamonds.svg",
-              "./cards/5_of_diamonds.svg",
-              "./cards/4_of_diamonds.svg",
-              "./cards/4_of_diamonds.svg",
-              "./cards/3_of_diamonds.svg",
+              "./images/cards/ace_of_diamonds.svg",
+              "./images/cards/king_of_diamonds.svg",
+              "./images/cards/9_of_diamonds.svg",
+              "./images/cards/7_of_diamonds.svg",
+              "./images/cards/6_of_diamonds.svg",
+              "./images/cards/6_of_diamonds.svg",
+              "./images/cards/5_of_diamonds.svg",
+              "./images/cards/4_of_diamonds.svg",
+              "./images/cards/4_of_diamonds.svg",
+              "./images/cards/3_of_diamonds.svg",
             ],
           },
           {
             label: "黑桃",
             cards: [
-              "./cards/jack_of_spades.svg",
-              "./cards/10_of_spades.svg",
-              "./cards/8_of_spades.svg",
-              "./cards/6_of_spades.svg",
-              "./cards/5_of_spades.svg",
-              "./cards/4_of_spades.svg",
-              "./cards/3_of_spades.svg",
+              "./images/cards/jack_of_spades.svg",
+              "./images/cards/10_of_spades.svg",
+              "./images/cards/8_of_spades.svg",
+              "./images/cards/6_of_spades.svg",
+              "./images/cards/5_of_spades.svg",
+              "./images/cards/4_of_spades.svg",
+              "./images/cards/3_of_spades.svg",
             ],
           },
         ],
@@ -1197,7 +1197,7 @@
             title: "第一张方块 K",
             subline: "1/1 · 玩家5",
             keyClass: "friend",
-            badge: { type: "card", src: "./cards/king_of_diamonds.svg" },
+            badge: { type: "card", src: "./images/cards/king_of_diamonds.svg" },
           },
         ],
         focusText: "玩家2 吊主",
@@ -1210,11 +1210,11 @@
         lastTrick: {
           title: "第 5 轮 · 玩家2 获胜",
           plays: [
-            { name: "玩家3", cards: ["./cards/jack_of_spades.svg", "./cards/10_of_spades.svg"] },
-            { name: "玩家2", cards: ["./cards/queen_of_spades.svg", "./cards/king_of_spades.svg"] },
-            { name: "玩家5", cards: ["./cards/9_of_spades.svg", "./cards/8_of_spades.svg"] },
-            { name: "玩家4", cards: ["./cards/7_of_spades.svg", "./cards/6_of_spades.svg"] },
-            { name: "玩家1", cards: ["./cards/5_of_spades.svg", "./cards/4_of_spades.svg"] },
+            { name: "玩家3", cards: ["./images/cards/jack_of_spades.svg", "./images/cards/10_of_spades.svg"] },
+            { name: "玩家2", cards: ["./images/cards/queen_of_spades.svg", "./images/cards/king_of_spades.svg"] },
+            { name: "玩家5", cards: ["./images/cards/9_of_spades.svg", "./images/cards/8_of_spades.svg"] },
+            { name: "玩家4", cards: ["./images/cards/7_of_spades.svg", "./images/cards/6_of_spades.svg"] },
+            { name: "玩家1", cards: ["./images/cards/5_of_spades.svg", "./images/cards/4_of_spades.svg"] },
           ],
         },
       };
@@ -1272,9 +1272,9 @@
         {
           key: "sprite",
           label: "经典整图",
-          dir: "./cards",
+          dir: "./images/cards",
           spriteSheet: {
-            src: "./poker.png",
+            src: "./images/poker.png",
             columns: 13,
             rows: 5,
           },
@@ -1282,14 +1282,14 @@
         {
           key: "modern-sprite",
           label: "现代整图",
-          dir: "./cards",
+          dir: "./images/cards",
           spriteSheet: {
-            src: "./m_cards_sprite.png",
+            src: "./images/m_cards_sprite.png",
             columns: 13,
             rows: 5,
           },
         },
-        { key: "classic", label: "经典", dir: "./cards" },
+        { key: "classic", label: "经典", dir: "./images/cards" },
       ];
 
       /**
@@ -1505,8 +1505,8 @@
        * 根据当前选中的静态牌面目录，转换一张牌的资源路径。
        *
        * 为什么这样写：
-       * 模板数据默认保存的是 `./cards` 资源路径，
-       * 切换牌面时只需要替换目录前缀，就能把整页所有牌统一切到 `./m_cards`。
+       * 模板数据默认保存的是 `./images/cards` 资源路径，
+       * 切换牌面时只需要替换目录前缀，就能把整页所有牌统一切到当前主题声明的 `./images/cards` 目录。
        *
        * 输入：
        * @param {string} src - 当前 mock 数据里的牌面路径。
@@ -1520,7 +1520,7 @@
        */
       function resolveCardFaceSrc(src) {
         const face = STATIC_CARD_FACES.find((item) => item.key === STATIC_STATE.cardFaceKey) || STATIC_CARD_FACES[0];
-        return typeof src === "string" && src.startsWith("./cards/") ? src.replace("./cards", face.dir) : src;
+        return typeof src === "string" && src.startsWith("./images/cards/") ? src.replace("./images/cards", face.dir) : src;
       }
 
       /**

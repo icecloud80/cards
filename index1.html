@@ -1374,7 +1374,7 @@
         right: var(--edge-gap);
         top: 34%;
         width: 420px;
-        max-height: 520px;
+        max-height: 620px;
         padding: 14px 16px;
         z-index: 5;
         overflow: hidden;
@@ -1393,9 +1393,65 @@
 
       .debug-hand-scroll {
         margin-top: 12px;
-        max-height: 400px;
+        max-height: 500px;
         overflow: auto;
         padding-right: 4px;
+      }
+
+      .debug-replay-form {
+        display: grid;
+        gap: 10px;
+      }
+
+      .debug-replay-field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .debug-replay-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(248, 240, 220, 0.9);
+      }
+
+      .debug-replay-input,
+      .debug-replay-textarea {
+        width: 100%;
+        border: 1px solid rgba(248, 240, 220, 0.18);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: #f8f0dc;
+        font: inherit;
+        padding: 9px 10px;
+      }
+
+      .debug-replay-input::placeholder,
+      .debug-replay-textarea::placeholder {
+        color: rgba(248, 240, 220, 0.42);
+      }
+
+      .debug-replay-textarea {
+        min-height: 88px;
+        resize: vertical;
+        line-height: 1.45;
+      }
+
+      .debug-replay-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .debug-replay-status {
+        min-height: 18px;
+      }
+
+      .debug-replay-status.error {
+        color: #ffb0a9;
+      }
+
+      .debug-replay-status.success {
+        color: #a8f3c9;
       }
 
       .debug-section + .debug-section {
@@ -3117,7 +3173,7 @@
         height: 96px;
         border-radius: 10px;
         box-shadow: 0 12px 20px rgba(0, 0, 0, 0.28);
-        background-image: url("./poker.png");
+        background-image: url("./images/poker.png");
         background-repeat: no-repeat;
         background-size: 1300% 500%;
       }
@@ -3436,19 +3492,19 @@
             <div class="topbar-tools">
               <div class="toolbar-icon-row">
                 <button id="autoManagedBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-pressed="false" aria-label="托管：关闭" title="托管：关闭">
-                  <img src="./icons/icon_robot.png" alt="" aria-hidden="true" />
+                  <img src="./images/icons/icon_robot.png" alt="" aria-hidden="true" />
                 </button>
                 <button id="toggleLogBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="信息" title="信息">
-                  <img src="./icons/info-button.svg" alt="" aria-hidden="true" />
+                  <img src="./images/icons/info-button.svg" alt="" aria-hidden="true" />
                 </button>
                 <button id="toggleLastTrickBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="上一轮回看" title="上一轮回看">
-                  <img src="./icons/icon_back.png" alt="" aria-hidden="true" />
+                  <img src="./images/icons/icon_back.png" alt="" aria-hidden="true" />
                 </button>
                 <button id="newGameBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="重置本局" title="重置本局">
-                  <img src="./icons/icon_new_game.png" alt="" aria-hidden="true" />
+                  <img src="./images/icons/icon_new_game.png" alt="" aria-hidden="true" />
                 </button>
                 <button id="toggleRulesBtn" class="tiny-btn icon-btn icon-image-btn" type="button" aria-label="更多设置" title="更多设置">
-                  <img src="./icons/icon_menu.png" alt="" aria-hidden="true" />
+                  <img src="./images/icons/icon_menu.png" alt="" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -3543,6 +3599,41 @@
           </div>
           <div id="debugPlayerTabs" class="debug-player-tabs"></div>
           <div class="debug-hand-scroll">
+            <div class="debug-section">
+              <div class="debug-section-title">复原开局</div>
+              <div class="subtle">粘贴日志里的开局码或回放种子，把牌局重建到初始 ready 状态。</div>
+              <div class="debug-replay-form">
+                <div class="debug-replay-field">
+                  <label for="debugReplaySeedInput" class="debug-replay-label">回放种子</label>
+                  <input
+                    id="debugReplaySeedInput"
+                    class="debug-replay-input"
+                    type="text"
+                    placeholder="例如：opening-code-log:round-0001"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <div id="debugReplayCurrentSeed" class="subtle">当前种子：未生成</div>
+                </div>
+                <div class="debug-replay-actions">
+                  <button id="debugReplaySeedApplyBtn" class="tiny-btn" type="button">按回放种子重开</button>
+                </div>
+                <div class="debug-replay-field">
+                  <label for="debugOpeningCodeInput" class="debug-replay-label">开局码</label>
+                  <textarea
+                    id="debugOpeningCodeInput"
+                    class="debug-replay-textarea"
+                    placeholder="粘贴日志里的 332 位十六进制开局码"
+                    spellcheck="false"
+                  ></textarea>
+                  <div id="debugReplayCurrentOpeningCode" class="subtle">当前开局码：未生成</div>
+                </div>
+                <div class="debug-replay-actions">
+                  <button id="debugOpeningCodeApplyBtn" class="tiny-btn" type="button">按开局码重开</button>
+                </div>
+                <div id="debugReplayStatus" class="subtle debug-replay-status"></div>
+              </div>
+            </div>
             <div class="debug-section">
               <div class="debug-section-head">
                 <div class="debug-section-title">AI 决策</div>
@@ -3727,7 +3818,7 @@
             <div class="hand-head">
               <div class="hand-head-main">
                 <div class="hand-avatar">
-                  <img id="handPlayerAvatar" src="./avatars/fox.svg" alt="我的头像" />
+                  <img id="handPlayerAvatar" src="./images/avatars/fox.svg" alt="我的头像" />
                 </div>
                 <div class="hand-head-copy">
                   <strong id="handPanelTitle">我的手牌</strong>

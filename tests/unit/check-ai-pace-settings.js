@@ -258,6 +258,30 @@ function createPaceContext() {
     "({ state, dom, setAiPace, getAiPaceProfile, getAiPaceDelay, startTurn, queueDealStep, getAiPaceLabel })",
     context
   );
+
+  /**
+   * 作用：
+   * 把“局内 seeded random”固定到最小值测试口径。
+   *
+   * 为什么这样写：
+   * 共享运行态现在会在开局后初始化 `state.roundRandom`；
+   * 这条回归只关心节奏档位映射，不关心真正的 seed 分布，因此继续把随机源钉成 `0`，
+   * 就能稳定复用原有“区间延迟应取最小值”的断言口径。
+   *
+   * 输入：
+   * @param {void} - 直接改写测试上下文里的共享状态。
+   *
+   * 输出：
+   * @returns {void} 不返回额外结果。
+   *
+   * 注意：
+   * - 这里只影响本测试 VM，不会改真实运行态逻辑。
+   * - 必须在返回 API 前设置，避免后续断言读到 seed 随机值。
+   */
+  api.state.roundRandom = function roundRandomStub() {
+    return 0;
+  };
+
   return { api, timers };
 }
 

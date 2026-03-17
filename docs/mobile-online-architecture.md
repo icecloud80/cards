@@ -62,8 +62,9 @@
 - 首发 App ID 固定为 `com.nolanli.cards`。
 - `Capacitor` 配置文件固定放在仓库根目录，由 CLI 统一读取。
 - `Capacitor` 的 `webDir` 固定为 `dist/app`，由 `npm run build:app-web` 生成。
-- `dist/app/index.html` 首阶段直接由 `index2.html` 复制生成，让原生壳默认进入当前 mobile 运行态。
-- `index1.html / index2.html / index-static.html` 仍随构建一起复制，便于后续原生壳调试、对照与 smoke 验证。
+- `dist/app/index.html` 首阶段直接由 `index-app.html` 复制生成，让原生壳默认进入 App 专用 mobile 运行态。
+- `index-app.html / index1.html / index2.html / index-static.html` 仍随构建一起复制，便于后续原生壳调试、对照与 smoke 验证。
+- 构建清单必须保持最小可运行集；`elements.cardmeister.min.js` 已从 App Web 打包链路移除，后续若没有真实运行时依赖，不要再把类似废弃 vendor 文件复制进 `dist/app`。
 - Android 首阶段可直接通过 `npx cap sync android` 迭代；iOS 侧除了 `CocoaPods` 外，还需要本机安装完整 Xcode，并把 `xcode-select` 指向 Xcode.app，而不是只停留在 Command Line Tools。
 
 ### 3.2 客户端分层
@@ -73,6 +74,7 @@
 #### 表现层
 
 - 页面布局。
+- App 专用牌桌入口与浏览器预览入口隔离：`index-app.html` 专门处理原生安全区、固定顶栏和自适应中部牌桌，`index2.html` 继续承担浏览器运行态与对照职责。
 - 动画与过渡。
 - 牌面渲染。
 - 经典单张 SVG 与整图 sprite 的统一接入；当前 App 壳默认整图牌面应继续沿用 `poker.png`，并保留对 `m_cards_sprite.png` 这类实验资源的接入能力，等重新通过视觉验收后再考虑切换默认入口。

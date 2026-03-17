@@ -34,6 +34,7 @@ async function main(argv = process.argv.slice(2)) {
   console.log(`- port: ${port}`);
   console.log(`- home: ${origin}/`);
   console.log(`- pc: ${origin}/index1.html`);
+  console.log(`- app mobile: ${origin}/index-app.html`);
   console.log(`- mobile: ${origin}/index2.html`);
   console.log(`- static mock: ${origin}/index-static.html`);
   console.log("Press Ctrl+C to stop the server.");

@@ -1,5 +1,5 @@
 window.APP_PLATFORM = "pc";
-window.CARD_ASSET_DIR = "./cards";
+window.CARD_ASSET_DIR = "./images/cards";
 window.DEFAULT_CARD_FACE_KEY = "sprite";
 /**
  * 作用：
@@ -22,13 +22,13 @@ window.DEFAULT_CARD_FACE_KEY = "sprite";
  * - `modern-sprite` 重新作为真实可选主题出现，供 PC / mobile 共用同一张新的 PNG 整图资源。
  */
 window.CARD_FACE_OPTIONS = [
-  { key: "classic", label: "经典", dir: "./cards" },
+  { key: "classic", label: "经典", dir: "./images/cards" },
   {
     key: "sprite",
     label: "经典整图",
-    dir: "./cards",
+    dir: "./images/cards",
     spriteSheet: {
-      src: "./poker.png",
+      src: "./images/poker.png",
       columns: 13,
       rows: 5,
     },
@@ -36,9 +36,9 @@ window.CARD_FACE_OPTIONS = [
   {
     key: "modern-sprite",
     label: "现代整图",
-    dir: "./cards",
+    dir: "./images/cards",
     spriteSheet: {
-      src: "./m_cards_sprite.png",
+      src: "./images/m_cards_sprite.png",
       columns: 13,
       rows: 5,
     },

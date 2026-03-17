@@ -2,8 +2,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const REPO_ROOT = path.join(__dirname, "..");
-const CARD_SOURCE_DIR = path.join(REPO_ROOT, "m_cards");
-const OUTPUT_FILE_PATH = path.join(REPO_ROOT, "m_cards_sprite.svg");
+const CARD_SOURCE_DIR = path.join(REPO_ROOT, "images", "m_cards");
+const OUTPUT_FILE_PATH = path.join(REPO_ROOT, "images", "m_cards_sprite.svg");
 const SPRITE_COLUMNS = 13;
 const SPRITE_ROWS = 5;
 const CELL_WIDTH = 90;
@@ -29,7 +29,7 @@ const SPECIAL_SPRITE_TILES = [
 
 /**
  * 作用：
- * 把业务里的牌面 rank 转成 `m_cards` 目录使用的文件名片段。
+ * 把业务里的牌面 rank 转成 `images/m_cards` 目录使用的文件名片段。
  *
  * 为什么这样写：
  * 目录里既有 `ace / jack / queen / king` 这类英文单词，也有 `2-10` 这类数字；
@@ -39,7 +39,7 @@ const SPECIAL_SPRITE_TILES = [
  * @param {string} rank - 业务牌对象里的点数，例如 `A / 10 / K`。
  *
  * 输出：
- * @returns {string} 与 `m_cards` 文件命名规则一致的 rank 片段。
+ * @returns {string} 与 `images/m_cards` 文件命名规则一致的 rank 片段。
  *
  * 注意：
  * - 这里只处理标准 52 张牌的 rank；大小王和牌背走单独映射。
@@ -51,7 +51,7 @@ function getRankFileName(rank) {
 
 /**
  * 作用：
- * 生成标准花色牌在 `m_cards` 目录中的文件名。
+ * 生成标准花色牌在 `images/m_cards` 目录中的文件名。
  *
  * 为什么这样写：
  * 普通牌需要按 `rank_of_suit.svg` 的规则定位原始 SVG；
@@ -337,7 +337,7 @@ function buildSpriteMarkup(tiles) {
  * @param {void} - 使用脚本内固定配置读取资源并写出结果。
  *
  * 输出：
- * @returns {void} 正常完成时会把 `m_cards_sprite.svg` 写到仓库根目录。
+ * @returns {void} 正常完成时会把 `m_cards_sprite.svg` 写到 `images/` 目录。
  *
  * 注意：
  * - 写出前会覆盖旧文件，因此结果应始终由脚本重建，而不是手工改。

@@ -287,7 +287,7 @@ function getBottomRevealVisibleCount() {
  * - 返回的是可直接赋给内联样式的字符串，不额外包含背景定位或背景尺寸。
  */
 function getCardSpriteDisplayMetrics(spriteSheet) {
-  if (APP_PLATFORM === "mobile" && spriteSheet?.src === "./m_cards_sprite.png") {
+  if (APP_PLATFORM === "mobile" && spriteSheet?.src === "./images/m_cards_sprite.png") {
     return {
       width: "90%",
       height: "90%",
@@ -2009,6 +2009,36 @@ function renderDebugPanel() {
   dom.toggleDebugBtn.classList.toggle("alert", visible);
   dom.toggleDebugBtn.textContent = TEXT.buttons.debug;
   dom.debugPanel.classList.toggle("hidden", !visible);
+
+  if (dom.debugReplaySeedInput) {
+    if (dom.debugReplaySeedInput.value !== state.debugReplaySeedDraft) {
+      dom.debugReplaySeedInput.value = state.debugReplaySeedDraft;
+    }
+    dom.debugReplaySeedInput.placeholder = TEXT.debug.replaySeedPlaceholder;
+  }
+  if (dom.debugOpeningCodeInput) {
+    if (dom.debugOpeningCodeInput.value !== state.debugOpeningCodeDraft) {
+      dom.debugOpeningCodeInput.value = state.debugOpeningCodeDraft;
+    }
+    dom.debugOpeningCodeInput.placeholder = TEXT.debug.openingCodePlaceholder;
+  }
+  if (dom.debugReplaySeedApplyBtn) {
+    dom.debugReplaySeedApplyBtn.textContent = TEXT.debug.replaySeedApply;
+  }
+  if (dom.debugOpeningCodeApplyBtn) {
+    dom.debugOpeningCodeApplyBtn.textContent = TEXT.debug.openingCodeApply;
+  }
+  if (dom.debugReplayCurrentSeed) {
+    dom.debugReplayCurrentSeed.textContent = TEXT.debug.replayCurrentSeed(state.replaySeed);
+  }
+  if (dom.debugReplayCurrentOpeningCode) {
+    dom.debugReplayCurrentOpeningCode.textContent = TEXT.debug.replayCurrentOpeningCode(state.openingCode);
+  }
+  if (dom.debugReplayStatus) {
+    dom.debugReplayStatus.textContent = state.debugReplayStatusText || "";
+    dom.debugReplayStatus.classList.toggle("error", state.debugReplayStatusTone === "error");
+    dom.debugReplayStatus.classList.toggle("success", state.debugReplayStatusTone === "success");
+  }
 
   dom.debugPlayerTabs.innerHTML = PLAYER_ORDER
     .filter((playerId) => playerId !== 1)

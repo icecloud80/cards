@@ -90,7 +90,7 @@
   - App Name：`找朋友升级`
   - App ID：`com.nolanli.cards`
   - `Capacitor webDir`：`dist/app`
-  - 默认 App 入口：`dist/app/index.html -> index2.html`
+  - 默认 App 入口：`dist/app/index.html -> index-app.html`
   - Android 可先独立推进；iOS 完整同步除 `CocoaPods` 外，还要求本机有完整 Xcode 环境
 
 #### 任务 4：建立正式构建流程
@@ -104,6 +104,7 @@
 - 验收：
   - 能稳定生成提审包。
   - 资源版本可追踪。
+  - App Web 默认资源清单不再包含 `elements.cardmeister.min.js` 这类废弃脚本，并有单测校验最终 `dist/app` 产物不回退。
 
 #### 任务 5：建立 App 端 smoke 检查
 

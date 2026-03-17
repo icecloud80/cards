@@ -223,6 +223,16 @@ const TEXT = {
   },
   debug: {
     title: "调试看牌",
+    replaySection: "复原开局",
+    replayHint: "粘贴日志里的开局码或回放种子，把牌局重建到初始 ready 状态。",
+    replaySeedLabel: "回放种子",
+    replaySeedPlaceholder: "例如：opening-code-log:round-0001",
+    replaySeedApply: "按回放种子重开",
+    openingCodeLabel: "开局码",
+    openingCodePlaceholder: "粘贴日志里的 332 位十六进制开局码",
+    openingCodeApply: "按开局码重开",
+    replayCurrentSeed: (seed) => `当前种子：${seed || "未生成"}`,
+    replayCurrentOpeningCode: (openingCode) => `当前开局码：${openingCode ? `${openingCode.slice(0, 20)}...` : "未生成"}`,
     empty: "当前没有手牌。",
     handCount: (name, count) => `${name} 当前手牌 ${count} 张`,
     noDecision: "当前还没有这位玩家的 AI 决策记录。",
@@ -244,6 +254,11 @@ const TEXT = {
     evaluationSummary: (total, primary, secondary) => `评估 ${total} · ${primary} / ${secondary}`,
     sectionDecision: "AI 决策",
     sectionHand: "暗手",
+    replaySeedRequired: "请输入回放种子。",
+    openingCodeRequired: "请输入开局码。",
+    replaySeedApplied: (seed) => `已按回放种子重建初始状态：${seed}`,
+    openingCodeApplied: (openingCode, seedText) => `已按开局码重建初始状态${seedText ? `，并使用回放种子 ${seedText}` : ""}。当前开局码：${openingCode.slice(0, 20)}...`,
+    replayInvalidOpeningCode: "开局码无效，请确认已完整粘贴日志中的十六进制文本。",
   },
   friendPicker: {
     suitOptions: [

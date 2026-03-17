@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>五人找朋友升级 · 手机版</title>
+    <title>五人找朋友升级 · App版</title>
     <style>
       :root {
         --bg-top: #102733;
@@ -2396,14 +2396,14 @@
       }
 
       /* 手游结算弹窗需要在单手握持场景里保持更短、更紧凑，避免结果层把整屏拉得过高。 */
-      body.mobile-index2 .result-overlay {
+      body.mobile-app-shell .result-overlay {
         padding:
           max(10px, env(safe-area-inset-top))
           8px
           max(10px, env(safe-area-inset-bottom));
       }
 
-      body.mobile-index2 .result-card {
+      body.mobile-app-shell .result-card {
         --mobile-result-bottom-card-width: clamp(27px, 7.4vw, 33px);
         width: min(calc(100vw - 16px), 392px);
         max-height: calc(100vh - max(20px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom)));
@@ -2412,120 +2412,120 @@
         overflow-y: auto;
       }
 
-      body.mobile-index2 .result-card h2 {
+      body.mobile-app-shell .result-card h2 {
         font-size: clamp(28px, 9vw, 40px);
         line-height: 1.08;
         letter-spacing: 1px;
       }
 
-      body.mobile-index2 .result-card .result-body {
+      body.mobile-app-shell .result-card .result-body {
         margin-top: 10px;
         font-size: 12px;
         line-height: 1.48;
       }
 
-      body.mobile-index2 .result-subinfo {
+      body.mobile-app-shell .result-subinfo {
         margin-top: 12px;
         padding: 10px;
         border-radius: 14px;
       }
 
-      body.mobile-index2 .result-level-head {
+      body.mobile-app-shell .result-level-head {
         gap: 6px;
       }
 
-      body.mobile-index2 .result-level-title {
+      body.mobile-app-shell .result-level-title {
         font-size: 12px;
       }
 
-      body.mobile-index2 .result-level-caption {
+      body.mobile-app-shell .result-level-caption {
         font-size: 11px;
       }
 
-      body.mobile-index2 .result-level-list {
+      body.mobile-app-shell .result-level-list {
         margin-top: 8px;
         gap: 6px;
       }
 
-      body.mobile-index2 .result-level-item {
+      body.mobile-app-shell .result-level-item {
         gap: 6px;
         padding: 8px 9px;
         border-radius: 12px;
       }
 
-      body.mobile-index2 .result-level-main {
+      body.mobile-app-shell .result-level-main {
         gap: 5px;
       }
 
-      body.mobile-index2 .result-level-player {
+      body.mobile-app-shell .result-level-player {
         font-size: 12px;
       }
 
-      body.mobile-index2 .result-camp-chip,
-      body.mobile-index2 .result-level-tag {
+      body.mobile-app-shell .result-camp-chip,
+      body.mobile-app-shell .result-level-tag {
         min-height: 18px;
         padding: 0 7px;
         font-size: 10px;
       }
 
-      body.mobile-index2 .result-level-change {
+      body.mobile-app-shell .result-level-change {
         min-height: 24px;
         padding: 0 7px;
         gap: 4px;
       }
 
-      body.mobile-index2 .result-level-value {
+      body.mobile-app-shell .result-level-value {
         font-size: 11px;
       }
 
-      body.mobile-index2 .result-level-arrow {
+      body.mobile-app-shell .result-level-arrow {
         width: 14px;
         height: 14px;
       }
 
-      body.mobile-index2 .result-bottom {
+      body.mobile-app-shell .result-bottom {
         margin-top: 12px;
         padding: 10px 10px 8px;
         border-radius: 14px;
       }
 
-      body.mobile-index2 .result-bottom .label {
+      body.mobile-app-shell .result-bottom .label {
         font-size: 12px;
       }
 
-      body.mobile-index2 .result-bottom .bottom-cards {
+      body.mobile-app-shell .result-bottom .bottom-cards {
         min-height: 60px;
         margin-top: 8px;
       }
 
-      body.mobile-index2 .result-bottom .bottom-cards .played-card {
+      body.mobile-app-shell .result-bottom .bottom-cards .played-card {
         width: var(--mobile-result-bottom-card-width);
         height: calc(var(--mobile-result-bottom-card-width) * 1.42);
         margin-left: -9px;
       }
 
-      body.mobile-index2 .result-bottom .bottom-cards .played-card:first-child {
+      body.mobile-app-shell .result-bottom .bottom-cards .played-card:first-child {
         margin-left: 0;
       }
 
-      body.mobile-index2 .result-countdown {
+      body.mobile-app-shell .result-countdown {
         margin-top: 10px;
         font-size: 12px;
         line-height: 1.35;
       }
 
-      body.mobile-index2 .result-action-row {
+      body.mobile-app-shell .result-action-row {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 6px;
         margin-top: 8px;
       }
 
-      body.mobile-index2 .result-action-row:first-of-type {
+      body.mobile-app-shell .result-action-row:first-of-type {
         margin-top: 10px;
       }
 
-      body.mobile-index2 .result-action-row button.action-btn {
+      body.mobile-app-shell .result-action-row button.action-btn {
         min-height: 34px;
         padding: 5px 6px;
         border-radius: 14px;
@@ -2545,58 +2545,59 @@
         display: none !important;
       }
 
-      body.mobile-index2 {
+      body.mobile-app-shell {
         overflow: hidden;
       }
 
-      body.mobile-index2 .scene {
+      body.mobile-app-shell .scene {
         height: var(--mobile-viewport-height);
         min-height: var(--mobile-viewport-height);
-        padding: max(6px, env(safe-area-inset-top)) 6px max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 10px);
+        padding: max(4px, env(safe-area-inset-top)) 6px max(6px, env(safe-area-inset-bottom));
       }
 
-      body.mobile-index2 .table {
+      body.mobile-app-shell .table {
         position: relative;
         width: min(100%, 430px) !important;
-        height: calc(var(--mobile-viewport-height) - max(12px, env(safe-area-inset-top)) - max(var(--mobile-bottom-clearance), env(safe-area-inset-bottom), 14px));
-        padding: 8px;
+        height: calc(var(--mobile-viewport-height) - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+        padding: 6px;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
         grid-template-rows:
-          auto
-          clamp(80px, 10.6vh, 96px)
-          clamp(80px, 10.6vh, 96px)
-          clamp(86px, 11.1vh, 102px)
-          clamp(186px, 28.8vh, 228px)
-          clamp(42px, 5.2vh, 50px);
-        gap: 6px;
+          clamp(56px, 8.8svh, 64px)
+          minmax(0, 1fr)
+          clamp(188px, 29vh, 220px)
+          clamp(44px, 6.2svh, 54px);
+        gap: 8px;
         overflow: hidden;
         align-content: stretch;
         justify-items: stretch;
       }
 
-      body.mobile-index2 .table::before {
+      body.mobile-app-shell .table::before {
         inset: 6px;
       }
 
-      body.mobile-index2 .friend-panel,
-      body.mobile-index2 .hud,
-      body.mobile-index2 .score-panel,
-      body.mobile-index2 .seat,
-      body.mobile-index2 .version-badge,
-      body.mobile-index2 .focus-banner,
-      body.mobile-index2 .log-panel,
-      body.mobile-index2 .last-trick {
+      body.mobile-app-shell .friend-panel,
+      body.mobile-app-shell .hud,
+      body.mobile-app-shell .score-panel,
+      body.mobile-app-shell .seat,
+      body.mobile-app-shell .version-badge,
+      body.mobile-app-shell .focus-banner,
+      body.mobile-app-shell .log-panel,
+      body.mobile-app-shell .last-trick {
         display: none !important;
       }
 
-      body.mobile-index2 .mobile-topbar {
+      body.mobile-app-shell .mobile-topbar {
         grid-column: 1 / -1;
+        grid-row: 1;
         display: grid;
         grid-template-columns: 1fr auto 1fr;
         align-items: center;
         gap: 8px;
-        padding: 8px 8px;
+        min-height: 100%;
+        height: 100%;
+        padding: 6px 8px;
         border-radius: 14px;
         border: 1px solid rgba(77, 117, 126, 0.34);
         background: linear-gradient(180deg, rgba(188, 214, 218, 0.98), rgba(142, 182, 190, 0.97));
@@ -2604,7 +2605,7 @@
         z-index: 5;
       }
 
-      body.mobile-index2 .mobile-topbar-main {
+      body.mobile-app-shell .mobile-topbar-main {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -2612,29 +2613,29 @@
         justify-self: start;
       }
 
-      body.mobile-index2 .mobile-topbar-sub {
+      body.mobile-app-shell .mobile-topbar-sub {
         display: flex;
         align-items: center;
         gap: 10px;
         min-width: 0;
         justify-self: center;
-        /* 新增“重置本局”图标后，右侧按钮组更宽；把主/朋状态块整体往右收，避免和“难度”统计挤在一起。 */
-        transform: translateX(-8px);
+        /* App 顶栏采用固定高度后，状态牌只做轻微横向校正，避免挤压左侧统计。 */
+        transform: translateX(-2px);
       }
 
-      body.mobile-index2 .mobile-stat {
+      body.mobile-app-shell .mobile-stat {
         min-width: 0;
         flex: 0 0 auto;
       }
 
-      body.mobile-index2 .mobile-stat span {
+      body.mobile-app-shell .mobile-stat span {
         display: block;
         color: var(--muted);
         font-size: 9px;
         font-weight: 700;
       }
 
-      body.mobile-index2 .mobile-stat strong {
+      body.mobile-app-shell .mobile-stat strong {
         display: block;
         margin-top: 2px;
         font-size: 18px;
@@ -2642,14 +2643,14 @@
         color: #7f5420;
       }
 
-      body.mobile-index2 .mobile-friend {
+      body.mobile-app-shell .mobile-friend {
         min-width: 0;
         display: flex;
         align-items: center;
         gap: 8px;
       }
 
-      body.mobile-index2 .mobile-state {
+      body.mobile-app-shell .mobile-state {
         display: inline-flex;
         align-items: center;
         gap: 6px;
@@ -2657,15 +2658,15 @@
         flex: 0 0 auto;
       }
 
-      body.mobile-index2 .mobile-state.clickable {
+      body.mobile-app-shell .mobile-state.clickable {
         cursor: pointer;
       }
 
-      body.mobile-index2 .mobile-state.clickable .mobile-state-card {
+      body.mobile-app-shell .mobile-state.clickable .mobile-state-card {
         box-shadow: inset 0 0 0 1px rgba(216, 92, 76, 0.22);
       }
 
-      body.mobile-index2 .mobile-state-tag {
+      body.mobile-app-shell .mobile-state-tag {
         color: #85541d;
         font-size: 10px;
         font-weight: 800;
@@ -2673,7 +2674,7 @@
         letter-spacing: 0.2px;
       }
 
-      body.mobile-index2 .mobile-state-card {
+      body.mobile-app-shell .mobile-state-card {
         width: 22px;
         height: 32px;
         position: relative;
@@ -2683,9 +2684,9 @@
         flex: 0 0 auto;
       }
 
-      body.mobile-index2 .mobile-state-card .friend-card,
-      body.mobile-index2 .mobile-state-card .played-card,
-      body.mobile-index2 .mobile-state-card img {
+      body.mobile-app-shell .mobile-state-card .friend-card,
+      body.mobile-app-shell .mobile-state-card .played-card,
+      body.mobile-app-shell .mobile-state-card img {
         width: 22px;
         height: 32px;
         margin-left: 0;
@@ -2693,14 +2694,14 @@
       }
 
       /* 顶部“主 / 朋”状态牌卡位比手牌更小，sprite 不能继续沿用手牌区的 90% 安全边。 */
-      body.mobile-index2 .mobile-state-card .card-face-sprite {
+      body.mobile-app-shell .mobile-state-card .card-face-sprite {
         width: 100% !important;
         height: 100% !important;
         margin: 0 !important;
         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16) !important;
       }
 
-      body.mobile-index2 .mobile-state-card.empty {
+      body.mobile-app-shell .mobile-state-card.empty {
         border-radius: 6px;
         background: rgba(16, 44, 54, 0.08);
         color: #6b7880;
@@ -2708,12 +2709,12 @@
         font-weight: 800;
       }
 
-      body.mobile-index2 .mobile-friend-card {
+      body.mobile-app-shell .mobile-friend-card {
         width: 22px;
         height: 32px;
       }
 
-      body.mobile-index2 .mobile-occurrence-badge {
+      body.mobile-app-shell .mobile-occurrence-badge {
         position: absolute;
         right: -6px;
         top: -6px;
@@ -2731,11 +2732,11 @@
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
       }
 
-      body.mobile-index2 .mobile-occurrence-badge.show {
+      body.mobile-app-shell .mobile-occurrence-badge.show {
         display: inline-flex;
       }
 
-      body.mobile-index2 .mobile-level-badge {
+      body.mobile-app-shell .mobile-level-badge {
         position: absolute;
         left: -7px;
         bottom: -6px;
@@ -2755,23 +2756,23 @@
         background: linear-gradient(180deg, #7d8e98, #556870);
       }
 
-      body.mobile-index2 .mobile-level-badge.show {
+      body.mobile-app-shell .mobile-level-badge.show {
         display: inline-flex;
       }
 
-      body.mobile-index2 .mobile-level-badge.rank-5 {
+      body.mobile-app-shell .mobile-level-badge.rank-5 {
         background: linear-gradient(180deg, #d7a33e, #9b6712);
       }
 
-      body.mobile-index2 .mobile-level-badge.rank-10 {
+      body.mobile-app-shell .mobile-level-badge.rank-10 {
         background: linear-gradient(180deg, #d25d56, #9f3630);
       }
 
-      body.mobile-index2 .mobile-level-badge.rank-face {
+      body.mobile-app-shell .mobile-level-badge.rank-face {
         background: linear-gradient(180deg, #537bb6, #375b8f);
       }
 
-      body.mobile-index2 .mobile-icon-btn {
+      body.mobile-app-shell .mobile-icon-btn {
         border: 0;
         border-radius: 8px;
         width: 32px;
@@ -2785,7 +2786,7 @@
         cursor: pointer;
       }
 
-      body.mobile-index2 .mobile-icon-btn img {
+      body.mobile-app-shell .mobile-icon-btn img {
         width: 18px;
         height: 18px;
         display: block;
@@ -2793,17 +2794,29 @@
         object-fit: contain;
       }
 
-      body.mobile-index2 .mobile-icon-btn.active {
+      body.mobile-app-shell .mobile-icon-btn.active {
         background: rgba(216, 92, 76, 0.18);
         box-shadow: inset 0 0 0 1px rgba(216, 92, 76, 0.28);
       }
 
-      body.mobile-index2 .mobile-icon-btn.persistent {
+      body.mobile-app-shell .mobile-icon-btn.persistent {
         background: rgba(68, 105, 179, 0.2);
         box-shadow: inset 0 0 0 1px rgba(68, 105, 179, 0.34);
       }
 
-      body.mobile-index2 .mobile-topbar-actions {
+      body.mobile-app-shell .mobile-play-area {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        position: relative;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.12fr);
+        gap: 6px;
+        align-content: stretch;
+      }
+
+      body.mobile-app-shell .mobile-topbar-actions {
         display: flex;
         align-items: center;
         justify-content: flex-end;
@@ -2811,7 +2824,7 @@
         justify-self: end;
       }
 
-      body.mobile-index2 .mobile-setup-screen {
+      body.mobile-app-shell .mobile-setup-screen {
         position: absolute;
         inset: 8px;
         display: none;
@@ -2819,7 +2832,7 @@
         z-index: 20;
       }
 
-      body.mobile-index2 .mobile-setup-card {
+      body.mobile-app-shell .mobile-setup-card {
         width: 100%;
         padding: 22px 18px 18px;
         border-radius: 22px;
@@ -2830,7 +2843,7 @@
         overflow: hidden;
       }
 
-      body.mobile-index2 .mobile-kicker {
+      body.mobile-app-shell .mobile-kicker {
         color: #85541d;
         font-size: 26px;
         font-weight: 900;
@@ -2838,28 +2851,28 @@
         letter-spacing: 0.02em;
       }
 
-      body.mobile-index2 .mobile-setup-card h1 {
+      body.mobile-app-shell .mobile-setup-card h1 {
         margin: 10px 0 0;
         font-size: 17px;
         line-height: 1.2;
         color: #203038;
       }
 
-      body.mobile-index2 .mobile-setup-lead {
+      body.mobile-app-shell .mobile-setup-lead {
         margin-top: 10px;
         color: var(--muted);
         font-size: 13px;
         line-height: 1.6;
       }
 
-      body.mobile-index2 .mobile-setup-card p {
+      body.mobile-app-shell .mobile-setup-card p {
         margin: 10px 0 0;
         color: var(--muted);
         font-size: 13px;
         line-height: 1.5;
       }
 
-      body.mobile-index2 .mobile-setup-visual {
+      body.mobile-app-shell .mobile-setup-visual {
         position: relative;
         margin-top: 16px;
         min-height: 200px;
@@ -2870,7 +2883,7 @@
         overflow: hidden;
       }
 
-      body.mobile-index2 .mobile-setup-visual::before {
+      body.mobile-app-shell .mobile-setup-visual::before {
         content: "";
         position: absolute;
         left: -18px;
@@ -2883,7 +2896,7 @@
           0 28px 0 rgba(26, 18, 12, 0.48);
       }
 
-      body.mobile-index2 .mobile-visual-badge {
+      body.mobile-app-shell .mobile-visual-badge {
         position: absolute;
         left: 12px;
         top: 12px;
@@ -2897,7 +2910,7 @@
         letter-spacing: 0.14em;
       }
 
-      body.mobile-index2 .mobile-card-fan {
+      body.mobile-app-shell .mobile-card-fan {
         position: absolute;
         left: 12px;
         top: 48px;
@@ -2905,7 +2918,7 @@
         height: 120px;
       }
 
-      body.mobile-index2 .mobile-card-fan-face {
+      body.mobile-app-shell .mobile-card-fan-face {
         position: absolute;
         width: 72px;
         height: 96px;
@@ -2916,28 +2929,28 @@
         background-size: 1300% 500%;
       }
 
-      body.mobile-index2 .mobile-card-fan-face:nth-child(1) {
+      body.mobile-app-shell .mobile-card-fan-face:nth-child(1) {
         left: 0;
         top: 22px;
         background-position: 0% 50%;
         transform: rotate(-14deg);
       }
 
-      body.mobile-index2 .mobile-card-fan-face:nth-child(2) {
+      body.mobile-app-shell .mobile-card-fan-face:nth-child(2) {
         left: 28px;
         top: 0;
         background-position: 100% 0%;
         transform: rotate(-2deg);
       }
 
-      body.mobile-index2 .mobile-card-fan-face:nth-child(3) {
+      body.mobile-app-shell .mobile-card-fan-face:nth-child(3) {
         left: 60px;
         top: 20px;
         background-position: 0% 100%;
         transform: rotate(13deg);
       }
 
-      body.mobile-index2 .mobile-tractor {
+      body.mobile-app-shell .mobile-tractor {
         position: absolute;
         left: 14px;
         bottom: 36px;
@@ -2945,7 +2958,7 @@
         height: 88px;
       }
 
-      body.mobile-index2 .mobile-tractor-body {
+      body.mobile-app-shell .mobile-tractor-body {
         position: absolute;
         left: 26px;
         bottom: 26px;
@@ -2955,7 +2968,7 @@
         background: linear-gradient(180deg, #d45944, #8f3024);
       }
 
-      body.mobile-index2 .mobile-tractor-cabin {
+      body.mobile-app-shell .mobile-tractor-cabin {
         position: absolute;
         left: 64px;
         bottom: 48px;
@@ -2966,7 +2979,7 @@
         background: linear-gradient(180deg, #efd7a9, #b28e56);
       }
 
-      body.mobile-index2 .mobile-tractor-cabin::after {
+      body.mobile-app-shell .mobile-tractor-cabin::after {
         content: "";
         position: absolute;
         inset: 4px 5px 5px;
@@ -2974,7 +2987,7 @@
         background: linear-gradient(180deg, rgba(235, 247, 255, 0.96), rgba(104, 163, 176, 0.55));
       }
 
-      body.mobile-index2 .mobile-tractor-engine {
+      body.mobile-app-shell .mobile-tractor-engine {
         position: absolute;
         left: 12px;
         bottom: 38px;
@@ -2984,7 +2997,7 @@
         background: linear-gradient(180deg, #e9c16e, #b67930);
       }
 
-      body.mobile-index2 .mobile-tractor-pipe {
+      body.mobile-app-shell .mobile-tractor-pipe {
         position: absolute;
         left: 20px;
         bottom: 54px;
@@ -2994,28 +3007,28 @@
         background: #3e2b25;
       }
 
-      body.mobile-index2 .mobile-wheel {
+      body.mobile-app-shell .mobile-wheel {
         position: absolute;
         border-radius: 50%;
         background:
           radial-gradient(circle at 32% 32%, #3c474c 0 14%, #171d20 15% 54%, #a67a37 55% 72%, #261a10 73% 100%);
       }
 
-      body.mobile-index2 .mobile-wheel.small {
+      body.mobile-app-shell .mobile-wheel.small {
         left: 18px;
         bottom: 8px;
         width: 28px;
         height: 28px;
       }
 
-      body.mobile-index2 .mobile-wheel.large {
+      body.mobile-app-shell .mobile-wheel.large {
         left: 74px;
         bottom: 0;
         width: 42px;
         height: 42px;
       }
 
-      body.mobile-index2 .mobile-train {
+      body.mobile-app-shell .mobile-train {
         position: absolute;
         right: 8px;
         bottom: 30px;
@@ -3023,7 +3036,7 @@
         height: 94px;
       }
 
-      body.mobile-index2 .mobile-train-front {
+      body.mobile-app-shell .mobile-train-front {
         position: absolute;
         left: 16px;
         bottom: 36px;
@@ -3033,7 +3046,7 @@
         background: linear-gradient(180deg, #c95140, #822f26);
       }
 
-      body.mobile-index2 .mobile-train-engine {
+      body.mobile-app-shell .mobile-train-engine {
         position: absolute;
         left: 34px;
         bottom: 28px;
@@ -3043,7 +3056,7 @@
         background: linear-gradient(180deg, #efbc58, #af6d25);
       }
 
-      body.mobile-index2 .mobile-train-chimney {
+      body.mobile-app-shell .mobile-train-chimney {
         position: absolute;
         left: 54px;
         bottom: 48px;
@@ -3053,7 +3066,7 @@
         background: #392720;
       }
 
-      body.mobile-index2 .mobile-train-cabin {
+      body.mobile-app-shell .mobile-train-cabin {
         position: absolute;
         left: 94px;
         bottom: 34px;
@@ -3063,7 +3076,7 @@
         background: linear-gradient(180deg, #28596a, #173640);
       }
 
-      body.mobile-index2 .mobile-train-cabin::after {
+      body.mobile-app-shell .mobile-train-cabin::after {
         content: "";
         position: absolute;
         inset: 7px 8px auto;
@@ -3072,7 +3085,7 @@
         background: linear-gradient(180deg, rgba(239, 248, 255, 0.98), rgba(116, 173, 188, 0.55));
       }
 
-      body.mobile-index2 .mobile-train-cargo {
+      body.mobile-app-shell .mobile-train-cargo {
         position: absolute;
         right: 6px;
         bottom: 30px;
@@ -3082,7 +3095,7 @@
         background: linear-gradient(180deg, #a44d3e, #5f2923);
       }
 
-      body.mobile-index2 .mobile-train-wheel {
+      body.mobile-app-shell .mobile-train-wheel {
         position: absolute;
         bottom: 4px;
         width: 24px;
@@ -3092,25 +3105,25 @@
           radial-gradient(circle at 32% 32%, #3c474c 0 14%, #171d20 15% 54%, #a67a37 55% 72%, #261a10 73% 100%);
       }
 
-      body.mobile-index2 .mobile-train-wheel.w1 {
+      body.mobile-app-shell .mobile-train-wheel.w1 {
         left: 30px;
       }
 
-      body.mobile-index2 .mobile-train-wheel.w2 {
+      body.mobile-app-shell .mobile-train-wheel.w2 {
         left: 72px;
       }
 
-      body.mobile-index2 .mobile-train-wheel.w3 {
+      body.mobile-app-shell .mobile-train-wheel.w3 {
         right: 14px;
       }
 
-      body.mobile-index2 .mobile-setup-actions {
+      body.mobile-app-shell .mobile-setup-actions {
         display: grid;
         gap: 10px;
         margin-top: 18px;
       }
 
-      body.mobile-index2 .mobile-setup-field {
+      body.mobile-app-shell .mobile-setup-field {
         display: grid;
         gap: 8px;
         margin-top: 16px;
@@ -3119,14 +3132,14 @@
         font-weight: 700;
       }
 
-      body.mobile-index2 .mobile-field-head {
+      body.mobile-app-shell .mobile-field-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
       }
 
-      body.mobile-index2 .mobile-setup-select {
+      body.mobile-app-shell .mobile-setup-select {
         width: 100%;
         min-height: 42px;
         border: 1px solid rgba(120, 74, 24, 0.16);
@@ -3139,7 +3152,7 @@
         background: rgba(255, 255, 255, 0.92);
       }
 
-      body.mobile-index2 .mobile-hidden-select {
+      body.mobile-app-shell .mobile-hidden-select {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -3152,13 +3165,13 @@
         white-space: nowrap;
       }
 
-      body.mobile-index2 .mobile-segmented-choice {
+      body.mobile-app-shell .mobile-segmented-choice {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 8px;
       }
 
-      body.mobile-index2 .mobile-segmented-choice-btn {
+      body.mobile-app-shell .mobile-segmented-choice-btn {
         min-height: 42px;
         border: 1px solid rgba(120, 74, 24, 0.14);
         border-radius: 12px;
@@ -3171,32 +3184,32 @@
         transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, color 140ms ease;
       }
 
-      body.mobile-index2 .mobile-segmented-choice-btn.active {
+      body.mobile-app-shell .mobile-segmented-choice-btn.active {
         border-color: rgba(166, 109, 41, 0.22);
         background: linear-gradient(180deg, rgba(247, 225, 184, 0.96), rgba(226, 187, 118, 0.94));
         color: #7a4d16;
         box-shadow: 0 10px 18px rgba(121, 78, 28, 0.14);
       }
 
-      body.mobile-index2 .mobile-segmented-choice-btn:active {
+      body.mobile-app-shell .mobile-segmented-choice-btn:active {
         transform: translateY(1px);
       }
 
-      body.mobile-index2 .mobile-menu-field {
+      body.mobile-app-shell .mobile-menu-field {
         display: grid;
         gap: 6px;
         margin-bottom: 2px;
       }
 
-      body.mobile-index2 .mobile-menu-field span {
+      body.mobile-app-shell .mobile-menu-field span {
         font-size: 12px;
         font-weight: 800;
         color: rgba(22, 33, 41, 0.72);
       }
 
-      body.mobile-index2 .mobile-primary-btn,
-      body.mobile-index2 .mobile-secondary-btn,
-      body.mobile-index2 .mobile-menu-btn {
+      body.mobile-app-shell .mobile-primary-btn,
+      body.mobile-app-shell .mobile-secondary-btn,
+      body.mobile-app-shell .mobile-menu-btn {
         width: 100%;
         min-height: 42px;
         border: 0;
@@ -3207,38 +3220,38 @@
         cursor: pointer;
       }
 
-      body.mobile-index2 .mobile-primary-btn {
+      body.mobile-app-shell .mobile-primary-btn {
         background: linear-gradient(180deg, #f26d67, #ba3934);
         color: #fff;
       }
 
-      body.mobile-index2 .mobile-secondary-btn,
-      body.mobile-index2 .mobile-menu-btn {
+      body.mobile-app-shell .mobile-secondary-btn,
+      body.mobile-app-shell .mobile-menu-btn {
         background: rgba(16, 44, 54, 0.08);
         color: var(--text);
       }
 
-      body.mobile-index2 .mobile-secondary-btn:disabled,
-      body.mobile-index2 .mobile-menu-btn:disabled {
+      body.mobile-app-shell .mobile-secondary-btn:disabled,
+      body.mobile-app-shell .mobile-menu-btn:disabled {
         opacity: 0.42;
         cursor: default;
       }
 
-      body.mobile-index2 .mobile-menu-btn.danger {
+      body.mobile-app-shell .mobile-menu-btn.danger {
         background: rgba(207, 74, 68, 0.12);
         color: #9f3c37;
       }
 
-      body.mobile-index2 .mobile-menu-btn.alert {
+      body.mobile-app-shell .mobile-menu-btn.alert {
         background: rgba(207, 74, 68, 0.12);
         color: #9f3c37;
       }
 
-      body.mobile-index2 .trick-spot {
+      body.mobile-app-shell .trick-spot {
         display: block !important;
         position: relative !important;
         min-height: 0 !important;
-        height: auto !important;
+        height: 100% !important;
         width: 100%;
         padding: 6px 8px;
         border-radius: 12px;
@@ -3246,13 +3259,13 @@
         background: rgba(8, 23, 30, 0.32);
       }
 
-      body.mobile-index2 #trickSpot-4 { grid-column: 1; grid-row: 2; }
-      body.mobile-index2 #trickSpot-3 { grid-column: 2; grid-row: 2; }
-      body.mobile-index2 #trickSpot-5 { grid-column: 1; grid-row: 3; }
-      body.mobile-index2 #trickSpot-2 { grid-column: 2; grid-row: 3; }
-      body.mobile-index2 #trickSpot-1 { grid-column: 1 / -1; grid-row: 4; }
+      body.mobile-app-shell #trickSpot-4 { grid-column: 1; grid-row: 1; }
+      body.mobile-app-shell #trickSpot-3 { grid-column: 2; grid-row: 1; }
+      body.mobile-app-shell #trickSpot-5 { grid-column: 1; grid-row: 2; }
+      body.mobile-app-shell #trickSpot-2 { grid-column: 2; grid-row: 2; }
+      body.mobile-app-shell #trickSpot-1 { grid-column: 1 / -1; grid-row: 3; }
 
-      body.mobile-index2 .trick-spot .label {
+      body.mobile-app-shell .trick-spot .label {
         display: flex;
         align-items: center;
         justify-content: flex-start;
@@ -3264,7 +3277,7 @@
         text-align: left;
       }
 
-      body.mobile-index2 .mobile-spot-role {
+      body.mobile-app-shell .mobile-spot-role {
         display: inline-flex;
         align-items: center;
         padding: 1px 5px;
@@ -3276,17 +3289,17 @@
         line-height: 1.4;
       }
 
-      body.mobile-index2 .mobile-spot-role.friend {
+      body.mobile-app-shell .mobile-spot-role.friend {
         background: rgba(47, 143, 106, 0.18);
         color: #8de0b8;
       }
 
-      body.mobile-index2 .mobile-spot-role.managed {
+      body.mobile-app-shell .mobile-spot-role.managed {
         background: rgba(216, 92, 76, 0.18);
         color: #ffd6cf;
       }
 
-      body.mobile-index2 .mobile-spot-no-trump {
+      body.mobile-app-shell .mobile-spot-no-trump {
         position: absolute;
         left: 8px;
         bottom: 8px;
@@ -3306,42 +3319,42 @@
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
       }
 
-      body.mobile-index2 .trick-spot .spot-row {
+      body.mobile-app-shell .trick-spot .spot-row {
         min-height: 0;
         height: calc(100% - 16px);
         justify-content: center;
         overflow: hidden;
       }
 
-      body.mobile-index2 .trick-spot .played-card {
+      body.mobile-app-shell .trick-spot .played-card {
         width: 38px;
         height: 55px;
         margin-left: -12px;
       }
 
-      body.mobile-index2 .trick-spot .played-card:first-child {
+      body.mobile-app-shell .trick-spot .played-card:first-child {
         margin-left: 0;
       }
 
-      body.mobile-index2 .trick-spot[data-mobile-role="banker"] {
+      body.mobile-app-shell .trick-spot[data-mobile-role="banker"] {
         background: linear-gradient(180deg, rgba(122, 71, 23, 0.36), rgba(73, 43, 17, 0.34));
         border-color: rgba(225, 185, 111, 0.35);
       }
 
-      body.mobile-index2 .trick-spot[data-mobile-role="friend"] {
+      body.mobile-app-shell .trick-spot[data-mobile-role="friend"] {
         background: linear-gradient(180deg, rgba(34, 98, 68, 0.36), rgba(19, 64, 46, 0.34));
         border-color: rgba(76, 191, 136, 0.28);
       }
 
-      body.mobile-index2 .trick-spot.current-turn {
+      body.mobile-app-shell .trick-spot.current-turn {
         box-shadow: 0 0 0 2px rgba(225, 185, 111, 0.28);
       }
 
-      body.mobile-index2 .trick-spot .played-card.trump::after {
+      body.mobile-app-shell .trick-spot .played-card.trump::after {
         display: none;
       }
 
-      body.mobile-index2 .mobile-spot-winning {
+      body.mobile-app-shell .mobile-spot-winning {
         position: absolute;
         top: 8px;
         right: 8px;
@@ -3361,20 +3374,13 @@
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
       }
 
-      body.mobile-index2 .mobile-broadcast {
+      body.mobile-app-shell .mobile-broadcast {
         position: absolute;
         left: 50%;
         width: fit-content;
         min-width: min(42vw, 160px);
         max-width: min(68vw, 260px);
-        top: calc(
-          62px +
-          clamp(86px, 11.5vh, 104px) +
-          clamp(86px, 11.5vh, 104px) +
-          clamp(92px, 12vh, 108px) -
-          clamp(54px, 7.2vh, 66px) -
-          8px
-        );
+        top: 50%;
         min-height: clamp(54px, 7.2vh, 66px);
         display: none;
         align-items: center;
@@ -3388,15 +3394,15 @@
         z-index: 7;
         touch-action: none;
         cursor: grab;
-        transform: translateX(-50%);
+        transform: translate(-50%, -50%);
       }
 
-      body.mobile-index2 .mobile-broadcast-copy {
+      body.mobile-app-shell .mobile-broadcast-copy {
         min-width: 0;
         flex: 1;
       }
 
-      body.mobile-index2 .mobile-broadcast-text {
+      body.mobile-app-shell .mobile-broadcast-text {
         color: #23323a;
         font-size: 12px;
         font-weight: 700;
@@ -3409,7 +3415,7 @@
         -webkit-box-orient: vertical;
       }
 
-      body.mobile-index2 .mobile-broadcast-close {
+      body.mobile-app-shell .mobile-broadcast-close {
         flex: 0 0 auto;
         width: 24px;
         height: 24px;
@@ -3425,45 +3431,46 @@
         cursor: pointer;
       }
 
-      body.mobile-index2 .mobile-broadcast.strong {
+      body.mobile-app-shell .mobile-broadcast.strong {
         background: linear-gradient(180deg, rgba(157, 53, 43, 0.72), rgba(109, 29, 22, 0.7));
       }
 
-      body.mobile-index2 .mobile-broadcast.ally {
+      body.mobile-app-shell .mobile-broadcast.ally {
         background: linear-gradient(180deg, rgba(41, 125, 86, 0.72), rgba(22, 85, 56, 0.7));
       }
 
-      body.mobile-index2 .mobile-broadcast.friend {
+      body.mobile-app-shell .mobile-broadcast.friend {
         background: linear-gradient(180deg, rgba(225, 145, 53, 0.72), rgba(177, 96, 21, 0.7));
       }
 
-      body.mobile-index2 .mobile-broadcast.strong .mobile-broadcast-text,
-      body.mobile-index2 .mobile-broadcast.ally .mobile-broadcast-text,
-      body.mobile-index2 .mobile-broadcast.friend .mobile-broadcast-text {
+      body.mobile-app-shell .mobile-broadcast.strong .mobile-broadcast-text,
+      body.mobile-app-shell .mobile-broadcast.ally .mobile-broadcast-text,
+      body.mobile-app-shell .mobile-broadcast.friend .mobile-broadcast-text {
         color: #fff4de;
       }
 
-      body.mobile-index2 .mobile-broadcast.strong .mobile-broadcast-close,
-      body.mobile-index2 .mobile-broadcast.ally .mobile-broadcast-close,
-      body.mobile-index2 .mobile-broadcast.friend .mobile-broadcast-close {
+      body.mobile-app-shell .mobile-broadcast.strong .mobile-broadcast-close,
+      body.mobile-app-shell .mobile-broadcast.ally .mobile-broadcast-close,
+      body.mobile-app-shell .mobile-broadcast.friend .mobile-broadcast-close {
         background: rgba(255, 255, 255, 0.16);
         color: #fff4de;
       }
 
-      body.mobile-index2 .hand-panel {
+      body.mobile-app-shell .hand-panel {
         grid-column: 1 / -1;
-        grid-row: 5;
+        grid-row: 3;
         display: block !important;
+        height: 100% !important;
         padding: 6px 6px 4px;
         border-radius: 12px;
         overflow: hidden;
       }
 
-      body.mobile-index2 .hand-head {
+      body.mobile-app-shell .hand-head {
         display: none;
       }
 
-      body.mobile-index2 .hand-groups {
+      body.mobile-app-shell .hand-groups {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -3472,7 +3479,7 @@
         overflow: hidden;
       }
 
-      body.mobile-index2 .mobile-hand-row {
+      body.mobile-app-shell .mobile-hand-row {
         display: flex;
         align-items: flex-end;
         justify-content: flex-start;
@@ -3484,7 +3491,7 @@
         padding-left: 2px;
       }
 
-      body.mobile-index2 .hand-group {
+      body.mobile-app-shell .hand-group {
         min-width: 0;
         display: flex;
         flex-direction: row;
@@ -3496,7 +3503,7 @@
         max-width: 100%;
       }
 
-      body.mobile-index2 .group-chip {
+      body.mobile-app-shell .group-chip {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -3509,7 +3516,7 @@
         flex: 0 0 auto;
       }
 
-      body.mobile-index2 .cards-row {
+      body.mobile-app-shell .cards-row {
         display: flex;
         align-items: flex-end;
         justify-content: flex-start;
@@ -3519,10 +3526,10 @@
         flex: 0 1 auto;
       }
 
-      body.mobile-index2 .card-btn,
-      body.mobile-index2 .friend-card,
-      body.mobile-index2 .bottom-reveal-cards .played-card,
-      body.mobile-index2 .last-trick .played-card {
+      body.mobile-app-shell .card-btn,
+      body.mobile-app-shell .friend-card,
+      body.mobile-app-shell .bottom-reveal-cards .played-card,
+      body.mobile-app-shell .last-trick .played-card {
         width: 32px;
         height: 46px;
         flex: 0 0 auto;
@@ -3530,22 +3537,22 @@
         -webkit-tap-highlight-color: transparent;
       }
 
-      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-slot {
+      body.mobile-app-shell .bottom-reveal-cards .bottom-reveal-slot {
         width: 36px;
         padding-top: 18px;
         margin-left: -6px;
       }
 
-      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-slot:first-child {
+      body.mobile-app-shell .bottom-reveal-cards .bottom-reveal-slot:first-child {
         margin-left: 0;
       }
 
-      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-slot .played-card {
+      body.mobile-app-shell .bottom-reveal-cards .bottom-reveal-slot .played-card {
         width: 36px;
         height: 52px;
       }
 
-      body.mobile-index2 .bottom-reveal-cards .bottom-reveal-order {
+      body.mobile-app-shell .bottom-reveal-cards .bottom-reveal-order {
         width: 16px;
         height: 16px;
         font-size: 9px;
@@ -3553,22 +3560,22 @@
       }
 
       /* 手游翻底公示层额外收口：整体上提，牌轨更靠近正文，读秒做成单个关闭胶囊。 */
-      body.mobile-index2 .bottom-reveal-center {
+      body.mobile-app-shell .bottom-reveal-center {
         top: 43% !important;
         width: min(calc(100vw - 20px), 396px) !important;
         padding: 14px 14px 10px;
         border-radius: 22px;
       }
 
-      body.mobile-index2 .bottom-reveal-head {
+      body.mobile-app-shell .bottom-reveal-head {
         gap: 10px;
       }
 
-      body.mobile-index2 .bottom-reveal-copy {
+      body.mobile-app-shell .bottom-reveal-copy {
         width: 100%;
       }
 
-      body.mobile-index2 .bottom-reveal-panel-close {
+      body.mobile-app-shell .bottom-reveal-panel-close {
         top: -1px;
         right: -1px;
         width: 32px;
@@ -3576,96 +3583,97 @@
         font-size: 17px;
       }
 
-      body.mobile-index2 .bottom-reveal-kicker {
+      body.mobile-app-shell .bottom-reveal-kicker {
         padding: 4px 8px;
         font-size: 10px;
         letter-spacing: 0.12em;
       }
 
-      body.mobile-index2 .bottom-reveal-head .title {
+      body.mobile-app-shell .bottom-reveal-head .title {
         margin-top: 6px;
         margin-bottom: 4px;
         font-size: 20px;
       }
 
-      body.mobile-index2 .bottom-reveal-head .subtle {
+      body.mobile-app-shell .bottom-reveal-head .subtle {
         font-size: 13px;
         line-height: 1.55;
       }
 
-      body.mobile-index2 .bottom-reveal-close {
+      body.mobile-app-shell .bottom-reveal-close {
         gap: 5px;
         min-height: 38px;
         padding: 0 12px;
       }
 
-      body.mobile-index2 .bottom-reveal-close-label {
+      body.mobile-app-shell .bottom-reveal-close-label {
         font-size: 13px;
       }
 
-      body.mobile-index2 .bottom-reveal-close-timer {
+      body.mobile-app-shell .bottom-reveal-close-timer {
         font-size: 12px;
       }
 
-      body.mobile-index2 .bottom-reveal-close-timer strong {
+      body.mobile-app-shell .bottom-reveal-close-timer strong {
         font-size: 14px;
       }
 
-      body.mobile-index2 .bottom-reveal-cards {
+      body.mobile-app-shell .bottom-reveal-cards {
         margin-top: 10px;
         min-height: 72px;
         padding: 10px 6px 0;
       }
 
-      body.mobile-index2 .bottom-reveal-actions {
+      body.mobile-app-shell .bottom-reveal-actions {
         margin-top: 8px;
       }
 
-      body.mobile-index2 .cards-row .card-btn {
+      body.mobile-app-shell .cards-row .card-btn {
         margin-left: calc(-1px * var(--mobile-card-overlap, 7));
       }
 
-      body.mobile-index2 .card-btn.selected {
+      body.mobile-app-shell .card-btn.selected {
         transform: translateY(-4px);
       }
 
-      body.mobile-index2 .center-panel {
+      body.mobile-app-shell .center-panel {
         grid-column: 1 / -1;
-        grid-row: 6;
+        grid-row: 4;
         position: static !important;
         left: auto !important;
         right: auto !important;
         bottom: auto !important;
+        min-height: 100% !important;
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 5px 6px calc(5px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 24px), 4px));
+        padding: 4px 6px calc(4px + max(4px, env(safe-area-inset-bottom)));
         border-radius: 12px;
         z-index: 6;
         margin: 0 auto;
         align-self: end;
       }
 
-      body.mobile-index2 .center-panel.setup-choice-mode {
+      body.mobile-app-shell .center-panel.setup-choice-mode {
         padding-top: 6px;
       }
 
-      body.mobile-index2 .center-head {
+      body.mobile-app-shell .center-head {
         display: none;
       }
 
-      body.mobile-index2 .action-row {
+      body.mobile-app-shell .action-row {
         margin-top: 0;
         gap: 4px;
       }
 
-      body.mobile-index2 button.action-btn {
-        min-height: 28px;
-        padding: 4px 4px;
-        font-size: 10px;
+      body.mobile-app-shell button.action-btn {
+        min-height: 34px;
+        padding: 5px 4px;
+        font-size: 11px;
       }
 
-      body.mobile-index2 .setup-options {
+      body.mobile-app-shell .setup-options {
         margin-top: 6px;
         gap: 6px;
         flex-wrap: nowrap;
@@ -3675,11 +3683,11 @@
         -webkit-overflow-scrolling: touch;
       }
 
-      body.mobile-index2 .setup-options::-webkit-scrollbar {
+      body.mobile-app-shell .setup-options::-webkit-scrollbar {
         display: none;
       }
 
-      body.mobile-index2 .setup-options-label {
+      body.mobile-app-shell .setup-options-label {
         flex: 0 0 auto;
         align-self: center;
         padding-left: 2px;
@@ -3687,7 +3695,7 @@
         white-space: nowrap;
       }
 
-      body.mobile-index2 button.setup-option-btn {
+      body.mobile-app-shell button.setup-option-btn {
         min-height: 30px;
         padding: 5px 9px;
         font-size: 11px;
@@ -3698,22 +3706,22 @@
         gap: 5px;
       }
 
-      body.mobile-index2 .setup-option-prefix,
-      body.mobile-index2 .setup-option-mode {
+      body.mobile-app-shell .setup-option-prefix,
+      body.mobile-app-shell .setup-option-mode {
         display: inline-flex;
         align-items: center;
         line-height: 1;
       }
 
-      body.mobile-index2 .setup-option-prefix {
+      body.mobile-app-shell .setup-option-prefix {
         opacity: 0.82;
       }
 
-      body.mobile-index2 .setup-option-card-stack {
+      body.mobile-app-shell .setup-option-card-stack {
         height: 30px;
       }
 
-      body.mobile-index2 .setup-option-mode {
+      body.mobile-app-shell .setup-option-mode {
         min-height: 18px;
         padding: 0 6px;
         border-radius: 999px;
@@ -3723,13 +3731,13 @@
         font-weight: 900;
       }
 
-      body.mobile-index2 .setup-option-card {
+      body.mobile-app-shell .setup-option-card {
         width: 24px;
         height: 30px;
         border-radius: 6px;
       }
 
-      body.mobile-index2 .mobile-sheet {
+      body.mobile-app-shell .mobile-sheet {
         position: absolute;
         inset: 0;
         display: none;
@@ -3738,7 +3746,7 @@
         z-index: 30;
       }
 
-      body.mobile-index2 .mobile-sheet-card {
+      body.mobile-app-shell .mobile-sheet-card {
         width: calc(100% - 16px);
         margin: 8px;
         padding: 14px;
@@ -3750,36 +3758,36 @@
         box-shadow: var(--shadow-lg);
       }
 
-      body.mobile-index2 #mobileInfoSheet .mobile-sheet-card {
+      body.mobile-app-shell #mobileInfoSheet .mobile-sheet-card {
         padding: 11px 11px 10px;
         max-height: min(78vh, 680px);
         overflow: hidden;
       }
 
-      body.mobile-index2 .mobile-sheet-card.dark {
+      body.mobile-app-shell .mobile-sheet-card.dark {
         background: linear-gradient(180deg, rgba(22, 38, 48, 0.96), rgba(10, 20, 28, 0.94));
         color: #f8f0dc;
       }
 
-      body.mobile-index2 .mobile-sheet-head {
+      body.mobile-app-shell .mobile-sheet-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         margin-bottom: 10px;
       }
 
-      body.mobile-index2 .mobile-sheet-head-main {
+      body.mobile-app-shell .mobile-sheet-head-main {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         min-width: 0;
       }
 
-      body.mobile-index2 #mobileInfoSheet .mobile-sheet-head {
+      body.mobile-app-shell #mobileInfoSheet .mobile-sheet-head {
         margin-bottom: 6px;
       }
 
-      body.mobile-index2 .mobile-info-version {
+      body.mobile-app-shell .mobile-info-version {
         display: inline-flex;
         align-items: center;
         padding: 3px 8px;
@@ -3792,16 +3800,16 @@
         letter-spacing: 0.2px;
       }
 
-      body.mobile-index2 .mobile-sheet-card.dark .mobile-sheet-head {
+      body.mobile-app-shell .mobile-sheet-card.dark .mobile-sheet-head {
         margin-bottom: 8px;
       }
 
-      body.mobile-index2 .mobile-menu-actions {
+      body.mobile-app-shell .mobile-menu-actions {
         display: grid;
         gap: 8px;
       }
 
-      body.mobile-index2 .mobile-info-list {
+      body.mobile-app-shell .mobile-info-list {
         display: grid;
         gap: 6px;
         max-height: none;
@@ -3809,11 +3817,11 @@
         padding-right: 0;
       }
 
-      body.mobile-index2 .mobile-info-section {
+      body.mobile-app-shell .mobile-info-section {
         margin-top: 8px;
       }
 
-      body.mobile-index2 .mobile-info-section-title {
+      body.mobile-app-shell .mobile-info-section-title {
         display: block;
         margin-bottom: 5px;
         font-size: 11px;
@@ -3821,87 +3829,87 @@
         color: #7f5420;
       }
 
-      body.mobile-index2 .mobile-info-card {
+      body.mobile-app-shell .mobile-info-card {
         padding: 7px 8px;
         border-radius: 10px;
         background: rgba(255, 255, 255, 0.58);
       }
 
-      body.mobile-index2 .mobile-info-card.role-banker {
+      body.mobile-app-shell .mobile-info-card.role-banker {
         background: rgba(225, 185, 111, 0.18);
       }
 
-      body.mobile-index2 .mobile-info-card.role-friend {
+      body.mobile-app-shell .mobile-info-card.role-friend {
         background: rgba(47, 143, 106, 0.18);
       }
 
-      body.mobile-index2 .mobile-info-card.current-player {
+      body.mobile-app-shell .mobile-info-card.current-player {
         background: linear-gradient(180deg, rgba(208, 233, 244, 0.58), rgba(180, 214, 232, 0.46));
         box-shadow: inset 0 0 0 1px rgba(76, 130, 166, 0.22);
       }
 
-      body.mobile-index2 .mobile-info-head {
+      body.mobile-app-shell .mobile-info-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 6px;
       }
 
-      body.mobile-index2 .mobile-info-name {
+      body.mobile-app-shell .mobile-info-name {
         font-size: 12px;
         font-weight: 800;
       }
 
-      body.mobile-index2 .mobile-info-role {
+      body.mobile-app-shell .mobile-info-role {
         font-size: 9px;
         font-weight: 800;
         color: #85541d;
       }
 
-      body.mobile-index2 .mobile-info-meta {
+      body.mobile-app-shell .mobile-info-meta {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 4px;
         margin-top: 5px;
       }
 
-      body.mobile-index2 .mobile-info-meta div {
+      body.mobile-app-shell .mobile-info-meta div {
         padding: 4px 3px;
         border-radius: 7px;
         background: rgba(255, 255, 255, 0.5);
         text-align: center;
       }
 
-      body.mobile-index2 .mobile-info-meta span {
+      body.mobile-app-shell .mobile-info-meta span {
         display: block;
         color: var(--muted);
         font-size: 8px;
       }
 
-      body.mobile-index2 .mobile-info-meta strong {
+      body.mobile-app-shell .mobile-info-meta strong {
         display: block;
         margin-top: 1px;
         font-size: 11px;
       }
 
-      body.mobile-index2 .mobile-ai-hands {
+      body.mobile-app-shell .mobile-ai-hands {
         display: grid;
         gap: 8px;
         margin-top: 10px;
       }
 
-      body.mobile-index2 .mobile-ai-hand-group {
+      body.mobile-app-shell .mobile-ai-hand-group {
         padding-top: 8px;
         border-top: 1px solid rgba(16, 44, 54, 0.08);
       }
 
-      body.mobile-index2 .mobile-ai-hand-title {
+      body.mobile-app-shell .mobile-ai-hand-title {
         font-size: 12px;
         font-weight: 700;
         color: #7e5721;
       }
 
-      body.mobile-index2 .mobile-ai-hand-cards {
+      body.mobile-app-shell .mobile-ai-hand-cards {
         display: flex;
         align-items: flex-end;
         flex-wrap: wrap;
@@ -3909,15 +3917,15 @@
         margin-top: 8px;
       }
 
-      body.mobile-index2 .mobile-ai-hand-cards .played-card {
+      body.mobile-app-shell .mobile-ai-hand-cards .played-card {
         margin-left: -14px;
       }
 
-      body.mobile-index2 .mobile-ai-hand-cards .played-card:first-child {
+      body.mobile-app-shell .mobile-ai-hand-cards .played-card:first-child {
         margin-left: 0;
       }
 
-      body.mobile-index2 .mobile-log-list {
+      body.mobile-app-shell .mobile-log-list {
         margin: 0;
         padding-left: 15px;
         color: var(--muted);
@@ -3925,62 +3933,63 @@
         line-height: 1.35;
       }
 
-      body.mobile-index2 .mobile-sheet-card.dark .mobile-log-list,
-      body.mobile-index2 .mobile-sheet-card.dark .subtle,
-      body.mobile-index2 .mobile-sheet-card.dark .label {
+      body.mobile-app-shell .mobile-sheet-card.dark .mobile-log-list,
+      body.mobile-app-shell .mobile-sheet-card.dark .subtle,
+      body.mobile-app-shell .mobile-sheet-card.dark .label {
         color: rgba(248, 240, 220, 0.82);
       }
 
-      body.mobile-index2 .mobile-last-trick-meta {
+      body.mobile-app-shell .mobile-last-trick-meta {
         margin-top: 6px;
         color: rgba(248, 240, 220, 0.78);
         font-size: 12px;
         line-height: 1.6;
       }
 
-      body.mobile-index2 .mobile-last-trick-cards {
+      body.mobile-app-shell .mobile-last-trick-cards {
         margin-top: 10px;
       }
 
-      body.mobile-index2 .mobile-last-trick-cards .last-trick-entry-head {
+      body.mobile-app-shell .mobile-last-trick-cards .last-trick-entry-head {
         gap: 6px;
       }
 
-      body.mobile-index2 .mobile-last-trick-cards .last-trick-entry-name {
+      body.mobile-app-shell .mobile-last-trick-cards .last-trick-entry-name {
         font-size: 12px;
       }
 
-      body.mobile-index2 .mobile-last-trick-cards .role-badge {
+      body.mobile-app-shell .mobile-last-trick-cards .role-badge {
         padding: 2px 7px;
         font-size: 10px;
       }
 
-      body.mobile-index2 .mobile-last-trick-cards .spot-row {
+      body.mobile-app-shell .mobile-last-trick-cards .spot-row {
         min-height: 64px;
       }
 
-      body.mobile-index2[data-mobile-screen="setup"] .mobile-setup-screen {
+      body.mobile-app-shell[data-mobile-screen="setup"] .mobile-setup-screen {
         display: grid;
       }
 
-      body.mobile-index2[data-mobile-screen="setup"] .mobile-topbar,
-      body.mobile-index2[data-mobile-screen="setup"] .trick-spot,
-      body.mobile-index2[data-mobile-screen="setup"] .mobile-broadcast,
-      body.mobile-index2[data-mobile-screen="setup"] .hand-panel,
-      body.mobile-index2[data-mobile-screen="setup"] .center-panel {
+      body.mobile-app-shell[data-mobile-screen="setup"] .mobile-topbar,
+      body.mobile-app-shell[data-mobile-screen="setup"] .mobile-play-area,
+      body.mobile-app-shell[data-mobile-screen="setup"] .trick-spot,
+      body.mobile-app-shell[data-mobile-screen="setup"] .mobile-broadcast,
+      body.mobile-app-shell[data-mobile-screen="setup"] .hand-panel,
+      body.mobile-app-shell[data-mobile-screen="setup"] .center-panel {
         visibility: hidden;
         pointer-events: none;
       }
 
-      body.mobile-index2 .mobile-broadcast.show {
+      body.mobile-app-shell .mobile-broadcast.show {
         display: flex;
       }
 
-      body.mobile-index2 .mobile-sheet.show {
+      body.mobile-app-shell .mobile-sheet.show {
         display: grid;
       }
 
-      body.mobile-index2 .friend-picker {
+      body.mobile-app-shell .friend-picker {
         position: absolute !important;
         left: 8px !important;
         right: 8px !important;
@@ -3995,53 +4004,53 @@
         box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
       }
 
-      body.mobile-index2 .friend-picker .label {
+      body.mobile-app-shell .friend-picker .label {
         margin-bottom: 4px;
         font-size: 11px;
       }
 
-      body.mobile-index2 .friend-picker-actions {
+      body.mobile-app-shell .friend-picker-actions {
         margin-top: 7px;
       }
 
-      body.mobile-index2 .friend-picker-row {
+      body.mobile-app-shell .friend-picker-row {
         display: grid;
         gap: 6px;
         margin-top: 4px;
       }
 
-      body.mobile-index2 .friend-picker-row.occurrences {
+      body.mobile-app-shell .friend-picker-row.occurrences {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
-      body.mobile-index2 .friend-picker-row.suits {
+      body.mobile-app-shell .friend-picker-row.suits {
         grid-template-columns: repeat(5, minmax(0, 1fr));
       }
 
-      body.mobile-index2 .friend-picker-row.ranks {
+      body.mobile-app-shell .friend-picker-row.ranks {
         grid-template-columns: repeat(6, minmax(0, 1fr));
       }
 
-      body.mobile-index2 .friend-picker .subtle {
+      body.mobile-app-shell .friend-picker .subtle {
         font-size: 11px;
         line-height: 1.4;
       }
 
-      body.mobile-index2 .friend-picker .tiny-btn {
+      body.mobile-app-shell .friend-picker .tiny-btn {
         min-height: 28px;
         padding: 5px 6px;
         font-size: 10px;
         border-radius: 10px;
       }
 
-      body.mobile-index2 .friend-picker .tiny-btn.friend-rank-btn {
+      body.mobile-app-shell .friend-picker .tiny-btn.friend-rank-btn {
         min-height: 26px;
         padding: 4px 0;
         font-size: 10px;
         font-weight: 800;
       }
 
-      body.mobile-index2 .friend-picker .tiny-btn.friend-suit-btn {
+      body.mobile-app-shell .friend-picker .tiny-btn.friend-suit-btn {
         min-height: 34px;
         padding: 4px 2px;
         display: flex;
@@ -4049,25 +4058,25 @@
         justify-content: center;
       }
 
-      body.mobile-index2 .friend-picker-suit-glyph {
+      body.mobile-app-shell .friend-picker-suit-glyph {
         font-size: 18px;
         line-height: 1;
       }
 
-      body.mobile-index2 .friend-picker-suit-glyph.red {
+      body.mobile-app-shell .friend-picker-suit-glyph.red {
         color: #cb4e46;
       }
 
-      body.mobile-index2 .friend-picker-suit-glyph.black {
+      body.mobile-app-shell .friend-picker-suit-glyph.black {
         color: #203038;
       }
 
-      body.mobile-index2 .friend-picker-suit-glyph.gold {
+      body.mobile-app-shell .friend-picker-suit-glyph.gold {
         color: #9f6a14;
         font-size: 16px;
       }
 
-      body.mobile-index2 .friend-picker-preview {
+      body.mobile-app-shell .friend-picker-preview {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -4075,20 +4084,20 @@
         margin-top: 10px;
       }
 
-      body.mobile-index2 .friend-picker-preview .friend-card {
+      body.mobile-app-shell .friend-picker-preview .friend-card {
         width: 24px;
         height: 34px;
         margin-left: 0;
         flex: 0 0 auto;
       }
 
-      body.mobile-index2 .friend-picker .tiny-btn {
+      body.mobile-app-shell .friend-picker .tiny-btn {
         min-height: 28px;
         padding: 5px 6px;
         font-size: 10px;
       }
 
-      body.mobile-index2 .friend-picker .action-row {
+      body.mobile-app-shell .friend-picker .action-row {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         margin-top: 10px !important;
       }
@@ -4274,11 +4283,19 @@
           </div>
         </section>
 
-        <section id="mobileBroadcast" class="mobile-broadcast">
-          <div class="mobile-broadcast-copy">
-            <div id="mobileBroadcastText" class="mobile-broadcast-text">等待开始</div>
-          </div>
-          <button id="mobileBroadcastCloseBtn" class="mobile-broadcast-close" type="button" aria-label="关闭播报">×</button>
+        <section id="mobilePlayArea" class="mobile-play-area">
+          <!-- App 牌桌把五个出牌位收进独立自适应区，确保顶部和底部固定后，中间仍能吃满剩余高度。 -->
+          <section id="mobileBroadcast" class="mobile-broadcast">
+            <div class="mobile-broadcast-copy">
+              <div id="mobileBroadcastText" class="mobile-broadcast-text">等待开始</div>
+            </div>
+            <button id="mobileBroadcastCloseBtn" class="mobile-broadcast-close" type="button" aria-label="关闭播报">×</button>
+          </section>
+          <section id="trickSpot-4" class="panel trick-spot top-left" data-layout-id="trick-spot-4"></section>
+          <section id="trickSpot-3" class="panel trick-spot top-right" data-layout-id="trick-spot-3"></section>
+          <section id="trickSpot-5" class="panel trick-spot left" data-layout-id="trick-spot-5"></section>
+          <section id="trickSpot-2" class="panel trick-spot right" data-layout-id="trick-spot-2"></section>
+          <section id="trickSpot-1" class="panel trick-spot bottom" data-layout-id="trick-spot-1"></section>
         </section>
 
         <section class="panel friend-panel" data-layout-id="friend-panel">
@@ -4347,11 +4364,6 @@
         <div id="versionBadge" class="version-badge"></div>
         <section id="playerSeat-1" class="panel seat player-1" data-layout-id="player-seat-1"></section>
 
-        <section id="trickSpot-4" class="panel trick-spot top-left" data-layout-id="trick-spot-4"></section>
-        <section id="trickSpot-3" class="panel trick-spot top-right" data-layout-id="trick-spot-3"></section>
-        <section id="trickSpot-5" class="panel trick-spot left" data-layout-id="trick-spot-5"></section>
-        <section id="trickSpot-2" class="panel trick-spot right" data-layout-id="trick-spot-2"></section>
-        <section id="trickSpot-1" class="panel trick-spot bottom" data-layout-id="trick-spot-1"></section>
         <section class="focus-banner" data-layout-id="focus-banner">
           <div id="focusAnnouncement" class="focus-announcement"></div>
         </section>
@@ -4534,7 +4546,7 @@
     <script src="./src/shared/main.js"></script>
     <script>
       (() => {
-        document.body.classList.add("mobile-index2");
+        document.body.classList.add("mobile-app-shell");
         const rootStyle = document.documentElement.style;
         let viewportMetricsFrame = 0;
         const mobileFrameFallbackDelay = 16;
@@ -4544,7 +4556,7 @@
          * 为手游壳层脚本提供安全的逐帧调度入口。
          *
          * 为什么这样写：
-         * `index2.html` 会在启动时和每次共享渲染后重排顶栏/手牌；
+         * `index-app.html` 会在启动时和每次共享渲染后重排顶栏/手牌；
          * 某些手机 WebView 没有 `requestAnimationFrame` 时，直接调用会让整页白屏。
          * 统一在这里兜底成 `setTimeout`，就能保证手游至少能正常打开和操作。
          *
@@ -4599,10 +4611,7 @@
         function applyViewportMetrics() {
           const viewport = window.visualViewport;
           const viewportHeight = viewport ? viewport.height : window.innerHeight;
-          const browserToolbarOffset = viewport
-            ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
-            : 0;
-          const bottomClearance = Math.max(20, Math.min(36, 18 + Math.min(browserToolbarOffset, 18)));
+          const bottomClearance = 6;
 
           rootStyle.setProperty("--mobile-viewport-height", `${Math.round(viewportHeight)}px`);
           rootStyle.setProperty("--mobile-bottom-clearance", `${Math.round(bottomClearance)}px`);

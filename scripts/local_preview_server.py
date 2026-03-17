@@ -222,6 +222,7 @@ def main(argv=None):
     print(f"- port: {server.server_port}")
     print(f"- home: {origin}/")
     print(f"- pc: {origin}/index1.html")
+    print(f"- app mobile: {origin}/index-app.html")
     print(f"- mobile: {origin}/index2.html")
     print(f"- static mock: {origin}/index-static.html")
     print("Press Ctrl+C to stop the server.")

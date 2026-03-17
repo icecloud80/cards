@@ -57,14 +57,14 @@ const PLAYER_POSITION = {
   5: "left",
 };
 const PLAYER_AVATARS = {
-  1: { label: "狐狸", src: "./avatars/fox.svg" },
-  2: { label: "猫头鹰", src: "./avatars/owl.svg" },
-  3: { label: "熊", src: "./avatars/bear.svg" },
-  4: { label: "老虎", src: "./avatars/tiger.svg" },
-  5: { label: "狼", src: "./avatars/wolf.svg" },
+  1: { label: "狐狸", src: "./images/avatars/fox.svg" },
+  2: { label: "猫头鹰", src: "./images/avatars/owl.svg" },
+  3: { label: "熊", src: "./images/avatars/bear.svg" },
+  4: { label: "老虎", src: "./images/avatars/tiger.svg" },
+  5: { label: "狼", src: "./images/avatars/wolf.svg" },
 };
 const APP_PLATFORM = window.APP_PLATFORM || "pc";
-const FALLBACK_CARD_ASSET_DIR = window.CARD_ASSET_DIR || "./cards";
+const FALLBACK_CARD_ASSET_DIR = window.CARD_ASSET_DIR || "./images/cards";
 const CARD_FACE_OPTIONS = Array.isArray(window.CARD_FACE_OPTIONS) && window.CARD_FACE_OPTIONS.length > 0
   ? window.CARD_FACE_OPTIONS
   : [{ key: "default", label: "默认", dir: FALLBACK_CARD_ASSET_DIR }];
@@ -154,6 +154,7 @@ const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const MAX_BURY_POINT_TOTAL = 25;
+const OPENING_CODE_LEVEL_ORDER = [...NEGATIVE_LEVELS, ...RANKS];
 
 /**
  * 作用：
@@ -280,6 +281,200 @@ function getAiPaceLabel(value = state?.aiPace) {
 
 /**
  * 作用：
+ * 规范化外部传入的回放 seed 文本。
+ *
+ * 为什么这样写：
+ * 后续日志、测试和人工调试都需要引用同一份 seed；
+ * 先统一收口成稳定字符串后，开局初始化、日志导出和未来的“按 seed 重开”才能共享同一格式。
+ *
+ * 输入：
+ * @param {string|number|null|undefined} seedInput - 外部传入的原始 seed。
+ *
+ * 输出：
+ * @returns {string} 去掉首尾空白后的 seed；拿不到有效值时返回空串。
+ *
+ * 注意：
+ * - 这里不做 hash，只负责格式归一化。
+ * - 空串代表“调用方没有显式指定 seed”，后续应走默认分配逻辑。
+ */
+function normalizeReplaySeedInput(seedInput) {
+  if (seedInput == null) return "";
+  const normalized = String(seedInput).trim();
+  return normalized;
+}
+
+/**
+ * 作用：
+ * 读取当前环境预置的默认回放 seed 基础串。
+ *
+ * 为什么这样写：
+ * headless 回归和未来的调试入口都可能希望“整局默认走固定 seed”，
+ * 统一从全局变量读取后，浏览器运行态和测试 VM 都能复用同一入口，不需要到处额外打补丁。
+ *
+ * 输入：
+ * @param {void} - 直接读取浏览器全局变量。
+ *
+ * 输出：
+ * @returns {string} 当前环境预置的默认 seed；未预置时返回空串。
+ *
+ * 注意：
+ * - 这里只读 `window.__FIVE_FRIENDS_DEFAULT_REPLAY_SEED`，不做模糊兜底。
+ * - 返回空串时，调用方应继续走运行态自动分配逻辑。
+ */
+function getDefaultReplaySeedBase() {
+  return normalizeReplaySeedInput(window.__FIVE_FRIENDS_DEFAULT_REPLAY_SEED);
+}
+
+/**
+ * 作用：
+ * 把任意 seed 输入稳定映射成 32 位无符号整数。
+ *
+ * 为什么这样写：
+ * 运行态回放 seed、headless 回归 seed 和未来日志里的手动输入 seed 都需要落到同一套 PRNG 初始化值；
+ * 用轻量哈希统一后，可以同时支持数字和字符串 seed，并保持跨平台结果一致。
+ *
+ * 输入：
+ * @param {string|number} seedInput - 本局使用的回放 seed。
+ *
+ * 输出：
+ * @returns {number} 可用于 PRNG 初始化的 32 位正整数。
+ *
+ * 注意：
+ * - 相同 seed 必须得到相同结果。
+ * - 返回值需要避免为 `0`，减少某些 PRNG 的退化风险。
+ */
+function hashReplaySeedInput(seedInput) {
+  const raw = normalizeReplaySeedInput(seedInput) || "five-friends-replay";
+  let hash = 2166136261;
+  for (let index = 0; index < raw.length; index += 1) {
+    hash ^= raw.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) || 1;
+}
+
+/**
+ * 作用：
+ * 基于回放 seed 创建一个可复现的伪随机数函数。
+ *
+ * 为什么这样写：
+ * 当前洗牌、AI 自动亮主/反主意愿以及节奏随机都依赖随机源；
+ * 只要这些地方统一走同一个 seeded random，日志里的 seed 才真正具备“重放这一局”的价值。
+ *
+ * 输入：
+ * @param {string|number} seedInput - 本局使用的回放 seed。
+ *
+ * 输出：
+ * @returns {() => number} 返回 `[0, 1)` 浮点数的随机函数。
+ *
+ * 注意：
+ * - 这套实现追求稳定复现，不追求密码学随机性。
+ * - 不要改成依赖系统时间的实现，否则日志里的 seed 会失去意义。
+ */
+function createSeededRandom(seedInput) {
+  let currentState = hashReplaySeedInput(seedInput);
+  return function nextRandom() {
+    currentState = (currentState + 0x6d2b79f5) >>> 0;
+    let mixed = Math.imul(currentState ^ (currentState >>> 15), 1 | currentState);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 作用：
+ * 为当前运行环境分配一条默认回放 seed。
+ *
+ * 为什么这样写：
+ * 正式运行态希望每局都能拿到一条日志可追踪的 seed，而 headless 回归又希望相同基础 seed 下稳定复现；
+ * 因此这里优先使用测试/调试预置 seed，再回退到运行态自动生成。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态和浏览器全局。
+ *
+ * 输出：
+ * @returns {string} 当前牌局应使用的默认 seed。
+ *
+ * 注意：
+ * - 当环境预置了基础 seed 时，会自动附加递增局号，避免同一上下文里多次开局仍然完全重复。
+ * - 浏览器运行态优先尝试 `crypto.getRandomValues`，拿不到时才回退到时间戳与 `Math.random()`。
+ */
+function allocateDefaultReplaySeed() {
+  const presetSeedBase = getDefaultReplaySeedBase();
+  if (presetSeedBase) {
+    const nextRoundIndex = Number.isInteger(state?.replaySeedCounter) ? state.replaySeedCounter + 1 : 1;
+    if (state) {
+      state.replaySeedCounter = nextRoundIndex;
+    }
+    return `${presetSeedBase}:round-${String(nextRoundIndex).padStart(4, "0")}`;
+  }
+
+  let entropy = 0;
+  if (window.crypto?.getRandomValues) {
+    const values = new Uint32Array(1);
+    window.crypto.getRandomValues(values);
+    entropy = values[0] >>> 0;
+  } else {
+    entropy = Math.floor(Math.random() * 4294967296) >>> 0;
+  }
+  const timePart = Date.now().toString(16).padStart(11, "0");
+  const entropyPart = entropy.toString(16).padStart(8, "0");
+  return `${timePart}-${entropyPart}`;
+}
+
+/**
+ * 作用：
+ * 初始化当前这一局要使用的回放 seed 与伪随机函数。
+ *
+ * 为什么这样写：
+ * 牌局初始化希望一次性把“本局 seed 是什么”和“后续随机从哪儿来”绑定好；
+ * 收口到一个 helper 后，`setupGame()` 和未来的“按 seed 重开”入口都可以复用同一套逻辑。
+ *
+ * 输入：
+ * @param {string|number|null|undefined} [seedInput] - 可选的显式回放 seed；不传时自动分配。
+ *
+ * 输出：
+ * @returns {string} 当前局实际采用的回放 seed。
+ *
+ * 注意：
+ * - 这里会直接改写 `state.replaySeed` 与 `state.roundRandom`。
+ * - 调用时机必须早于洗牌与任何 AI 自动决策随机。
+ */
+function initializeRoundReplaySeed(seedInput) {
+  const explicitSeed = normalizeReplaySeedInput(seedInput);
+  const replaySeed = explicitSeed || allocateDefaultReplaySeed();
+  state.replaySeed = replaySeed;
+  state.roundRandom = createSeededRandom(replaySeed);
+  return replaySeed;
+}
+
+/**
+ * 作用：
+ * 读取当前牌局应使用的统一随机数。
+ *
+ * 为什么这样写：
+ * 洗牌、AI 自动亮主/反主和节奏随机都需要复用同一条 seeded random；
+ * 把读取逻辑统一收口后，后续新增随机点时不容易漏掉回放链路。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前局状态。
+ *
+ * 输出：
+ * @returns {number} `[0, 1)` 区间内的随机浮点数。
+ *
+ * 注意：
+ * - 若当前局尚未初始化专用随机源，必须安全回退到原生 `Math.random()`。
+ * - 不要在调用方额外缓存随机函数，避免 future replay 入口切换 seed 时出现旧引用。
+ */
+function getSharedRandomNumber() {
+  if (typeof state?.roundRandom === "function") {
+    return state.roundRandom();
+  }
+  return Math.random();
+}
+
+/**
+ * 作用：
  * 按当前节奏档位抽取某个等待项的实际毫秒数。
  *
  * 为什么这样写：
@@ -304,7 +499,7 @@ function getAiPaceDelay(key, pace = state?.aiPace) {
   if (!timing || typeof timing.min !== "number" || typeof timing.max !== "number") return 1;
   const min = Math.max(1, Math.min(timing.min, timing.max));
   const max = Math.max(min, timing.max);
-  return Math.max(1, Math.round(min + Math.random() * (max - min)));
+  return Math.max(1, Math.round(min + getSharedRandomNumber() * (max - min)));
 }
 
 /**
@@ -480,6 +675,13 @@ const dom = {
   debugDecisionCards: document.getElementById("debugDecisionCards"),
   debugDecisionList: document.getElementById("debugDecisionList"),
   debugHandCards: document.getElementById("debugHandCards"),
+  debugReplaySeedInput: document.getElementById("debugReplaySeedInput"),
+  debugReplaySeedApplyBtn: document.getElementById("debugReplaySeedApplyBtn"),
+  debugOpeningCodeInput: document.getElementById("debugOpeningCodeInput"),
+  debugOpeningCodeApplyBtn: document.getElementById("debugOpeningCodeApplyBtn"),
+  debugReplayCurrentSeed: document.getElementById("debugReplayCurrentSeed"),
+  debugReplayCurrentOpeningCode: document.getElementById("debugReplayCurrentOpeningCode"),
+  debugReplayStatus: document.getElementById("debugReplayStatus"),
   bottomPanel: document.getElementById("bottomPanel"),
   bottomPanelDrag: document.getElementById("bottomPanelDrag"),
   closeBottomBtn: document.getElementById("closeBottomBtn"),
@@ -529,6 +731,10 @@ const state = {
   aiDecisionHistorySeq: 0,
   bottomCards: [],
   selectedCardIds: [],
+  replaySeed: "",
+  replaySeedCounter: 0,
+  roundRandom: null,
+  openingCode: "",
   countdown: 15,
   countdownTimer: null,
   aiTimer: null,
@@ -576,6 +782,10 @@ const state = {
   startSelection: null,
   selectedDebugPlayerId: 2,
   selectedDebugDecisionOffsets: createDebugDecisionOffsets(),
+  debugReplaySeedDraft: "",
+  debugOpeningCodeDraft: "",
+  debugReplayStatusTone: "",
+  debugReplayStatusText: "",
 };
 
 function isAiDecisionDebugEnabled() {

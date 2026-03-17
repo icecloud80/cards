@@ -21,6 +21,7 @@ npm run serve:ensure -- --quiet
 The server prints the exact URLs after startup. Common pages are:
 
 - `http://127.0.0.1:3721/index1.html` for PC
+- `http://127.0.0.1:3721/index-app.html` for the native App mobile page
 - `http://127.0.0.1:3721/index2.html` for mobile
 - `http://127.0.0.1:3721/index2-static.html` for the mobile static mock
 - `http://127.0.0.1:3721/index-static.html` for the PC static mock
@@ -101,11 +102,14 @@ Current App shell conventions:
 - App Name: `找朋友升级`
 - App ID: `com.nolanli.cards`
 - Capacitor `webDir`: `dist/app`
-- `dist/app/index.html` is generated from `index2.html`, so the App opens the mobile runtime directly.
+- `dist/app/index.html` is generated from `index-app.html`, so the App opens the dedicated native mobile page directly.
 - `npm run app:sync:ios` additionally forces `LANG=en_US.UTF-8`; iOS full sync still requires a full Xcode install, not just Command Line Tools.
 
 ## Recent Updates
 
+- 2026-03-17 - 【App UI】 - 新增 `index-app.html` 作为 iOS / Android 原生壳专用入口：默认打包入口已从 `index2.html` 切到这张新页面，并把牌桌改成“顶部固定 / 中部出牌区自适应 / 底部手牌与操作固定”的结构，同时收紧原生安全区留白，避免 iPhone 顶部状态区过高继续挤压手牌区。
+- 2026-03-17 - 【Bug修复】 - 修复了高级 AI 在中盘复杂多张跟牌里可能出现的严重卡顿：当第六轮这类 `5` 张复杂副牌跟牌同时产生大量合法候选时，跟牌评分现在会先做 heuristic shortlist，并在最重样本里直接跳过 rollout，避免一次跟牌把 `24` 手候选全部跑完整前瞻；同时补了专门复现该局面的性能回归测试。
+- 2026-03-17 - 【工程约定】 - iOS 本地开发忽略规则补充 `*.xcuserstate`，避免 Xcode 的本机 UI 状态文件混入版本库；同时明确这类规则不会自动移除已被 Git 跟踪的 `.DS_Store`，后续清理需单独处理索引。
 - 2026-03-16 - 【UI增强】 - 新增 `index2-static.html` 手游静态模板页：固定填充一套牌桌、手牌、底牌、上一轮和玩家信息 mock 数据，并保留可展开的设置菜单、信息面板、底牌面板、规则帮助和牌面切换入口，方便独立做 mobile 视觉评审。
 - 2026-03-16 - 【工程初始化】 - 新增 `Capacitor` App 壳配置：首发 App 名称固定为 `找朋友升级`、包名固定为 `com.nolanli.cards`，并补上 `npm run build:app-web`、`npm run app:sync(:android/:ios)`、`npm run app:open:ios/android` 工作流；当前 `android/` 已完成初始化，`ios/` 已生成工程骨架，但完整同步仍依赖本机安装完整 Xcode。
 - 2026-03-16 - 【规划文档】 - 新增 `联机服务端接口与房间状态机草案`，补齐好友房 / 匹配阶段的 HTTP 接口、WebSocket 命令、房间层与对局层状态机、托管与重连流程以及回放事件模型。
@@ -130,8 +134,9 @@ Current App shell conventions:
 - 2026-03-16 - 【Bug修复】 - 手游顶部 `主 / 朋` 状态牌现已统一走当前牌面主题渲染，不再出现一张走 sprite、一张退回单图 `img` 的口径分裂；顶部小卡位里的 sprite 也改成直接铺满，避免继续继承手牌区的额外留白。
 - 2026-03-16 - 【工具】 - 仓库现已把 `.DS_Store` 统一加入 `.gitignore`，并在本地预览工作流文档里补充“临时产物与仓库清理约定”，后续清理时可先忽略 macOS 元数据，再单独确认是否删除历史已跟踪文件。
 - 2026-03-16 - 【UI增强】 - PC 的“找朋友”面板已统一改成“叫朋友”：`用推荐` 按钮新增 30 秒倒计时，首次确认后可在读秒内点击顶部朋友牌再编辑一次；用掉这次机会后，首轮首手会恢复普通 15 秒出牌倒计时。
-- 2026-03-16 - 【资源维护】 - 仓库继续保留 `m_cards_sprite.svg` 生成链路：可通过 `npm run build:m-card-sprite` 把 `m_cards/` 里的单张 SVG 按 `13x5` 网格拼成整图 SVG，供后续资源实验或对照使用。
-- 2026-03-16 - 【回滚修复】 - PC、mobile 与静态模板的默认整图牌面已整体恢复为 `poker.png`；`m_cards_sprite.svg` 不再作为运行态默认入口，旧存档里的 `modern-sprite` 会继续兼容映射到当前的 `sprite` 主题。
+- 2026-03-17 - 【资源整理】 - 所有 sprite、牌面、icons 与 avatars 已统一迁入 `images/`：运行态默认牌面目录改为 `images/cards/`，两套整图主题改为读取 `images/poker.png` 与 `images/m_cards_sprite.png`，静态模板和测试断言也同步切换。
+- 2026-03-16 - 【资源维护】 - 仓库继续保留 `m_cards_sprite.svg` 生成链路：可通过 `npm run build:m-card-sprite` 把 `images/m_cards/` 里的单张 SVG 按 `13x5` 网格拼成整图 SVG，并输出到 `images/m_cards_sprite.svg`，供后续资源实验或对照使用。
+- 2026-03-16 - 【回滚修复】 - PC、mobile 与静态模板的默认整图牌面已整体恢复为 `poker.png`；当前运行态默认入口已通过 `images/poker.png` 供给，`modern-sprite` 则读取 `images/m_cards_sprite.png` 作为“现代整图”主题。
 - 2026-03-16 - 【规划文档】 - 新增 App 化与联机资料包：补齐 `移动 App 产品需求`、`App 与多人在线技术设计`、`移动 / 联机 / 广告路线图`，统一首发范围、免费运营边界、广告位策略以及好友房到匹配的阶段目标。
 - 2026-03-16 - 【Bug修复】 - 修复了 PC 最后反主候选区把“`不反主`”渲染成 `undefined` 的问题：共享声明候选现在统一走跳过按钮 helper，PC 反主区会稳定显示 `不反主`。
 - 2026-03-16 - 【UI增强】 - 补亮等待窗口新增显式 `不亮` 选择；当其他玩家都没亮主、轮到玩家1在 15 秒内补亮时，点击后会立即进入翻底定主，不再被迫等倒计时结束。

@@ -47,6 +47,37 @@ function shouldShowPcToolbarMenu() {
   return APP_PLATFORM === "pc" && state.phase !== "ready" && !state.gameOver && !!state.showToolbarMenu;
 }
 
+/**
+ * 作用：
+ * 规范化 `setupGame()` 支持的多种开局参数形式。
+ *
+ * 为什么这样写：
+ * 现在开局既可能来自普通新局，也可能来自“按回放种子重开”或“按开局码重开”；
+ * 统一在一个 helper 里归一化后，现有无参调用、传 seed 的旧调用和新的对象式调用都能共存，不必拆成多套初始化入口。
+ *
+ * 输入：
+ * @param {string|number|{replaySeedInput?: string|number, openingCode?: string}|null|undefined} setupInput - 本次开局请求的输入。
+ *
+ * 输出：
+ * @returns {{replaySeedInput: string|number|null|undefined, openingCode: string}} 归一化后的开局配置。
+ *
+ * 注意：
+ * - 纯字符串/数字沿用旧语义，继续视为 replay seed。
+ * - 开局码会在这里顺手做 trim，后续统一按大写十六进制解析。
+ */
+function normalizeSetupGameOptions(setupInput) {
+  if (setupInput && typeof setupInput === "object" && !Array.isArray(setupInput)) {
+    return {
+      replaySeedInput: setupInput.replaySeedInput,
+      openingCode: String(setupInput.openingCode || "").trim().toUpperCase(),
+    };
+  }
+  return {
+    replaySeedInput: setupInput,
+    openingCode: "",
+  };
+}
+
 // 按新进度重置等级并准备开始新局。
 function startNewProgress(autoStart = false) {
   state.playerLevels = { ...INITIAL_LEVELS };
@@ -153,16 +184,44 @@ function appendSessionHeaderLogs() {
   appendLog(`对局节奏：${getAiPaceLogLabel()}`);
   appendLog(`时间：${getLogTimestamp()}`);
   appendLog(`设备：${getPlatformLogLabel()}`);
+  appendLog(`首抓玩家：${getPlayer(state.nextFirstDealPlayerId || 1)?.name || "玩家1"}`);
   appendLog(`玩家等级：${getPlayerLevelsLogText()}`);
+  appendLog(`回放种子：${state.replaySeed || "未生成"}`);
+  appendLog(`开局码：${state.openingCode || "未生成"}`);
 }
 
-// 初始化一局新的牌局状态。
-function setupGame() {
+/**
+ * 作用：
+ * 初始化一局新的牌局状态，并为这一局分配可回放的 seed 与开局码。
+ *
+ * 为什么这样写：
+ * 现在调试需要“从日志完全复原开局”，因此开局时不能只做旧式随机洗牌；
+ * 必须在同一个入口里同时初始化共享状态、回放随机源和完整牌序编码，保证日志与真实发牌始终来自同一份底层数据。
+ *
+ * 输入：
+ * @param {string|number|null|undefined} [replaySeedInput] - 可选的显式回放 seed；不传时按当前环境自动分配。
+ *
+ * 输出：
+ * @returns {void} 只重置本局状态并触发首轮渲染，不返回额外结果。
+ *
+ * 注意：
+ * - 这里初始化出的 seed 会影响洗牌、AI 自动亮主/反主意愿和节奏随机。
+ * - 若未来支持“按开局码重开”，仍应复用这个入口，而不是额外造第二套初始化逻辑。
+ */
+function setupGame(setupInput) {
+  const setupOptions = normalizeSetupGameOptions(setupInput);
+  const openingRestore = setupOptions.openingCode ? decodeOpeningCode(setupOptions.openingCode) : null;
+  if (setupOptions.openingCode && !openingRestore) return false;
+
   clearTimers();
   clearCenterAnnouncement(true);
   refreshSavedProgressAvailability();
   if (state.autoManageMode !== "persistent") {
     state.autoManageMode = DEFAULT_AUTO_MANAGE_MODE;
+  }
+  if (openingRestore) {
+    state.playerLevels = normalizePlayerLevels(openingRestore.playerLevels);
+    state.nextFirstDealPlayerId = openingRestore.firstDealPlayerId;
   }
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
@@ -193,6 +252,9 @@ function setupGame() {
   state.aiDecisionHistorySeq = 0;
   state.bottomCards = [];
   state.selectedCardIds = [];
+  state.replaySeed = "";
+  state.roundRandom = null;
+  state.openingCode = "";
   state.countdown = 30;
   state.dealCards = [];
   state.dealIndex = 0;
@@ -236,13 +298,109 @@ function setupGame() {
   dom.resultOverlay.classList.remove("show");
   updateResultCountdownLabel();
 
-  const deck = createDeck();
+  initializeRoundReplaySeed(setupOptions.replaySeedInput);
+  const deck = openingRestore
+    ? openingRestore.deckCards.map((card) => ({ ...card }))
+    : createDeck();
+  const openingDeck = deck.slice();
   state.dealCards = deck.splice(0, 31 * 5);
   state.bottomCards = deck.splice(0, 7);
+  state.openingCode = openingRestore
+    ? setupOptions.openingCode
+    : buildOpeningCode(openingDeck, {
+        firstDealPlayerId: state.nextFirstDealPlayerId || 1,
+        playerLevels: state.playerLevels,
+      });
 
   appendSessionHeaderLogs();
 
   render();
+  return true;
+}
+
+/**
+ * 作用：
+ * 在 debug 面板里按回放种子重建当前局的初始状态。
+ *
+ * 为什么这样写：
+ * debug UI 需要一个不会直接暴露底层初始化细节的业务入口；
+ * 收口成 helper 后，按钮点击、未来快捷键和测试都能复用同一套“按 seed 重开”逻辑。
+ *
+ * 输入：
+ * @param {string} replaySeedInput - 用户在 debug 面板输入的回放种子。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示已经成功重建初始状态；`false` 表示输入无效。
+ *
+ * 注意：
+ * - 这里只重建到 `ready` 阶段，不自动开始发牌。
+ * - 成功后会重新打开 debug 面板，方便继续观察恢复结果。
+ */
+function applyDebugReplaySeedReplay(replaySeedInput) {
+  const normalizedSeed = normalizeReplaySeedInput(replaySeedInput);
+  if (!normalizedSeed) {
+    state.debugReplayStatusTone = "error";
+    state.debugReplayStatusText = TEXT.debug.replaySeedRequired;
+    renderDebugPanel?.();
+    return false;
+  }
+  state.debugReplaySeedDraft = normalizedSeed;
+  setupGame(normalizedSeed);
+  state.showDebugPanel = true;
+  state.debugReplayStatusTone = "success";
+  state.debugReplayStatusText = TEXT.debug.replaySeedApplied(normalizedSeed);
+  render();
+  return true;
+}
+
+/**
+ * 作用：
+ * 在 debug 面板里按开局码重建当前局的初始状态，并可选带入回放种子。
+ *
+ * 为什么这样写：
+ * 开局码负责精确复原完整牌序，回放种子负责继续约束后续随机链路；
+ * 把两者组合收成一个 helper 后，debug 面板可以一次性完成“贴码 -> 重建 ready 初始态”的整条调试动作。
+ *
+ * 输入：
+ * @param {string} openingCodeInput - 用户输入的开局码。
+ * @param {string} [replaySeedInput=""] - 可选的回放种子；不传时沿用自动分配。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示恢复成功；`false` 表示开局码无效或为空。
+ *
+ * 注意：
+ * - 成功后同样只回到 `ready` 阶段，不自动发牌。
+ * - 若只提供开局码，不保证后续 AI 随机路径与原局完全一致；要尽量靠近原局，需要同时填回放种子。
+ */
+function applyDebugOpeningCodeReplay(openingCodeInput, replaySeedInput = "") {
+  const normalizedOpeningCode = String(openingCodeInput || "").trim().toUpperCase();
+  if (!normalizedOpeningCode) {
+    state.debugReplayStatusTone = "error";
+    state.debugReplayStatusText = TEXT.debug.openingCodeRequired;
+    renderDebugPanel?.();
+    return false;
+  }
+  if (!decodeOpeningCode(normalizedOpeningCode)) {
+    state.debugReplayStatusTone = "error";
+    state.debugReplayStatusText = TEXT.debug.replayInvalidOpeningCode;
+    renderDebugPanel?.();
+    return false;
+  }
+
+  const normalizedSeed = normalizeReplaySeedInput(replaySeedInput);
+  state.debugOpeningCodeDraft = normalizedOpeningCode;
+  if (normalizedSeed) {
+    state.debugReplaySeedDraft = normalizedSeed;
+  }
+  setupGame({
+    replaySeedInput: normalizedSeed || undefined,
+    openingCode: normalizedOpeningCode,
+  });
+  state.showDebugPanel = true;
+  state.debugReplayStatusTone = "success";
+  state.debugReplayStatusText = TEXT.debug.openingCodeApplied(normalizedOpeningCode, normalizedSeed);
+  render();
+  return true;
 }
 
 // 返回自动叫朋友时优先考虑的点数顺序。
@@ -2275,7 +2433,7 @@ function maybeAutoDeclare(playerId) {
   }
   if (!best || !canOverrideDeclaration(best)) return;
 
-  const willing = best.count >= 3 || Math.random() < 0.65;
+  const willing = best.count >= 3 || getSharedRandomNumber() < 0.65;
   if (!willing) return;
   declareTrump(playerId, best, "auto");
 }
@@ -2345,7 +2503,7 @@ function startCounterTurn() {
   if (!player || player.isHuman) return;
 
   state.aiTimer = window.setTimeout(() => {
-    if (option && (option.suit === "notrump" || option.count >= 3 || Math.random() < 0.72)) {
+    if (option && (option.suit === "notrump" || option.count >= 3 || getSharedRandomNumber() < 0.72)) {
       counterDeclare(player.id, option);
       return;
     }

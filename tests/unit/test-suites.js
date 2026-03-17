@@ -67,6 +67,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-follow-candidate-limit.js"),
   },
   {
+    name: "AI follow rollout budget regression",
+    file: path.join(__dirname, "check-ai-follow-rollout-budget.js"),
+  },
+  {
     name: "Trump tractor auto-select performance regression",
     file: path.join(__dirname, "check-trump-tractor-hint-performance.js"),
   },
@@ -79,12 +83,24 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-pace-settings.js"),
   },
   {
+    name: "Opening code log regression",
+    file: path.join(__dirname, "check-opening-code-log.js"),
+  },
+  {
+    name: "Debug replay panel regression",
+    file: path.join(__dirname, "check-debug-replay-panel.js"),
+  },
+  {
     name: "Staged change threshold regression",
     file: path.join(__dirname, "check-staged-change-lines.js"),
   },
   {
     name: "Local preview server regression",
     file: path.join(__dirname, "check-local-preview-server.js"),
+  },
+  {
+    name: "App web bundle regression",
+    file: path.join(__dirname, "check-build-app-web-bundle.js"),
   },
   {
     name: "Preview auto-start regression",
@@ -144,6 +160,10 @@ const UNIT_TEST_SUITES = [
   {
     name: "Mobile bootstrap fallback regression",
     file: path.join(__dirname, "check-mobile-bootstrap-fallbacks.js"),
+  },
+  {
+    name: "Mobile app template regression",
+    file: path.join(__dirname, "check-mobile-app-template.js"),
   },
   {
     name: "PC card-face sprite regression",

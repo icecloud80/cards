@@ -278,7 +278,7 @@ function main() {
     suit: "notrump",
     rank: "2",
     count: 2,
-    cards: [{ suit: "joker", rank: "RJ", img: "./cards/joker-RJ.svg" }],
+    cards: [{ suit: "joker", rank: "RJ", img: "./images/cards/joker-RJ.svg" }],
   };
   context.state.friendTarget = {
     label: "第二张方块A",

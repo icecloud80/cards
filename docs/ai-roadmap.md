@@ -32,8 +32,10 @@
 - 经典逐张 SVG、`poker.png`、`m_cards_sprite.png` 这类牌面资源组织方式同样属于表现层；无论默认入口当前指向哪一张整图、`现代整图` 是否开放切换，它们都只能影响渲染与打包，不应进入 AI 评分、记牌或目标判断。
 - 即便后续继续微调 `m_cards_sprite.png` 的 tile 对齐方式，让少数窄画布牌面在 mobile 上更贴格，这也仍是表现层工作，不属于 AI 路线图的能力推进项。
 - 同理，把整图默认入口在 `poker.png` 与其他实验资源之间切换，也仍然只是表现层配置整理，不属于 AI 路线图里的能力升级项。
+- 同理，把原生壳默认入口从 `index2.html` 切到 `index-app.html`，以及把 App 牌桌改成固定顶栏 + 自适应中部出牌区，也只是布局与打包整理，不属于 AI 路线图里的能力升级项。
 - 手游手牌标签是否显示张数，也只是移动端信息密度取舍；它不会改变 AI 的公开信息定义，更不属于路线图里的能力演进。
 - 同理，手游顶部 `主 / 朋` 状态牌是否统一走 sprite，也只是 UI 渲染一致性问题，不属于 AI 能力推进项。
+- `回放种子 / 开局码` 属于调试与复盘基础设施：它们只负责稳定重建开局输入，不能被 AI 当成任何额外信息来源，也不应被算作 AI 能力升级本身。
 - headless 回归现在同时保留“同难度全桌”与“`2-3 中级 + 2-3 初级` 混编”两类样本；混编样本可用于暴露中级 AI 的实战缺陷，但不等同于 fixed-seat Elo 评测。
 
 ## 2. 当前已实现的难度分层
@@ -207,6 +209,61 @@
 
 - 这轮 mixed 只是一组 `2` 局的当前工作区 smoke，不足以替代上面的 `20` 局混编门槛；其中 `dangerous_point_lead` 仍有 `1` 次，也说明这条风险线还没有真正收平。
 - 因此，这轮最新校验只用于确认“优先级没有变”，而不是推翻 `2026-03-15` 那组长期开发顺序。
+
+### 基于 2026-03-16 代码性能审查的新增优先项
+
+这轮补充审查的重点不是“AI 会不会下错”，而是“当前中级搜索链路里，哪些工程开销已经开始反过来限制后续能力继续加深”。
+
+当前新增结论：
+
+- 中级 AI 的主瓶颈已经不再只是权重和规则本身，而是 `每候选 rollout + 多次整局克隆 + 重复评估` 的累计成本。
+- 当前性能压力主要集中在 `cloneSimulationState(...)`、`getIntermediateRolloutSummary(...)`、`evaluateState(...)`、`getLegalSelectionsForState(...)` 和 `classifyPlay(...)` 这一条热路径。
+- 如果这一层不先收口，后面继续加 `Friend Belief`、`grade_bottom`、更完整残局搜索或更深 rollout，只会把现有卡顿风险继续放大。
+- 2026-03-17 已补第一条运行时止血线：
+  对 `follow` 模式里的复杂多张跟牌，不能再默认把 shortlist 里的所有候选都送去 rollout；当前实现已改为“先 heuristic shortlist，再按预算决定是否 rollout”，最重的 `5` 张复杂跟牌样本允许直接跳过 rollout。
+- 因此，`AI 性能硬化` 现在应被视为中级路线图的正式主线之一，而不是单纯的工程清理。
+
+本轮审查识别出的 4 类主要热点：
+
+1. `每候选 rollout` 都会重复做整局状态深拷贝。
+   - 当前中级在首发和跟牌评分里，会为每个候选分别做合法复验、当前轮 rollout，以及必要时的下一拍扩展 rollout。
+   - 这会把 `players.hand / played / currentTrick / playHistory / bottomCards` 等字段反复整包复制，候选一多时成本增长很快。
+
+2. 同一个 `simState` 上的派生评估结果缺少复用。
+   - `Friend Belief Lite`、`grade_bottom profile`、`turnAccess reserve`、`safeLead summary` 等中间结果，当前会在一次 `evaluateState(...)` 内被不同 breakdown 间接重复构造。
+   - rollout 深度一旦扩到 `2`，这些重复成本会被再次放大。
+
+3. 跟牌候选生成仍然偏暴力枚举。
+   - `getLegalSelectionsForState(...)` 虽然已经补上“先精确牌型、再组合枚举”的保护，但在部分局面里依然会先枚举大量组合，再逐一校验合法性。
+   - 这条路径不仅用于正式决策，也会被 hint、fallback 和 simulation 共用，因此是热点中的热点。
+
+4. 牌型识别与结构检测在热路径里重复过多。
+   - `classifyPlay(...)`、`findSerialTuples(...)`、甩牌拆解和一些排序 comparator 里会反复重跑同一手牌的结构识别。
+   - 这类开销单次不算最大，但在候选排序、rollout 后评估和 debug 汇总中叠加后很可观。
+
+据此，近期开发顺序在原有“危险带分领牌 / 朋友阶段试探 / 已站队控牌降温”之外，再并行插入下面 4 条性能主线：
+
+1. 先给 rollout 链路做 `state 级缓存与复用`。
+   - 目标不是立刻重写算法，而是先把 `baselineEvaluation`、`currentWinningPlay`、`classifyPlay(combo)`、`Friend Belief Lite`、`grade_bottom profile` 这类重复派生信息缓存起来。
+   - 验收口径：同一轮同一玩家的候选评分过程中，不再出现明显的重复整包计算。
+
+2. 再压缩 `cloneSimulationState(...)` 的使用次数。
+   - 优先减少“同一候选先 clone 校验、再 clone rollout、扩展时再 clone 下一层”的重复调用。
+   - 允许保守地保留现有行为语义，但要把“每候选克隆次数”显著降下来。
+
+3. 然后收紧 `getLegalSelectionsForState(...)` 的组合枚举成本。
+   - 对 `single / pair / triple / tractor / train / bulldozer` 这类常见首家牌型，优先走结构直达和必要最小候选集，而不是过多回落到通用 `n 选 k`。
+   - 验收口径：常见跟牌局面里，候选生成数量和耗时都能稳定控制。
+
+4. 最后把 `牌型识别 memo` 做成共享基础设施。
+   - 同一手 `combo` 在同一轮决策中，`classifyPlay(...)`、`getComboKey(...)`、`getFollowStructureScore(...)` 不应在排序器、评估器和 debug 汇总里各算一遍。
+   - 这一步做完后，后续继续增加 breakdown 和 rollout 深度才有空间。
+
+这 4 条的优先级说明：
+
+- 它们不是为了替代策略修正，而是为了给后续策略升级腾预算。
+- 如果不先做前两条，继续给中级叠更多 rollout / belief / endgame 逻辑，收益会被卡顿和重复计算吞掉。
+- 第三条和第四条则是把热点从“整局开销”继续收缩到“候选局部开销”，属于性能收口的第二阶段。
 
 ### 推荐实现
 

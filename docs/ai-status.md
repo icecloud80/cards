@@ -23,6 +23,7 @@
 - `高级` 依旧不是路线图定义里的“会读牌”阶段，而是“完整记牌 + 复用中级搜索框架”的过渡档。
 - `危险带分领牌` 与 `point_run_risk` 都出现了继续下降：这轮全桌 smoke 里，`dangerous_point_lead` 从上一轮观察到的 `4` 次降到 `2` 次，`point_run_risk` 从 `13` 次降到 `9` 次，说明“控制型高风险领牌二次否决”方向有效；但 mixed 小样本里仍有 `1` 次危险带分领牌，说明这条线还没有收官。
 - 当前最准确的工程判断不是“AI 还不够聪明”，而是“中级搜索框架已经站住，接下来应该继续做评估函数第二版和 legacy 规则下沉”。
+- 当前工作区已补一条新的收口线：`evaluateState(...)` 现已新增 `controlExit` breakdown，并接入 `resolved friend + clear_trump / keep_control` 的 objective 权重与危险带分领牌 veto，用来专门处理“朋友已站队后控牌过热”的问题。
 
 这次额外复核使用的现时证据：
 
@@ -88,6 +89,10 @@
 - `危险带分领牌` 现在新增了一层 rollout 后的“控制型硬否决”：
   当 objective 已经切到 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 一类控制目标，且候选本身已经被识别为高风险带分领牌，同时 rollout 又继续暴露 `turn_access_risk / point_run_risk`、下一拍不安全或未来收益不足时，这类候选会被二次明显降权，而不再只吃一层 heuristic 惩罚。
 - 对应回归已补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
+- `朋友已站队后的控牌降温` 现在又往前推进了一步：
+  统一评估器新增 `controlExit` 分项，专门判断“当前控牌是否还能安全续控，或是否应该顺势交给同侧接手”；
+  目标层也已给 `resolved friend + clear_trump / keep_control` 增加 `controlExit` 权重，并对打家侧过热的 `control / tempo` 做了小幅降温。
+- 同一条专项回归也已补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
 - 修复了一个初级和中级共用的跟牌误判：
   当 AI 已经缺首门、又没有成型主可毙时，旧排序会把“另一门正好成对”误当成更顺手的贴牌，导致把副牌对子白白贴掉。
 - 当前实现已改成：缺门贴副时不再奖励“别门同型”，并显式优先保留副牌对子、连对等后续资源；对应回归同样写入 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。

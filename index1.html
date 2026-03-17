@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>五人找朋友升级</title>
+    <title>找朋友升级</title>
     <style>
       :root {
         --bg-top: #102733;
@@ -3702,6 +3702,9 @@
             <div class="debug-replay-form">
               <div class="debug-section-title">复原开局</div>
               <div class="subtle">想完整回到原局，请同时填写开局码和回放种子。只填回放种子只会重建随机链路，不保证恢复同一手牌。</div>
+              <div class="debug-replay-actions">
+                <button id="replayPasteBtn" class="tiny-btn" type="button">点此粘贴</button>
+              </div>
               <div class="debug-replay-field">
                 <label for="replaySeedInput" class="debug-replay-label">回放种子</label>
                 <input
@@ -3789,8 +3792,7 @@
               </div>
             </div>
             <div class="start-lobby-title-wrap">
-              <div class="label">PC 开始界面</div>
-              <h1 class="start-lobby-title">五人找朋友升级</h1>
+              <h1 class="start-lobby-title">找朋友升级</h1>
               <p id="startLobbyStatus" class="subtle"></p>
             </div>
             <label class="start-lobby-select" for="aiDifficultySelect">

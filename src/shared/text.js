@@ -231,6 +231,8 @@ const TEXT = {
     openingCodeLabel: "开局码",
     openingCodePlaceholder: "粘贴日志里的 332 位十六进制开局码",
     openingCodeApply: "按开局码 + 种子重开",
+    replayPasteAction: "点此粘贴",
+    replayCopyAction: "复制复盘码",
     replayCurrentSeed: (seed) => `当前种子：${seed || "未生成"}`,
     replayCurrentOpeningCode: (openingCode) => `当前开局码：${openingCode ? `${openingCode.slice(0, 20)}...` : "未生成"}`,
     empty: "当前没有手牌。",
@@ -259,6 +261,12 @@ const TEXT = {
     replaySeedApplied: (seed) => `已按回放种子重开并开始发牌：${seed}。这只重建随机链路，不保证恢复同一手牌。`,
     openingCodeApplied: (openingCode, seedText) => `已按开局码重开并开始发牌${seedText ? `，并使用回放种子 ${seedText}` : ""}。当前开局码：${openingCode.slice(0, 20)}...`,
     replayInvalidOpeningCode: "开局码无效，请确认已完整粘贴日志中的十六进制文本。",
+    replayCodeUnavailable: "当前还没有可复制的回放种子和开局码。",
+    replayCodeCopied: "已复制复盘码，可直接发到另一端粘贴恢复。",
+    replayClipboardReadFailed: "读取剪贴板失败，请检查浏览器剪贴板权限后重试。",
+    replayClipboardWriteFailed: "复制失败，请检查浏览器剪贴板权限后重试。",
+    replayBundleInvalid: "剪贴板内容无效，请确认格式为“回放种子 + 开局码”。",
+    replayBundlePasted: (seed) => `已从剪贴板带入复盘码。当前回放种子：${seed}。`,
   },
   friendPicker: {
     suitOptions: [

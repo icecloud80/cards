@@ -24,6 +24,10 @@ function main() {
   const file = path.join(__dirname, "../../index2.html");
   const html = fs.readFileSync(file, "utf8");
 
+  assert.equal(html.includes("<title>找朋友升级 · 手机版</title>"), true, "手游运行页标题应统一改为找朋友升级");
+  assert.equal(html.includes('class="mobile-kicker">找朋友升级<'), true, "手游开始页品牌标题应统一改为找朋友升级");
+  assert.equal(html.includes('class="game-title">找朋友升级<'), true, "手游局内标题应统一改为找朋友升级");
+  assert.equal(html.includes("五人找朋友升级"), false, "手游运行页不应继续保留旧品牌名五人找朋友升级");
   assert.match(
     html,
     /<div class="mobile-topbar-main">[\s\S]*?<span>计秒<\/span>[\s\S]*?<strong id="mobileTimer">--<\/strong>[\s\S]*?<span>总分<\/span>[\s\S]*?<strong id="mobileScore">0<\/strong>/,

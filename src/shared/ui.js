@@ -2258,6 +2258,9 @@ function renderReplayPanel() {
   if (dom.replaySeedApplyBtn) {
     dom.replaySeedApplyBtn.textContent = TEXT.debug.replaySeedApply;
   }
+  if (dom.replayPasteBtn) {
+    dom.replayPasteBtn.textContent = TEXT.debug.replayPasteAction;
+  }
   if (dom.replayOpeningCodeApplyBtn) {
     dom.replayOpeningCodeApplyBtn.textContent = TEXT.debug.openingCodeApply;
   }

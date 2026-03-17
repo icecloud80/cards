@@ -704,6 +704,7 @@ const dom = {
   closeReplayBtn: document.getElementById("closeReplayBtn"),
   replaySeedInput: document.getElementById("replaySeedInput"),
   replaySeedApplyBtn: document.getElementById("replaySeedApplyBtn"),
+  replayPasteBtn: document.getElementById("replayPasteBtn"),
   replayOpeningCodeInput: document.getElementById("replayOpeningCodeInput"),
   replayOpeningCodeApplyBtn: document.getElementById("replayOpeningCodeApplyBtn"),
   replayCurrentSeed: document.getElementById("replayCurrentSeed"),

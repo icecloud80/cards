@@ -705,6 +705,10 @@ dom.replaySeedApplyBtn?.addEventListener("click", () => {
   applyDebugReplaySeedReplay(state.debugReplaySeedDraft);
 });
 
+dom.replayPasteBtn?.addEventListener("click", async () => {
+  await pasteReplayBundleFromClipboardToReplayDrafts();
+});
+
 dom.replayOpeningCodeApplyBtn?.addEventListener("click", () => {
   applyDebugOpeningCodeReplay(state.debugOpeningCodeDraft, state.debugReplaySeedDraft);
 });

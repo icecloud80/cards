@@ -206,6 +206,10 @@
 - 当前全桌 smoke 样本里，`point_run_risk` 已选动作从上一轮观察到的 `13` 次降到 `9` 次，`dangerous_point_lead` 也从 `4` 次降到 `2` 次，说明“先压危险带分领牌”的方向没有走偏。
 - mixed 验证 `2 / 2` 完局、`0` 告警，但当前小样本仍有 `turn_access_risk = 2`、`point_run_risk = 3`、`dangerous_point_lead = 1`，而且样本仍集中在 `friend revealed` 后的 `keep_control / pressure_void / clear_trump` 目标下，说明“朋友已站队后的控牌降温”和“失先手代价正式评分化”依然是未完成主线。
 - 当前工作区还额外补了一条“高张定门再递牌”的收口：朋友已站队后，如果打家已经没有明显主控资源，中级和初级都会允许先用副牌 `A` 定门，再把同门小牌留给后续递牌；但如果同伴已经公开绝这门，就会直接回退成低张递牌，不再继续打信号。
+- 当前工作区已开始把第 3 步正式下沉到统一评分：
+  `evaluateState(...)` 新增了 `controlExit` breakdown，用来识别“朋友已站队后，这份控制是否还能安全续控，或是否已经适合顺势交给同侧”。
+  `getIntermediateObjective(...)` 也同步给 `resolved friend + clear_trump / keep_control` 增加了 `controlExit` 权重，并对打家侧的原始 `control / tempo` 做了小幅降温。
+  这意味着“朋友已站队后的控牌降温”已经从路线图事项进入现时代码，而不再只停留在危险领牌 veto 的外围兜底。
 
 这里要特别注意：
 

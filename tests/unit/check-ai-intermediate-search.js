@@ -344,7 +344,7 @@ function runIntermediateSearchSuite(context) {
           },
           futureEvaluation: {
             total: -18,
-            breakdown: { turnAccess: -10, controlRisk: -12, safeLead: -12, pointRunRisk: -32 },
+            breakdown: { turnAccess: -10, controlExit: -18, controlRisk: -12, safeLead: -12, pointRunRisk: -32 },
             objective: { primary: "clear_trump", secondary: "keep_control" },
           },
         };
@@ -369,7 +369,7 @@ function runIntermediateSearchSuite(context) {
         },
         futureEvaluation: {
           total: 16,
-          breakdown: { turnAccess: 9, controlRisk: -1, safeLead: 6, pointRunRisk: 0 },
+          breakdown: { turnAccess: 9, controlExit: 10, controlRisk: -1, safeLead: 6, pointRunRisk: 0 },
           objective: { primary: "clear_trump", secondary: "keep_control" },
         },
       };
@@ -432,7 +432,7 @@ function runIntermediateSearchSuite(context) {
           },
           futureEvaluation: {
             total: -10,
-            breakdown: { turnAccess: -6, controlRisk: -12, safeLead: -10, pointRunRisk: -28 },
+            breakdown: { turnAccess: -6, controlExit: -20, controlRisk: -12, safeLead: -10, pointRunRisk: -28 },
             objective: { primary: "clear_trump", secondary: "keep_control" },
           },
         };
@@ -457,7 +457,7 @@ function runIntermediateSearchSuite(context) {
         },
         futureEvaluation: {
           total: 22,
-          breakdown: { turnAccess: 10, controlRisk: 0, safeLead: 8, pointRunRisk: 0 },
+          breakdown: { turnAccess: 10, controlExit: 12, controlRisk: 0, safeLead: 8, pointRunRisk: 0 },
           objective: { primary: "clear_trump", secondary: "keep_control" },
         },
       };
@@ -481,6 +481,33 @@ function runIntermediateSearchSuite(context) {
     const saferPointEntry = pointLeadEntries.find((entry) => getComboKey(entry.cards) === getComboKey(saferLowLead));
     assert(riskyPointEntry.riskyPointLeadVetoPenalty > 0, "buildScoredIntermediateLeadEntries: dangerous point-carrying leads should receive an explicit riskyPointLeadVetoPenalty");
     assert(riskyPointEntry.score < saferPointEntry.score, "buildScoredIntermediateLeadEntries: control-focused risky point leads should rank below safer low leads when rollout exposes control loss");
+    assert(riskyPointEntry.riskyPointLeadVetoPenalty > 80, "buildScoredIntermediateLeadEntries: negative controlExit should further harden the risky point lead veto");
+
+    resetPositiveSafeLeadState();
+    state.bankerId = 3;
+    state.currentTurnId = 5;
+    state.leaderId = 5;
+    const allyControlState = cloneSimulationState(state);
+    const allyControlEvaluation = evaluateState(
+      allyControlState,
+      3,
+      getIntermediateObjective(3, "follow", allyControlState)
+    );
+    const lostControlState = cloneSimulationState(state);
+    lostControlState.currentTurnId = 1;
+    lostControlState.leaderId = 1;
+    lostControlState.currentTrick = [];
+    const lostControlEvaluation = evaluateState(
+      lostControlState,
+      3,
+      getIntermediateObjective(3, "follow", lostControlState)
+    );
+    assert(allyControlEvaluation.breakdown.controlExit > 0, "evaluateState: resolved-friend allied control should yield positive controlExit");
+    assert(lostControlEvaluation.breakdown.controlExit < 0, "evaluateState: resolved-friend lost control should yield negative controlExit");
+    assert(
+      allyControlEvaluation.breakdown.controlExit > lostControlEvaluation.breakdown.controlExit,
+      "evaluateState: controlExit should clearly prefer allied continuation over opponent control"
+    );
 
     globalThis.__intermediateSearchResults = {
       results: [
@@ -491,6 +518,7 @@ function runIntermediateSearchSuite(context) {
         "evaluateState turn access breakdown ok",
         "structure lead control penalty ok",
         "risky point lead veto penalty ok",
+        "control exit breakdown ok",
       ],
     };
   `;

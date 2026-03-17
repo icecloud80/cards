@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  作用：
+  定义 Android 自适应主图标的前景与背景引用。
+
+  为什么这样写：
+  新图标需要使用渐变背景和独立前景主体，才能在不同厂商的 adaptive mask 下保持层次；
+  因此这里从旧的纯色资源切到专用 drawable 背景。
+
+  输入：
+  @param {void} - 由 Android Launcher 在运行时读取。
+
+  输出：
+  @returns {xml} 自适应图标资源引用配置。
+
+  注意：
+  - foreground 与 background 必须成对更新，避免新旧资源混用。
+  - 不要把完整方形 PNG 直接塞进 foreground，否则裁切后会显得发挤。
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background"/>
+    <background android:drawable="@drawable/ic_launcher_background"/>
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>

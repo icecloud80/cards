@@ -10,5 +10,10 @@ artifacts/*
 # Keep generated App web bundles out of git; native shells should sync from fresh output.
 dist/
 
+# Keep local Python cache artifacts out of git; resource generation scripts may emit them during local runs.
+__pycache__/
+**/__pycache__/
+*.pyc
+
 artifacts/headless-regression/*
 !artifacts/headless-regression/.gitkeep

@@ -108,8 +108,12 @@
   - `throw risk` 已经开始接入首发评分，但还没有沉到 `evaluateState` 的正式 breakdown。
   - `turnAccess / 失先手代价 / 残局安全起手值` 仍是这一里程碑的主要未完成部分，也就是文档里的 `牌权续控 / 失先手代价 / 残局安全起手值`。
   - `朋友已站队后的控制型切换` 已能在 headless 对局里稳定出现，但仍有一部分来自入口短路规则，尚未完全评分化。
+  - 当前工作区已补 `controlExit` breakdown：
+    朋友已站队后，评估器会额外区分“当前控牌是否还能安全续控 / 是否适合顺势把牌权交给同侧”，并把这项分值接入 `clear_trump / keep_control` 的目标权重与危险带分领牌 veto。
   - `Friend Belief Lite` 第一版已落地，并已补基础回归验证“持有目标牌的自己更像朋友”“公开断门的座位更像闲家”。
   - `dangerous_point_lead` 现已从“heuristic 扣分”补到“rollout 后二次否决”：在 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 这类控制目标下，若 `5 / 10 / K` 这类分牌首发继续暴露 `turn_access_risk / point_run_risk` 且未来收益不足，会被再次显著降权。
+  - `dangerous_point_lead` 的二次否决现在还会额外读取未来评估里的 `controlExit`：
+    如果 rollout 已经说明“这手控牌既不安全，也不利于同侧顺势接手”，否决会继续加重；反过来，若未来局面已转成健康续控，则会适度减轻惩罚。
   - 同时新增“高张定门再递牌”保护：朋友已站队、全桌公开仍在跟某门、且自己同时握有该门 `A` 与后续小牌时，中级会把这手 `A` 视作正向协同候选，而不是和危险带分领牌混写。
 - 验收：
   - `evaluateState` 输出可解释 breakdown

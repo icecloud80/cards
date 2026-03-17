@@ -4,6 +4,7 @@
   "scripts": {
     "build:app-web": "node scripts/build-app-web.js",
     "build:m-card-sprite": "node scripts/build-m-card-sprite.js",
+    "app:icons": "python3 scripts/generate-app-icons.py",
     "app:sync": "npm run build:app-web && npx cap sync",
     "app:sync:android": "npm run build:app-web && npx cap sync android",
     "app:sync:ios": "npm run build:app-web && LANG=en_US.UTF-8 npx cap sync ios",

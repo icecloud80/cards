@@ -321,6 +321,235 @@ function setupGame(setupInput) {
 
 /**
  * 作用：
+ * 把一组 `回放种子 + 开局码` 组装成可跨端复制的复盘码文本。
+ *
+ * 为什么这样写：
+ * 手游端需要一键把当前局发给 PC 端继续复盘；
+ * 统一固定成 `seed + openingCode` 后，移动端复制、桌面端粘贴和 QA 口头沟通都能共享同一份短格式。
+ *
+ * 输入：
+ * @param {string|number|null|undefined} replaySeedInput - 当前局要导出的回放种子。
+ * @param {string|null|undefined} openingCodeInput - 当前局要导出的开局码。
+ *
+ * 输出：
+ * @returns {string} 规范化后的复盘码；任一关键字段缺失时返回空串。
+ *
+ * 注意：
+ * - `开局码` 始终统一转成大写十六进制，避免跨端大小写混排。
+ * - 这里只负责拼文本，不校验调用方是否真的处于对局中。
+ */
+function buildReplayClipboardBundle(replaySeedInput, openingCodeInput) {
+  const normalizedSeed = normalizeReplaySeedInput(replaySeedInput);
+  const normalizedOpeningCode = String(openingCodeInput || "").trim().toUpperCase();
+  if (!normalizedSeed || !normalizedOpeningCode) return "";
+  return `${normalizedSeed} + ${normalizedOpeningCode}`;
+}
+
+/**
+ * 作用：
+ * 从剪贴板文本或日志片段里解析出 `回放种子 + 开局码`。
+ *
+ * 为什么这样写：
+ * PC 端“点此粘贴”既要兼容手游复制出来的紧凑格式，
+ * 也希望顺手兼容结果日志里的 `回放种子：... / 开局码：...` 两行文本，减少 QA 二次整理。
+ *
+ * 输入：
+ * @param {string} rawText - 剪贴板里读取到的原始文本。
+ *
+ * 输出：
+ * @returns {{replaySeed: string, openingCode: string}|null} 成功时返回解析后的两项；失败时返回 `null`。
+ *
+ * 注意：
+ * - 解析阶段会顺手校验 `开局码` 是否能被当前版本解码，避免把脏文本写进草稿框。
+ * - `回放种子` 允许包含冒号、短横线等常见日志字符，但最终仍会做首尾 trim。
+ */
+function parseReplayClipboardBundle(rawText) {
+  const normalizedText = String(rawText || "").trim();
+  if (!normalizedText) return null;
+
+  const labeledSeedMatch = normalizedText.match(/回放种子[:：]\s*([^\n\r]+)/);
+  const labeledOpeningCodeMatch = normalizedText.match(/开局码[:：]\s*([0-9a-fA-F]+)/);
+  const compactMatch = normalizedText.match(/^([\s\S]*?)\s*\+\s*([0-9a-fA-F]+)\s*$/);
+
+  const normalizedSeed = normalizeReplaySeedInput(
+    labeledSeedMatch?.[1] || compactMatch?.[1] || ""
+  );
+  const normalizedOpeningCode = String(
+    labeledOpeningCodeMatch?.[1] || compactMatch?.[2] || ""
+  ).trim().toUpperCase();
+
+  if (!normalizedSeed || !normalizedOpeningCode) return null;
+  if (!decodeOpeningCode(normalizedOpeningCode)) return null;
+  return {
+    replaySeed: normalizedSeed,
+    openingCode: normalizedOpeningCode,
+  };
+}
+
+/**
+ * 作用：
+ * 把一段纯文本写入系统剪贴板。
+ *
+ * 为什么这样写：
+ * 结果日志复制和新的复盘码复制都要走同一套浏览器能力；
+ * 把 `Clipboard API` 和老浏览器 `textarea + execCommand` 兜底收口后，业务入口就不用重复维护两套复制代码。
+ *
+ * 输入：
+ * @param {string} text - 当前要写入剪贴板的文本。
+ *
+ * 输出：
+ * @returns {Promise<void>} 写入成功时正常结束；失败时抛出异常给调用方处理。
+ *
+ * 注意：
+ * - 空文本不应继续写入，直接返回即可。
+ * - fallback 只覆盖复制，不额外承担读取剪贴板能力。
+ */
+async function writeTextToClipboard(text) {
+  if (!text) return;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
+/**
+ * 作用：
+ * 从系统剪贴板读取纯文本。
+ *
+ * 为什么这样写：
+ * PC 端“点此粘贴”要在用户点击后直接把手游复制出来的复盘码带回输入框；
+ * 单独收成 helper 后，面板按钮和未来快捷键都能共享同一套权限与异常处理边界。
+ *
+ * 输入：
+ * @param {void} - 无额外输入，直接读取浏览器剪贴板。
+ *
+ * 输出：
+ * @returns {Promise<string>} 当前剪贴板里的纯文本。
+ *
+ * 注意：
+ * - 读取剪贴板通常要求安全上下文和用户手势；拿不到权限时由调用方决定提示文案。
+ * - 当前没有可靠的旧浏览器读取兜底，因此缺 API 时直接抛错。
+ */
+async function readTextFromClipboard() {
+  if (!navigator.clipboard?.readText) {
+    throw new Error("clipboard-read-unavailable");
+  }
+  return navigator.clipboard.readText();
+}
+
+/**
+ * 作用：
+ * 把当前牌局的复盘码复制到系统剪贴板。
+ *
+ * 为什么这样写：
+ * 手游端菜单只需要知道“这局能不能复制、复制后得到什么提示”，
+ * 不应该关心底层复盘码格式或剪贴板 fallback；统一业务入口后，PC / mobile 都能复用同一套导出规范。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态里的 `回放种子 / 开局码`。
+ *
+ * 输出：
+ * @returns {Promise<{ok: boolean, text: string, message: string, reason?: string}>} 当前复制动作的结果摘要。
+ *
+ * 注意：
+ * - 只有当前局同时拥有 `回放种子` 和 `开局码` 时才允许复制。
+ * - 失败信息只返回短 reason，具体 UI 呈现由调用方决定。
+ */
+async function copyCurrentReplayBundleToClipboard() {
+  const bundleText = buildReplayClipboardBundle(state.replaySeed, state.openingCode);
+  if (!bundleText) {
+    return {
+      ok: false,
+      text: "",
+      reason: "missing",
+      message: TEXT.debug.replayCodeUnavailable,
+    };
+  }
+  try {
+    await writeTextToClipboard(bundleText);
+    return {
+      ok: true,
+      text: bundleText,
+      message: TEXT.debug.replayCodeCopied,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      text: "",
+      reason: "write_failed",
+      message: TEXT.debug.replayClipboardWriteFailed,
+    };
+  }
+}
+
+/**
+ * 作用：
+ * 读取剪贴板里的复盘码，并把结果写回复盘面板草稿。
+ *
+ * 为什么这样写：
+ * PC 端复盘面板现在要支持“从手游复制、桌面点一下直接回填”的闭环；
+ * 把读取、解析、状态提示和草稿写回收成一个 helper 后，面板按钮只需触发这条业务动作即可。
+ *
+ * 输入：
+ * @param {void} - 无额外输入，直接从剪贴板读取文本。
+ *
+ * 输出：
+ * @returns {Promise<{ok: boolean, replaySeed?: string, openingCode?: string, message: string, reason?: string}>} 粘贴结果摘要。
+ *
+ * 注意：
+ * - 成功时只回填草稿，不自动开局，避免误把当前对局直接覆盖掉。
+ * - 失败时会把复盘面板保持打开并写入错误提示，方便用户继续手动处理。
+ */
+async function pasteReplayBundleFromClipboardToReplayDrafts() {
+  state.showReplayPanel = true;
+  try {
+    const clipboardText = await readTextFromClipboard();
+    const parsedBundle = parseReplayClipboardBundle(clipboardText);
+    if (!parsedBundle) {
+      state.debugReplayStatusTone = "error";
+      state.debugReplayStatusText = TEXT.debug.replayBundleInvalid;
+      renderReplayPanel?.();
+      return {
+        ok: false,
+        reason: "invalid",
+        message: TEXT.debug.replayBundleInvalid,
+      };
+    }
+
+    state.debugReplaySeedDraft = parsedBundle.replaySeed;
+    state.debugOpeningCodeDraft = parsedBundle.openingCode;
+    state.debugReplayStatusTone = "success";
+    state.debugReplayStatusText = TEXT.debug.replayBundlePasted(parsedBundle.replaySeed);
+    renderReplayPanel?.();
+    return {
+      ok: true,
+      replaySeed: parsedBundle.replaySeed,
+      openingCode: parsedBundle.openingCode,
+      message: TEXT.debug.replayBundlePasted(parsedBundle.replaySeed),
+    };
+  } catch (error) {
+    state.debugReplayStatusTone = "error";
+    state.debugReplayStatusText = TEXT.debug.replayClipboardReadFailed;
+    renderReplayPanel?.();
+    return {
+      ok: false,
+      reason: "read_failed",
+      message: TEXT.debug.replayClipboardReadFailed,
+    };
+  }
+}
+
+/**
+ * 作用：
  * 在设置菜单的复盘面板里按回放种子重建当前局的初始状态。
  *
  * 为什么这样写：
@@ -3936,19 +4165,7 @@ async function copyResultLog() {
   if (!text) return;
   const idleLabel = dom.copyResultLogBtn?.dataset.idleLabel || "复制日志";
   try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-    } else {
-      const textarea = document.createElement("textarea");
-      textarea.value = text;
-      textarea.setAttribute("readonly", "true");
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-    }
+    await writeTextToClipboard(text);
     setResultLogButtonFeedback(dom.copyResultLogBtn, idleLabel, "已复制");
   } catch (error) {
     setResultLogButtonFeedback(dom.copyResultLogBtn, idleLabel, "复制失败");

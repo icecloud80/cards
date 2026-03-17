@@ -23,6 +23,10 @@ const assert = require("node:assert/strict");
 function main() {
   const html = fs.readFileSync(path.join(__dirname, "../../index-app.html"), "utf8");
 
+  assert.equal(html.includes("<title>找朋友升级 · App版</title>"), true, "App 专用页面标题应统一改为找朋友升级");
+  assert.equal(html.includes('class="mobile-kicker">找朋友升级<'), true, "App 开始页品牌标题应统一改为找朋友升级");
+  assert.equal(html.includes('class="game-title">找朋友升级<'), true, "App 局内标题应统一改为找朋友升级");
+  assert.equal(html.includes("五人找朋友升级"), false, "App 专用页面不应继续保留旧品牌名五人找朋友升级");
   assert.match(
     html,
     /document\.body\.classList\.add\("mobile-app-shell"\);/,

@@ -4,11 +4,11 @@ const assert = require("node:assert/strict");
 
 /**
  * 作用：
- * 校验 PC 开始界面的主视觉已经切到手游同款插画结构。
+ * 校验 PC 开始界面的主视觉和品牌标题已经切到目标状态。
  *
  * 为什么这样写：
- * 这次需求只改开始页视觉，不牵涉共享状态机；
- * 直接读取 `index1.html` 源码做静态断言，最能稳定锁住“PC 必须复用手游开始页主视觉”这条 UI 约束。
+ * 这次需求只改开始页视觉与文案，不牵涉共享状态机；
+ * 直接读取 `index1.html` 源码做静态断言，最能稳定锁住“PC 必须复用手游开始页主视觉，且标题统一为找朋友升级”这条 UI 约束。
  *
  * 输入：
  * @param {void} - 通过固定路径读取 PC 页面模板源码。
@@ -17,13 +17,15 @@ const assert = require("node:assert/strict");
  * @returns {void} 关键结构存在时正常退出。
  *
  * 注意：
- * - 这里只校验结构与资源引用，不做像素级截图比对。
+ * - 这里只校验结构与静态文案，不做像素级截图比对。
  * - 旧的 `poker.png` 主视觉图不能再作为 PC 开始页 hero 出现，避免回退。
+ * - `PC 开始界面` 标签不能再出现，避免旧品牌辅助文案回流。
  */
 function main() {
   const file = path.join(__dirname, "../../index1.html");
   const html = fs.readFileSync(file, "utf8");
 
+  assert.equal(html.includes("<title>找朋友升级</title>"), true, "PC 页面标题应统一改为找朋友升级");
   assert.equal(
     html.includes('class="mobile-setup-visual pc-start-lobby-visual"'),
     true,
@@ -38,6 +40,8 @@ function main() {
     false,
     "PC 开始界面不应再回退到旧的 poker.png 静态主视觉图"
   );
+  assert.equal(html.includes('<h1 class="start-lobby-title">找朋友升级</h1>'), true, "PC 开始界面主标题应统一改为找朋友升级");
+  assert.equal(html.includes(">PC 开始界面<"), false, "PC 开始界面不应继续显示 PC 开始界面标签");
 }
 
 main();

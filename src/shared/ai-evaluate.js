@@ -801,6 +801,84 @@ function getSimulationTurnAccessScore(simState, playerId) {
 
 /**
  * 作用：
+ * 评估朋友已站队后，当前控牌是否属于“可安全续控 / 可顺势让同侧接手”的健康状态。
+ *
+ * 为什么这样写：
+ * 当前 `turnAccess / controlRisk / pointRunRisk / safeLead` 已经能描述控牌收益与失手代价，
+ * 但还缺一项专门回答“这份控制是不是已经过热”的统一评分。
+ * 这轮路线图要求在朋友已站队后给 `clear_trump / keep_control` 降温，
+ * 因此这里补一项 `controlExit`：
+ * - 奖励“同侧已稳住、并且可以由队友接手或安全退出”的状态；
+ * - 惩罚“虽然眼前还在控牌，但安全起手差、失先手代价高、还继续把高张硬攥在自己手里”的状态；
+ * - 若牌权已经落到敌侧，也要把这条失败直接显式化，而不是只让其它风险项间接体现。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估该分项的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回 `controlExit` 分值；正值表示控牌可健康续控或可顺势交给同侧，负值表示当前控制过热或已失控。
+ *
+ * 注意：
+ * - 只在朋友已站队后生效，未站队阶段固定返回 0。
+ * - 该项不读取对手暗手，只使用当前牌权位置、己方储备、残局安全起手和公开风险信号。
+ */
+function getSimulationControlExitScore(simState, playerId) {
+  if (!simState || !PLAYER_ORDER.includes(playerId) || !isSimulationFriendTeamResolved(simState)) return 0;
+
+  const controllerId = getSimulationTurnAccessControllerId(simState);
+  if (controllerId == null) return 0;
+
+  const sameSideControl = isSimulationSameSide(simState, playerId, controllerId);
+  const controllerIsSelf = controllerId === playerId;
+  const cardsLeft = getSimulationCardsLeft(simState);
+  const lateRound = cardsLeft <= 20;
+  const trickPoints = Array.isArray(simState.currentTrick)
+    ? simState.currentTrick.reduce((sum, play) => sum + getComboPointValue(play.cards || []), 0)
+    : 0;
+  const reserveScore = Math.min(getSimulationTurnAccessReserveScore(simState, playerId), 28);
+  const allySupport = getSimulationAllySupportScore(simState, playerId);
+  const safeLead = getSimulationSafeLeadScore(simState, playerId);
+  const controlRisk = getSimulationControlRiskScore(simState, playerId);
+  const pointRunRisk = getSimulationPointRunRiskScore(simState, playerId);
+  let score = 0;
+
+  if (!sameSideControl) {
+    score -= 18;
+    score += Math.max(-22, controlRisk * 0.45);
+    score += Math.max(-24, pointRunRisk * 0.45);
+    if (lateRound) score -= 8;
+    return score;
+  }
+
+  if (controllerIsSelf) {
+    score += 6;
+    score += Math.min(10, reserveScore * 0.18);
+  } else {
+    score += 16;
+    score += Math.min(14, Math.max(0, allySupport) * 0.3);
+  }
+
+  if (lateRound) score += 6;
+  score += Math.max(-16, Math.min(18, safeLead * 0.45));
+  score += Math.max(-16, pointRunRisk * 0.28);
+  score += Math.max(-14, controlRisk * 0.22);
+
+  if (controllerIsSelf && reserveScore <= 10) score -= 12;
+  if (controllerIsSelf && safeLead < 0) score -= Math.min(14, Math.abs(safeLead) * 0.35);
+  if (!controllerIsSelf && safeLead >= 0) score += 6;
+  if (controllerIsSelf && trickPoints > 0 && (safeLead < 0 || pointRunRisk < 0)) {
+    score -= 8 + trickPoints * 0.5;
+  }
+  if (!controllerIsSelf && trickPoints > 0 && pointRunRisk >= -6) {
+    score += Math.min(8, 3 + trickPoints * 0.25);
+  }
+
+  return score;
+}
+
+/**
+ * 作用：
  * 评估当前局面下“一旦失去先手会有多痛”的代价。
  *
  * 为什么这样写：
@@ -1044,6 +1122,7 @@ function evaluateState(simState, playerId, objective = getIntermediateObjective(
     voidPressure: getSimulationVoidPressureScore(simState, playerId),
     tempo: getSimulationTempoScore(simState, playerId),
     turnAccess: getSimulationTurnAccessScore(simState, playerId),
+    controlExit: getSimulationControlExitScore(simState, playerId),
     controlRisk: getSimulationControlRiskScore(simState, playerId),
     pointRunRisk: getSimulationPointRunRiskScore(simState, playerId),
     safeLead: getSimulationSafeLeadScore(simState, playerId),

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>五人找朋友升级 · Mobile 静态模板</title>
+    <title>找朋友升级 · Mobile 静态模板</title>
     <style>
       :root {
         --bg-top: #102733;
@@ -1173,7 +1173,7 @@
 
         <section id="mobileSetupScreen" class="mobile-setup-screen">
           <div class="mobile-setup-card">
-            <div class="mobile-kicker">五人找朋友升级</div>
+            <div class="mobile-kicker">找朋友升级</div>
             <div class="mobile-setup-lead">静态模板页专门用来预览手游牌桌。这里保留和运行态接近的开始页、牌桌和菜单入口，方便快速对照视觉层级。</div>
             <div class="mobile-setup-visual" aria-hidden="true">
               <div class="mobile-visual-badge">WELCOME</div>
@@ -1272,6 +1272,7 @@
               <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
               <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：经典整图</button>
               <button id="mobileMenuBottomBtn" class="mobile-menu-btn alert" type="button">底牌</button>
+              <button id="mobileMenuCopyReplayBtn" class="mobile-menu-btn" type="button">复制复盘码</button>
               <button id="mobileMenuRulesBtn" class="mobile-menu-btn" type="button">规则帮助</button>
             </div>
           </div>
@@ -1338,6 +1339,8 @@
         versionLabel: "静态模板 v1",
         broadcast: "玩家3 甩出梅花拖拉机，当前请玩家1 跟牌。",
         cardFaceLabel: "经典整图",
+        replaySeed: "19cfafad196-fa56efef",
+        openingCode: "11222220763A978C140F720574878E7151942608542235457FA14E824F89466A6C3C0E96397E0B9B8A419A6943843B3628202B5A9C6165785E2A900C607C2993795D04484C2F061D9273325364503E5B0013448647254D19071F5527499E01633D95992467382C026D750A851B235857173F819F304A218070158B116834981059125242771A186F2E7A56837B1E038866374B6B915F7D9D168D626E0D095CA0402D331C8F31",
         autoManageMode: "round",
         trump: {
           card: "./images/cards/2_of_hearts.svg",
@@ -2244,6 +2247,22 @@
         document.getElementById("mobileMenuBottomBtn").addEventListener("click", () => {
           closeAllSheets();
           document.getElementById("mobileBottomSheet").classList.add("show");
+        });
+        document.getElementById("mobileMenuCopyReplayBtn").addEventListener("click", async () => {
+          const button = document.getElementById("mobileMenuCopyReplayBtn");
+          const idleLabel = "复制复盘码";
+          const replayBundle = `${MOCK_MOBILE_PAGE.replaySeed} + ${MOCK_MOBILE_PAGE.openingCode}`;
+          try {
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(replayBundle);
+            }
+            button.textContent = "已复制复盘码";
+          } catch (error) {
+            button.textContent = "复制失败";
+          }
+          window.setTimeout(() => {
+            button.textContent = idleLabel;
+          }, 1600);
         });
         document.getElementById("mobileMenuRulesBtn").addEventListener("click", () => {
           closeAllSheets();

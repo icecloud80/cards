@@ -106,6 +106,11 @@ const UNIT_TEST_SUITES = [
     name: "App web bundle regression",
     file: path.join(__dirname, "check-build-app-web-bundle.js"),
   },
+  // 锁住 iOS / Android App Icon 资源链路，避免原生壳同步时回退成默认占位图标。
+  {
+    name: "App icon asset regression",
+    file: path.join(__dirname, "check-app-icon-assets.js"),
+  },
   {
     name: "Preview auto-start regression",
     file: path.join(__dirname, "check-preview-auto-start.js"),

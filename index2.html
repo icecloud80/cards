@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>五人找朋友升级 · 手机版</title>
+    <title>找朋友升级 · 手机版</title>
     <style>
       :root {
         --bg-top: #102733;
@@ -4194,7 +4194,7 @@
 
         <section id="mobileSetupScreen" class="mobile-setup-screen">
           <div class="mobile-setup-card">
-            <div class="mobile-kicker">五人找朋友升级</div>
+            <div class="mobile-kicker">找朋友升级</div>
             <div class="mobile-setup-lead">在传统拖拉机升级的基础上加上心计与平衡、各种有趣的火车与推土机等整合进同个游戏中，让你其乐无穷乐在其中。</div>
             <div class="mobile-setup-visual" aria-hidden="true">
               <div class="mobile-visual-badge">WELCOME</div>
@@ -4304,6 +4304,7 @@
               <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：经典整图</button>
               <button id="mobileMenuLayoutBtn" class="mobile-menu-btn" type="button">布局编辑</button>
               <button id="mobileMenuBottomBtn" class="mobile-menu-btn" type="button">底牌</button>
+              <button id="mobileMenuCopyReplayBtn" class="mobile-menu-btn" type="button">复制复盘码</button>
               <button id="mobileMenuRulesBtn" class="mobile-menu-btn" type="button">规则帮助</button>
             </div>
           </div>
@@ -4342,7 +4343,7 @@
 
         <section class="panel hud" data-layout-id="hud-panel">
           <div class="hud-head">
-            <div class="game-title">五人找朋友升级</div>
+            <div class="game-title">找朋友升级</div>
             <div class="hud-tag-row">
               <div class="pill" id="phaseLabel"></div>
               <div class="pill" id="leaderLabel"></div>
@@ -4704,6 +4705,7 @@
           menuCardFaceBtn: document.getElementById("mobileMenuCardFaceBtn"),
           menuLayoutBtn: document.getElementById("mobileMenuLayoutBtn"),
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
+          menuCopyReplayBtn: document.getElementById("mobileMenuCopyReplayBtn"),
           menuRulesBtn: document.getElementById("mobileMenuRulesBtn"),
           menuHomeBtn: document.getElementById("mobileMenuHomeBtn"),
         };
@@ -5007,7 +5009,47 @@
           mobileDom.menuBottomBtn.textContent = originalDom.toggleBottomBtn.textContent.trim() || "底牌";
           mobileDom.menuBottomBtn.hidden = !!originalDom.toggleBottomBtn.hidden;
           mobileDom.menuBottomBtn.classList.toggle("alert", !originalDom.toggleBottomBtn.hidden);
+          if (mobileDom.menuCopyReplayBtn?.dataset.feedbackLocked !== "true") {
+            mobileDom.menuCopyReplayBtn.dataset.idleLabel = typeof TEXT !== "undefined" && TEXT?.debug?.replayCopyAction
+              ? TEXT.debug.replayCopyAction
+              : "复制复盘码";
+            mobileDom.menuCopyReplayBtn.textContent = mobileDom.menuCopyReplayBtn.dataset.idleLabel;
+          }
           mobileDom.menuRulesBtn.textContent = originalDom.toggleRulesBtn.textContent.trim() || "规则帮助";
+        }
+
+        let mobileMenuCopyReplayFeedbackTimer = null;
+
+        /**
+         * 作用：
+         * 给手游设置菜单里的按钮提供短暂反馈文案。
+         *
+         * 为什么这样写：
+         * “复制复盘码”点击后需要立刻告诉用户当前是成功、暂无数据还是复制失败；
+         * 统一做成一个短反馈 helper 后，按钮文本既能临时切换，也不会被后续 render 立即顶掉。
+         *
+         * 输入：
+         * @param {?HTMLButtonElement} button - 当前需要展示反馈的菜单按钮。
+         * @param {string} idleLabel - 按钮回退时的常驻文案。
+         * @param {string} nextLabel - 本次动作结束后要临时展示的反馈文案。
+         *
+         * 输出：
+         * @returns {void} 只更新按钮文本与定时器，不返回额外结果。
+         *
+         * 注意：
+         * - 反馈锁定期间，`syncMenuLabels()` 不应把按钮文本改回默认值。
+         * - 定时器需要先清理旧实例，避免连续点击导致文案回退时机错乱。
+         */
+        function setMobileMenuButtonFeedback(button, idleLabel, nextLabel) {
+          if (!button) return;
+          button.dataset.idleLabel = idleLabel;
+          button.dataset.feedbackLocked = "true";
+          button.textContent = nextLabel;
+          window.clearTimeout(mobileMenuCopyReplayFeedbackTimer);
+          mobileMenuCopyReplayFeedbackTimer = window.setTimeout(() => {
+            button.dataset.feedbackLocked = "false";
+            button.textContent = button.dataset.idleLabel || idleLabel;
+          }, 1600);
         }
 
         const MOBILE_AI_PACE_OPTIONS = Object.freeze(["slow", "medium", "fast", "instant"]);
@@ -5385,6 +5427,24 @@
         mobileDom.menuCardFaceBtn.addEventListener("click", () => clickOriginal(originalDom.toggleCardFaceBtn));
         mobileDom.menuLayoutBtn.addEventListener("click", () => clickOriginal(originalDom.layoutEditBtn));
         mobileDom.menuBottomBtn.addEventListener("click", () => clickOriginal(originalDom.toggleBottomBtn));
+        mobileDom.menuCopyReplayBtn.addEventListener("click", async () => {
+          const idleLabel = mobileDom.menuCopyReplayBtn.dataset.idleLabel
+            || (typeof TEXT !== "undefined" && TEXT?.debug?.replayCopyAction ? TEXT.debug.replayCopyAction : "复制复盘码");
+          if (typeof copyCurrentReplayBundleToClipboard !== "function") {
+            setMobileMenuButtonFeedback(mobileDom.menuCopyReplayBtn, idleLabel, "复制失败");
+            return;
+          }
+          const result = await copyCurrentReplayBundleToClipboard();
+          if (result.ok) {
+            setMobileMenuButtonFeedback(mobileDom.menuCopyReplayBtn, idleLabel, "已复制复盘码");
+            return;
+          }
+          if (result.reason === "missing") {
+            setMobileMenuButtonFeedback(mobileDom.menuCopyReplayBtn, idleLabel, "暂无复盘码");
+            return;
+          }
+          setMobileMenuButtonFeedback(mobileDom.menuCopyReplayBtn, idleLabel, "复制失败");
+        });
         mobileDom.menuRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
         mobileDom.menuHomeBtn.addEventListener("click", () => {
           if (typeof goToMainMenu === "function") {

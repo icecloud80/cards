@@ -57,10 +57,14 @@ function main() {
   const html = fs.readFileSync(file, "utf8");
   const mockPage = extractMockMobilePage(html);
 
+  assert.equal(html.includes("<title>找朋友升级 · Mobile 静态模板</title>"), true, "手游静态模板页标题应统一改为找朋友升级");
+  assert.equal(html.includes('class="mobile-kicker">找朋友升级<'), true, "手游静态模板开始页品牌标题应统一改为找朋友升级");
+  assert.equal(html.includes("五人找朋友升级"), false, "手游静态模板页不应继续保留旧品牌名五人找朋友升级");
   assert.equal(html.includes("Mobile 静态模板"), true, "手游静态模板页应使用独立标题，方便和运行态页面区分");
   assert.equal(html.includes('id="mobileMenuBtn"'), true, "手游静态模板页应保留设置菜单入口");
   assert.equal(html.includes('id="mobileSettingsSheet"'), true, "手游静态模板页应提供设置菜单浮层");
   assert.equal(html.includes('id="mobileMenuAiPaceButtons"'), true, "手游静态模板页设置菜单应提供四档节奏按钮组");
+  assert.equal(html.includes('id="mobileMenuCopyReplayBtn"'), true, "手游静态模板页设置菜单应提供复制复盘码按钮");
   assert.equal(html.includes('id="mobileInfoSheet"'), true, "手游静态模板页应提供信息面板");
   assert.equal(html.includes('id="mobileLastTrickSheet"'), true, "手游静态模板页应提供上一轮回看面板");
   assert.equal(html.includes('id="mobileBottomSheet"'), true, "手游静态模板页应提供底牌面板");
@@ -71,6 +75,9 @@ function main() {
   assert.equal(html.includes("./images/poker.png"), true, "手游静态模板页应继续提供 poker.png 整图 sprite 资源");
   assert.equal(html.includes("./images/m_cards_sprite.png"), true, "手游静态模板页应新增 modern-sprite 对应的 m_cards_sprite.png 资源");
   assert.equal(html.includes('label: "现代整图"'), true, "手游静态模板页应提供现代整图主题标签");
+  assert.equal(typeof mockPage.replaySeed, "string", "手游静态模板页应提供 mock 回放种子");
+  assert.equal(typeof mockPage.openingCode, "string", "手游静态模板页应提供 mock 开局码");
+  assert.equal(mockPage.openingCode.length, 332, "手游静态模板页 mock 开局码应保持 332 位十六进制长度");
 
   assert.equal(mockPage.trickSpots.length, 5, "手游静态模板页应保留完整的 5 个中央出牌位");
   assert.equal(mockPage.players.length, 5, "手游静态模板页应保留完整的 5 位玩家信息");

@@ -152,6 +152,7 @@ function createElementStub(identifier) {
  */
 function loadDebugReplayContext() {
   const elements = new Map();
+  let clipboardText = "";
 
   function getElement(identifier) {
     if (!elements.has(identifier)) {
@@ -199,7 +200,12 @@ function loadDebugReplayContext() {
     },
     navigator: {
       clipboard: {
-        async writeText() {},
+        async writeText(text) {
+          clipboardText = String(text);
+        },
+        async readText() {
+          return clipboardText;
+        },
       },
     },
     URL: {
@@ -246,16 +252,24 @@ function loadDebugReplayContext() {
     }
   `, context);
 
-  return vm.runInContext(`({
+  const runtime = vm.runInContext(`({
     setupGame,
     applyDebugReplaySeedReplay,
     applyDebugOpeningCodeReplay,
+    copyCurrentReplayBundleToClipboard,
+    pasteReplayBundleFromClipboardToReplayDrafts,
     primeReplayPanelDraftsFromCurrentRound,
     renderReplayPanel,
     renderToolbarMenu,
     state,
     dom
   })`, context);
+
+  runtime.getClipboardText = () => clipboardText;
+  runtime.setClipboardText = (value) => {
+    clipboardText = String(value);
+  };
+  return runtime;
 }
 
 /**
@@ -276,16 +290,22 @@ function loadDebugReplayContext() {
  * - “按回放种子重开”只保证随机链路重置到同一 seed，不保证一定和旧开局码一致。
  * - “按开局码重开”必须把首抓玩家与玩家等级一并恢复。
  */
-function main() {
+async function main() {
   const html = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
+  const mobileHtml = fs.readFileSync(path.join(__dirname, "../../index2.html"), "utf8");
+  const mobileAppHtml = fs.readFileSync(path.join(__dirname, "../../index-app.html"), "utf8");
   const context = loadDebugReplayContext();
 
   assert.match(html, /id="menuReplayBtn"/, "PC 设置菜单里应提供复盘按钮");
   assert.match(html, /id="replaySeedInput"/, "PC 复盘面板应提供回放种子输入框");
   assert.match(html, /id="replayOpeningCodeInput"/, "PC 复盘面板应提供开局码输入框");
+  assert.match(html, /id="replayPasteBtn"/, "PC 复盘面板应提供“点此粘贴”按钮");
   assert.match(html, />Debug</, "PC 设置菜单里的调试入口初始文案应固定为 Debug");
   assert.match(html, />仅按回放种子重开</, "PC 复盘面板应明确区分 seed-only 重开");
   assert.match(html, />按开局码 \+ 种子重开</, "PC 复盘面板应提供按开局码加种子重开的按钮");
+  assert.match(html, />点此粘贴</, "PC 复盘面板应提供点此粘贴入口");
+  assert.match(mobileHtml, /id="mobileMenuCopyReplayBtn"/, "手游浏览器页设置菜单应提供复制复盘码按钮");
+  assert.match(mobileAppHtml, /id="mobileMenuCopyReplayBtn"/, "手游 App 页设置菜单应提供复制复盘码按钮");
 
   context.setupGame("debug-panel-source");
   const sourceOpeningCode = context.state.openingCode;
@@ -357,6 +377,44 @@ function main() {
   );
   assert.equal(context.state.debugReplayStatusText, "", "重新打开复盘时应清空旧状态提示");
 
+  const copyReplayCodeResult = await context.copyCurrentReplayBundleToClipboard();
+  assert.equal(copyReplayCodeResult.ok, true, "复制复盘码应成功");
+  assert.equal(
+    context.getClipboardText(),
+    `debug-panel-source + ${sourceOpeningCode}`,
+    "复制复盘码时应把回放种子和开局码按紧凑格式写入剪贴板"
+  );
+
+  context.state.debugReplaySeedDraft = "";
+  context.state.debugOpeningCodeDraft = "";
+  context.setClipboardText(`debug-panel-source + ${sourceOpeningCode}`);
+  const pasteReplayCodeResult = await context.pasteReplayBundleFromClipboardToReplayDrafts();
+  assert.equal(pasteReplayCodeResult.ok, true, "点此粘贴应能从剪贴板恢复复盘码");
+  assert.equal(
+    context.state.debugReplaySeedDraft,
+    "debug-panel-source",
+    "点此粘贴后应把回放种子写回复盘草稿"
+  );
+  assert.equal(
+    context.state.debugOpeningCodeDraft,
+    sourceOpeningCode,
+    "点此粘贴后应把开局码写回复盘草稿"
+  );
+  assert.equal(
+    context.state.debugReplayStatusText.includes("已从剪贴板带入复盘码"),
+    true,
+    "点此粘贴成功后应给出明确反馈"
+  );
+
+  context.setClipboardText("not-a-valid-replay-bundle");
+  const invalidPasteResult = await context.pasteReplayBundleFromClipboardToReplayDrafts();
+  assert.equal(invalidPasteResult.ok, false, "无效复盘码不应被写回复盘草稿");
+  assert.equal(
+    context.state.debugReplayStatusText.includes("剪贴板内容无效"),
+    true,
+    "无效复盘码应给出错误提示"
+  );
+
   assert.equal(context.applyDebugReplaySeedReplay("debug-panel-manual-seed"), true, "按回放种子重开应成功");
   assert.equal(context.state.phase, "dealing", "按回放种子重开后应直接进入发牌阶段");
   assert.equal(context.state.replaySeed, "debug-panel-manual-seed", "按回放种子重开应写入显式 seed");
@@ -404,4 +462,7 @@ function main() {
   );
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

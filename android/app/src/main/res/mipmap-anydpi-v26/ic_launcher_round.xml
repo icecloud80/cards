@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  作用：
+  定义 Android 圆形自适应图标的前景与背景引用。
+
+  为什么这样写：
+  圆形入口和普通 adaptive icon 需要共用同一套品牌背景与主体，避免不同启动器里出现两套视觉；
+  因此这里与主图标保持同一份 drawable / foreground 配置。
+
+  输入：
+  @param {void} - 由支持圆形图标的 Android Launcher 读取。
+
+  输出：
+  @returns {xml} 圆形自适应图标资源引用配置。
+
+  注意：
+  - 如果未来只更新了普通图标，这里也必须同步检查，不能单独遗忘。
+  - 该文件不直接负责裁切形状，真正的圆形遮罩由系统启动器处理。
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background"/>
+    <background android:drawable="@drawable/ic_launcher_background"/>
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>

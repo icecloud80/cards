@@ -1724,6 +1724,8 @@ function scoreIntermediateStructureControlPenalty(entry, objective = null) {
  * 真正的问题通常出现在 rollout 之后：
  * 候选虽然短期看似顺手，但未来两拍已经暴露出 `turn_access_risk / point_run_risk`，
  * 这时如果 objective 又是 `clear_trump / keep_control` 一类控制型目标，就不应该继续让高分高张领牌靠近榜首。
+ * 这轮又补了 `controlExit`，用来识别“朋友已站队后是否还能安全续控或顺势把牌权交给同侧”；
+ * 若未来评估已经说明控制过热，就需要再追加一层惩罚。
  *
  * 输入：
  * @param {object|null} entry - 已带有 heuristic 与 rollout 结果的首发候选条目。
@@ -1774,8 +1776,10 @@ function scoreIntermediateRiskyPointLeadVetoPenalty(entry, objective = null) {
   if (hasPointRunRisk) penalty += 24;
   if (hasTurnAccessRisk && hasPointRunRisk) penalty += 18;
   if ((futureBreakdown.turnAccess || 0) <= 0) penalty += 12;
+  if ((futureBreakdown.controlExit || 0) < 0) penalty += Math.min(22, Math.abs(futureBreakdown.controlExit) * 0.45);
   if ((futureBreakdown.safeLead || 0) < 0) penalty += 8;
   if ((futureBreakdown.pointRunRisk || 0) <= -12) penalty += 12;
+  if ((futureBreakdown.controlExit || 0) > 0) penalty -= Math.min(18, futureBreakdown.controlExit * 0.35);
   if (!explicitControlGain) penalty += 18;
   if (explicitControlGain) penalty -= 26;
 

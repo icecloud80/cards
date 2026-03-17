@@ -24,6 +24,30 @@ function buildIntermediateObjectiveWeights(baseWeights, primary, secondary) {
   return weights;
 }
 
+/**
+ * 作用：
+ * 为中级 AI 生成当前局面的主/副目标与对应评分权重。
+ *
+ * 为什么这样写：
+ * 当前中级已经不再只靠首发 heuristic 直接 return，而是需要把
+ * `find_friend / keep_control / clear_trump / protect_bottom / grade_bottom`
+ * 这些局内目标统一折算成评估器权重。
+ * 这轮又额外补了“朋友已站队后的控牌降温”，因此要在目标层直接把
+ * `controlExit` 纳入 resolved-friend 阶段的默认关注项，避免 `clear_trump`
+ * 一路把高张硬控推到过热。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ * @param {string} [mode="lead"] - 当前决策模式，支持 `lead / follow`。
+ * @param {object} [simState=state] - 当前模拟或真实牌局状态。
+ *
+ * 输出：
+ * @returns {{primary: string, secondary: string, weights: object}} 返回主目标、副目标和评分权重。
+ *
+ * 注意：
+ * - 这里返回的是“倾向配置”，不直接决定最终出牌。
+ * - `controlExit` 只在朋友已站队后真正放大，避免未站队阶段过早干扰找朋友路线。
+ */
 function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   const unresolvedFriend = !!simState.friendTarget && !isSimulationFriendTeamResolved(simState);
   const resolvedFriend = !!simState.friendTarget && isSimulationFriendTeamResolved(simState);
@@ -89,6 +113,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     voidPressure: defenderSide ? 0.95 : 0.45,
     tempo: 0.85,
     turnAccess: 0.95,
+    controlExit: resolvedFriend ? 0.75 : 0.1,
     controlRisk: lateRound ? 1.05 : 0.75,
     pointRunRisk: lateRound ? 1.0 : 0.65,
     safeLead: lateRound ? 0.8 : 0.2,
@@ -119,6 +144,8 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "keep_control" || secondary === "clear_trump") weights.tempo += 0.15;
   if (primary === "keep_control" || primary === "clear_trump") weights.turnAccess += 0.45;
   if (secondary === "keep_control" || secondary === "clear_trump") weights.turnAccess += 0.2;
+  if (primary === "keep_control" || primary === "clear_trump") weights.controlExit += 0.45;
+  if (secondary === "keep_control" || secondary === "clear_trump") weights.controlExit += 0.2;
   if (primary === "keep_control" || primary === "clear_trump") weights.controlRisk += 0.35;
   if (secondary === "keep_control" || secondary === "clear_trump") weights.controlRisk += 0.15;
   if (primary === "keep_control" || primary === "clear_trump") weights.pointRunRisk += 0.3;
@@ -161,6 +188,12 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     weights.gradeBottom += 0.35;
     weights.turnAccess += 0.15;
     weights.controlRisk += 0.1;
+  }
+  if (resolvedFriend && !defenderSide) {
+    weights.control = Math.max(0.7, weights.control - 0.12);
+    weights.tempo = Math.max(0.65, weights.tempo - 0.08);
+    weights.controlExit += 0.25;
+    weights.safeLead += 0.15;
   }
 
   return {

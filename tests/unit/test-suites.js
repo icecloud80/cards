@@ -91,6 +91,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-debug-replay-panel.js"),
   },
   {
+    name: "Last-trick compact layout regression",
+    file: path.join(__dirname, "check-last-trick-compact-layout.js"),
+  },
+  {
     name: "Staged change threshold regression",
     file: path.join(__dirname, "check-staged-change-lines.js"),
   },

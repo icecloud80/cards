@@ -155,6 +155,29 @@ const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const MAX_BURY_POINT_TOTAL = 25;
 const OPENING_CODE_LEVEL_ORDER = [...NEGATIVE_LEVELS, ...RANKS];
+const OPENING_CODE_AI_DIFFICULTY_ORDER = AI_DIFFICULTY_OPTIONS.map((option) => option.value);
+
+/**
+ * 作用：
+ * 规范化 AI 难度取值。
+ *
+ * 为什么这样写：
+ * AI 难度现在不仅会被设置菜单读取，还会被开局码、复盘逻辑和测试上下文共同使用；
+ * 把兜底逻辑放进共享层后，规则层和运行态都能复用同一套合法值判断。
+ *
+ * 输入：
+ * @param {string} value - 外部传入的 AI 难度键值。
+ *
+ * 输出：
+ * @returns {"beginner"|"intermediate"|"advanced"} 合法难度值；非法输入回落到默认档。
+ *
+ * 注意：
+ * - 当前只接受三档固定值，不做模糊匹配。
+ * - 默认档必须和开始页初始值保持一致。
+ */
+function normalizeAiDifficulty(value) {
+  return AI_DIFFICULTY_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_DIFFICULTY;
+}
 
 /**
  * 作用：
@@ -639,6 +662,7 @@ const dom = {
   toggleRulesBtn: document.getElementById("toggleRulesBtn"),
   toggleCardFaceBtn: document.getElementById("toggleCardFaceBtn"),
   toolbarMenuPanel: document.getElementById("toolbarMenuPanel"),
+  menuReplayBtn: document.getElementById("menuReplayBtn"),
   menuRulesBtn: document.getElementById("menuRulesBtn"),
   menuAiPaceSelect: document.getElementById("menuAiPaceSelect"),
   menuAiPaceButtons: document.getElementById("menuAiPaceButtons"),
@@ -675,13 +699,16 @@ const dom = {
   debugDecisionCards: document.getElementById("debugDecisionCards"),
   debugDecisionList: document.getElementById("debugDecisionList"),
   debugHandCards: document.getElementById("debugHandCards"),
-  debugReplaySeedInput: document.getElementById("debugReplaySeedInput"),
-  debugReplaySeedApplyBtn: document.getElementById("debugReplaySeedApplyBtn"),
-  debugOpeningCodeInput: document.getElementById("debugOpeningCodeInput"),
-  debugOpeningCodeApplyBtn: document.getElementById("debugOpeningCodeApplyBtn"),
-  debugReplayCurrentSeed: document.getElementById("debugReplayCurrentSeed"),
-  debugReplayCurrentOpeningCode: document.getElementById("debugReplayCurrentOpeningCode"),
-  debugReplayStatus: document.getElementById("debugReplayStatus"),
+  replayPanel: document.getElementById("replayPanel"),
+  replayPanelDrag: document.getElementById("replayPanelDrag"),
+  closeReplayBtn: document.getElementById("closeReplayBtn"),
+  replaySeedInput: document.getElementById("replaySeedInput"),
+  replaySeedApplyBtn: document.getElementById("replaySeedApplyBtn"),
+  replayOpeningCodeInput: document.getElementById("replayOpeningCodeInput"),
+  replayOpeningCodeApplyBtn: document.getElementById("replayOpeningCodeApplyBtn"),
+  replayCurrentSeed: document.getElementById("replayCurrentSeed"),
+  replayCurrentOpeningCode: document.getElementById("replayCurrentOpeningCode"),
+  replayStatus: document.getElementById("replayStatus"),
   bottomPanel: document.getElementById("bottomPanel"),
   bottomPanelDrag: document.getElementById("bottomPanelDrag"),
   closeBottomBtn: document.getElementById("closeBottomBtn"),
@@ -755,6 +782,7 @@ const state = {
   showLastTrick: false,
   showLogPanel: false,
   showDebugPanel: false,
+  showReplayPanel: false,
   showToolbarMenu: false,
   showBottomPanel: false,
   showRulesPanel: false,

@@ -23,6 +23,8 @@
         --shadow-md: 0 14px 28px rgba(0, 0, 0, 0.18);
         --ring: rgba(225, 185, 111, 0.4);
         --edge-gap: 24px;
+        /* 统一 PC 顶部下拉类面板的起点，避免更多功能、信息和回看三套定位继续分叉。 */
+        --pc-topbar-dropdown-top: 154px;
         --panel-gap: 10px;
         --top-row-height: 176px;
         --score-panel-height: 256px;
@@ -1253,26 +1255,73 @@
         cursor: default;
       }
 
+      /* 上一轮回看改成“左侧玩家摘要 + 右侧横向牌列”的紧凑行式布局，减少纵向占用。 */
       .last-trick {
         right: calc(var(--edge-gap) + 66px);
-        width: min(428px, 33vw);
-        min-height: 190px;
+        width: min(452px, 36vw);
+        min-height: 164px;
         padding: 14px 16px;
         z-index: 7;
       }
 
       .last-trick .spot-row {
-        min-height: 54px !important;
+        min-height: 60px !important;
       }
 
       .last-trick .played-card {
-        width: 44px;
-        height: 64px;
-        margin-left: -16px;
+        width: 42px;
+        height: 61px;
+        margin-left: -18px;
       }
 
       .last-trick .played-card:first-child {
         margin-left: 0;
+      }
+
+      .last-trick-entry {
+        display: grid;
+        grid-template-columns: minmax(68px, auto) minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .last-trick-entry:first-child {
+        margin-top: 0;
+      }
+
+      .last-trick-entry-summary {
+        min-width: 0;
+      }
+
+      .last-trick-entry-head {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .last-trick-entry-name {
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .last-trick-entry .role-badge {
+        margin-top: 0;
+        padding: 3px 8px;
+        flex: 0 0 auto;
+      }
+
+      .last-trick-entry-cards {
+        margin-top: 0 !important;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+      }
+
+      .last-trick-entry-cards::-webkit-scrollbar {
+        display: none;
       }
 
       .last-trick.dark .subtle,
@@ -1374,7 +1423,7 @@
         right: var(--edge-gap);
         top: 34%;
         width: 420px;
-        max-height: 620px;
+        max-height: 520px;
         padding: 14px 16px;
         z-index: 5;
         overflow: hidden;
@@ -1392,6 +1441,27 @@
       }
 
       .debug-hand-scroll {
+        margin-top: 12px;
+        max-height: 400px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .replay-panel {
+        right: var(--edge-gap);
+        top: 34%;
+        width: 420px;
+        max-height: 620px;
+        padding: 14px 16px;
+        z-index: 5;
+        overflow: hidden;
+      }
+
+      .replay-panel .subtle {
+        color: rgba(248, 240, 220, 0.75);
+      }
+
+      .replay-scroll {
         margin-top: 12px;
         max-height: 500px;
         overflow: auto;
@@ -2523,7 +2593,7 @@
       }
 
       .toolbar-menu {
-        top: 154px;
+        top: var(--pc-topbar-dropdown-top);
         right: var(--edge-gap);
         width: 328px;
         padding: 14px;
@@ -2621,7 +2691,7 @@
       }
 
       .topbar-drawer {
-        top: calc(var(--edge-gap) + var(--score-panel-height) - 8px);
+        top: var(--pc-topbar-dropdown-top);
         right: calc(var(--edge-gap) + 18px);
         width: min(438px, 34vw);
         max-height: 520px;
@@ -3535,6 +3605,7 @@
             </label>
             <button id="menuRulesBtn" class="tiny-btn toolbar-menu-btn" type="button">规则帮助</button>
             <button id="toggleBottomBtn" class="tiny-btn toolbar-menu-btn" type="button">查看底牌</button>
+            <button id="menuReplayBtn" class="tiny-btn toolbar-menu-btn" type="button">复盘</button>
             <button id="toggleDebugBtn" class="tiny-btn toolbar-menu-btn" type="button">调试信息</button>
             <button id="toggleCardFaceBtn" class="tiny-btn toolbar-menu-btn" type="button">切换牌面</button>
             <button id="layoutEditBtn" class="tiny-btn toolbar-menu-btn" type="button">布局编辑</button>
@@ -3600,41 +3671,6 @@
           <div id="debugPlayerTabs" class="debug-player-tabs"></div>
           <div class="debug-hand-scroll">
             <div class="debug-section">
-              <div class="debug-section-title">复原开局</div>
-              <div class="subtle">粘贴日志里的开局码或回放种子，把牌局重建到初始 ready 状态。</div>
-              <div class="debug-replay-form">
-                <div class="debug-replay-field">
-                  <label for="debugReplaySeedInput" class="debug-replay-label">回放种子</label>
-                  <input
-                    id="debugReplaySeedInput"
-                    class="debug-replay-input"
-                    type="text"
-                    placeholder="例如：opening-code-log:round-0001"
-                    autocomplete="off"
-                    spellcheck="false"
-                  />
-                  <div id="debugReplayCurrentSeed" class="subtle">当前种子：未生成</div>
-                </div>
-                <div class="debug-replay-actions">
-                  <button id="debugReplaySeedApplyBtn" class="tiny-btn" type="button">按回放种子重开</button>
-                </div>
-                <div class="debug-replay-field">
-                  <label for="debugOpeningCodeInput" class="debug-replay-label">开局码</label>
-                  <textarea
-                    id="debugOpeningCodeInput"
-                    class="debug-replay-textarea"
-                    placeholder="粘贴日志里的 332 位十六进制开局码"
-                    spellcheck="false"
-                  ></textarea>
-                  <div id="debugReplayCurrentOpeningCode" class="subtle">当前开局码：未生成</div>
-                </div>
-                <div class="debug-replay-actions">
-                  <button id="debugOpeningCodeApplyBtn" class="tiny-btn" type="button">按开局码重开</button>
-                </div>
-                <div id="debugReplayStatus" class="subtle debug-replay-status"></div>
-              </div>
-            </div>
-            <div class="debug-section">
               <div class="debug-section-head">
                 <div class="debug-section-title">AI 决策</div>
                 <div class="debug-history-controls">
@@ -3651,6 +3687,50 @@
               <div class="debug-section-title">暗手</div>
               <div id="debugHandMeta" class="subtle">当前没有手牌。</div>
               <div id="debugHandCards"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="replayPanel" class="panel dark floating-panel replay-panel hidden" data-layout-id="replay-panel">
+          <div id="replayPanelDrag" class="panel-head panel-drag">
+            <div class="label">复盘</div>
+            <div class="panel-controls">
+              <button id="closeReplayBtn" class="panel-close" type="button">×</button>
+            </div>
+          </div>
+          <div class="replay-scroll">
+            <div class="debug-replay-form">
+              <div class="debug-section-title">复原开局</div>
+              <div class="subtle">想完整回到原局，请同时填写开局码和回放种子。只填回放种子只会重建随机链路，不保证恢复同一手牌。</div>
+              <div class="debug-replay-field">
+                <label for="replaySeedInput" class="debug-replay-label">回放种子</label>
+                <input
+                  id="replaySeedInput"
+                  class="debug-replay-input"
+                  type="text"
+                  placeholder="例如：opening-code-log:round-0001"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <div id="replayCurrentSeed" class="subtle">当前种子：未生成</div>
+              </div>
+              <div class="debug-replay-actions">
+                <button id="replaySeedApplyBtn" class="tiny-btn" type="button">仅按回放种子重开</button>
+              </div>
+              <div class="debug-replay-field">
+                <label for="replayOpeningCodeInput" class="debug-replay-label">开局码</label>
+                <textarea
+                  id="replayOpeningCodeInput"
+                  class="debug-replay-textarea"
+                  placeholder="粘贴日志里的 332 位十六进制开局码"
+                  spellcheck="false"
+                ></textarea>
+                <div id="replayCurrentOpeningCode" class="subtle">当前开局码：未生成</div>
+              </div>
+              <div class="debug-replay-actions">
+                <button id="replayOpeningCodeApplyBtn" class="tiny-btn" type="button">按开局码 + 种子重开</button>
+              </div>
+              <div id="replayStatus" class="subtle debug-replay-status"></div>
             </div>
           </div>
         </section>

@@ -57,7 +57,7 @@ function createClassListStub() {
  * 创建一个足够支撑共享 UI 渲染的 DOM 元素桩。
  *
  * 为什么这样写：
- * 这条回归既要看静态 HTML，也要调用真实的 debug 重开 helper 和 `renderDebugPanel()`；
+ * 这条回归既要看静态 HTML，也要调用真实的复盘 helper 和 `renderReplayPanel()`；
  * 元素桩需要同时兼容 `value / textContent / classList / style.setProperty` 这些最常用接口。
  *
  * 输入：
@@ -71,9 +71,15 @@ function createClassListStub() {
  * - 这里只做最小兼容，不扩展成完整 DOM。
  */
 function createElementStub(identifier) {
+  const listeners = new Map();
   return {
     id: identifier,
     dataset: {},
+    parentElement: {
+      getBoundingClientRect() {
+        return { left: 0, top: 0, width: 1280, height: 720 };
+      },
+    },
     style: {
       setProperty(name, value) {
         this[name] = value;
@@ -86,6 +92,9 @@ function createElementStub(identifier) {
     disabled: false,
     hidden: false,
     title: "",
+    offsetWidth: 320,
+    offsetHeight: 180,
+    offsetParent: {},
     classList: createClassListStub(),
     appendChild(child) {
       this.children.push(child);
@@ -94,8 +103,23 @@ function createElementStub(identifier) {
     setAttribute(name, value) {
       this[name] = value;
     },
-    addEventListener() {},
-    removeEventListener() {},
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    removeEventListener(type) {
+      listeners.delete(type);
+    },
+    click() {
+      const handler = listeners.get("click");
+      if (typeof handler === "function") {
+        handler({ target: this });
+      }
+    },
+    getBoundingClientRect() {
+      return { left: 0, top: 0, width: 320, height: 180 };
+    },
+    setPointerCapture() {},
+    releasePointerCapture() {},
     querySelector() {
       return null;
     },
@@ -110,17 +134,17 @@ function createElementStub(identifier) {
 
 /**
  * 作用：
- * 加载包含真实 PC 共享脚本的 debug 重开测试上下文。
+ * 加载包含真实 PC 共享脚本的复盘测试上下文。
  *
  * 为什么这样写：
- * 这次要验证的是“debug 面板入口 + 开局恢复 helper + 面板反馈文案”整条链路；
+ * 这次要验证的是“设置菜单复盘入口 + 开局恢复 helper + 面板反馈文案”整条链路；
  * 直接在 VM 里跑生产脚本，才能确保断言覆盖到真实初始化与渲染逻辑。
  *
  * 输入：
  * @param {void} - 通过固定脚本路径加载 PC 运行时所需文件。
  *
  * 输出：
- * @returns {{setupGame: Function, applyDebugReplaySeedReplay: Function, applyDebugOpeningCodeReplay: Function, renderDebugPanel: Function, state: object, dom: object}} 当前回归需要的真实接口。
+ * @returns {{setupGame: Function, applyDebugReplaySeedReplay: Function, applyDebugOpeningCodeReplay: Function, renderReplayPanel: Function, renderToolbarMenu: Function, state: object, dom: object}} 当前回归需要的真实接口。
  *
  * 注意：
  * - `dispatchEvent` 需要提供空实现，兼容共享 `render()` 的快照广播。
@@ -208,6 +232,8 @@ function loadDebugReplayContext() {
     path.join(__dirname, "../../src/shared/text.js"),
     path.join(__dirname, "../../src/shared/game.js"),
     path.join(__dirname, "../../src/shared/ui.js"),
+    path.join(__dirname, "../../src/shared/layout.js"),
+    path.join(__dirname, "../../src/shared/main.js"),
   ];
 
   for (const file of files) {
@@ -224,7 +250,9 @@ function loadDebugReplayContext() {
     setupGame,
     applyDebugReplaySeedReplay,
     applyDebugOpeningCodeReplay,
-    renderDebugPanel,
+    primeReplayPanelDraftsFromCurrentRound,
+    renderReplayPanel,
+    renderToolbarMenu,
     state,
     dom
   })`, context);
@@ -232,10 +260,10 @@ function loadDebugReplayContext() {
 
 /**
  * 作用：
- * 执行 PC debug 面板“按 seed / 按开局码重开”的专项回归断言。
+ * 执行 PC 设置菜单“复盘”面板的专项回归断言。
  *
  * 为什么这样写：
- * 这次需求不只是往 HTML 里加两个输入框，而是要真的能从 debug 面板恢复一局的初始状态；
+ * 这次需求不只是往菜单里加一个按钮，而是要真的能从复盘面板恢复一局的初始状态；
  * 需要一条回归把静态入口、helper 行为和关键反馈文案一起锁住，避免后续只剩空壳 UI。
  *
  * 输入：
@@ -252,58 +280,119 @@ function main() {
   const html = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
   const context = loadDebugReplayContext();
 
-  assert.match(html, /id="debugReplaySeedInput"/, "PC debug 面板应提供回放种子输入框");
-  assert.match(html, /id="debugOpeningCodeInput"/, "PC debug 面板应提供开局码输入框");
-  assert.match(html, />按回放种子重开</, "PC debug 面板应提供按种子重开的按钮");
-  assert.match(html, />按开局码重开</, "PC debug 面板应提供按开局码重开的按钮");
+  assert.match(html, /id="menuReplayBtn"/, "PC 设置菜单里应提供复盘按钮");
+  assert.match(html, /id="replaySeedInput"/, "PC 复盘面板应提供回放种子输入框");
+  assert.match(html, /id="replayOpeningCodeInput"/, "PC 复盘面板应提供开局码输入框");
+  assert.match(html, />仅按回放种子重开</, "PC 复盘面板应明确区分 seed-only 重开");
+  assert.match(html, />按开局码 \+ 种子重开</, "PC 复盘面板应提供按开局码加种子重开的按钮");
 
   context.setupGame("debug-panel-source");
   const sourceOpeningCode = context.state.openingCode;
   const sourceFirstDealPlayerId = context.state.nextFirstDealPlayerId;
   const sourcePlayerLevels = { ...context.state.playerLevels };
+  const sourceAiDifficulty = context.state.aiDifficulty;
 
-  context.state.showDebugPanel = true;
-  context.renderDebugPanel();
+  context.state.showReplayPanel = true;
+  context.renderReplayPanel();
   assert.equal(
-    context.dom.debugReplayCurrentSeed.textContent.includes("debug-panel-source"),
+    context.dom.replayCurrentSeed.textContent.includes("debug-panel-source"),
     true,
-    "debug 面板应显示当前局使用的回放种子"
+    "复盘面板应显示当前局使用的回放种子"
   );
   assert.equal(
-    context.dom.debugReplayCurrentOpeningCode.textContent.includes("当前开局码"),
+    context.dom.replayCurrentOpeningCode.textContent.includes("当前开局码"),
     true,
-    "debug 面板应显示当前局开局码摘要"
+    "复盘面板应显示当前局开局码摘要"
   );
+  assert.equal(
+    context.dom.replayPanel.classList.contains("hidden"),
+    false,
+    "打开复盘时应显示复盘面板"
+  );
+  assert.equal(
+    context.dom.replaySeedInput.value,
+    "",
+    "未经过菜单入口预填时，复盘输入框应保持当前草稿值"
+  );
+
+  context.state.showToolbarMenu = true;
+  context.state.phase = "dealing";
+  context.renderToolbarMenu();
+  assert.equal(
+    context.dom.menuReplayBtn.textContent.includes("收起复盘"),
+    true,
+    "设置菜单里的复盘按钮应根据当前状态显示收起文案"
+  );
+  context.state.debugReplaySeedDraft = "old-seed";
+  context.state.debugOpeningCodeDraft = "OLDCODE";
+  context.dom.menuReplayBtn.click();
+  assert.equal(context.state.showReplayPanel, false, "再次点击复盘按钮时应收起面板");
+  context.dom.menuReplayBtn.click();
+  assert.equal(context.state.showReplayPanel, true, "从设置菜单重新点开复盘时应再次显示面板");
+  assert.equal(
+    context.state.debugReplaySeedDraft,
+    "debug-panel-source",
+    "从设置菜单打开复盘时应预填当前局回放种子"
+  );
+  assert.equal(
+    context.state.debugOpeningCodeDraft,
+    sourceOpeningCode,
+    "从设置菜单打开复盘时应预填当前局开局码"
+  );
+  assert.equal(
+    context.dom.replaySeedInput.value,
+    "debug-panel-source",
+    "复盘面板里的回放种子输入框应显示当前局值"
+  );
+  assert.equal(
+    context.dom.replayOpeningCodeInput.value,
+    sourceOpeningCode,
+    "复盘面板里的开局码输入框应显示当前局值"
+  );
+  assert.equal(context.state.debugReplayStatusText, "", "重新打开复盘时应清空旧状态提示");
 
   assert.equal(context.applyDebugReplaySeedReplay("debug-panel-manual-seed"), true, "按回放种子重开应成功");
-  assert.equal(context.state.phase, "ready", "按回放种子重开后应回到初始 ready 阶段");
+  assert.equal(context.state.phase, "dealing", "按回放种子重开后应直接进入发牌阶段");
   assert.equal(context.state.replaySeed, "debug-panel-manual-seed", "按回放种子重开应写入显式 seed");
-  assert.equal(context.state.showDebugPanel, true, "按回放种子重开后应重新打开 debug 面板");
+  assert.equal(context.state.showReplayPanel, true, "按回放种子重开后应重新打开复盘面板");
   assert.equal(
     context.state.debugReplayStatusText.includes("debug-panel-manual-seed"),
     true,
     "按回放种子重开后应写入成功反馈"
   );
+  assert.equal(
+    context.state.debugReplayStatusText.includes("不保证恢复同一手牌"),
+    true,
+    "seed-only 成功反馈应提示这不是完整开局恢复"
+  );
+  assert.equal(
+    context.state.debugReplayStatusText.includes("开始发牌"),
+    true,
+    "按回放种子重开后应明确提示已经开始发牌"
+  );
 
   context.state.playerLevels = { 1: "A", 2: "K", 3: "Q", 4: "J", 5: "10" };
   context.state.nextFirstDealPlayerId = 5;
+  context.state.aiDifficulty = "advanced";
 
   assert.equal(
     context.applyDebugOpeningCodeReplay(sourceOpeningCode, "debug-panel-opening-seed"),
     true,
     "按开局码重开应成功"
   );
-  assert.equal(context.state.phase, "ready", "按开局码重开后应回到初始 ready 阶段");
+  assert.equal(context.state.phase, "dealing", "按开局码重开后应直接进入发牌阶段");
   assert.equal(context.state.openingCode, sourceOpeningCode, "按开局码重开后应恢复原开局码");
   assert.equal(context.state.replaySeed, "debug-panel-opening-seed", "按开局码重开时应接入显式回放种子");
+  assert.equal(context.state.showReplayPanel, true, "按开局码重开后应重新打开复盘面板");
   assert.equal(
     JSON.stringify(context.state.playerLevels),
     JSON.stringify(sourcePlayerLevels),
     "按开局码重开后应恢复 5 位玩家等级"
   );
   assert.equal(context.state.nextFirstDealPlayerId, sourceFirstDealPlayerId, "按开局码重开后应恢复首抓玩家");
+  assert.equal(context.state.aiDifficulty, sourceAiDifficulty, "按开局码重开后应恢复原局 AI 难度");
   assert.equal(
-    context.state.debugReplayStatusText.includes("已按开局码重建初始状态"),
+    context.state.debugReplayStatusText.includes("已按开局码重开并开始发牌"),
     true,
     "按开局码重开后应写入成功反馈"
   );

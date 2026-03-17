@@ -26,6 +26,31 @@ function closeToolbarMenu() {
   state.showToolbarMenu = false;
 }
 
+/**
+ * 作用：
+ * 用当前牌局的复盘信息预填复盘面板输入框。
+ *
+ * 为什么这样写：
+ * 用户希望局中点击“复盘”时直接带出本局 `回放种子 / 开局码`，
+ * 这样排查问题时不用再去翻日志手抄；统一收成 helper 后，菜单按钮和未来其他入口都能复用同一套预填规则。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态并写回复盘草稿字段。
+ *
+ * 输出：
+ * @returns {void} 只更新草稿值和状态提示，不返回额外结果。
+ *
+ * 注意：
+ * - 这里只在“准备打开复盘面板”时调用，避免覆盖用户已经手动改过的输入。
+ * - 若当前局还没生成值，统一回退为空字符串，保持输入框可继续编辑。
+ */
+function primeReplayPanelDraftsFromCurrentRound() {
+  state.debugReplaySeedDraft = state.replaySeed || "";
+  state.debugOpeningCodeDraft = state.openingCode || "";
+  state.debugReplayStatusTone = "";
+  state.debugReplayStatusText = "";
+}
+
 // 同步托管按钮的显示和状态。
 function syncAutoManagedButton() {
   if (!dom.autoManagedBtn || typeof getPlayer !== "function") return;
@@ -146,11 +171,6 @@ function getNextAutoManageMode(mode = getAutoManageMode()) {
  */
 function isPcDirectCounterChoiceMode() {
   return APP_PLATFORM === "pc" && state.phase === "countering" && state.currentTurnId === 1;
-}
-
-// 规范化 AI 难度取值。
-function normalizeAiDifficulty(value) {
-  return AI_DIFFICULTY_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_DIFFICULTY;
 }
 
 // 设置当前 AI 难度并刷新界面。
@@ -587,6 +607,18 @@ dom.toggleDebugBtn?.addEventListener("click", () => {
   renderScorePanel?.();
 });
 
+dom.menuReplayBtn?.addEventListener("click", () => {
+  const shouldOpenReplayPanel = !state.showReplayPanel;
+  if (shouldOpenReplayPanel) {
+    primeReplayPanelDraftsFromCurrentRound();
+  }
+  state.showReplayPanel = shouldOpenReplayPanel;
+  closeToolbarMenu();
+  renderReplayPanel?.();
+  renderToolbarMenu?.();
+  renderScorePanel?.();
+});
+
 dom.toggleBottomBtn.addEventListener("click", () => {
   if (!canHumanViewBottomCards()) return;
   state.showBottomPanel = !state.showBottomPanel;
@@ -661,25 +693,30 @@ dom.debugDecisionNextBtn?.addEventListener("click", () => {
   renderDebugPanel();
 });
 
-dom.debugReplaySeedInput?.addEventListener("input", (event) => {
+dom.replaySeedInput?.addEventListener("input", (event) => {
   state.debugReplaySeedDraft = event.target.value;
 });
 
-dom.debugOpeningCodeInput?.addEventListener("input", (event) => {
+dom.replayOpeningCodeInput?.addEventListener("input", (event) => {
   state.debugOpeningCodeDraft = event.target.value;
 });
 
-dom.debugReplaySeedApplyBtn?.addEventListener("click", () => {
+dom.replaySeedApplyBtn?.addEventListener("click", () => {
   applyDebugReplaySeedReplay(state.debugReplaySeedDraft);
 });
 
-dom.debugOpeningCodeApplyBtn?.addEventListener("click", () => {
+dom.replayOpeningCodeApplyBtn?.addEventListener("click", () => {
   applyDebugOpeningCodeReplay(state.debugOpeningCodeDraft, state.debugReplaySeedDraft);
 });
 
 dom.closeDebugBtn?.addEventListener("click", () => {
   state.showDebugPanel = false;
   renderDebugPanel();
+});
+
+dom.closeReplayBtn?.addEventListener("click", () => {
+  state.showReplayPanel = false;
+  renderReplayPanel?.();
 });
 
 dom.closeBottomBtn.addEventListener("click", () => {
@@ -719,6 +756,7 @@ if (APP_PLATFORM !== "pc") {
   makeFloatingPanel(dom.logPanel, dom.logPanelDrag);
 }
 makeFloatingPanel(dom.debugPanel, dom.debugPanelDrag);
+makeFloatingPanel(dom.replayPanel, dom.replayPanelDrag);
 makeFloatingPanel(dom.bottomPanel, dom.bottomPanelDrag);
 makeFloatingPanel(dom.rulesPanel, dom.rulesPanelDrag);
 for (const element of getLayoutElements()) {

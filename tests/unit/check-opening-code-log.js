@@ -4,13 +4,14 @@ const { loadHeadlessGameContext } = require("../support/headless-game-context");
 
 /**
  * 作用：
- * 运行“开局码与回放种子写入日志”的共享回归。
+ * 运行“开局码与回放种子写入日志 / 结果导出”的共享回归。
  *
  * 为什么这样写：
  * 这次改动的价值不只是生成两串文本，而是要保证：
  * 1. 每局开局都会分配稳定可读的 replay seed；
  * 2. 开局码能完整覆盖 162 张牌顺序并可 round-trip 解码；
- * 3. 结果日志里真的能看到这两项调试信息。
+ * 3. 局内信息栏不会直接泄露这两项复盘信息；
+ * 4. 结果日志导出里仍然能看到这两项调试信息。
  *
  * 输入：
  * @param {void} - 直接创建 headless 上下文并执行断言。
@@ -39,6 +40,7 @@ function runSuite() {
   const rebuiltOpeningCode = context.buildOpeningCode(encodedDeck, {
     firstDealPlayerId: context.state.nextFirstDealPlayerId,
     playerLevels: context.state.playerLevels,
+    aiDifficulty: context.state.aiDifficulty,
   });
   assert.equal(rebuiltOpeningCode, context.state.openingCode, "直接用当前完整牌序重编码时应得到相同开局码");
 
@@ -51,17 +53,31 @@ function runSuite() {
     context.state.playerLevels,
     "开局码应保留 5 位玩家等级"
   );
+  assert.equal(decodedOpening.aiDifficulty, context.state.aiDifficulty, "开局码应保留当前 AI 难度");
   assert.equal(decodedOpening.deckCards.length, 162, "解码结果应还原完整 162 张牌");
   assert.equal(
     context.buildOpeningCode(decodedOpening.deckCards, {
       firstDealPlayerId: decodedOpening.firstDealPlayerId,
       playerLevels: decodedOpening.playerLevels,
+      aiDifficulty: decodedOpening.aiDifficulty,
     }),
     context.state.openingCode,
     "开局码解码后再编码应保持完全一致"
   );
 
+  assert.equal(
+    context.state.allLogs.some((entry) => entry.startsWith("回放种子：")),
+    false,
+    "局内信息栏日志不应直接显示回放种子"
+  );
+  assert.equal(
+    context.state.allLogs.some((entry) => entry.startsWith("开局码：")),
+    false,
+    "局内信息栏日志不应直接显示开局码"
+  );
+
   const resultLogText = context.getResultLogText();
+  assert.match(resultLogText, /复盘信息：/, "结果日志应追加独立的复盘信息段落");
   assert.match(resultLogText, /回放种子：opening-code-log:round-0001/, "结果日志应包含本局回放种子");
   assert.match(resultLogText, new RegExp(`开局码：${context.state.openingCode}`), "结果日志应包含完整开局码");
 

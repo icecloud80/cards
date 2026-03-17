@@ -12,6 +12,8 @@
         --felt-deep: #143543;
         --gold: #d8ad63;
         --edge-gap: 24px;
+        /* 统一 PC 静态模板顶部下拉面板的起点，方便和运行态一起校准。 */
+        --pc-topbar-dropdown-top: 152px;
         --hand-width: 1176px;
         --hand-height: 204px;
       }
@@ -551,7 +553,7 @@
       .log-panel {
         position: absolute;
         right: 32px;
-        top: 148px;
+        top: var(--pc-topbar-dropdown-top);
         width: 404px;
         min-height: 220px;
         max-height: 520px;
@@ -614,7 +616,7 @@
 
       .toolbar-menu {
         position: absolute;
-        top: 152px;
+        top: var(--pc-topbar-dropdown-top);
         right: 24px;
         width: 328px;
         padding: 14px;
@@ -864,7 +866,7 @@
       .last-trick-panel {
         position: absolute;
         right: 102px;
-        top: 148px;
+        top: var(--pc-topbar-dropdown-top);
         width: 420px;
         min-height: 188px;
         max-height: 520px;

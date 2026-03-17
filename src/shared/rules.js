@@ -105,6 +105,30 @@ function getOpeningCodeLevelIndex(level) {
 
 /**
  * 作用：
+ * 把 AI 难度映射成开局码元信息里使用的 4 bit 索引。
+ *
+ * 为什么这样写：
+ * 用户希望复盘重开时能自动切回原局 AI 难度；
+ * 当前开局码第 4 个 meta byte 的低 4 bit 之前保留未用，正好可以稳定塞下 `beginner / intermediate / advanced` 三档索引。
+ *
+ * 输入：
+ * @param {string} aiDifficulty - 当前局使用的 AI 难度键值。
+ *
+ * 输出：
+ * @returns {number} 对应的半字节索引；非法值统一回退到默认难度。
+ *
+ * 注意：
+ * - 这里只记录全局 AI 难度，不记录未来可能出现的逐座位难度映射。
+ * - 旧开局码若没有记录该字段，会自然按索引 0 回落到 `beginner`。
+ */
+function getOpeningCodeAiDifficultyIndex(aiDifficulty) {
+  const normalizedDifficulty = normalizeAiDifficulty(aiDifficulty);
+  const difficultyIndex = OPENING_CODE_AI_DIFFICULTY_ORDER.indexOf(normalizedDifficulty);
+  return difficultyIndex >= 0 ? difficultyIndex : OPENING_CODE_AI_DIFFICULTY_ORDER.indexOf(DEFAULT_AI_DIFFICULTY);
+}
+
+/**
+ * 作用：
  * 把业务牌对象映射成开局码里的唯一牌序编号。
  *
  * 为什么这样写：
@@ -202,7 +226,7 @@ function createCardFromOpeningCodeIndex(cardIndex) {
  *
  * 输入：
  * @param {Array<object>} deckCards - 本局完整牌堆顺序，长度必须为 162。
- * @param {{firstDealPlayerId?: number, playerLevels?: Record<number, string>}} [options={}] - 开局元信息。
+ * @param {{firstDealPlayerId?: number, playerLevels?: Record<number, string>, aiDifficulty?: string}} [options={}] - 开局元信息。
  *
  * 输出：
  * @returns {string} 当前牌局的开局码；输入无效时返回空串。
@@ -217,6 +241,7 @@ function buildOpeningCode(deckCards, options = {}) {
 
   const firstDealPlayerId = PLAYER_ORDER.includes(options.firstDealPlayerId) ? options.firstDealPlayerId : 1;
   const playerLevels = normalizePlayerLevels(options.playerLevels);
+  const aiDifficultyIndex = getOpeningCodeAiDifficultyIndex(options.aiDifficulty);
   const encodedCardBytes = cards.map((card) => getOpeningCodeCardIndex(card));
   if (encodedCardBytes.some((value) => value < 0)) return "";
 
@@ -224,7 +249,7 @@ function buildOpeningCode(deckCards, options = {}) {
     ((1 & 0x0f) << 4) | (firstDealPlayerId & 0x0f),
     (getOpeningCodeLevelIndex(playerLevels[1]) << 4) | getOpeningCodeLevelIndex(playerLevels[2]),
     (getOpeningCodeLevelIndex(playerLevels[3]) << 4) | getOpeningCodeLevelIndex(playerLevels[4]),
-    (getOpeningCodeLevelIndex(playerLevels[5]) << 4),
+    (getOpeningCodeLevelIndex(playerLevels[5]) << 4) | (aiDifficultyIndex & 0x0f),
   ];
 
   return [...metaBytes, ...encodedCardBytes].map((value) => toOpeningCodeHexByte(value)).join("");
@@ -242,7 +267,7 @@ function buildOpeningCode(deckCards, options = {}) {
  * @param {string} openingCode - 日志中的开局码文本。
  *
  * 输出：
- * @returns {{version:number,firstDealPlayerId:number,playerLevels:Record<number,string>,deckCards:Array<object>}|null} 解码结果；文本非法时返回 `null`。
+ * @returns {{version:number,firstDealPlayerId:number,playerLevels:Record<number,string>,aiDifficulty:string,deckCards:Array<object>}|null} 解码结果；文本非法时返回 `null`。
  *
  * 注意：
  * - 当前只接受 `1` 号版本、固定 166 字节长度。
@@ -270,6 +295,7 @@ function decodeOpeningCode(openingCode) {
     4: OPENING_CODE_LEVEL_ORDER[bytes[2] & 0x0f],
     5: OPENING_CODE_LEVEL_ORDER[(bytes[3] >> 4) & 0x0f],
   };
+  const aiDifficulty = normalizeAiDifficulty(OPENING_CODE_AI_DIFFICULTY_ORDER[bytes[3] & 0x0f]);
   if (PLAYER_ORDER.some((playerId) => !playerLevels[playerId])) return null;
 
   const cardIndexes = bytes.slice(4);
@@ -284,6 +310,7 @@ function decodeOpeningCode(openingCode) {
     version,
     firstDealPlayerId,
     playerLevels,
+    aiDifficulty,
     deckCards,
   };
 }

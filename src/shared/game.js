@@ -186,8 +186,6 @@ function appendSessionHeaderLogs() {
   appendLog(`设备：${getPlatformLogLabel()}`);
   appendLog(`首抓玩家：${getPlayer(state.nextFirstDealPlayerId || 1)?.name || "玩家1"}`);
   appendLog(`玩家等级：${getPlayerLevelsLogText()}`);
-  appendLog(`回放种子：${state.replaySeed || "未生成"}`);
-  appendLog(`开局码：${state.openingCode || "未生成"}`);
 }
 
 /**
@@ -222,6 +220,7 @@ function setupGame(setupInput) {
   if (openingRestore) {
     state.playerLevels = normalizePlayerLevels(openingRestore.playerLevels);
     state.nextFirstDealPlayerId = openingRestore.firstDealPlayerId;
+    state.aiDifficulty = normalizeAiDifficulty(openingRestore.aiDifficulty);
   }
   state.bankerId = PLAYER_ORDER.includes(state.bankerId) ? state.bankerId : 1;
   state.levelRank = null;
@@ -264,6 +263,7 @@ function setupGame(setupInput) {
   state.showLastTrick = false;
   state.showLogPanel = false;
   state.showDebugPanel = false;
+  state.showReplayPanel = false;
   state.showToolbarMenu = false;
   state.showBottomPanel = false;
   state.showRulesPanel = false;
@@ -310,6 +310,7 @@ function setupGame(setupInput) {
     : buildOpeningCode(openingDeck, {
         firstDealPlayerId: state.nextFirstDealPlayerId || 1,
         playerLevels: state.playerLevels,
+        aiDifficulty: state.aiDifficulty,
       });
 
   appendSessionHeaderLogs();
@@ -320,20 +321,20 @@ function setupGame(setupInput) {
 
 /**
  * 作用：
- * 在 debug 面板里按回放种子重建当前局的初始状态。
+ * 在设置菜单的复盘面板里按回放种子重建当前局的初始状态。
  *
  * 为什么这样写：
- * debug UI 需要一个不会直接暴露底层初始化细节的业务入口；
+ * 复盘 UI 需要一个不会直接暴露底层初始化细节的业务入口；
  * 收口成 helper 后，按钮点击、未来快捷键和测试都能复用同一套“按 seed 重开”逻辑。
  *
  * 输入：
- * @param {string} replaySeedInput - 用户在 debug 面板输入的回放种子。
+ * @param {string} replaySeedInput - 用户在复盘面板输入的回放种子。
  *
  * 输出：
- * @returns {boolean} `true` 表示已经成功重建初始状态；`false` 表示输入无效。
+ * @returns {boolean} `true` 表示已经成功重建并开始发牌；`false` 表示输入无效。
  *
  * 注意：
- * - 这里只重建到 `ready` 阶段，不自动开始发牌。
+ * - 成功后会直接开始发牌，避免 PC 重新落回开始页。
  * - 成功后会重新打开 debug 面板，方便继续观察恢复结果。
  */
 function applyDebugReplaySeedReplay(replaySeedInput) {
@@ -341,12 +342,14 @@ function applyDebugReplaySeedReplay(replaySeedInput) {
   if (!normalizedSeed) {
     state.debugReplayStatusTone = "error";
     state.debugReplayStatusText = TEXT.debug.replaySeedRequired;
-    renderDebugPanel?.();
+    state.showReplayPanel = true;
+    renderReplayPanel?.();
     return false;
   }
   state.debugReplaySeedDraft = normalizedSeed;
   setupGame(normalizedSeed);
-  state.showDebugPanel = true;
+  startDealing();
+  state.showReplayPanel = true;
   state.debugReplayStatusTone = "success";
   state.debugReplayStatusText = TEXT.debug.replaySeedApplied(normalizedSeed);
   render();
@@ -355,21 +358,21 @@ function applyDebugReplaySeedReplay(replaySeedInput) {
 
 /**
  * 作用：
- * 在 debug 面板里按开局码重建当前局的初始状态，并可选带入回放种子。
+ * 在设置菜单的复盘面板里按开局码重建当前局的初始状态，并可选带入回放种子。
  *
  * 为什么这样写：
  * 开局码负责精确复原完整牌序，回放种子负责继续约束后续随机链路；
- * 把两者组合收成一个 helper 后，debug 面板可以一次性完成“贴码 -> 重建 ready 初始态”的整条调试动作。
+ * 把两者组合收成一个 helper 后，复盘面板可以一次性完成“贴码 -> 重建并开始发牌”的整条调试动作。
  *
  * 输入：
  * @param {string} openingCodeInput - 用户输入的开局码。
  * @param {string} [replaySeedInput=""] - 可选的回放种子；不传时沿用自动分配。
  *
  * 输出：
- * @returns {boolean} `true` 表示恢复成功；`false` 表示开局码无效或为空。
+ * @returns {boolean} `true` 表示恢复成功并开始发牌；`false` 表示开局码无效或为空。
  *
  * 注意：
- * - 成功后同样只回到 `ready` 阶段，不自动发牌。
+ * - 成功后会直接开始发牌，避免 PC 重新落回开始页。
  * - 若只提供开局码，不保证后续 AI 随机路径与原局完全一致；要尽量靠近原局，需要同时填回放种子。
  */
 function applyDebugOpeningCodeReplay(openingCodeInput, replaySeedInput = "") {
@@ -377,13 +380,15 @@ function applyDebugOpeningCodeReplay(openingCodeInput, replaySeedInput = "") {
   if (!normalizedOpeningCode) {
     state.debugReplayStatusTone = "error";
     state.debugReplayStatusText = TEXT.debug.openingCodeRequired;
-    renderDebugPanel?.();
+    state.showReplayPanel = true;
+    renderReplayPanel?.();
     return false;
   }
   if (!decodeOpeningCode(normalizedOpeningCode)) {
     state.debugReplayStatusTone = "error";
     state.debugReplayStatusText = TEXT.debug.replayInvalidOpeningCode;
-    renderDebugPanel?.();
+    state.showReplayPanel = true;
+    renderReplayPanel?.();
     return false;
   }
 
@@ -396,7 +401,8 @@ function applyDebugOpeningCodeReplay(openingCodeInput, replaySeedInput = "") {
     replaySeedInput: normalizedSeed || undefined,
     openingCode: normalizedOpeningCode,
   });
-  state.showDebugPanel = true;
+  startDealing();
+  state.showReplayPanel = true;
   state.debugReplayStatusTone = "success";
   state.debugReplayStatusText = TEXT.debug.openingCodeApplied(normalizedOpeningCode, normalizedSeed);
   render();
@@ -3854,6 +3860,33 @@ function getAiDecisionHistoryExportLines() {
   return state.aiDecisionHistory.map((entry, index) => formatAiDecisionExportEntry(entry, index));
 }
 
+/**
+ * 作用：
+ * 生成结果日志导出里使用的复盘信息段落。
+ *
+ * 为什么这样写：
+ * 用户要求 `开局码 / 回放种子` 不再出现在局内信息栏里，
+ * 但导出日志仍然需要保留这两项，方便把问题局发给别人后直接复盘；
+ * 单独收成一个导出 helper 后，既能和信息栏解耦，也能保持结果日志结构稳定。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态。
+ *
+ * 输出：
+ * @returns {string[]} 结果日志里的复盘信息行列表。
+ *
+ * 注意：
+ * - 这里不再走 `appendLog`，避免污染局内信息栏。
+ * - 若当前值为空，也要明确写出“未生成”，避免导出日志里出现空洞字段。
+ */
+function getReplayInfoExportLines() {
+  return [
+    "复盘信息：",
+    `回放种子：${state.replaySeed || "未生成"}`,
+    `开局码：${state.openingCode || "未生成"}`,
+  ];
+}
+
 function getResultLogText() {
   const lines = [
     "五人找朋友升级 对局日志",
@@ -3870,6 +3903,8 @@ function getResultLogText() {
   } else {
     lines.push(...state.allLogs.map((entry, index) => `${index + 1}. ${entry}`));
   }
+  lines.push("");
+  lines.push(...getReplayInfoExportLines());
   if (isAiDecisionDebugEnabled()) {
     lines.push("");
     lines.push("AI 决策记录：");

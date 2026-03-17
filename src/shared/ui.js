@@ -4,6 +4,7 @@ function render() {
   renderHud();
   renderScorePanel();
   renderToolbarMenu();
+  renderReplayPanel();
   renderStartLobby();
   renderSeats();
   renderTrickSpots();
@@ -1014,6 +1015,9 @@ function renderToolbarMenu() {
   if (dom.toggleDebugBtn) {
     dom.toggleDebugBtn.textContent = state.showDebugPanel ? "收起调试" : "调试信息";
   }
+  if (dom.menuReplayBtn) {
+    dom.menuReplayBtn.textContent = state.showReplayPanel ? "收起复盘" : "复盘";
+  }
   if (dom.toggleCardFaceBtn) {
     dom.toggleCardFaceBtn.textContent = `牌面：${getCurrentCardFaceOption().label}`;
   }
@@ -1874,6 +1878,46 @@ function updateActionHint() {
     : validation.reason;
 }
 
+/**
+ * 作用：
+ * 生成上一轮回看里单个玩家条目的紧凑横排 HTML。
+ *
+ * 为什么这样写：
+ * PC 顶部抽屉和 mobile / App 的上一轮浮层都会复用同一份回看 DOM；
+ * 把“玩家摘要 + 横向牌列”统一收口成共享 helper，才能一次性压缩三端的纵向占用，
+ * 避免某一端仍然退回旧的竖排堆叠结构。
+ *
+ * 输入：
+ * @param {{playerId: number, cards: Array<object>}} play - 上一轮里某位玩家的出牌记录。
+ *
+ * 输出：
+ * @returns {string} 可直接插入回看面板的单行 HTML。
+ *
+ * 注意：
+ * - 玩家顺序必须继续沿用上一轮真实出牌顺序，不能在这里重新排序。
+ * - 这里只负责展示结构，不改写任何上一轮状态。
+ */
+function buildLastTrickEntryMarkup(play) {
+  const player = getPlayer(play.playerId);
+  const role = getVisibleRole(play.playerId);
+  const roleBadge = role?.label
+    ? `<span class="role-badge ${role.kind || "unknown"}">${role.label}</span>`
+    : "";
+  return `
+    <div class="last-trick-entry">
+      <div class="last-trick-entry-summary">
+        <div class="last-trick-entry-head">
+          <div class="subtle last-trick-entry-name">${player.name}</div>
+          ${roleBadge}
+        </div>
+      </div>
+      <div class="spot-row last-trick-entry-cards">
+        ${play.cards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")}
+      </div>
+    </div>
+  `;
+}
+
 // 渲染上一轮回顾内容。
 function renderLastTrick() {
   dom.lastTrickPanel.classList.toggle("hidden", !state.showLastTrick);
@@ -1887,24 +1931,7 @@ function renderLastTrick() {
   }
   dom.lastTrickMeta.textContent = TEXT.lastTrick.meta(state.lastTrick.trickNumber, getPlayer(state.lastTrick.winnerId).name, state.lastTrick.points);
   dom.lastTrickCards.innerHTML = state.lastTrick.plays
-    .map((play) => {
-      const player = getPlayer(play.playerId);
-      const role = getVisibleRole(play.playerId);
-      const roleBadge = role?.label
-        ? `<span class="role-badge ${role.kind || "unknown"}">${role.label}</span>`
-        : "";
-      return `
-      <div class="last-trick-entry" style="margin-top:10px;">
-        <div class="last-trick-entry-head">
-          <div class="subtle last-trick-entry-name">${player.name}</div>
-          ${roleBadge}
-        </div>
-        <div class="spot-row" style="min-height:70px; margin-top:6px;">
-          ${play.cards.map((card) => buildCardNode(card, `played-card${isTrump(card) ? " trump" : ""}`).outerHTML).join("")}
-        </div>
-      </div>
-    `;
-    })
+    .map((play) => buildLastTrickEntryMarkup(play))
     .join("");
 }
 
@@ -2009,36 +2036,6 @@ function renderDebugPanel() {
   dom.toggleDebugBtn.classList.toggle("alert", visible);
   dom.toggleDebugBtn.textContent = TEXT.buttons.debug;
   dom.debugPanel.classList.toggle("hidden", !visible);
-
-  if (dom.debugReplaySeedInput) {
-    if (dom.debugReplaySeedInput.value !== state.debugReplaySeedDraft) {
-      dom.debugReplaySeedInput.value = state.debugReplaySeedDraft;
-    }
-    dom.debugReplaySeedInput.placeholder = TEXT.debug.replaySeedPlaceholder;
-  }
-  if (dom.debugOpeningCodeInput) {
-    if (dom.debugOpeningCodeInput.value !== state.debugOpeningCodeDraft) {
-      dom.debugOpeningCodeInput.value = state.debugOpeningCodeDraft;
-    }
-    dom.debugOpeningCodeInput.placeholder = TEXT.debug.openingCodePlaceholder;
-  }
-  if (dom.debugReplaySeedApplyBtn) {
-    dom.debugReplaySeedApplyBtn.textContent = TEXT.debug.replaySeedApply;
-  }
-  if (dom.debugOpeningCodeApplyBtn) {
-    dom.debugOpeningCodeApplyBtn.textContent = TEXT.debug.openingCodeApply;
-  }
-  if (dom.debugReplayCurrentSeed) {
-    dom.debugReplayCurrentSeed.textContent = TEXT.debug.replayCurrentSeed(state.replaySeed);
-  }
-  if (dom.debugReplayCurrentOpeningCode) {
-    dom.debugReplayCurrentOpeningCode.textContent = TEXT.debug.replayCurrentOpeningCode(state.openingCode);
-  }
-  if (dom.debugReplayStatus) {
-    dom.debugReplayStatus.textContent = state.debugReplayStatusText || "";
-    dom.debugReplayStatus.classList.toggle("error", state.debugReplayStatusTone === "error");
-    dom.debugReplayStatus.classList.toggle("success", state.debugReplayStatusTone === "success");
-  }
 
   dom.debugPlayerTabs.innerHTML = PLAYER_ORDER
     .filter((playerId) => playerId !== 1)
@@ -2221,6 +2218,60 @@ function renderDebugDecisionPanel(player) {
       </div>
     `;
   }).join("") || `<div class="empty-note">${TEXT.debug.noDecision}</div>`;
+}
+
+/**
+ * 作用：
+ * 渲染设置菜单里的复盘面板。
+ *
+ * 为什么这样写：
+ * 用户希望把复盘入口从调试看牌里独立出来，收进设置菜单；
+ * 单独做成浮层后，可以保留完整输入能力，又不会把 AI 决策调试和局面复原混在同一个面板里。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态并写入对应 DOM。
+ *
+ * 输出：
+ * @returns {void} 只同步面板显隐、输入草稿和状态提示。
+ *
+ * 注意：
+ * - 当前只在 PC 运行态展示，和桌面端更多功能菜单保持一致。
+ * - 这里只负责 UI 显示，不负责真正执行复盘逻辑。
+ */
+function renderReplayPanel() {
+  if (!dom.replayPanel || !dom.replaySeedInput || !dom.replayOpeningCodeInput) return;
+
+  const isPc = APP_PLATFORM === "pc";
+  const visible = isPc && !!state.showReplayPanel;
+  dom.replayPanel.classList.toggle("hidden", !visible);
+
+  if (dom.replaySeedInput.value !== state.debugReplaySeedDraft) {
+    dom.replaySeedInput.value = state.debugReplaySeedDraft;
+  }
+  dom.replaySeedInput.placeholder = TEXT.debug.replaySeedPlaceholder;
+
+  if (dom.replayOpeningCodeInput.value !== state.debugOpeningCodeDraft) {
+    dom.replayOpeningCodeInput.value = state.debugOpeningCodeDraft;
+  }
+  dom.replayOpeningCodeInput.placeholder = TEXT.debug.openingCodePlaceholder;
+
+  if (dom.replaySeedApplyBtn) {
+    dom.replaySeedApplyBtn.textContent = TEXT.debug.replaySeedApply;
+  }
+  if (dom.replayOpeningCodeApplyBtn) {
+    dom.replayOpeningCodeApplyBtn.textContent = TEXT.debug.openingCodeApply;
+  }
+  if (dom.replayCurrentSeed) {
+    dom.replayCurrentSeed.textContent = TEXT.debug.replayCurrentSeed(state.replaySeed);
+  }
+  if (dom.replayCurrentOpeningCode) {
+    dom.replayCurrentOpeningCode.textContent = TEXT.debug.replayCurrentOpeningCode(state.openingCode);
+  }
+  if (dom.replayStatus) {
+    dom.replayStatus.textContent = state.debugReplayStatusText || "";
+    dom.replayStatus.classList.toggle("error", state.debugReplayStatusTone === "error");
+    dom.replayStatus.classList.toggle("success", state.debugReplayStatusTone === "success");
+  }
 }
 
 /**

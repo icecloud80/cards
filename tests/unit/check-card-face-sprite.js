@@ -226,52 +226,25 @@ function loadCardFaceContext(platform) {
 
 /**
  * 作用：
- * 校验 `m_cards` 对应的整图 SVG 资源已经按既定网格生成完成。
+ * 校验运行态恢复使用的 `poker.png` 整图资源仍然存在。
  *
  * 为什么这样写：
- * 这次除了沿用 `poker.png`，还新增了基于 `m_cards` 的 `m_cards_sprite.svg`；
- * 仅检查配置项还不够，如果资源文件缺失、尺寸不对或关键牌位偏了，运行时同样会裁切出错。
+ * 用户要求把整套牌面回滚回 `poker.png`；
+ * 如果资源文件本身丢失，PC / mobile 就算配置正确也会直接缺图。
  *
  * 输入：
  * @param {void} - 无额外输入，直接读取仓库内的生成产物。
  *
  * 输出：
- * @returns {void} 关键结构与牌位校验通过后正常返回。
+ * @returns {void} 资源存在时正常返回。
  *
  * 注意：
- * - 这里只校验少量关键锚点，不做整张 SVG 的逐像素比较。
- * - 最后一行必须继续保留 `红王 / 黑王 / 红背牌` 三个关键 tile。
+ * - 这里只校验文件存在，不做图片像素级比较。
+ * - `m_cards_sprite.svg` 可以继续留在仓库里，但不能再作为默认运行态依赖。
  */
-function assertModernSpriteAsset() {
-  const spritePath = path.join(__dirname, "../../m_cards_sprite.svg");
-  assert.equal(fs.existsSync(spritePath), true, "应生成 m_cards_sprite.svg 整图资源");
-
-  const spriteContent = fs.readFileSync(spritePath, "utf8");
-  const tileTagMatches = [...spriteContent.matchAll(/<svg\b([^>]*\bdata-card-id="[^"]+"[^>]*)>/g)];
-  assert.match(spriteContent, /<svg[^>]+width="1170"[^>]+height="600"[^>]+viewBox="0 0 1170 600"/, "m_cards SVG sprite 应保持与 poker.png 对齐的整体尺寸");
-  assert.doesNotMatch(spriteContent, /<svg[^>]+fill="none"/, "m_cards SVG sprite 根节点不能带 fill=none，否则黑色花色会被继承成透明");
-  assert.match(spriteContent, /<svg[^>]+data-card-id="hearts-3"[^>]+preserveAspectRatio="none"|<svg[^>]+preserveAspectRatio="none"[^>]+data-card-id="hearts-3"/, "新牌整图里的心 3 tile 应贴满卡格，避免手游小卡位里出现左右留白漂移");
-  assert.match(spriteContent, /<svg[^>]+data-card-id="joker-RJ"[^>]+preserveAspectRatio="none"|<svg[^>]+preserveAspectRatio="none"[^>]+data-card-id="joker-RJ"/, "大小王 tile 也应贴满卡格，避免最后一行在 mobile 上看起来比普通牌更窄");
-  assert.equal(tileTagMatches.length, 55, "m_cards SVG sprite 应只包含 55 个实际牌格节点");
-  assert.doesNotMatch(spriteContent, /preserveAspectRatio="xMidYMid meet"/, "m_cards SVG sprite 不应再保留会导致少数牌留边的 meet 缩放");
-  assert.match(spriteContent, /<svg[^>]+x="0"[^>]+y="0"[^>]+data-card-id="hearts-A"/, "红桃 A 应位于首行首列");
-  assert.match(spriteContent, /<svg[^>]+x="1080"[^>]+y="360"[^>]+data-card-id="clubs-K"/, "梅花 K 应位于第 4 行最后一列");
-  assert.match(spriteContent, /<svg[^>]+x="0"[^>]+y="480"[^>]+data-card-id="joker-RJ"/, "红王应位于最后一行首列");
-  assert.match(spriteContent, /<svg[^>]+x="90"[^>]+y="480"[^>]+data-card-id="joker-BJ"/, "黑王应位于最后一行第 2 列");
-  assert.match(spriteContent, /<svg[^>]+x="180"[^>]+y="480"[^>]+data-card-id="back-red"/, "红背牌应位于最后一行第 3 列");
-  for (const [, attributes] of tileTagMatches) {
-    const cardId = attributes.match(/\bdata-card-id="([^"]+)"/)?.[1] || "unknown";
-    const width = Number(attributes.match(/\bwidth="([^"]+)"/)?.[1]);
-    const height = Number(attributes.match(/\bheight="([^"]+)"/)?.[1]);
-    const x = Number(attributes.match(/\bx="([^"]+)"/)?.[1]);
-    const y = Number(attributes.match(/\by="([^"]+)"/)?.[1]);
-    const viewBox = attributes.match(/\bviewBox="([^"]+)"/)?.[1];
-    assert.equal(width, 90, `${cardId} 应固定占用 90px 宽牌格`);
-    assert.equal(height, 120, `${cardId} 应固定占用 120px 高牌格`);
-    assert.equal(viewBox, "0 0 90 120", `${cardId} 的外层 tile 应使用统一的 90x120 视窗`);
-    assert.equal(Number.isInteger(x / 90), true, `${cardId} 的横向坐标应紧贴 90px 网格，不留额外空隙`);
-    assert.equal(Number.isInteger(y / 120), true, `${cardId} 的纵向坐标应紧贴 120px 网格，不留额外空隙`);
-  }
+function assertClassicSpriteAsset() {
+  const spritePath = path.join(__dirname, "../../poker.png");
+  assert.equal(fs.existsSync(spritePath), true, "回滚后应继续保留 poker.png 整图资源");
 }
 
 /**
@@ -279,8 +252,8 @@ function assertModernSpriteAsset() {
  * 执行整图牌面回归断言。
  *
  * 为什么这样写：
- * 这次改动同时维护 `poker.png` 与 `m_cards_sprite.svg` 两套整图牌面；
- * 如果后续有人误删 sprite 配置、把裁切坐标改乱，或者只剩一端还能切整图牌面，
+ * 这次改动要求把 PC / mobile / 静态模板的默认整图牌面全部恢复到 `poker.png`；
+ * 如果后续有人又把默认入口切回 `m_cards_sprite.svg`，或者只改了其中一端，
  * 这条回归可以第一时间把问题拦住。
  *
  * 输入：
@@ -290,24 +263,24 @@ function assertModernSpriteAsset() {
  * @returns {void} 全部断言通过后正常退出。
  *
  * 注意：
- * - 这里优先验证“跨平台可用、关键牌位坐标正确、能切换回 SVG”三类行为。
+ * - 这里优先验证“跨平台默认入口恢复、关键牌位坐标正确、能切换回 SVG”三类行为。
  * - 不检查最终视觉像素，只检查 DOM 结构和关键样式值。
  */
 function main() {
-  assertModernSpriteAsset();
+  assertClassicSpriteAsset();
 
   const pc = loadCardFaceContext("pc");
   pc.setupGame();
-  assert.equal(pc.state.cardFaceKey, "sprite", "PC 默认牌面应直接切到统一的 m_cards 整图主题");
+  assert.equal(pc.state.cardFaceKey, "sprite", "PC 默认牌面应恢复到经典整图主题");
 
   const spriteOption = pc.getCardFaceOption("sprite");
-  assert.equal(spriteOption.key, "sprite", "PC 应提供整图牌面选项");
-  assert.equal(spriteOption.spriteSheet.src, "./m_cards_sprite.svg", "PC 整图牌面应统一使用 m_cards_sprite.svg");
+  assert.equal(spriteOption.key, "sprite", "PC 应提供经典整图牌面选项");
+  assert.equal(spriteOption.spriteSheet.src, "./poker.png", "PC 整图牌面应恢复使用 poker.png");
   const modernSpriteOption = pc.getCardFaceOption("modern-sprite");
-  assert.equal(modernSpriteOption.key, "sprite", "PC 应把旧的 modern-sprite 存档兼容映射到统一整图牌面");
-  assert.equal(modernSpriteOption.spriteSheet.src, "./m_cards_sprite.svg", "PC 兼容映射后的整图牌面应继续指向 m_cards_sprite.svg");
+  assert.equal(modernSpriteOption.key, "sprite", "PC 应把旧的 modern-sprite 存档兼容映射到经典整图牌面");
+  assert.equal(modernSpriteOption.spriteSheet.src, "./poker.png", "PC 兼容映射后的整图牌面应继续指向 poker.png");
   assert.equal(pc.CARD_FACE_OPTIONS.some((option) => option.key === "modern"), false, "PC 不应再保留逐张 m_cards 牌面选项");
-  assert.equal(pc.CARD_FACE_OPTIONS.some((option) => option.key === "modern-sprite"), false, "PC 运行态不应再并列保留旧的新牌整图入口");
+  assert.equal(pc.CARD_FACE_OPTIONS.some((option) => option.key === "modern-sprite"), false, "PC 运行态不应再并列保留旧的 modern-sprite 入口");
   const heartAcePosition = pc.getCardSpriteSheetPosition({ suit: "hearts", rank: "A" }, spriteOption.spriteSheet);
   assert.equal(heartAcePosition.column, 0, "红桃 A 应位于首列");
   assert.equal(heartAcePosition.row, 0, "红桃 A 应位于首行");
@@ -327,11 +300,11 @@ function main() {
   assert.equal(redJokerPosition.yPercent, 100, "红王的纵向裁切应落在底边界");
 
   pc.state.cardFaceKey = "sprite";
-  assert.equal(pc.getCardFaceSpriteSheet().src, "./m_cards_sprite.svg", "PC 切到整图牌面后应能读到统一 sprite 配置");
+  assert.equal(pc.getCardFaceSpriteSheet().src, "./poker.png", "PC 切到整图牌面后应能读到 poker.png 配置");
 
   const spriteNode = pc.buildCardNode({ id: "c1", suit: "hearts", rank: "A" }, "card-btn");
   assert.equal(spriteNode.children[0].className, "card-face-sprite", "PC 整图牌面应渲染成 sprite 节点而不是 img");
-  assert.equal(spriteNode.children[0].style.backgroundImage, 'url("./m_cards_sprite.svg")', "sprite 节点应指向统一的 m_cards_sprite.svg");
+  assert.equal(spriteNode.children[0].style.backgroundImage, 'url("./poker.png")', "sprite 节点应指向 poker.png");
   assert.equal(spriteNode.children[0].style.backgroundPosition, "0% 0%", "红桃 A 的 sprite 裁切位置应为左上角");
 
   const clubKingNode = pc.buildCardNode({ id: "c2", suit: "clubs", rank: "K" }, "card-btn");
@@ -340,7 +313,7 @@ function main() {
   pc.state.cardFaceKey = "modern-sprite";
   const modernSpriteNode = pc.buildCardNode({ id: "c2-modern", suit: "hearts", rank: "A" }, "card-btn");
   assert.equal(modernSpriteNode.children[0].className, "card-face-sprite", "PC 即使读到旧 key，也应继续渲染统一 sprite 节点");
-  assert.equal(modernSpriteNode.children[0].style.backgroundImage, 'url("./m_cards_sprite.svg")', "PC 旧 key 兼容路径也应指向 m_cards_sprite.svg");
+  assert.equal(modernSpriteNode.children[0].style.backgroundImage, 'url("./poker.png")', "PC 旧 key 兼容路径也应指向 poker.png");
   assert.equal(modernSpriteNode.children[0].style.backgroundPosition, "0% 0%", "PC 旧 key 兼容路径下的红桃 A 仍应落在左上角");
 
   pc.state.cardFaceKey = "classic";
@@ -350,44 +323,44 @@ function main() {
 
   const mobile = loadCardFaceContext("mobile");
   mobile.setupGame();
-  assert.equal(mobile.state.cardFaceKey, "sprite", "mobile 默认牌面应直接切到统一的 m_cards 整图主题");
+  assert.equal(mobile.state.cardFaceKey, "sprite", "mobile 默认牌面应恢复到经典整图主题");
   const mobileSpriteOption = mobile.getCardFaceOption("sprite");
-  assert.equal(mobileSpriteOption.key, "sprite", "mobile 也应提供整图牌面选项");
-  assert.equal(mobileSpriteOption.spriteSheet.src, "./m_cards_sprite.svg", "mobile 整图牌面也应统一使用 m_cards_sprite.svg");
+  assert.equal(mobileSpriteOption.key, "sprite", "mobile 也应提供经典整图牌面选项");
+  assert.equal(mobileSpriteOption.spriteSheet.src, "./poker.png", "mobile 整图牌面也应恢复使用 poker.png");
   const mobileModernSpriteOption = mobile.getCardFaceOption("modern-sprite");
-  assert.equal(mobileModernSpriteOption.key, "sprite", "mobile 也应把旧的 modern-sprite 存档兼容映射到统一整图牌面");
-  assert.equal(mobileModernSpriteOption.spriteSheet.src, "./m_cards_sprite.svg", "mobile 兼容映射后的整图牌面也应指向 m_cards_sprite.svg");
+  assert.equal(mobileModernSpriteOption.key, "sprite", "mobile 也应把旧的 modern-sprite 存档兼容映射到经典整图牌面");
+  assert.equal(mobileModernSpriteOption.spriteSheet.src, "./poker.png", "mobile 兼容映射后的整图牌面也应指向 poker.png");
   assert.equal(mobile.CARD_FACE_OPTIONS.some((option) => option.key === "modern"), false, "mobile 不应再保留逐张 m_cards 牌面选项");
-  assert.equal(mobile.CARD_FACE_OPTIONS.some((option) => option.key === "modern-sprite"), false, "mobile 运行态不应再并列保留旧的新牌整图入口");
+  assert.equal(mobile.CARD_FACE_OPTIONS.some((option) => option.key === "modern-sprite"), false, "mobile 运行态不应再并列保留旧的 modern-sprite 入口");
 
   mobile.state.cardFaceKey = "sprite";
   const mobileSpriteNode = mobile.buildCardNode({ id: "m1", suit: "spades", rank: "10" }, "card-btn");
   assert.equal(mobileSpriteNode.children[0].className, "card-face-sprite", "mobile 切到整图牌面后也应渲染 sprite 节点");
-  assert.equal(mobileSpriteNode.children[0].style.backgroundImage, 'url("./m_cards_sprite.svg")', "mobile sprite 节点应指向统一的 m_cards_sprite.svg");
+  assert.equal(mobileSpriteNode.children[0].style.backgroundImage, 'url("./poker.png")', "mobile sprite 节点应指向 poker.png");
   assert.equal(mobileSpriteNode.children[0].style.backgroundPosition, "75% 50%", "黑桃 10 应映射到第 3 行第 10 列");
-  assert.equal(mobileSpriteNode.children[0].style.width, "90%", "mobile 默认整图牌面应沿用新 sprite 的缩小可视区域");
-  assert.equal(mobileSpriteNode.children[0].style.margin, "5% auto 0", "mobile 默认整图牌面应继续保留安全边");
+  assert.equal(mobileSpriteNode.children[0].style.width, "100%", "mobile 默认整图牌面恢复到 poker.png 后应使用完整卡面宽度");
+  assert.equal(mobileSpriteNode.children[0].style.margin, "0", "mobile 默认整图牌面恢复到 poker.png 后不应再保留额外安全边");
 
   mobile.state.cardFaceKey = "modern-sprite";
   const mobileModernSpriteNode = mobile.buildCardNode({ id: "m1-modern", suit: "spades", rank: "10" }, "card-btn");
   assert.equal(mobileModernSpriteNode.children[0].className, "card-face-sprite", "mobile 即使读到旧 key，也应继续渲染统一 sprite 节点");
-  assert.equal(mobileModernSpriteNode.children[0].style.backgroundImage, 'url("./m_cards_sprite.svg")', "mobile 旧 key 兼容路径也应指向 m_cards_sprite.svg");
+  assert.equal(mobileModernSpriteNode.children[0].style.backgroundImage, 'url("./poker.png")', "mobile 旧 key 兼容路径也应指向 poker.png");
   assert.equal(mobileModernSpriteNode.children[0].style.backgroundPosition, "75% 50%", "mobile 旧 key 兼容路径也应复用同一套裁切坐标");
-  assert.equal(mobileModernSpriteNode.children[0].style.width, "90%", "mobile 旧 key 兼容路径也应保留缩小后的可视区域");
-  assert.equal(mobileModernSpriteNode.children[0].style.height, "90%", "mobile 旧 key 兼容路径也应保留缩小后的高度");
-  assert.equal(mobileModernSpriteNode.children[0].style.margin, "5% auto 0", "mobile 旧 key 兼容路径也应保留安全边");
+  assert.equal(mobileModernSpriteNode.children[0].style.width, "100%", "mobile 旧 key 兼容路径恢复到 poker.png 后也应使用完整卡面宽度");
+  assert.equal(mobileModernSpriteNode.children[0].style.height, "100%", "mobile 旧 key 兼容路径恢复到 poker.png 后也应使用完整卡面高度");
+  assert.equal(mobileModernSpriteNode.children[0].style.margin, "0", "mobile 旧 key 兼容路径恢复到 poker.png 后不应保留额外安全边");
 
   const mobileDefaultFaceDownNode = mobile.buildFaceDownDisplayCardNode("played-card face-down", "未翻开底牌");
   assert.equal(mobileDefaultFaceDownNode.children[0].className, "card-face-sprite", "翻底定主的未翻开底牌在 mobile 默认整图主题下也应复用 sprite 牌背");
-  assert.equal(mobileDefaultFaceDownNode.children[0].style.backgroundImage, 'url("./m_cards_sprite.svg")', "mobile 默认整图主题下的牌背应优先指向 m_cards_sprite.svg");
-  assert.equal(mobileDefaultFaceDownNode.children[0].style.width, "90%", "mobile 默认整图主题下的牌背也应沿用缩小后的可视区域");
-  assert.equal(mobileDefaultFaceDownNode.children[0].style.margin, "5% auto 0", "mobile 默认整图主题下的牌背也应保留安全边");
+  assert.equal(mobileDefaultFaceDownNode.children[0].style.backgroundImage, 'url("./poker.png")', "mobile 默认整图主题下的牌背应优先指向 poker.png");
+  assert.equal(mobileDefaultFaceDownNode.children[0].style.width, "100%", "mobile 默认整图主题下的牌背也应恢复为完整卡面宽度");
+  assert.equal(mobileDefaultFaceDownNode.children[0].style.margin, "0", "mobile 默认整图主题下的牌背不应保留额外安全边");
 
   mobile.state.cardFaceKey = "classic";
   const mobileClassicFaceDownNode = mobile.buildFaceDownDisplayCardNode("played-card face-down", "未翻开底牌");
   assert.equal(mobileClassicFaceDownNode.children[0].className, "card-face-sprite", "翻底定主的未翻开底牌即使在 mobile 经典牌面下也应复用 sprite 牌背");
-  assert.equal(mobileClassicFaceDownNode.children[0].style.backgroundImage, 'url("./m_cards_sprite.svg")', "mobile 切回经典牌面后，翻底定主的 sprite 牌背应回退到统一的 m_cards_sprite.svg");
-  assert.equal(mobileClassicFaceDownNode.children[0].style.width, "90%", "mobile 经典牌面回退到统一 sprite 牌背时也应继续沿用新整图缩放");
+  assert.equal(mobileClassicFaceDownNode.children[0].style.backgroundImage, 'url("./poker.png")', "mobile 切回经典牌面后，翻底定主的 sprite 牌背应回退到 poker.png");
+  assert.equal(mobileClassicFaceDownNode.children[0].style.width, "100%", "mobile 经典牌面回退到 poker.png 牌背时也应保持完整卡面宽度");
 }
 
 main();

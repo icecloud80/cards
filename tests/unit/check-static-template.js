@@ -69,8 +69,8 @@ function main() {
   assert.equal(html.includes('id="menuHomeBtn"'), true, "静态模板页设置菜单应提供回到首页按钮");
   assert.equal(html.includes('id="toggleCardFaceBtn"'), true, "静态模板页应保留切换牌面按钮");
   assert.equal(html.includes('id="handStatsRail"'), true, "静态模板页应保留左侧手牌统计列容器");
-  assert.equal(html.includes("./m_cards_sprite.svg"), true, "静态模板页应支持切到 m_cards 的整图 sprite 资源");
-  assert.equal(html.includes("./poker.png"), false, "静态模板页运行态不应再并列保留旧的 poker.png 整图 sprite");
+  assert.equal(html.includes("./poker.png"), true, "静态模板页应恢复使用 poker.png 整图 sprite 资源");
+  assert.equal(html.includes("./m_cards_sprite.svg"), false, "静态模板页默认配置不应再引用 m_cards_sprite.svg");
   assert.equal(html.includes("STATIC_CARD_FACES"), true, "静态模板页应定义可切换的牌面列表");
   assert.equal(html.includes('cardFaceKey: "sprite"'), true, "静态模板页应默认启用 sprite 牌面");
   assert.equal(html.includes("buildStaticHandStatsMarkup"), true, "静态模板页应提供按首牌起点定位花色统计的 helper");
@@ -80,7 +80,7 @@ function main() {
   assert.equal(mockPage.topbarStatus[1].key, "主牌", "静态模板页顶部应改用“主牌”标签");
   assert.equal(mockPage.topbarStatus[2].key, "朋友", "静态模板页顶部应改用“朋友”标签");
   assert.equal(mockPage.topbarStatus[2].subline.includes("/"), true, "静态模板页朋友状态应使用 1/2 这类紧凑位置写法");
-  assert.equal(mockPage.cardFaceLabel, "整图牌面", "静态模板页应把统一整图 sprite 作为默认牌面标签");
+  assert.equal(mockPage.cardFaceLabel, "经典整图", "静态模板页应把 poker.png 作为默认牌面标签");
   assert.equal(mockPage.seats.map((seat) => seat.id).join(","), "2,3,4,5,1", "静态模板页左侧玩家列顺序应为 2, 3, 4, 5, 1");
 
   const handTotal = mockPage.handGroups.reduce((sum, group) => sum + group.cards.length, 0);

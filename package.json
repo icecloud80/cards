@@ -2,7 +2,13 @@
   "name": "cards",
   "private": true,
   "scripts": {
+    "build:app-web": "node scripts/build-app-web.js",
     "build:m-card-sprite": "node scripts/build-m-card-sprite.js",
+    "app:sync": "npm run build:app-web && npx cap sync",
+    "app:sync:android": "npm run build:app-web && npx cap sync android",
+    "app:sync:ios": "npm run build:app-web && LANG=en_US.UTF-8 npx cap sync ios",
+    "app:open:ios": "npx cap open ios",
+    "app:open:android": "npx cap open android",
     "serve": "node scripts/local-preview-server.js",
     "serve:js": "node scripts/local-preview-server.js",
     "serve:python": "python3 scripts/local_preview_server.py",
@@ -15,6 +21,11 @@
     "test:ui-smoke": "node tests/ui/check-ui-smoke.js"
   },
   "devDependencies": {
-    "playwright": "^1.58.2"
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
+    "playwright": "^1.58.2",
+    "typescript": "^5.9.3"
   }
 }

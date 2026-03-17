@@ -272,11 +272,9 @@ function getBottomRevealVisibleCount() {
  * 读取当前 sprite 牌面在不同平台下应使用的可视缩放参数。
  *
  * 为什么这样写：
- * `m_cards_sprite.svg` 的牌面主体比旧的 `poker.png` 更铺满整张卡；
- * 在 mobile 的手牌区、朋友牌和亮主候选里，如果继续按 100% 填满容器，
- * 会显得牌面过大、边缘过紧，容易出现“像被切坏”的观感。
- * 把这套缩放参数集中成 helper 后，就能只对 mobile 的统一整图牌面做局部收口，
- * 同时不影响 PC 和 `classic` 单张牌面的现有显示口径。
+ * 目前运行态已经恢复回 `poker.png`，但仓库里仍保留 `m_cards_sprite.svg` 资源与旧兼容逻辑；
+ * 把平台相关的 sprite 缩放集中在这里，后续即使再次接回实验资源，也不会把手牌、底牌和
+ * 出牌区的尺寸判断散落到多个渲染分支里。
  *
  * 输入：
  * @param {{src?: string}|null} spriteSheet - 当前正在使用的 sprite 配置。
@@ -285,7 +283,7 @@ function getBottomRevealVisibleCount() {
  * @returns {{width: string, height: string, margin: string}} 当前 sprite 节点应使用的尺寸样式。
  *
  * 注意：
- * - 这里只缩放 `mobile + m_cards_sprite.svg` 这一种组合，其余主题保持 100% 不变。
+ * - 这里只缩放 `mobile + m_cards_sprite.svg` 这一种历史兼容组合，其余主题保持 100% 不变。
  * - 返回的是可直接赋给内联样式的字符串，不额外包含背景定位或背景尺寸。
  */
 function getCardSpriteDisplayMetrics(spriteSheet) {
@@ -309,7 +307,7 @@ function getCardSpriteDisplayMetrics(spriteSheet) {
  * 为当前牌对象创建具体的牌面内容节点。
  *
  * 为什么这样写：
- * 现在 PC / mobile 都既可能使用逐张 SVG，也可能切到统一的 `m_cards_sprite.svg` 整图 sprite；
+ * 现在 PC / mobile 都既可能使用逐张 SVG，也可能切到 `poker.png` 这类整图 sprite；
  * 把两种渲染分支都收口成同一个 helper 后，
  * 手牌、出牌区、底牌和朋友预览就能共用同一套牌面装载逻辑。
  *

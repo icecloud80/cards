@@ -837,7 +837,7 @@
 
       .card-face-sprite {
         border-radius: 8px;
-        background-image: url("./m_cards_sprite.svg");
+        background-image: url("./poker.png");
         background-repeat: no-repeat;
         background-size: 1300% 500%;
         box-shadow: 0 10px 18px rgba(0, 0, 0, 0.14);
@@ -1083,7 +1083,7 @@
           "已找朋友：第二张梅花 A。",
         ],
         versionLabel: "原型版 v2.0",
-        cardFaceLabel: "整图牌面",
+        cardFaceLabel: "经典整图",
         lastTrick: {
           title: "第 0 轮 · 玩家4 获胜",
           plays: [
@@ -1271,10 +1271,10 @@
       const STATIC_CARD_FACES = [
         {
           key: "sprite",
-          label: "整图牌面",
-          dir: "./m_cards",
+          label: "经典整图",
+          dir: "./cards",
           spriteSheet: {
-            src: "./m_cards_sprite.svg",
+            src: "./poker.png",
             columns: 13,
             rows: 5,
           },
@@ -1310,7 +1310,7 @@
        * 把静态模板里使用的牌面资源路径解析成统一的业务牌对象。
        *
        * 为什么这样写：
-       * 这页现在默认走 `m_cards_sprite.svg`，而 mock 数据里仍然保存的是单张资源路径；
+       * 这页当前默认走 `poker.png` 整图牌面，而 mock 数据里仍然保存的是单张资源路径；
        * 先把路径还原成 `花色 + 点数`，后面的 sprite 裁切和目录切换才能共用同一套渲染入口。
        *
        * 输入：
@@ -1349,7 +1349,7 @@
        * 计算静态模板页里某张牌在 sprite 整图中的背景定位。
        *
        * 为什么这样写：
-       * 桌面端默认牌面已经切到 `m_cards_sprite.svg`，静态模板也要按同一套格子顺序裁牌；
+       * 桌面端默认牌面已经恢复到 `poker.png`，静态模板也要按同一套格子顺序裁牌；
        * 在本地重新实现最小映射后，模板页就能独立工作，不依赖运行态脚本加载顺序。
        *
        * 输入：

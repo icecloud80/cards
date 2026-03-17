@@ -22,6 +22,7 @@ The server prints the exact URLs after startup. Common pages are:
 
 - `http://127.0.0.1:3721/index1.html` for PC
 - `http://127.0.0.1:3721/index2.html` for mobile
+- `http://127.0.0.1:3721/index2-static.html` for the mobile static mock
 - `http://127.0.0.1:3721/index-static.html` for the PC static mock
 
 After each file change, refresh the page in the browser to check the latest effect.
@@ -68,8 +69,45 @@ Git commits are blocked by `.githooks/pre-commit` until the fast regression suit
 The hook only runs the headless full-game regression when staged `.js` changes exceed 200 total lines.
 The same hook now also runs a real browser UI smoke regression when staged app-layer `.js / .html / .css` changes exceed 500 total lines.
 
+## App Shell
+
+Bootstrap the App web bundle:
+
+```bash
+npm run build:app-web
+```
+
+Sync the latest web bundle into the native shells:
+
+```bash
+npm run app:sync
+```
+
+If the current machine only has Android tooling or is still missing full Xcode:
+
+```bash
+npm run app:sync:android
+```
+
+After the native projects exist, open them with:
+
+```bash
+npm run app:open:ios
+npm run app:open:android
+```
+
+Current App shell conventions:
+
+- App Name: `找朋友升级`
+- App ID: `com.nolanli.cards`
+- Capacitor `webDir`: `dist/app`
+- `dist/app/index.html` is generated from `index2.html`, so the App opens the mobile runtime directly.
+- `npm run app:sync:ios` additionally forces `LANG=en_US.UTF-8`; iOS full sync still requires a full Xcode install, not just Command Line Tools.
+
 ## Recent Updates
 
+- 2026-03-16 - 【UI增强】 - 新增 `index2-static.html` 手游静态模板页：固定填充一套牌桌、手牌、底牌、上一轮和玩家信息 mock 数据，并保留可展开的设置菜单、信息面板、底牌面板、规则帮助和牌面切换入口，方便独立做 mobile 视觉评审。
+- 2026-03-16 - 【工程初始化】 - 新增 `Capacitor` App 壳配置：首发 App 名称固定为 `找朋友升级`、包名固定为 `com.nolanli.cards`，并补上 `npm run build:app-web`、`npm run app:sync(:android/:ios)`、`npm run app:open:ios/android` 工作流；当前 `android/` 已完成初始化，`ios/` 已生成工程骨架，但完整同步仍依赖本机安装完整 Xcode。
 - 2026-03-16 - 【规划文档】 - 新增 `联机服务端接口与房间状态机草案`，补齐好友房 / 匹配阶段的 HTTP 接口、WebSocket 命令、房间层与对局层状态机、托管与重连流程以及回放事件模型。
 - 2026-03-16 - 【规划文档】 - 新增 `App 首发版本任务拆解清单`，把 `v1.0` 单机 App 首发按产品、客户端、原生能力、广告、QA、发布与上线后监控拆成可排期、可验收的执行项。
 - 2026-03-16 - 【Bug修复】 - 修复了共享跟牌短路把“保大对”放得过早的问题：当 AI 已经缺首门、闲家当前正在拿分，但自己仍握有不拆高对的安全主牌可毙时，不会再被“先贴小牌保高对”直接拦回去；初级与中级现在都会继续评估这些安全毙牌。
@@ -92,10 +130,8 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 - 2026-03-16 - 【Bug修复】 - 手游顶部 `主 / 朋` 状态牌现已统一走当前牌面主题渲染，不再出现一张走 sprite、一张退回单图 `img` 的口径分裂；顶部小卡位里的 sprite 也改成直接铺满，避免继续继承手牌区的额外留白。
 - 2026-03-16 - 【工具】 - 仓库现已把 `.DS_Store` 统一加入 `.gitignore`，并在本地预览工作流文档里补充“临时产物与仓库清理约定”，后续清理时可先忽略 macOS 元数据，再单独确认是否删除历史已跟踪文件。
 - 2026-03-16 - 【UI增强】 - PC 的“找朋友”面板已统一改成“叫朋友”：`用推荐` 按钮新增 30 秒倒计时，首次确认后可在读秒内点击顶部朋友牌再编辑一次；用掉这次机会后，首轮首手会恢复普通 15 秒出牌倒计时。
-- 2026-03-16 - 【资源增强】 - 新增 `m_cards_sprite.svg` 生成链路：可通过 `npm run build:m-card-sprite` 把 `m_cards/` 里的单张 SVG 按 `poker.png` 同款 `13x5` 网格拼成一张整图 SVG；mobile 默认牌面已切到这套 `新牌整图`，PC 也保留该选项，同时移除了旧的逐张 `m_cards` 牌面模式。
-- 2026-03-16 - 【Bug修复】 - 修复了 mobile `新牌整图` 里少数牌面没有完全对齐卡格的问题：`m_cards_sprite.svg` 生成时不再给 `hearts-3/4/5` 与大小王这类窄画布 tile 额外留边，手游小卡位里的 sprite 现在会统一贴满并与其它牌对齐。
-- 2026-03-16 - 【资源修复】 - `m_cards_sprite.svg` 已重制为严格 `90x120` 的无缝牌格输出：每张牌都固定落在 `90` 的整倍数横坐标与 `120` 的整倍数纵坐标上，外层 tile 统一裁成 `90x120`，相邻牌之间不再保留额外 gutter。
-- 2026-03-16 - 【UI统一】 - PC 与 mobile 的运行态整图牌面现已统一收口到 `m_cards_sprite.svg`：桌面端默认牌面不再落回旧的 `poker.png`，移动端与静态模板也只保留同一套 sprite 入口；旧存档里的 `modern-sprite` 会自动兼容映射到新的统一入口。
+- 2026-03-16 - 【资源维护】 - 仓库继续保留 `m_cards_sprite.svg` 生成链路：可通过 `npm run build:m-card-sprite` 把 `m_cards/` 里的单张 SVG 按 `13x5` 网格拼成整图 SVG，供后续资源实验或对照使用。
+- 2026-03-16 - 【回滚修复】 - PC、mobile 与静态模板的默认整图牌面已整体恢复为 `poker.png`；`m_cards_sprite.svg` 不再作为运行态默认入口，旧存档里的 `modern-sprite` 会继续兼容映射到当前的 `sprite` 主题。
 - 2026-03-16 - 【规划文档】 - 新增 App 化与联机资料包：补齐 `移动 App 产品需求`、`App 与多人在线技术设计`、`移动 / 联机 / 广告路线图`，统一首发范围、免费运营边界、广告位策略以及好友房到匹配的阶段目标。
 - 2026-03-16 - 【Bug修复】 - 修复了 PC 最后反主候选区把“`不反主`”渲染成 `undefined` 的问题：共享声明候选现在统一走跳过按钮 helper，PC 反主区会稳定显示 `不反主`。
 - 2026-03-16 - 【UI增强】 - 补亮等待窗口新增显式 `不亮` 选择；当其他玩家都没亮主、轮到玩家1在 15 秒内补亮时，点击后会立即进入翻底定主，不再被迫等倒计时结束。
@@ -136,4 +172,5 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 - Online API and room state machine draft / 联机服务端接口与房间状态机草案: [mobile-online-api-state-machine.md](docs/mobile-online-api-state-machine.md)
 - AI implementation checklist / AI 实现清单: [ai-checklist.md](docs/ai-checklist.md)
 - JS comment template for AI-generated code / AI 生成代码注释模板: [js-ai-comment-template.md](docs/js-ai-comment-template.md)
+- Mobile static mock design / 手游静态牌桌模板说明: [mobile-ui-static-mock.md](docs/mobile-ui-static-mock.md)
 - Local HTTP preview workflow / 本地 HTTP 预览工作流: [local-preview-workflow.md](docs/local-preview-workflow.md)

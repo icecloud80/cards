@@ -162,6 +162,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-static-template.js"),
   },
   {
+    name: "Mobile static template regression",
+    file: path.join(__dirname, "check-mobile-static-template.js"),
+  },
+  {
     name: "Final-hand flow regression",
     file: path.join(__dirname, "check-final-hand-flow.js"),
   },

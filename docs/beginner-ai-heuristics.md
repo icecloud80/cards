@@ -20,8 +20,7 @@
 - 身份协同只保留非常直白的套路，不引入中级那种局势推断。
 - 牌面资源如何组织只影响视觉表现；无论当前使用经典逐张 SVG、`poker.png` 还是 `m_cards_sprite.svg`，初级 heuristic 都不能因此变化。
 - `m_cards_sprite.svg` 后续即使继续微调 tile 对齐、缩放或留白口径，也只属于渲染资源修复，不能被初级 heuristic 当成任何牌力或局势信号。
-- 即便 `m_cards_sprite.svg` 被重制成严格 `90x120`、无缝拼版的 sprite，初级 heuristic 也不能把这种资源尺寸口径变化当成任何额外信息。
-- 即便 PC / mobile 的运行态整图牌面入口被统一收口到 `m_cards_sprite.svg`，初级 heuristic 也不能把这种配置整理当成任何额外信息。
+- 即便 PC / mobile 的运行态默认整图入口在 `poker.png` 与其他实验资源之间切换，初级 heuristic 也不能把这种配置整理当成任何额外信息。
 - mobile 手牌区的花色标签是否显示张数，同样只属于 UI 密度调整；初级 heuristic 不能把“玩家界面上有没有计数”当成任何额外信息来源。
 - mobile 顶部 `主 / 朋` 状态牌是用 sprite 还是单张 `img`，也只属于表现层实现细节；初级 heuristic 不能从这类渲染差异里获得任何额外信息。
 - 手动托管的 `关闭 / 本局托管 / 跨局托管` 三态只影响“当前是否由 AI 代打”和“是否跨局保留代打”，不能改变初级 heuristic 本身。

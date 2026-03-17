@@ -56,6 +56,16 @@
 
 原因不是这些框架不能做，而是当前项目已经有较成熟的共享前端和测试基础，重写成本和验证周期都更高。
 
+### 3.1.1 当前工程初始化约定
+
+- 首发 App 名称固定为 `找朋友升级`。
+- 首发 App ID 固定为 `com.nolanli.cards`。
+- `Capacitor` 配置文件固定放在仓库根目录，由 CLI 统一读取。
+- `Capacitor` 的 `webDir` 固定为 `dist/app`，由 `npm run build:app-web` 生成。
+- `dist/app/index.html` 首阶段直接由 `index2.html` 复制生成，让原生壳默认进入当前 mobile 运行态。
+- `index1.html / index2.html / index-static.html` 仍随构建一起复制，便于后续原生壳调试、对照与 smoke 验证。
+- Android 首阶段可直接通过 `npx cap sync android` 迭代；iOS 侧除了 `CocoaPods` 外，还需要本机安装完整 Xcode，并把 `xcode-select` 指向 Xcode.app，而不是只停留在 Command Line Tools。
+
 ### 3.2 客户端分层
 
 推荐把客户端拆成下面几层：
@@ -65,7 +75,7 @@
 - 页面布局。
 - 动画与过渡。
 - 牌面渲染。
-- 经典单张 SVG 与整图 SVG sprite 的统一接入；像 `m_cards_sprite.svg` 这类单文件牌面资源应直接复用现有 sprite 裁切逻辑，并作为 mobile 默认新牌面主题，减少 App 打包时的资源拆分成本。
+- 经典单张 SVG 与整图 sprite 的统一接入；当前 App 壳默认整图牌面应继续沿用 `poker.png`，并保留对 `m_cards_sprite.svg` 这类实验资源的接入能力，等重新通过视觉验收后再考虑切换默认入口。
 - 弹层与提示。
 
 #### 交互层
@@ -98,6 +108,7 @@
 - 崩溃监控。
 - 推送。
 - 商店评价。
+- `Capacitor` 插件桥接与原生壳元数据管理。
 
 ## 4. 首发 App 需要新增的原生能力
 

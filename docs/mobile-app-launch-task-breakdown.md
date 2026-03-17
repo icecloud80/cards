@@ -86,6 +86,12 @@
 - 验收：
   - 能在真机安装运行当前项目。
   - 能区分开发 / 测试 / 正式环境。
+- 当前初始化约定补充：
+  - App Name：`找朋友升级`
+  - App ID：`com.nolanli.cards`
+  - `Capacitor webDir`：`dist/app`
+  - 默认 App 入口：`dist/app/index.html -> index2.html`
+  - Android 可先独立推进；iOS 完整同步除 `CocoaPods` 外，还要求本机有完整 Xcode 环境
 
 #### 任务 4：建立正式构建流程
 
@@ -394,6 +400,7 @@
 
 - 范围冻结。
 - App 工程初始化。
+- `Capacitor` 配置落盘，固定 `找朋友升级 / com.nolanli.cards / dist/app`。
 - 存储迁移方案。
 - 首页与关键阶段 UI 稿。
 

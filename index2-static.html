@@ -1,0 +1,2320 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>五人找朋友升级 · Mobile 静态模板</title>
+    <style>
+      :root {
+        --bg-top: #102733;
+        --bg-bottom: #09141b;
+        --felt: #204b5b;
+        --felt-deep: #143543;
+        --gold: #d8ad63;
+        --cream: rgba(248, 244, 236, 0.94);
+        --text: #1a2830;
+        --muted: #66747c;
+        --danger: #c9524b;
+        --ally: #2d8566;
+        --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.32);
+        --shadow-md: 0 14px 28px rgba(0, 0, 0, 0.18);
+        --mobile-viewport-height: 100vh;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        font-family: "SF Pro Display", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(225, 185, 111, 0.12), transparent 28%),
+          linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          repeating-linear-gradient(
+            90deg,
+            transparent 0,
+            transparent 48px,
+            rgba(255, 255, 255, 0.012) 49px
+          );
+      }
+
+      body.mobile-index2 {
+        overflow: hidden;
+      }
+
+      .scene {
+        height: var(--mobile-viewport-height);
+        min-height: var(--mobile-viewport-height);
+        display: grid;
+        place-items: center;
+        padding: max(6px, env(safe-area-inset-top)) 6px max(10px, env(safe-area-inset-bottom));
+      }
+
+      .table {
+        position: relative;
+        width: min(100%, 430px);
+        height: calc(var(--mobile-viewport-height) - max(12px, env(safe-area-inset-top)) - max(14px, env(safe-area-inset-bottom)));
+        padding: 8px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows:
+          auto
+          clamp(82px, 10.6vh, 98px)
+          clamp(82px, 10.6vh, 98px)
+          clamp(88px, 11.3vh, 104px)
+          minmax(220px, 1fr)
+          clamp(42px, 5.2vh, 50px);
+        gap: 6px;
+        overflow: hidden;
+        border-radius: 22px;
+        background:
+          radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.06), transparent 30%),
+          linear-gradient(180deg, var(--felt), var(--felt-deep));
+        box-shadow: var(--shadow-lg);
+      }
+
+      .table::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border-radius: 18px;
+        border: 1px solid rgba(225, 185, 111, 0.22);
+        pointer-events: none;
+      }
+
+      .mobile-topbar {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 14px;
+        border: 1px solid rgba(77, 117, 126, 0.34);
+        background: linear-gradient(180deg, rgba(188, 214, 218, 0.98), rgba(142, 182, 190, 0.97));
+        box-shadow: var(--shadow-md);
+        z-index: 5;
+      }
+
+      .mobile-topbar-main {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        justify-self: start;
+      }
+
+      .mobile-topbar-sub {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        justify-self: center;
+        transform: translateX(-8px);
+      }
+
+      .mobile-topbar-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        justify-self: end;
+      }
+
+      .mobile-stat span {
+        display: block;
+        color: var(--muted);
+        font-size: 9px;
+        font-weight: 700;
+      }
+
+      .mobile-stat strong {
+        display: block;
+        margin-top: 2px;
+        font-size: 18px;
+        line-height: 1;
+        color: #7f5420;
+      }
+
+      .mobile-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .mobile-state.clickable {
+        cursor: pointer;
+      }
+
+      .mobile-state.clickable .mobile-state-card {
+        box-shadow: inset 0 0 0 1px rgba(216, 92, 76, 0.22);
+      }
+
+      .mobile-state-tag {
+        color: #85541d;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .mobile-state-card {
+        width: 22px;
+        height: 32px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+      }
+
+      .mobile-state-card .card-face-sprite,
+      .mobile-state-card img {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+        border-radius: 6px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16) !important;
+      }
+
+      .mobile-state-card.empty {
+        border-radius: 6px;
+        background: rgba(16, 44, 54, 0.08);
+        color: #6b7880;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .mobile-occurrence-badge,
+      .mobile-level-badge {
+        position: absolute;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        color: #fff;
+        font-size: 8px;
+        font-weight: 900;
+        line-height: 1;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+      }
+
+      .mobile-occurrence-badge.show,
+      .mobile-level-badge.show {
+        display: inline-flex;
+      }
+
+      .mobile-occurrence-badge {
+        right: -6px;
+        top: -6px;
+        width: 14px;
+        height: 14px;
+        background: var(--danger);
+      }
+
+      .mobile-level-badge {
+        left: -7px;
+        bottom: -6px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        background: linear-gradient(180deg, #7d8e98, #556870);
+      }
+
+      .mobile-level-badge.rank-5 {
+        background: linear-gradient(180deg, #d7a33e, #9b6712);
+      }
+
+      .mobile-level-badge.rank-face {
+        background: linear-gradient(180deg, #537bb6, #375b8f);
+      }
+
+      .mobile-icon-btn {
+        border: 0;
+        border-radius: 8px;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        background: rgba(16, 44, 54, 0.08);
+        color: var(--text);
+        font: inherit;
+        font-size: 17px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .mobile-icon-btn img {
+        width: 18px;
+        height: 18px;
+        display: block;
+        margin: 0 auto;
+        object-fit: contain;
+      }
+
+      .mobile-icon-btn.active {
+        background: rgba(216, 92, 76, 0.18);
+        box-shadow: inset 0 0 0 1px rgba(216, 92, 76, 0.28);
+      }
+
+      .mobile-icon-btn.persistent {
+        background: rgba(68, 105, 179, 0.2);
+        box-shadow: inset 0 0 0 1px rgba(68, 105, 179, 0.34);
+      }
+
+      .trick-spot {
+        position: relative;
+        min-height: 0;
+        height: auto;
+        width: 100%;
+        padding: 6px 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 244, 214, 0.14);
+        background: rgba(8, 23, 30, 0.32);
+      }
+
+      #trickSpot-4 { grid-column: 1; grid-row: 2; }
+      #trickSpot-3 { grid-column: 2; grid-row: 2; }
+      #trickSpot-5 { grid-column: 1; grid-row: 3; }
+      #trickSpot-2 { grid-column: 2; grid-row: 3; }
+      #trickSpot-1 { grid-column: 1 / -1; grid-row: 4; }
+
+      .trick-spot .label {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 4px;
+        margin-bottom: 3px;
+        color: rgba(255, 247, 230, 0.84);
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .mobile-spot-role {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 5px;
+        border-radius: 999px;
+        background: rgba(225, 185, 111, 0.18);
+        color: #f1c27b;
+        font-size: 8px;
+        font-weight: 800;
+        line-height: 1.4;
+      }
+
+      .mobile-spot-role.friend {
+        background: rgba(47, 143, 106, 0.18);
+        color: #8de0b8;
+      }
+
+      .mobile-spot-role.managed {
+        background: rgba(216, 92, 76, 0.22);
+        color: #ffc8c2;
+      }
+
+      .mobile-winning-badge {
+        position: absolute;
+        right: 8px;
+        top: 8px;
+        min-width: 16px;
+        height: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        background: linear-gradient(180deg, rgba(233, 195, 116, 0.96), rgba(189, 139, 43, 0.96));
+        color: #fff8e8;
+        font-size: 9px;
+        font-weight: 900;
+      }
+
+      .spot-row {
+        display: flex;
+        justify-content: center;
+        align-items: end;
+        min-height: 58px;
+        margin-top: 8px;
+      }
+
+      .played-card {
+        width: 34px;
+        height: 48px;
+        margin-left: -10px;
+      }
+
+      .played-card:first-child {
+        margin-left: 0;
+      }
+
+      .played-card > * {
+        width: 100%;
+        height: 100%;
+        display: block;
+        border-radius: 7px;
+      }
+
+      .hand-panel {
+        grid-column: 1 / -1;
+        grid-row: 5;
+        position: static;
+        min-width: 0;
+        padding: 10px 10px 8px;
+        border-radius: 14px;
+        border: 1px solid rgba(225, 185, 111, 0.18);
+        background: linear-gradient(180deg, rgba(11, 27, 35, 0.12), rgba(8, 21, 28, 0.08));
+      }
+
+      .hand-panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: rgba(248, 240, 220, 0.86);
+      }
+
+      .hand-panel-title {
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .hand-panel-note {
+        font-size: 10px;
+        color: rgba(248, 240, 220, 0.66);
+      }
+
+      .mobile-hand-groups {
+        display: grid;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .mobile-hand-group {
+        min-width: 0;
+      }
+
+      .mobile-hand-group-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        color: rgba(248, 240, 220, 0.86);
+      }
+
+      .mobile-hand-group-head strong {
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .mobile-hand-group-head span {
+        font-size: 10px;
+        color: rgba(248, 240, 220, 0.68);
+      }
+
+      .cards-row {
+        display: flex;
+        align-items: end;
+        min-height: 56px;
+        overflow: hidden;
+      }
+
+      .cards-row .played-card {
+        margin-left: calc(-1px * var(--mobile-card-overlap, 12));
+      }
+
+      .cards-row .played-card:first-child {
+        margin-left: 0;
+      }
+
+      .center-panel {
+        grid-column: 1 / -1;
+        grid-row: 6;
+        display: block;
+        padding: 5px 6px calc(5px + max(4px, env(safe-area-inset-bottom)));
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(243, 247, 250, 0.96), rgba(214, 226, 236, 0.92));
+        box-shadow: var(--shadow-md);
+        z-index: 6;
+      }
+
+      .action-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        margin-top: 0;
+      }
+
+      .action-btn {
+        min-height: 28px;
+        padding: 4px;
+        border: 1px solid rgba(117, 160, 196, 0.24);
+        border-radius: 10px;
+        background: linear-gradient(180deg, rgba(241, 248, 252, 0.98), rgba(194, 215, 232, 0.96));
+        color: #173a4f;
+        font: inherit;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .action-btn.primary {
+        background: linear-gradient(180deg, #8ebde7, #4a7fb5);
+        color: #f7fbff;
+      }
+
+      .mobile-sheet {
+        position: absolute;
+        inset: 0;
+        display: none;
+        place-items: end center;
+        background: rgba(6, 16, 20, 0.36);
+        z-index: 30;
+      }
+
+      .mobile-sheet.show {
+        display: grid;
+      }
+
+      .mobile-sheet-card {
+        width: calc(100% - 16px);
+        margin: 8px;
+        padding: 14px;
+        max-height: min(84vh, 760px);
+        overflow-y: auto;
+        border-radius: 16px;
+        background: linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(240, 229, 203, 0.96));
+        box-shadow: var(--shadow-lg);
+      }
+
+      .mobile-sheet-card.dark {
+        background: linear-gradient(180deg, rgba(22, 38, 48, 0.96), rgba(10, 20, 28, 0.94));
+        color: #f8f0dc;
+      }
+
+      .mobile-sheet-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .mobile-sheet-head-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .mobile-info-version {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(255, 249, 239, 0.92);
+        color: #7e5721;
+        box-shadow: var(--shadow-md);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .mobile-menu-actions,
+      .mobile-info-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .mobile-info-section {
+        margin-top: 8px;
+      }
+
+      .mobile-info-section-title {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 11px;
+        font-weight: 800;
+        color: #7f5420;
+      }
+
+      .mobile-info-card {
+        padding: 8px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.58);
+      }
+
+      .mobile-info-card.role-banker {
+        background: rgba(225, 185, 111, 0.18);
+      }
+
+      .mobile-info-card.role-friend {
+        background: rgba(47, 143, 106, 0.18);
+      }
+
+      .mobile-info-card.current-player {
+        background: linear-gradient(180deg, rgba(208, 233, 244, 0.58), rgba(180, 214, 232, 0.46));
+        box-shadow: inset 0 0 0 1px rgba(76, 130, 166, 0.22);
+      }
+
+      .mobile-info-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+      }
+
+      .mobile-info-name {
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .mobile-info-role {
+        font-size: 9px;
+        font-weight: 800;
+        color: #85541d;
+      }
+
+      .mobile-info-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 4px;
+        margin-top: 5px;
+      }
+
+      .mobile-info-meta div {
+        padding: 4px 3px;
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.5);
+        text-align: center;
+      }
+
+      .mobile-info-meta span {
+        display: block;
+        color: var(--muted);
+        font-size: 8px;
+      }
+
+      .mobile-info-meta strong {
+        display: block;
+        margin-top: 1px;
+        font-size: 11px;
+      }
+
+      .mobile-ai-hands {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .mobile-ai-hand-group {
+        padding-top: 8px;
+        border-top: 1px solid rgba(16, 44, 54, 0.08);
+      }
+
+      .mobile-ai-hand-title {
+        font-size: 11px;
+        font-weight: 800;
+        color: #7e5721;
+      }
+
+      .mobile-ai-hand-cards {
+        display: flex;
+        align-items: flex-end;
+        margin-top: 6px;
+      }
+
+      .mobile-ai-hand-cards .played-card {
+        width: 24px;
+        height: 34px;
+        margin-left: -12px;
+      }
+
+      .mobile-ai-hand-cards .played-card:first-child {
+        margin-left: 0;
+      }
+
+      .mobile-log-list {
+        margin: 0;
+        padding-left: 15px;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.4;
+      }
+
+      .mobile-last-trick-meta,
+      .mobile-bottom-note {
+        margin-top: 6px;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .mobile-last-trick-cards,
+      .mobile-bottom-cards {
+        margin-top: 10px;
+      }
+
+      .mobile-last-trick-entry + .mobile-last-trick-entry {
+        margin-top: 10px;
+      }
+
+      .mobile-last-trick-entry-name {
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .mobile-last-trick-row {
+        display: flex;
+        align-items: flex-end;
+        margin-top: 6px;
+      }
+
+      .mobile-menu-field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .mobile-menu-field span {
+        font-size: 12px;
+        font-weight: 800;
+        color: rgba(22, 33, 41, 0.72);
+      }
+
+      .mobile-hidden-select {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .mobile-segmented-choice {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .mobile-segmented-choice-btn {
+        min-height: 42px;
+        border: 1px solid rgba(120, 74, 24, 0.14);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.72);
+        color: rgba(22, 33, 41, 0.82);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .mobile-segmented-choice-btn.active {
+        border-color: rgba(166, 109, 41, 0.22);
+        background: linear-gradient(180deg, rgba(247, 225, 184, 0.96), rgba(226, 187, 118, 0.94));
+        color: #7a4d16;
+        box-shadow: 0 10px 18px rgba(121, 78, 28, 0.14);
+      }
+
+      .mobile-menu-btn,
+      .mobile-primary-btn,
+      .mobile-secondary-btn {
+        width: 100%;
+        min-height: 42px;
+        border: 0;
+        border-radius: 12px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .mobile-primary-btn {
+        background: linear-gradient(180deg, #f26d67, #ba3934);
+        color: #fff;
+      }
+
+      .mobile-secondary-btn,
+      .mobile-menu-btn {
+        background: rgba(16, 44, 54, 0.08);
+        color: var(--text);
+      }
+
+      .mobile-menu-btn.alert {
+        background: rgba(207, 74, 68, 0.12);
+        color: #9f3c37;
+      }
+
+      .mobile-setup-screen {
+        position: absolute;
+        inset: 8px;
+        display: none;
+        place-items: center;
+        z-index: 20;
+      }
+
+      body[data-mobile-screen="setup"] .mobile-setup-screen {
+        display: grid;
+      }
+
+      body[data-mobile-screen="setup"] .mobile-topbar,
+      body[data-mobile-screen="setup"] .trick-spot,
+      body[data-mobile-screen="setup"] .mobile-broadcast,
+      body[data-mobile-screen="setup"] .hand-panel,
+      body[data-mobile-screen="setup"] .center-panel {
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .mobile-setup-card {
+        width: 100%;
+        padding: 22px 18px 18px;
+        border-radius: 22px;
+        background:
+          radial-gradient(circle at top right, rgba(243, 184, 106, 0.16), transparent 28%),
+          linear-gradient(180deg, rgba(255, 250, 241, 0.98), rgba(240, 229, 203, 0.96));
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+      }
+
+      .mobile-kicker {
+        color: #85541d;
+        font-size: 26px;
+        font-weight: 900;
+        line-height: 1.08;
+      }
+
+      .mobile-setup-lead,
+      .mobile-setup-card p {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .mobile-setup-visual {
+        position: relative;
+        margin-top: 16px;
+        min-height: 200px;
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at 78% 20%, rgba(255, 225, 164, 0.68), transparent 16%),
+          linear-gradient(180deg, #204755, #132d39 62%, #204234 100%);
+        overflow: hidden;
+      }
+
+      .mobile-setup-visual::before {
+        content: "";
+        position: absolute;
+        left: -18px;
+        right: -18px;
+        bottom: 28px;
+        height: 6px;
+        background: rgba(26, 18, 12, 0.88);
+        box-shadow:
+          0 14px 0 rgba(26, 18, 12, 0.68),
+          0 28px 0 rgba(26, 18, 12, 0.48);
+      }
+
+      .mobile-visual-badge {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(8, 18, 24, 0.42);
+        border: 1px solid rgba(255, 225, 164, 0.18);
+        color: #ffe2ab;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+      }
+
+      .mobile-card-fan {
+        position: absolute;
+        left: 12px;
+        top: 48px;
+        width: 132px;
+        height: 120px;
+      }
+
+      .mobile-card-fan-face {
+        position: absolute;
+        width: 72px;
+        height: 96px;
+        border-radius: 10px;
+        box-shadow: 0 12px 20px rgba(0, 0, 0, 0.28);
+        background-image: url("./poker.png");
+        background-repeat: no-repeat;
+        background-size: 1300% 500%;
+      }
+
+      .mobile-card-fan-face:nth-child(1) {
+        left: 0;
+        top: 22px;
+        background-position: 0% 50%;
+        transform: rotate(-14deg);
+      }
+
+      .mobile-card-fan-face:nth-child(2) {
+        left: 28px;
+        top: 0;
+        background-position: 100% 0%;
+        transform: rotate(-2deg);
+      }
+
+      .mobile-card-fan-face:nth-child(3) {
+        left: 60px;
+        top: 20px;
+        background-position: 0% 100%;
+        transform: rotate(13deg);
+      }
+
+      .mobile-tractor,
+      .mobile-train {
+        position: absolute;
+      }
+
+      .mobile-tractor {
+        left: 14px;
+        bottom: 36px;
+        width: 138px;
+        height: 88px;
+      }
+
+      .mobile-tractor-body {
+        position: absolute;
+        left: 26px;
+        bottom: 26px;
+        width: 76px;
+        height: 28px;
+        border-radius: 14px 12px 10px 12px;
+        background: linear-gradient(180deg, #d45944, #8f3024);
+      }
+
+      .mobile-tractor-cabin {
+        position: absolute;
+        left: 64px;
+        bottom: 48px;
+        width: 38px;
+        height: 28px;
+        border-radius: 10px 10px 8px 8px;
+        border: 3px solid #6d2a1f;
+        background: linear-gradient(180deg, #efd7a9, #b28e56);
+      }
+
+      .mobile-tractor-cabin::after {
+        content: "";
+        position: absolute;
+        inset: 4px 5px 5px;
+        border-radius: 5px;
+        background: linear-gradient(180deg, rgba(235, 247, 255, 0.96), rgba(104, 163, 176, 0.55));
+      }
+
+      .mobile-tractor-engine {
+        position: absolute;
+        left: 12px;
+        bottom: 38px;
+        width: 26px;
+        height: 16px;
+        border-radius: 8px 8px 6px 6px;
+        background: linear-gradient(180deg, #e9c16e, #b67930);
+      }
+
+      .mobile-tractor-pipe {
+        position: absolute;
+        left: 20px;
+        bottom: 54px;
+        width: 7px;
+        height: 18px;
+        border-radius: 4px 4px 0 0;
+        background: #3e2b25;
+      }
+
+      .mobile-wheel,
+      .mobile-train-wheel {
+        position: absolute;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 32% 32%, #3c474c 0 14%, #171d20 15% 54%, #a67a37 55% 72%, #261a10 73% 100%);
+      }
+
+      .mobile-wheel.small {
+        left: 18px;
+        bottom: 8px;
+        width: 28px;
+        height: 28px;
+      }
+
+      .mobile-wheel.large {
+        left: 74px;
+        bottom: 0;
+        width: 42px;
+        height: 42px;
+      }
+
+      .mobile-train {
+        right: 8px;
+        bottom: 30px;
+        width: 168px;
+        height: 94px;
+      }
+
+      .mobile-train-front {
+        position: absolute;
+        left: 16px;
+        bottom: 36px;
+        width: 28px;
+        height: 18px;
+        border-radius: 14px 12px 10px 10px;
+        background: linear-gradient(180deg, #c95140, #822f26);
+      }
+
+      .mobile-train-engine {
+        position: absolute;
+        left: 34px;
+        bottom: 28px;
+        width: 76px;
+        height: 30px;
+        border-radius: 18px 12px 10px 16px;
+        background: linear-gradient(180deg, #efbc58, #af6d25);
+      }
+
+      .mobile-train-chimney {
+        position: absolute;
+        left: 54px;
+        bottom: 48px;
+        width: 8px;
+        height: 18px;
+        border-radius: 4px 4px 2px 2px;
+        background: #392720;
+      }
+
+      .mobile-train-cabin {
+        position: absolute;
+        left: 94px;
+        bottom: 34px;
+        width: 42px;
+        height: 38px;
+        border-radius: 12px 12px 8px 8px;
+        background: linear-gradient(180deg, #28596a, #173640);
+      }
+
+      .mobile-train-cabin::after {
+        content: "";
+        position: absolute;
+        inset: 7px 8px auto;
+        height: 12px;
+        border-radius: 5px;
+        background: linear-gradient(180deg, rgba(239, 248, 255, 0.98), rgba(116, 173, 188, 0.55));
+      }
+
+      .mobile-train-cargo {
+        position: absolute;
+        right: 6px;
+        bottom: 30px;
+        width: 42px;
+        height: 24px;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #a44d3e, #5f2923);
+      }
+
+      .mobile-train-wheel {
+        bottom: 4px;
+        width: 24px;
+        height: 24px;
+      }
+
+      .mobile-train-wheel.w1 { left: 30px; }
+      .mobile-train-wheel.w2 { left: 72px; }
+      .mobile-train-wheel.w3 { right: 14px; }
+
+      .mobile-setup-field {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+        color: rgba(22, 33, 41, 0.72);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .mobile-setup-actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .mobile-broadcast {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        top: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(23, 45, 54, 0.96), rgba(10, 24, 31, 0.94));
+        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.24);
+        z-index: 9;
+      }
+
+      .mobile-broadcast-text {
+        color: #f8f0dc;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .mobile-broadcast-close {
+        width: 24px;
+        height: 24px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #f8f0dc;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .card-face-sprite {
+        border-radius: 8px;
+        background-image: url("./poker.png");
+        background-repeat: no-repeat;
+        background-size: 1300% 500%;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
+      }
+    </style>
+  </head>
+  <body class="mobile-index2" data-mobile-screen="play">
+    <div class="scene">
+      <main class="table">
+        <section id="mobileTopbar" class="mobile-topbar">
+          <div class="mobile-topbar-main">
+            <div class="mobile-stat">
+              <span>计秒</span>
+              <strong id="mobileTimer">--</strong>
+            </div>
+            <div class="mobile-stat">
+              <span>总分</span>
+              <strong id="mobileScore">0</strong>
+            </div>
+            <div class="mobile-stat">
+              <span>难度</span>
+              <strong id="mobileDifficulty">初</strong>
+            </div>
+          </div>
+          <div class="mobile-topbar-sub">
+            <div class="mobile-state">
+              <span class="mobile-state-tag">主</span>
+              <div id="mobileTrumpCard" class="mobile-state-card empty">
+                --
+                <span id="mobileTrumpLevel" class="mobile-level-badge"></span>
+              </div>
+            </div>
+            <div id="mobileFriendState" class="mobile-state clickable" tabindex="0" role="button" aria-label="查看叫朋友信息">
+              <span class="mobile-state-tag">朋</span>
+              <div id="mobileFriendCard" class="mobile-state-card empty">
+                --
+                <span id="mobileFriendOccurrence" class="mobile-occurrence-badge"></span>
+              </div>
+            </div>
+          </div>
+          <div class="mobile-topbar-actions">
+            <button id="mobileAutoBtn" class="mobile-icon-btn" type="button" aria-label="托管：关闭" title="托管：关闭">
+              <img src="./icons/icon_robot.png" alt="" />
+            </button>
+            <button id="mobileInfoBtn" class="mobile-icon-btn" type="button" aria-label="查看信息" title="查看信息">
+              <img src="./icons/info-button.svg" alt="" />
+            </button>
+            <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮" title="查看上一轮">
+              <img src="./icons/icon_back.png" alt="" />
+            </button>
+            <button id="newGameBtn" class="mobile-icon-btn" type="button" aria-label="重置本局" title="重置本局">
+              <img src="./icons/icon_new_game.png" alt="" />
+            </button>
+            <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单" title="打开设置菜单">
+              <img src="./icons/icon_menu.png" alt="" />
+            </button>
+          </div>
+        </section>
+
+        <section id="trickSpot-4" class="trick-spot"></section>
+        <section id="trickSpot-3" class="trick-spot"></section>
+        <section id="trickSpot-5" class="trick-spot"></section>
+        <section id="trickSpot-2" class="trick-spot"></section>
+        <section id="trickSpot-1" class="trick-spot"></section>
+
+        <section class="hand-panel">
+          <div class="hand-panel-head">
+            <div class="hand-panel-title">玩家1 当前手牌</div>
+            <div id="mobileHandSummary" class="hand-panel-note"></div>
+          </div>
+          <div id="mobileHandGroups" class="mobile-hand-groups"></div>
+        </section>
+
+        <section class="center-panel">
+          <div id="mobileActionRow" class="action-row"></div>
+        </section>
+
+        <section id="mobileBroadcast" class="mobile-broadcast">
+          <div class="mobile-broadcast-copy">
+            <div id="mobileBroadcastText" class="mobile-broadcast-text">等待开始</div>
+          </div>
+          <button id="mobileBroadcastCloseBtn" class="mobile-broadcast-close" type="button" aria-label="关闭播报">×</button>
+        </section>
+
+        <section id="mobileSetupScreen" class="mobile-setup-screen">
+          <div class="mobile-setup-card">
+            <div class="mobile-kicker">五人找朋友升级</div>
+            <div class="mobile-setup-lead">静态模板页专门用来预览手游牌桌。这里保留和运行态接近的开始页、牌桌和菜单入口，方便快速对照视觉层级。</div>
+            <div class="mobile-setup-visual" aria-hidden="true">
+              <div class="mobile-visual-badge">WELCOME</div>
+              <div class="mobile-card-fan">
+                <span class="mobile-card-fan-face"></span>
+                <span class="mobile-card-fan-face"></span>
+                <span class="mobile-card-fan-face"></span>
+              </div>
+              <div class="mobile-tractor">
+                <div class="mobile-tractor-engine"></div>
+                <div class="mobile-tractor-pipe"></div>
+                <div class="mobile-tractor-body"></div>
+                <div class="mobile-tractor-cabin"></div>
+                <div class="mobile-wheel small"></div>
+                <div class="mobile-wheel large"></div>
+              </div>
+              <div class="mobile-train">
+                <div class="mobile-train-front"></div>
+                <div class="mobile-train-engine"></div>
+                <div class="mobile-train-chimney"></div>
+                <div class="mobile-train-cabin"></div>
+                <div class="mobile-train-cargo"></div>
+                <div class="mobile-train-wheel w1"></div>
+                <div class="mobile-train-wheel w2"></div>
+                <div class="mobile-train-wheel w3"></div>
+              </div>
+            </div>
+            <p>开始游戏会进入固定 mock 局面。继续游戏会直接回到当前这副静态牌桌。</p>
+            <div class="mobile-setup-field">
+              <div class="mobile-field-head">
+                <span>对局节奏</span>
+              </div>
+              <select id="mobileAiPaceSelect" class="mobile-hidden-select" aria-hidden="true" tabindex="-1">
+                <option value="slow">慢</option>
+                <option value="medium">中</option>
+                <option value="fast">快</option>
+                <option value="instant">瞬</option>
+              </select>
+              <div id="mobileAiPaceButtons" class="mobile-segmented-choice" role="group" aria-label="手游静态页开始页对局节奏">
+                <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="slow">慢</button>
+                <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="medium">中</button>
+                <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="fast">快</button>
+                <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="instant">瞬</button>
+              </div>
+            </div>
+            <div class="mobile-setup-actions">
+              <button id="mobileStartBtn" class="mobile-primary-btn" type="button">开始游戏</button>
+              <button id="mobileSetupContinueBtn" class="mobile-secondary-btn" type="button">继续游戏</button>
+              <button id="mobileSetupRulesBtn" class="mobile-secondary-btn" type="button">规则</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="mobileInfoSheet" class="mobile-sheet">
+          <div class="mobile-sheet-card">
+            <div class="mobile-sheet-head">
+              <div class="mobile-sheet-head-main">
+                <strong>信息</strong>
+                <span id="mobileInfoVersion" class="mobile-info-version"></span>
+              </div>
+              <button id="mobileCloseInfoBtn" class="mobile-icon-btn" type="button" aria-label="关闭信息">×</button>
+            </div>
+            <div class="mobile-info-section">
+              <strong class="mobile-info-section-title">内容播报</strong>
+              <ul id="mobileLogList" class="mobile-log-list"></ul>
+            </div>
+            <div class="mobile-info-section">
+              <strong class="mobile-info-section-title">玩家信息</strong>
+              <div id="mobileInfoList" class="mobile-info-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="mobileSettingsSheet" class="mobile-sheet">
+          <div class="mobile-sheet-card">
+            <div class="mobile-sheet-head">
+              <strong>设定菜单</strong>
+              <button id="mobileCloseMenuBtn" class="mobile-icon-btn" type="button" aria-label="关闭设定菜单">×</button>
+            </div>
+            <div class="mobile-menu-actions">
+              <div class="mobile-menu-field">
+                <span>对局节奏</span>
+                <select id="mobileMenuAiPaceSelect" class="mobile-hidden-select" aria-hidden="true" tabindex="-1">
+                  <option value="slow">慢</option>
+                  <option value="medium">中</option>
+                  <option value="fast">快</option>
+                  <option value="instant">瞬</option>
+                </select>
+                <div id="mobileMenuAiPaceButtons" class="mobile-segmented-choice" role="group" aria-label="手游静态页设置页对局节奏">
+                  <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="slow">慢</button>
+                  <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="medium">中</button>
+                  <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="fast">快</button>
+                  <button type="button" class="mobile-segmented-choice-btn" data-ai-pace-value="instant">瞬</button>
+                </div>
+              </div>
+              <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
+              <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：经典整图</button>
+              <button id="mobileMenuBottomBtn" class="mobile-menu-btn alert" type="button">底牌</button>
+              <button id="mobileMenuRulesBtn" class="mobile-menu-btn" type="button">规则帮助</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="mobileLastTrickSheet" class="mobile-sheet">
+          <div class="mobile-sheet-card dark">
+            <div class="mobile-sheet-head">
+              <strong>上一轮回看</strong>
+              <button id="mobileCloseLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="关闭上一轮回看">×</button>
+            </div>
+            <div id="mobileLastTrickMeta" class="mobile-last-trick-meta"></div>
+            <div id="mobileLastTrickCards" class="mobile-last-trick-cards"></div>
+          </div>
+        </section>
+
+        <section id="mobileBottomSheet" class="mobile-sheet">
+          <div class="mobile-sheet-card dark">
+            <div class="mobile-sheet-head">
+              <strong>底牌 7 张</strong>
+              <button id="mobileCloseBottomBtn" class="mobile-icon-btn" type="button" aria-label="关闭底牌">×</button>
+            </div>
+            <div id="mobileBottomNote" class="mobile-bottom-note"></div>
+            <div id="mobileBottomCards" class="mobile-bottom-cards"></div>
+          </div>
+        </section>
+
+        <section id="mobileRulesSheet" class="mobile-sheet">
+          <div class="mobile-sheet-card">
+            <div class="mobile-sheet-head">
+              <strong>规则帮助</strong>
+              <button id="mobileCloseRulesBtn" class="mobile-icon-btn" type="button" aria-label="关闭规则帮助">×</button>
+            </div>
+            <ul id="mobileRulesList" class="mobile-log-list"></ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      /**
+       * 作用：
+       * 提供手游静态模板页使用的固定 mock 数据。
+       *
+       * 为什么这样写：
+       * `index2-static.html` 的目标是脱离共享运行时，直接展示一个可演示的 mobile 牌桌；
+       * 把牌局、手牌、底牌、上一轮和菜单文案集中在一个对象里，后续调页面时只改这一处即可。
+       *
+       * 输入：
+       * @param {void} - 由页面初始化脚本直接读取。
+       *
+       * 输出：
+       * @returns {object} 当前静态模板页的完整展示数据。
+       *
+       * 注意：
+       * - 这里只做视觉 mock，不要接入真实玩法状态机。
+       * - `trickSpots` 必须保留 5 个位置，避免和运行态布局脱钩。
+       */
+      const MOCK_MOBILE_PAGE = {
+        timer: "11",
+        score: "95",
+        difficulty: "中",
+        aiPace: "fast",
+        versionLabel: "静态模板 v1",
+        broadcast: "玩家3 甩出梅花拖拉机，当前请玩家1 跟牌。",
+        cardFaceLabel: "经典整图",
+        autoManageMode: "round",
+        trump: {
+          card: "./cards/2_of_hearts.svg",
+          level: "2",
+          levelTone: "rank-5",
+        },
+        friend: {
+          card: "./cards/ace_of_clubs.svg",
+          occurrence: "2",
+          state: "第二张梅花 A · 未现身",
+        },
+        handSummary: "25 张 · 主牌强势，方块长门",
+        trickSpots: [
+          {
+            seatId: 4,
+            name: "玩家4",
+            role: "",
+            winning: false,
+            cards: ["./cards/9_of_clubs.svg", "./cards/10_of_clubs.svg", "./cards/jack_of_clubs.svg"],
+          },
+          {
+            seatId: 3,
+            name: "玩家3",
+            role: "banker",
+            winning: true,
+            cards: ["./cards/queen_of_clubs.svg", "./cards/king_of_clubs.svg", "./cards/ace_of_clubs.svg"],
+          },
+          {
+            seatId: 5,
+            name: "玩家5",
+            role: "friend",
+            winning: false,
+            cards: ["./cards/4_of_clubs.svg", "./cards/5_of_clubs.svg", "./cards/6_of_clubs.svg"],
+          },
+          {
+            seatId: 2,
+            name: "玩家2",
+            role: "",
+            winning: false,
+            cards: ["./cards/7_of_clubs.svg", "./cards/8_of_clubs.svg", "./cards/9_of_diamonds.svg"],
+          },
+          {
+            seatId: 1,
+            name: "玩家1",
+            role: "managed",
+            winning: false,
+            cards: ["./cards/2_of_hearts.svg", "./cards/2_of_hearts.svg", "./cards/red_joker.svg"],
+          },
+        ],
+        players: [
+          {
+            id: 1,
+            name: "玩家1",
+            roleLabel: "当前玩家",
+            roleClass: "current-player",
+            level: "Lv2",
+            handCount: 25,
+            capturedPoints: 20,
+            handPreview: [
+              {
+                title: "主牌",
+                cards: ["./cards/red_joker.svg", "./cards/2_of_hearts.svg", "./cards/2_of_clubs.svg"],
+              },
+            ],
+          },
+          {
+            id: 2,
+            name: "玩家2",
+            roleLabel: "闲家",
+            roleClass: "",
+            level: "Lv2",
+            handCount: 19,
+            capturedPoints: 5,
+          },
+          {
+            id: 3,
+            name: "玩家3",
+            roleLabel: "打家",
+            roleClass: "role-banker",
+            level: "Lv2",
+            handCount: 18,
+            capturedPoints: 15,
+          },
+          {
+            id: 4,
+            name: "玩家4",
+            roleLabel: "闲家",
+            roleClass: "",
+            level: "Lv2",
+            handCount: 18,
+            capturedPoints: 30,
+          },
+          {
+            id: 5,
+            name: "玩家5",
+            roleLabel: "朋友",
+            roleClass: "role-friend",
+            level: "Lv2",
+            handCount: 18,
+            capturedPoints: 25,
+          },
+        ],
+        logs: [
+          "玩家3 先手出：梅花 Q、K、A。",
+          "玩家5 已站队，当前朋友仍是第二张梅花 A。",
+          "玩家1 手牌里还保留主对与大小王，暂时没有脱主风险。",
+          "本轮闲家总分来到 95，若再收 25 分即可过庄。",
+        ],
+        handGroups: [
+          {
+            label: "主牌",
+            cards: [
+              "./cards/red_joker.svg",
+              "./cards/2_of_hearts.svg",
+              "./cards/2_of_hearts.svg",
+              "./cards/2_of_clubs.svg",
+              "./cards/king_of_hearts.svg",
+              "./cards/jack_of_hearts.svg",
+            ],
+          },
+          {
+            label: "方块",
+            cards: [
+              "./cards/ace_of_diamonds.svg",
+              "./cards/king_of_diamonds.svg",
+              "./cards/10_of_diamonds.svg",
+              "./cards/9_of_diamonds.svg",
+              "./cards/8_of_diamonds.svg",
+              "./cards/7_of_diamonds.svg",
+              "./cards/6_of_diamonds.svg",
+            ],
+          },
+          {
+            label: "梅花",
+            cards: [
+              "./cards/ace_of_clubs.svg",
+              "./cards/jack_of_clubs.svg",
+              "./cards/10_of_clubs.svg",
+              "./cards/8_of_clubs.svg",
+              "./cards/6_of_clubs.svg",
+              "./cards/5_of_clubs.svg",
+            ],
+          },
+          {
+            label: "黑桃",
+            cards: [
+              "./cards/queen_of_spades.svg",
+              "./cards/10_of_spades.svg",
+              "./cards/8_of_spades.svg",
+              "./cards/6_of_spades.svg",
+              "./cards/4_of_spades.svg",
+              "./cards/3_of_spades.svg",
+            ],
+          },
+        ],
+        actions: [
+          { label: "选择" },
+          { label: "提示" },
+          { label: "出牌", primary: true },
+          { label: "不反主" },
+        ],
+        lastTrick: {
+          title: "第 5 轮 · 玩家3 获胜",
+          plays: [
+            { name: "玩家3", cards: ["./cards/queen_of_hearts.svg", "./cards/queen_of_hearts.svg"] },
+            { name: "玩家4", cards: ["./cards/10_of_hearts.svg", "./cards/10_of_hearts.svg"] },
+            { name: "玩家5", cards: ["./cards/9_of_hearts.svg", "./cards/9_of_hearts.svg"] },
+            { name: "玩家2", cards: ["./cards/8_of_hearts.svg", "./cards/8_of_hearts.svg"] },
+            { name: "玩家1", cards: ["./cards/2_of_hearts.svg", "./cards/red_joker.svg"] },
+          ],
+        },
+        bottomNote: "翻底后确定红桃 2 为主，底牌里保留了一张梅花 A 与两张高分牌。",
+        bottomCards: [
+          "./cards/ace_of_clubs.svg",
+          "./cards/king_of_diamonds.svg",
+          "./cards/10_of_hearts.svg",
+          "./cards/10_of_spades.svg",
+          "./cards/5_of_diamonds.svg",
+          "./cards/queen_of_clubs.svg",
+          "./cards/4_of_spades.svg",
+        ],
+        rules: [
+          "首家只能出同一门的合法牌型，不能混合不同花色。",
+          "打家扣底完成后，需要先叫朋友，再进入正式出牌。",
+          "跟牌没有同类型时，只要满足同门和张数要求即可正常出牌。",
+          "若闲家用主牌完成扣底，打家会按牌型降级。",
+          "静态模板页不接真实玩法，只用于对齐局内布局和菜单交互。",
+        ],
+      };
+
+      /**
+       * 作用：
+       * 保存手游静态模板页当前的轻量交互状态。
+       *
+       * 为什么这样写：
+       * 这页需要支持菜单开合、牌面切换、托管按钮高亮和开始页返回，但不应该引入真实存档与共享状态；
+       * 用一份独立状态对象即可把所有静态交互约束在当前文件里。
+       *
+       * 输入：
+       * @param {void} - 由页面脚本直接读写。
+       *
+       * 输出：
+       * @returns {{screen: string, cardFaceKey: string, autoManageMode: string, aiPace: string, hiddenBroadcast: boolean}} 当前静态页展示状态。
+       *
+       * 注意：
+       * - 这里只管理展示层状态，不参与真实出牌计算。
+       * - `screen` 只允许在 `play / setup` 间切换，避免状态漂移。
+       */
+      const STATIC_MOBILE_STATE = {
+        screen: "play",
+        cardFaceKey: "sprite",
+        autoManageMode: MOCK_MOBILE_PAGE.autoManageMode,
+        aiPace: MOCK_MOBILE_PAGE.aiPace,
+        hiddenBroadcast: false,
+      };
+
+      const STATIC_AI_PACE_OPTIONS = ["slow", "medium", "fast", "instant"];
+
+      const STATIC_CARD_FACES = [
+        {
+          key: "sprite",
+          label: "经典整图",
+          dir: "./cards",
+          spriteSheet: {
+            src: "./poker.png",
+            columns: 13,
+            rows: 5,
+          },
+        },
+        { key: "classic", label: "经典牌面", dir: "./cards" },
+      ];
+
+      /**
+       * 作用：
+       * 把 mock 牌资源路径解析成统一的花色与点数字段。
+       *
+       * 为什么这样写：
+       * 静态页默认使用整图 sprite，但 mock 数据继续沿用单张 SVG 路径；
+       * 先做一次路径解析，后续就能统一复用 sprite 定位逻辑和图片回退逻辑。
+       *
+       * 输入：
+       * @param {string} src - mock 数据里的牌资源路径。
+       *
+       * 输出：
+       * @returns {{suit: string, rank: string}|null} 当前牌对应的业务结构；识别失败时返回 `null`。
+       *
+       * 注意：
+       * - 大小王使用 `joker + RJ/BJ` 表示。
+       * - 这里只处理静态模板里出现的牌路径，不处理头像与图标。
+       */
+      function parseStaticCardSource(src) {
+        if (typeof src !== "string") return null;
+        if (src.includes("red_joker")) return { suit: "joker", rank: "RJ" };
+        if (src.includes("black_joker")) return { suit: "joker", rank: "BJ" };
+        const match = src.match(/\/([^/]+)_of_([^/.]+)\.svg$/);
+        if (!match) return null;
+        const rankMap = {
+          ace: "A",
+          jack: "J",
+          queen: "Q",
+          king: "K",
+        };
+        return {
+          suit: match[2],
+          rank: rankMap[match[1]] || match[1],
+        };
+      }
+
+      /**
+       * 作用：
+       * 计算某张牌在整图 sprite 里的背景定位百分比。
+       *
+       * 为什么这样写：
+       * `index2-static.html` 需要和运行态一样默认走 `poker.png`；
+       * 这层本地映射能让静态模板独立工作，不依赖外部共享脚本。
+       *
+       * 输入：
+       * @param {{suit: string, rank: string}|null} card - 已解析出的业务牌对象。
+       * @param {{columns: number, rows: number}} spriteSheet - 当前 sprite 网格定义。
+       *
+       * 输出：
+       * @returns {{xPercent: number, yPercent: number}|null} 当前牌的背景定位；不支持时返回 `null`。
+       *
+       * 注意：
+       * - 普通牌使用 `A,2,3...10,J,Q,K` 的列顺序。
+       * - 大小王固定放在最后一行前两列。
+       */
+      function getStaticSpritePosition(card, spriteSheet) {
+        if (!card || !spriteSheet?.columns || !spriteSheet?.rows) return null;
+        const rankOrder = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+        const suitRow = {
+          hearts: 0,
+          diamonds: 1,
+          spades: 2,
+          clubs: 3,
+        };
+        const jokerColumn = {
+          RJ: 0,
+          BJ: 1,
+        };
+        let column = -1;
+        let row = -1;
+        if (card.suit === "joker") {
+          column = jokerColumn[card.rank] ?? -1;
+          row = spriteSheet.rows - 1;
+        } else {
+          column = rankOrder.indexOf(card.rank);
+          row = suitRow[card.suit] ?? -1;
+        }
+        if (column < 0 || row < 0) return null;
+        return {
+          xPercent: spriteSheet.columns === 1 ? 0 : (column / (spriteSheet.columns - 1)) * 100,
+          yPercent: spriteSheet.rows === 1 ? 0 : (row / (spriteSheet.rows - 1)) * 100,
+        };
+      }
+
+      /**
+       * 作用：
+       * 根据当前选中的牌面主题解析最终图片路径。
+       *
+       * 为什么这样写：
+       * 菜单里的“牌面切换”需要在静态页里真的可用；
+       * 统一从这里替换资源目录后，整页所有卡牌都能跟随一起切换。
+       *
+       * 输入：
+       * @param {string} src - mock 数据中的原始牌路径。
+       *
+       * 输出：
+       * @returns {string} 当前牌面主题下应使用的最终图片路径。
+       *
+       * 注意：
+       * - 只有 `./cards/` 开头的路径会被替换。
+       * - 非牌面资源必须原样返回。
+       */
+      function resolveCardFaceSrc(src) {
+        const face = STATIC_CARD_FACES.find((item) => item.key === STATIC_MOBILE_STATE.cardFaceKey) || STATIC_CARD_FACES[0];
+        return typeof src === "string" && src.startsWith("./cards/") ? src.replace("./cards", face.dir) : src;
+      }
+
+      /**
+       * 作用：
+       * 渲染一张静态模板牌面的 HTML。
+       *
+       * 为什么这样写：
+       * 顶部主牌、朋友牌、中央出牌区、上一轮和底牌都需要复用同一套牌面逻辑；
+       * 封装成一个 helper 后，牌面切换时这些区域会一起刷新。
+       *
+       * 输入：
+       * @param {string} src - 当前牌的资源路径。
+       *
+       * 输出：
+       * @returns {string} 可直接插入 DOM 的牌面 HTML。
+       *
+       * 注意：
+       * - sprite 映射失败时必须回退到单张图片。
+       * - 返回值不包含外层尺寸容器。
+       */
+      function renderStaticCardFace(src) {
+        const face = STATIC_CARD_FACES.find((item) => item.key === STATIC_MOBILE_STATE.cardFaceKey) || STATIC_CARD_FACES[0];
+        if (face.spriteSheet) {
+          const card = parseStaticCardSource(src);
+          const position = getStaticSpritePosition(card, face.spriteSheet);
+          if (position) {
+            return `<span class="card-face-sprite" style="background-image:url('${face.spriteSheet.src}');background-position:${position.xPercent}% ${position.yPercent}%;"></span>`;
+          }
+        }
+        return `<img src="${resolveCardFaceSrc(src)}" alt="" />`;
+      }
+
+      /**
+       * 作用：
+       * 把一组牌资源渲染成统一的牌列 HTML。
+       *
+       * 为什么这样写：
+       * 静态页有多个区域都需要显示牌堆；
+       * 用同一套渲染 helper，可以让不同区域只通过容器类名来控制尺寸与重叠。
+       *
+       * 输入：
+       * @param {string[]} cards - 当前牌列表。
+       * @param {string} className - 外层卡牌容器类名。
+       *
+       * 输出：
+       * @returns {string} 当前牌列的 HTML 字符串。
+       *
+       * 注意：
+       * - 卡牌顺序必须和 mock 数据保持一致。
+       * - 这里只做展示，不绑定点击行为。
+       */
+      function renderCardStack(cards, className) {
+        return cards.map((src) => `<div class="${className}">${renderStaticCardFace(src)}</div>`).join("");
+      }
+
+      /**
+       * 作用：
+       * 生成当前静态页里使用的托管文案。
+       *
+       * 为什么这样写：
+       * 顶部托管图标需要像运行态一样展示三态标题；
+       * 单独封装文案 helper 后，按钮标题和类名同步时不会散落在多处。
+       *
+       * 输入：
+       * @param {string} mode - 当前托管模式键值。
+       *
+       * 输出：
+       * @returns {string} 当前托管模式对应的中文文案。
+       *
+       * 注意：
+       * - 非法值统一回落到 `关闭`。
+       * - 这里只影响静态模板展示，不改真实 AI 行为。
+       */
+      function getStaticAutoManageLabel(mode) {
+        return ({
+          off: "关闭",
+          round: "本局托管",
+          persistent: "跨局托管",
+        })[mode] || "关闭";
+      }
+
+      /**
+       * 作用：
+       * 计算手牌区应该使用的重叠密度。
+       *
+       * 为什么这样写：
+       * 手游静态页要在有限高度里展示一整手牌，张数多时需要更紧凑；
+       * 用基于牌数的轻量规则即可保持页面稳定，又不用接入真实测量逻辑。
+       *
+       * 输入：
+       * @param {number} cardCount - 当前这一组手牌的张数。
+       *
+       * 输出：
+       * @returns {number} 当前组应使用的负间距像素值。
+       *
+       * 注意：
+       * - 这里只做静态模板展示，不追求运行态那样的自适应极限压缩。
+       * - 最小值和最大值都需要限制，避免少牌太散、多牌太挤。
+       */
+      function getMobileStaticOverlap(cardCount) {
+        return Math.max(9, Math.min(16, 9 + Math.max(0, cardCount - 4)));
+      }
+
+      /**
+       * 作用：
+       * 规范化静态页使用的节奏档位键值。
+       *
+       * 为什么这样写：
+       * 开始页和设置菜单都复用了同一套四档按钮组；
+       * 先做一次归一化，能避免按钮 dataset 和隐藏 select 出现非法状态。
+       *
+       * 输入：
+       * @param {string} value - 当前外部传入的节奏键值。
+       *
+       * 输出：
+       * @returns {string} 合法的节奏键值；非法输入回落到 `slow`。
+       *
+       * 注意：
+       * - 档位扩容时要和 DOM 按钮一起改。
+       * - 这里只服务于静态模板。
+       */
+      function normalizeStaticPaceValue(value) {
+        return STATIC_AI_PACE_OPTIONS.includes(value) ? value : "slow";
+      }
+
+      /**
+       * 作用：
+       * 同步一组节奏按钮的选中态。
+       *
+       * 为什么这样写：
+       * 开始页和设置菜单都要展示当前节奏；
+       * 把选中态收敛到一个 helper 后，两处入口可以稳定保持一致。
+       *
+       * 输入：
+       * @param {?HTMLElement} container - 当前按钮组容器。
+       * @param {string} value - 当前节奏档位键值。
+       *
+       * 输出：
+       * @returns {void} 只更新按钮组选中态。
+       *
+       * 注意：
+       * - 容器不存在时必须安全跳过。
+       * - 这里只改视觉与无障碍状态，不回写其他数据。
+       */
+      function syncStaticPaceButtons(container, value) {
+        if (!container) return;
+        const normalizedValue = normalizeStaticPaceValue(value);
+        for (const button of container.querySelectorAll("[data-ai-pace-value]")) {
+          const active = button.dataset.aiPaceValue === normalizedValue;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", active ? "true" : "false");
+        }
+      }
+
+      /**
+       * 作用：
+       * 把当前静态页状态重新渲染到所有容器上。
+       *
+       * 为什么这样写：
+       * 静态模板页的所有交互都只会改动展示状态；
+       * 用单一渲染入口统一刷新后，菜单、手牌、信息面板和顶栏可以始终保持同步。
+       *
+       * 输入：
+       * @param {void} - 直接读取当前静态状态和 mock 数据。
+       *
+       * 输出：
+       * @returns {void} 把 DOM 更新为当前静态页状态。
+       *
+       * 注意：
+       * - 这不是生产逻辑，不要往里塞玩法判断。
+       * - 渲染时要保留所有静态模板入口，避免页面变成一次性截图。
+       */
+      function renderStaticMobilePage() {
+        const totalHandCount = MOCK_MOBILE_PAGE.handGroups.reduce((sum, group) => sum + group.cards.length, 0);
+        document.body.dataset.mobileScreen = STATIC_MOBILE_STATE.screen;
+        document.getElementById("mobileTimer").textContent = MOCK_MOBILE_PAGE.timer;
+        document.getElementById("mobileScore").textContent = MOCK_MOBILE_PAGE.score;
+        document.getElementById("mobileDifficulty").textContent = MOCK_MOBILE_PAGE.difficulty;
+        document.getElementById("mobileHandSummary").textContent = MOCK_MOBILE_PAGE.handSummary;
+        document.getElementById("mobileInfoVersion").textContent = MOCK_MOBILE_PAGE.versionLabel;
+        document.getElementById("mobileBroadcast").style.display = STATIC_MOBILE_STATE.hiddenBroadcast ? "none" : "flex";
+        document.getElementById("mobileBroadcastText").textContent = MOCK_MOBILE_PAGE.broadcast;
+
+        renderTopStatusCards();
+        renderTrickSpots();
+        renderInfoSheet();
+        renderHandGroups(totalHandCount);
+        renderActionButtons();
+        renderLastTrickSheet();
+        renderBottomSheet();
+        renderRulesSheet();
+        renderMenuLabels();
+        syncStaticPaceButtons(document.getElementById("mobileAiPaceButtons"), STATIC_MOBILE_STATE.aiPace);
+        syncStaticPaceButtons(document.getElementById("mobileMenuAiPaceButtons"), STATIC_MOBILE_STATE.aiPace);
+        document.getElementById("mobileAiPaceSelect").value = STATIC_MOBILE_STATE.aiPace;
+        document.getElementById("mobileMenuAiPaceSelect").value = STATIC_MOBILE_STATE.aiPace;
+      }
+
+      /**
+       * 作用：
+       * 渲染顶部主牌、朋友牌和托管按钮状态。
+       *
+       * 为什么这样写：
+       * 顶部状态区是 mobile 页最重要的摘要信息；
+       * 单独抽成 helper 后，切换牌面或托管状态时可以局部集中处理。
+       *
+       * 输入：
+       * @param {void} - 直接读取 mock 数据与当前静态状态。
+       *
+       * 输出：
+       * @returns {void} 更新顶部状态卡和托管按钮。
+       *
+       * 注意：
+       * - 顶部牌面要和当前牌面主题保持一致。
+       * - 托管按钮标题必须带上当前三态文案。
+       */
+      function renderTopStatusCards() {
+        const trumpCard = document.getElementById("mobileTrumpCard");
+        const trumpLevel = document.getElementById("mobileTrumpLevel");
+        const friendCard = document.getElementById("mobileFriendCard");
+        const friendOccurrence = document.getElementById("mobileFriendOccurrence");
+        const autoBtn = document.getElementById("mobileAutoBtn");
+        trumpCard.classList.remove("empty");
+        trumpCard.innerHTML = `${renderStaticCardFace(MOCK_MOBILE_PAGE.trump.card)}<span id="mobileTrumpLevel" class="mobile-level-badge ${MOCK_MOBILE_PAGE.trump.levelTone} show">${MOCK_MOBILE_PAGE.trump.level}</span>`;
+        friendCard.classList.remove("empty");
+        friendCard.innerHTML = `${renderStaticCardFace(MOCK_MOBILE_PAGE.friend.card)}<span id="mobileFriendOccurrence" class="mobile-occurrence-badge show">${MOCK_MOBILE_PAGE.friend.occurrence}</span>`;
+        trumpLevel?.remove();
+        friendOccurrence?.remove();
+        const label = getStaticAutoManageLabel(STATIC_MOBILE_STATE.autoManageMode);
+        autoBtn.classList.toggle("active", STATIC_MOBILE_STATE.autoManageMode !== "off");
+        autoBtn.classList.toggle("persistent", STATIC_MOBILE_STATE.autoManageMode === "persistent");
+        autoBtn.title = `托管：${label}`;
+        autoBtn.setAttribute("aria-label", `托管：${label}`);
+        autoBtn.setAttribute("aria-pressed", STATIC_MOBILE_STATE.autoManageMode === "off" ? "false" : "true");
+      }
+
+      /**
+       * 作用：
+       * 渲染中央五个出牌位。
+       *
+       * 为什么这样写：
+       * 静态页的核心价值是预览牌桌构图；
+       * 集中在这里渲染 5 个位置，可以保证布局和角色短签始终按同一套结构输出。
+       *
+       * 输入：
+       * @param {void} - 直接读取当前 mock 出牌位数据。
+       *
+       * 输出：
+       * @returns {void} 填充 5 个中央出牌区。
+       *
+       * 注意：
+       * - 必须保留 5 个位置，即使个别位置当前没有牌。
+       * - 自己的位置在托管态下要补 `托管` 短签。
+       */
+      function renderTrickSpots() {
+        for (const spot of MOCK_MOBILE_PAGE.trickSpots) {
+          const target = document.getElementById(`trickSpot-${spot.seatId}`);
+          if (!target) continue;
+          const roleMarkup = spot.role === "banker"
+            ? '<span class="mobile-spot-role">打家</span>'
+            : spot.role === "friend"
+              ? '<span class="mobile-spot-role friend">朋友</span>'
+              : spot.role === "managed"
+                ? '<span class="mobile-spot-role managed">托管</span>'
+                : "";
+          target.innerHTML = `
+            <div class="label">
+              <span>${spot.name}</span>
+              ${roleMarkup}
+            </div>
+            <div class="spot-row">${renderCardStack(spot.cards, "played-card")}</div>
+            ${spot.winning ? '<span class="mobile-winning-badge">大</span>' : ""}
+          `;
+        }
+      }
+
+      /**
+       * 作用：
+       * 渲染信息面板里的玩家与播报内容。
+       *
+       * 为什么这样写：
+       * 菜单和顶部按钮都需要打开同一份静态信息面板；
+       * 统一在这里输出后，后面若补充玩家 mock 也不会散落在多处模板里。
+       *
+       * 输入：
+       * @param {void} - 直接读取玩家和播报 mock 数据。
+       *
+       * 输出：
+       * @returns {void} 更新信息面板 DOM。
+       *
+       * 注意：
+       * - 玩家1 需要显式标成当前玩家。
+       * - 这里只展示手牌预览，不暴露完整 AI 手牌。
+       */
+      function renderInfoSheet() {
+        document.getElementById("mobileLogList").innerHTML = MOCK_MOBILE_PAGE.logs.map((item) => `<li>${item}</li>`).join("");
+        document.getElementById("mobileInfoList").innerHTML = MOCK_MOBILE_PAGE.players.map((player) => `
+          <div class="mobile-info-card ${player.roleClass || ""}">
+            <div class="mobile-info-head">
+              <div class="mobile-info-name">${player.name}</div>
+              <div class="mobile-info-role">${player.roleLabel}</div>
+            </div>
+            <div class="mobile-info-meta">
+              <div><span>等级</span><strong>${player.level}</strong></div>
+              <div><span>手牌</span><strong>${player.handCount}</strong></div>
+              <div><span>得分</span><strong>${player.capturedPoints}</strong></div>
+            </div>
+            ${Array.isArray(player.handPreview)
+              ? `<div class="mobile-ai-hands">${player.handPreview.map((group) => `
+                <div class="mobile-ai-hand-group">
+                  <div class="mobile-ai-hand-title">${group.title}</div>
+                  <div class="mobile-ai-hand-cards">${renderCardStack(group.cards, "played-card")}</div>
+                </div>
+              `).join("")}</div>`
+              : ""}
+          </div>
+        `).join("");
+      }
+
+      /**
+       * 作用：
+       * 渲染底部手牌分组。
+       *
+       * 为什么这样写：
+       * 这页的主要用途之一是直接看 mobile 手牌密度是否舒服；
+       * 分组渲染可以同时展示花色标题和每组不同的重叠密度。
+       *
+       * 输入：
+       * @param {number} totalHandCount - 当前整手牌总张数。
+       *
+       * 输出：
+       * @returns {void} 更新手牌区 DOM。
+       *
+       * 注意：
+       * - 每组都用自己组内牌数计算重叠量，避免短组被压得过紧。
+       * - 文本统计需要和 mock 实际总张数一致。
+       */
+      function renderHandGroups(totalHandCount) {
+        document.getElementById("mobileHandSummary").textContent = `${MOCK_MOBILE_PAGE.handSummary} · ${totalHandCount} 张`;
+        document.getElementById("mobileHandGroups").innerHTML = MOCK_MOBILE_PAGE.handGroups.map((group) => `
+          <div class="mobile-hand-group">
+            <div class="mobile-hand-group-head">
+              <strong>${group.label}</strong>
+              <span>${group.cards.length} 张</span>
+            </div>
+            <div class="cards-row" style="--mobile-card-overlap:${getMobileStaticOverlap(group.cards.length)};">
+              ${renderCardStack(group.cards, "played-card")}
+            </div>
+          </div>
+        `).join("");
+      }
+
+      /**
+       * 作用：
+       * 渲染底部操作按钮区。
+       *
+       * 为什么这样写：
+       * 静态页需要保留运行态同类型的局内按钮排布，便于直接看按钮密度和文案长度；
+       * 按 mock 数据输出即可，不必接入真实点击逻辑。
+       *
+       * 输入：
+       * @param {void} - 直接读取当前 mock 按钮列表。
+       *
+       * 输出：
+       * @returns {void} 更新底部按钮区 DOM。
+       *
+       * 注意：
+       * - 这里只做视觉锚点，按钮默认不承载玩法动作。
+       * - 主按钮需保持高亮样式。
+       */
+      function renderActionButtons() {
+        document.getElementById("mobileActionRow").innerHTML = MOCK_MOBILE_PAGE.actions.map((action) => `
+          <button class="action-btn${action.primary ? " primary" : ""}" type="button">${action.label}</button>
+        `).join("");
+      }
+
+      /**
+       * 作用：
+       * 渲染上一轮回看浮层内容。
+       *
+       * 为什么这样写：
+       * “上一轮”是这次静态页明确需要保留的演示入口；
+       * 提前把回看内容填好后，打开菜单或顶栏按钮都能直接看到固定样例。
+       *
+       * 输入：
+       * @param {void} - 直接读取上一轮 mock 数据。
+       *
+       * 输出：
+       * @returns {void} 更新上一轮面板 DOM。
+       *
+       * 注意：
+       * - 这里只展示牌面，不做胜负计算。
+       * - 顺序必须和上一轮出牌顺序保持一致。
+       */
+      function renderLastTrickSheet() {
+        document.getElementById("mobileLastTrickMeta").textContent = MOCK_MOBILE_PAGE.lastTrick.title;
+        document.getElementById("mobileLastTrickCards").innerHTML = MOCK_MOBILE_PAGE.lastTrick.plays.map((play) => `
+          <div class="mobile-last-trick-entry">
+            <div class="mobile-last-trick-entry-name">${play.name}</div>
+            <div class="mobile-last-trick-row">${renderCardStack(play.cards, "played-card")}</div>
+          </div>
+        `).join("");
+      }
+
+      /**
+       * 作用：
+       * 渲染底牌面板内容。
+       *
+       * 为什么这样写：
+       * 菜单里保留了 `底牌` 入口；
+       * 把底牌和说明文案固定下来后，页面就能完整演示一次翻底后的信息层。
+       *
+       * 输入：
+       * @param {void} - 直接读取底牌 mock 数据。
+       *
+       * 输出：
+       * @returns {void} 更新底牌面板 DOM。
+       *
+       * 注意：
+       * - 静态页只负责展示，不接入翻底计时或关闭倒计时。
+       * - 底牌数量固定为 7 张，方便和规则说明对齐。
+       */
+      function renderBottomSheet() {
+        document.getElementById("mobileBottomNote").textContent = MOCK_MOBILE_PAGE.bottomNote;
+        document.getElementById("mobileBottomCards").innerHTML = `<div class="cards-row" style="--mobile-card-overlap:12;">${renderCardStack(MOCK_MOBILE_PAGE.bottomCards, "played-card")}</div>`;
+      }
+
+      /**
+       * 作用：
+       * 渲染规则帮助内容。
+       *
+       * 为什么这样写：
+       * 菜单里需要有一个真正可展开的 `规则帮助` 入口；
+       * 静态页只保留最关键的几条规则即可，足够支撑视觉与阅读验证。
+       *
+       * 输入：
+       * @param {void} - 直接读取规则文案列表。
+       *
+       * 输出：
+       * @returns {void} 更新规则浮层 DOM。
+       *
+       * 注意：
+       * - 这里只展示精简规则，不替代正式规则文档。
+       * - 如果规则文案改动，记得同步更新相关文档。
+       */
+      function renderRulesSheet() {
+        document.getElementById("mobileRulesList").innerHTML = MOCK_MOBILE_PAGE.rules.map((item) => `<li>${item}</li>`).join("");
+      }
+
+      /**
+       * 作用：
+       * 更新设置菜单里的动态文案。
+       *
+       * 为什么这样写：
+       * 设置菜单里的牌面按钮需要随着当前牌面主题实时变化；
+       * 集中从这里更新后，牌面切换不会漏改某个入口。
+       *
+       * 输入：
+       * @param {void} - 直接读取当前静态状态。
+       *
+       * 输出：
+       * @returns {void} 更新菜单文案。
+       *
+       * 注意：
+       * - 文案要和当前主题真实一致，不能写死。
+       * - 后续如增加更多菜单按钮，也应继续放在这里统一更新。
+       */
+      function renderMenuLabels() {
+        const cardFace = STATIC_CARD_FACES.find((item) => item.key === STATIC_MOBILE_STATE.cardFaceKey) || STATIC_CARD_FACES[0];
+        document.getElementById("mobileMenuCardFaceBtn").textContent = `牌面：${cardFace.label}`;
+      }
+
+      /**
+       * 作用：
+       * 关闭所有底部浮层。
+       *
+       * 为什么这样写：
+       * 菜单、信息、上一轮、底牌和规则都是同层覆盖面板；
+       * 每次打开新面板前先统一关闭，能避免多个 overlay 叠在一起。
+       *
+       * 输入：
+       * @param {void} - 直接读取固定面板 ID 列表。
+       *
+       * 输出：
+       * @returns {void} 只更新浮层显隐状态。
+       *
+       * 注意：
+       * - 如果后续新增面板，记得补到这个列表里。
+       * - 这里只负责静态页内的显隐，不处理焦点管理。
+       */
+      function closeAllSheets() {
+        [
+          "mobileInfoSheet",
+          "mobileSettingsSheet",
+          "mobileLastTrickSheet",
+          "mobileBottomSheet",
+          "mobileRulesSheet",
+        ].forEach((id) => document.getElementById(id)?.classList.remove("show"));
+      }
+
+      /**
+       * 作用：
+       * 按当前设置切换页面显示模式。
+       *
+       * 为什么这样写：
+       * 设置菜单里的“返回首页”和开始页里的“开始 / 继续”都只是展示层切换；
+       * 用一个统一入口控制 `play / setup`，可避免不同按钮把页面切到不一致状态。
+       *
+       * 输入：
+       * @param {"play"|"setup"} screen - 目标页面模式。
+       *
+       * 输出：
+       * @returns {void} 更新页面模式并触发重渲染。
+       *
+       * 注意：
+       * - 这里只接受 `play / setup` 两个值。
+       * - 切回开始页时要顺手关掉所有浮层。
+       */
+      function setStaticScreen(screen) {
+        STATIC_MOBILE_STATE.screen = screen === "setup" ? "setup" : "play";
+        closeAllSheets();
+        renderStaticMobilePage();
+      }
+
+      /**
+       * 作用：
+       * 绑定静态模板页需要的轻交互。
+       *
+       * 为什么这样写：
+       * 这页要支持菜单展开、开始页返回、牌面切换和节奏同步；
+       * 把所有事件集中注册后，页面脚本会更容易维护和排查。
+       *
+       * 输入：
+       * @param {void} - 直接读取页面上的固定 DOM 节点。
+       *
+       * 输出：
+       * @returns {void} 完成事件绑定。
+       *
+       * 注意：
+       * - 这里只绑定一次，不能在每次重渲染后重复挂监听。
+       * - 交互只允许修改静态状态，不要触碰真实运行时代码。
+       */
+      function bindStaticMobileInteractions() {
+        document.getElementById("mobileMenuBtn").addEventListener("click", () => {
+          closeAllSheets();
+          document.getElementById("mobileSettingsSheet").classList.add("show");
+        });
+        document.getElementById("mobileInfoBtn").addEventListener("click", () => {
+          closeAllSheets();
+          document.getElementById("mobileInfoSheet").classList.add("show");
+        });
+        document.getElementById("mobileLastTrickBtn").addEventListener("click", () => {
+          closeAllSheets();
+          document.getElementById("mobileLastTrickSheet").classList.add("show");
+        });
+        document.getElementById("mobileMenuBottomBtn").addEventListener("click", () => {
+          closeAllSheets();
+          document.getElementById("mobileBottomSheet").classList.add("show");
+        });
+        document.getElementById("mobileMenuRulesBtn").addEventListener("click", () => {
+          closeAllSheets();
+          document.getElementById("mobileRulesSheet").classList.add("show");
+        });
+        document.getElementById("mobileSetupRulesBtn").addEventListener("click", () => {
+          closeAllSheets();
+          document.getElementById("mobileRulesSheet").classList.add("show");
+        });
+        document.getElementById("mobileMenuHomeBtn").addEventListener("click", () => setStaticScreen("setup"));
+        document.getElementById("mobileStartBtn").addEventListener("click", () => setStaticScreen("play"));
+        document.getElementById("mobileSetupContinueBtn").addEventListener("click", () => setStaticScreen("play"));
+        document.getElementById("newGameBtn").addEventListener("click", () => {
+          STATIC_MOBILE_STATE.hiddenBroadcast = false;
+          STATIC_MOBILE_STATE.autoManageMode = "round";
+          renderStaticMobilePage();
+        });
+        document.getElementById("mobileBroadcastCloseBtn").addEventListener("click", () => {
+          STATIC_MOBILE_STATE.hiddenBroadcast = true;
+          renderStaticMobilePage();
+        });
+        document.getElementById("mobileMenuCardFaceBtn").addEventListener("click", () => {
+          const currentIndex = STATIC_CARD_FACES.findIndex((item) => item.key === STATIC_MOBILE_STATE.cardFaceKey);
+          const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % STATIC_CARD_FACES.length : 0;
+          STATIC_MOBILE_STATE.cardFaceKey = STATIC_CARD_FACES[nextIndex].key;
+          renderStaticMobilePage();
+        });
+        document.getElementById("mobileAutoBtn").addEventListener("click", () => {
+          STATIC_MOBILE_STATE.autoManageMode = ({
+            off: "round",
+            round: "persistent",
+            persistent: "off",
+          })[STATIC_MOBILE_STATE.autoManageMode] || "off";
+          renderStaticMobilePage();
+        });
+        document.getElementById("mobileFriendState").addEventListener("click", () => {
+          closeAllSheets();
+          document.getElementById("mobileInfoSheet").classList.add("show");
+        });
+        document.getElementById("mobileFriendState").addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          closeAllSheets();
+          document.getElementById("mobileInfoSheet").classList.add("show");
+        });
+        [
+          "mobileCloseInfoBtn",
+          "mobileCloseMenuBtn",
+          "mobileCloseLastTrickBtn",
+          "mobileCloseBottomBtn",
+          "mobileCloseRulesBtn",
+        ].forEach((id) => {
+          document.getElementById(id).addEventListener("click", closeAllSheets);
+        });
+        [
+          "mobileInfoSheet",
+          "mobileSettingsSheet",
+          "mobileLastTrickSheet",
+          "mobileBottomSheet",
+          "mobileRulesSheet",
+        ].forEach((id) => {
+          document.getElementById(id).addEventListener("click", (event) => {
+            if (event.target === event.currentTarget) {
+              closeAllSheets();
+            }
+          });
+        });
+        [
+          document.getElementById("mobileAiPaceButtons"),
+          document.getElementById("mobileMenuAiPaceButtons"),
+        ].forEach((container) => {
+          container.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-ai-pace-value]");
+            if (!button) return;
+            STATIC_MOBILE_STATE.aiPace = normalizeStaticPaceValue(button.dataset.aiPaceValue);
+            renderStaticMobilePage();
+          });
+        });
+      }
+
+      bindStaticMobileInteractions();
+      renderStaticMobilePage();
+    </script>
+  </body>
+</html>

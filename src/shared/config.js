@@ -160,7 +160,7 @@ const MAX_BURY_POINT_TOTAL = 25;
  * 规范化牌面配置键值，并兼容历史存档里的旧 key。
  *
  * 为什么这样写：
- * 这次把运行态的整图牌面统一收口成单一的 `sprite` 入口后，
+ * 运行态虽然已经恢复回 `poker.png`，但本地存档里仍可能残留旧的 `modern-sprite`；
  * 已保存在本地的 `modern-sprite` 不能直接失效，否则 PC / mobile 已有存档会突然回退到默认牌面。
  * 统一在共享层做 alias 归一化后，运行态配置、按钮切换和本地存档都能继续走同一套读取逻辑。
  *
@@ -312,7 +312,7 @@ function getAiPaceDelay(key, pace = state?.aiPace) {
  * 读取当前牌面配置里声明的整图牌面信息。
  *
  * 为什么这样写：
- * 现在 PC 和 mobile 都支持传统的“单张 SVG 牌面”，也支持统一的 `m_cards_sprite.svg` 整图 sprite；
+ * 现在 PC 和 mobile 都支持传统的“单张 SVG 牌面”，也支持 `poker.png` 这类整图 sprite；
  * 把读取逻辑统一收口后，渲染层只需要判断是否拿到 sprite 配置，
  * 就能在不改玩法层的前提下切换不同牌面来源。
  *

@@ -35,6 +35,7 @@
 - 首页：`/`
 - PC 运行态：`/index1.html`
 - Mobile 运行态：`/index2.html`
+- Mobile 静态对齐页：`/index2-static.html`
 - PC 静态对齐页：`/index-static.html`
 
 ## 5. 设计约束
@@ -47,9 +48,11 @@
 ## 6. 后续使用建议
 
 - 后续所有 UI 调整默认都先起本地 HTTP 服务，再从浏览器打开对应页面验证。
+- 如果只是做手游牌桌视觉评审、截图或菜单交互确认，可优先打开 `index2-static.html`；它不依赖真实对局流程，适合快速检查固定样例。
 - 如果要做真实页面自动化验证，继续复用 `npm run test:ui-smoke`，不要再额外造一套只针对 `file://` 的流程。
 - UI smoke 应优先操作页面上真实可见的入口；像 PC 开始界面的 `瞬` 档节奏按钮这类可见控件，需要优先于隐藏的同步 `select`，避免测试能改状态但用户实际看不到入口。
 - 如果后面要接入 Python 自动脚本，优先复用 `scripts/local_preview_server.py`，不要绕回临时命令。
+- App 壳首阶段继续复用这套静态资源根目录；`npm run build:app-web` 会在 `dist/app` 下复制当前运行所需资源，并把 `index2.html` 额外落成 App 默认入口 `index.html`。
 
 ## 7. 临时产物与仓库清理约定
 

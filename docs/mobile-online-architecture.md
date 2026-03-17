@@ -9,6 +9,11 @@
 
 配套产品目标见 [mobile-app-product-requirements.md](mobile-app-product-requirements.md)。
 
+补充阅读：
+
+- 首发任务拆解见 [mobile-app-launch-task-breakdown.md](mobile-app-launch-task-breakdown.md)。
+- 联机接口与状态机草案见 [mobile-online-api-state-machine.md](mobile-online-api-state-machine.md)。
+
 ## 1. 设计原则
 
 - 优先复用当前共享规则、AI 与状态机，不重写玩法核心。

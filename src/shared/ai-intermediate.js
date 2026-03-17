@@ -213,6 +213,42 @@ function scoreIntermediateFriendTempoLead(playerId, combo) {
 
 /**
  * 作用：
+ * 按当前墩的真实出牌顺序，返回某位玩家后面仍未行动的玩家列表。
+ *
+ * 为什么这样写：
+ * 中级的递牌/接手判断发生在跟牌过程中，而此时 `state.leaderId` 仍可能保留上一墩赢家。
+ * 如果继续复用依赖 `leaderId` 的通用 helper，就会把“打家还在后位”误判成“后面没人了”，
+ * 进而漏掉真正该上手的递门窗口。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备行动或刚完成行动的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<number>} 当前这一墩里位于其后、且尚未出牌的玩家 ID 列表。
+ *
+ * 注意：
+ * - 这里只根据 `currentTrick[0]` 的首家和当前已出牌玩家集合计算，不依赖 `state.leaderId`。
+ * - 若当前并不处于进行中的牌墩，则返回空数组。
+ */
+function getIntermediatePendingPlayersInCurrentTrick(playerId) {
+  if (!state.leadSpec || !Array.isArray(state.currentTrick) || state.currentTrick.length === 0) return [];
+  const trickLeaderId = state.currentTrick[0]?.playerId;
+  if (!trickLeaderId) return [];
+
+  const alreadyPlayed = new Set(state.currentTrick.map((play) => play.playerId));
+  const pending = [];
+  let nextPlayerId = getNextPlayerId(playerId);
+  while (nextPlayerId !== trickLeaderId && pending.length < PLAYER_ORDER.length) {
+    if (!alreadyPlayed.has(nextPlayerId)) {
+      pending.push(nextPlayerId);
+    }
+    nextPlayerId = getNextPlayerId(nextPlayerId);
+  }
+  return pending;
+}
+
+/**
+ * 作用：
  * 为中级 AI 评估一手首发是否符合“级牌扣底路线”的资源管理方向。
  *
  * 为什么这样写：
@@ -298,7 +334,8 @@ function scoreIntermediateHandoffReceive(playerId, combo, currentWinningPlay, be
   if (!leaderPlay?.cards?.length || leaderPlay.playerId === playerId) return 0;
   if (!areAiSameSide(playerId, leaderPlay.playerId)) return 0;
 
-  const pendingEnemies = getPendingPlayersAfter(playerId).filter((otherId) => !areAiSameSide(playerId, otherId));
+  const pendingEnemies = getIntermediatePendingPlayersInCurrentTrick(playerId)
+    .filter((otherId) => !areAiSameSide(playerId, otherId));
   if (pendingEnemies.length === 0) return 0;
 
   const leadCard = leaderPlay.cards[0];
@@ -421,7 +458,8 @@ function chooseIntermediateHandoffReceive(playerId, candidates, currentWinningPl
   const leadSuit = effectiveSuit(leadCard);
   if (leadSuit === "trump") return [];
 
-  const pendingEnemies = getPendingPlayersAfter(playerId).filter((otherId) => !areAiSameSide(playerId, otherId));
+  const pendingEnemies = getIntermediatePendingPlayersInCurrentTrick(playerId)
+    .filter((otherId) => !areAiSameSide(playerId, otherId));
   if (pendingEnemies.length === 0) return [];
 
   const leaderLookedLikeHandoff = scoreValue(leadCard) === 0 && getPatternUnitPower(leadCard, leadSuit) <= 9;
@@ -450,6 +488,169 @@ function chooseIntermediateHandoffReceive(playerId, candidates, currentWinningPl
   const suitedBeaters = beatingSingles.filter((combo) => effectiveSuit(combo[0]) === leadSuit);
   if (suitedBeaters.length === 0) return [];
   return suitedBeaters.sort((left, right) =>
+    getPatternUnitPower(right[0], leadSuit) - getPatternUnitPower(left[0], leadSuit)
+  )[0];
+}
+
+/**
+ * 作用：
+ * 识别“朋友未站队时，前位闲家在副牌门上递高张”的接手窗口强度。
+ *
+ * 为什么这样写：
+ * 这类局面不是传统的“同伴递牌”，而是前位闲家为了不给打家后位送手，
+ * 或者为了把局面重新交给中位判断，主动打出一张看似高、但并不稳控的副牌。
+ * 如果此时打家还在后位、公开高张已经出现，而我手里又有该门真正的控张，
+ * 继续把这手牌当成“暂定闲家互相别抢”会错过关键上手窗口。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次领先出牌。
+ *
+ * 输出：
+ * @returns {number} 返回递门接手信号强度；`0` 表示当前不应把这手当成递门窗口。
+ *
+ * 注意：
+ * - 这里只处理 `single` 跟牌，且只看未站队阶段。
+ * - 必须要求打家仍在后位，避免把普通前位试探误判成“应该中位接手”。
+ */
+function getIntermediateInvitationTakeoverSignal(playerId, currentWinningPlay) {
+  if (!currentWinningPlay || !Array.isArray(currentWinningPlay.cards) || currentWinningPlay.cards.length !== 1) return 0;
+  if (!state.friendTarget || isFriendTeamResolved()) return 0;
+  if (!state.leadSpec || state.leadSpec.type !== "single" || state.currentTrick.length === 0) return 0;
+
+  const leaderPlay = state.currentTrick[0];
+  if (!leaderPlay?.cards?.length || leaderPlay.playerId !== currentWinningPlay.playerId) return 0;
+  if (playerId === currentWinningPlay.playerId || currentWinningPlay.playerId === state.bankerId) return 0;
+  if (!isAiTentativeDefender(currentWinningPlay.playerId)) return 0;
+
+  const leadCard = currentWinningPlay.cards[0];
+  const leadSuit = effectiveSuit(leadCard);
+  if (leadSuit === "trump") return 0;
+
+  const pendingPlayers = getIntermediatePendingPlayersInCurrentTrick(playerId);
+  if (!pendingPlayers.includes(state.bankerId)) return 0;
+
+  const leadPower = getPatternUnitPower(leadCard, leadSuit);
+  const publicHigherCount = (Array.isArray(state.playHistory) ? state.playHistory : []).filter((card) =>
+    effectiveSuit(card) === leadSuit && getPatternUnitPower(card, leadSuit) > leadPower
+  ).length;
+  const bankerShownHigherCount = getIntermediatePlayedSuitCards(state.bankerId, leadSuit).filter((card) =>
+    getPatternUnitPower(card, leadSuit) > leadPower
+  ).length;
+
+  let signal = 0;
+  if (["10", "J", "Q", "K"].includes(leadCard.rank)) signal += 1;
+  if (scoreValue(leadCard) > 0) signal += 1;
+  if (publicHigherCount > 0) signal += Math.min(2, publicHigherCount);
+  if (bankerShownHigherCount > 0) signal += 2;
+  signal += 2;
+  return signal >= 4 ? signal : 0;
+}
+
+/**
+ * 作用：
+ * 判断某个跟牌候选是否属于“未站队递门窗口里的主动接手牌”。
+ *
+ * 为什么这样写：
+ * 评分、rollout 风险门禁和直接选择器都需要复用同一套判定条件，
+ * 单独抽成 helper 后，才能确保“能接手的牌”和“该放行的牌”口径一致。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<object>} combo - 当前待判断的跟牌候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次领先出牌。
+ * @param {boolean} beats - 当前候选是否能压过现有最大。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示这手牌属于应主动接手的递门窗口。
+ *
+ * 注意：
+ * - 当前只允许同门单张接手，不扩展到将吃、对子或更大结构。
+ * - 这样可以把修正范围锁在用户指出的“中位副牌 A / K 抢回主动”问题上。
+ */
+function isIntermediateInvitationTakeoverCandidate(playerId, combo, currentWinningPlay, beats) {
+  if (!beats || !Array.isArray(combo) || combo.length !== 1 || !currentWinningPlay?.cards?.length) return false;
+  const signal = getIntermediateInvitationTakeoverSignal(playerId, currentWinningPlay);
+  if (signal <= 0) return false;
+  const leadSuit = effectiveSuit(currentWinningPlay.cards[0]);
+  return effectiveSuit(combo[0]) === leadSuit;
+}
+
+/**
+ * 作用：
+ * 为“未站队递门窗口里主动接手”的跟牌候选追加收益。
+ *
+ * 为什么这样写：
+ * 用户指出的真实样本里，中位手里的 `A` 本该把前位的 `Q` 当成递门而不是高张控牌。
+ * 这里显式奖励这种接手，让中级在“打家还在后位、公开高张已出现”的局面里，
+ * 更愿意用同门真正控张把这一手抢下来。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的跟牌候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次领先出牌。
+ * @param {boolean} beats - 当前候选是否能压过现有最大。
+ *
+ * 输出：
+ * @returns {number} 返回递门接手收益分；越高表示越值得主动上手。
+ *
+ * 注意：
+ * - 这里只奖励同门单张接手，不鼓励在这类窗口里随便烧主。
+ * - 若自己没有这门更大的真控张，这里会直接返回 `0`。
+ */
+function scoreIntermediateInvitationTakeover(playerId, combo, currentWinningPlay, beats) {
+  if (!isIntermediateInvitationTakeoverCandidate(playerId, combo, currentWinningPlay, beats)) return 0;
+  const player = getPlayer(playerId);
+  if (!player || !currentWinningPlay?.cards?.length) return 0;
+
+  const leadSuit = effectiveSuit(currentWinningPlay.cards[0]);
+  const signal = getIntermediateInvitationTakeoverSignal(playerId, currentWinningPlay);
+  const beatingSuitCards = player.hand.filter((card) =>
+    effectiveSuit(card) === leadSuit && compareSingle(card, currentWinningPlay.cards[0], leadSuit) > 0
+  );
+  if (beatingSuitCards.length === 0) return 0;
+
+  const highestBeater = highestCard(beatingSuitCards);
+  let score = 64 + signal * 18;
+  if (highestBeater?.id === combo[0].id) score += 28;
+  if (combo[0].rank === "A") score += 12;
+  return score;
+}
+
+/**
+ * 作用：
+ * 在明确的“未站队递门窗口”里，直接为中级挑出应该上手的同门控张。
+ *
+ * 为什么这样写：
+ * 纯评分在这类窗口里容易继续被“暂定闲家别互抢”的旧门禁拉住。
+ * 这里把最明确的窗口前置成直接选择器，确保看到“前位递 `Q`、打家还在后位、
+ * 我手里有同门 `A / K`”时，中级会果断接手。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<Array<object>>} candidates - 当前所有合法跟牌候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次领先出牌。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中明确接手窗口则返回推荐跟牌，否则返回空数组。
+ *
+ * 注意：
+ * - 当前只处理同门单张接手，不改动将吃或结构跟牌。
+ * - 直接选择器只在信号足够明确时触发，避免把普通前位试探全都理解成递门。
+ */
+function chooseIntermediateInvitationTakeover(playerId, candidates, currentWinningPlay) {
+  if (!currentWinningPlay || !Array.isArray(candidates) || candidates.length === 0) return [];
+  if (getIntermediateInvitationTakeoverSignal(playerId, currentWinningPlay) <= 0) return [];
+
+  const leadSuit = effectiveSuit(currentWinningPlay.cards[0]);
+  const beatingSingles = candidates.filter((combo) =>
+    combo.length === 1
+      && effectiveSuit(combo[0]) === leadSuit
+      && wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay)
+  );
+  if (beatingSingles.length === 0) return [];
+
+  return beatingSingles.sort((left, right) =>
     getPatternUnitPower(right[0], leadSuit) - getPatternUnitPower(left[0], leadSuit)
   )[0];
 }
@@ -959,6 +1160,7 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
   const voidOnLeadSuit = !!state.leadSpec && leadSuitCards.length === 0;
   const trumpEscape = voidOnLeadSuit && comboSuit === "trump";
   const beats = !!currentWinningPlay && wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay);
+  const invitationTakeover = isIntermediateInvitationTakeoverCandidate(playerId, combo, currentWinningPlay, beats);
   const comboPoints = getComboPointValue(combo);
   const tablePoints = getCurrentTrickPointValue();
   const powerMargin = beats && currentPattern ? compareSameTypePlay(pattern, currentPattern, state.leadSpec.suit) : 0;
@@ -989,7 +1191,7 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
 
   if (!isFriendTeamResolved() && currentWinningPlay) {
     const defensiveCooperation = isAiTentativeDefender(playerId) && isAiTentativeDefender(currentWinningPlay.playerId);
-    if (defensiveCooperation) {
+    if (defensiveCooperation && !invitationTakeover) {
       if (beats) {
         score -= 90;
       } else {
@@ -1047,6 +1249,7 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
   }
 
   score += scoreRememberedStructurePromotion(playerId, combo) * 0.85;
+  score += scoreIntermediateInvitationTakeover(playerId, combo, currentWinningPlay, beats);
   score += scoreIntermediateHandoffReceive(playerId, combo, currentWinningPlay, beats);
 
   return score;
@@ -1080,6 +1283,7 @@ function getIntermediateRolloutExtensionSignals(playerId, simState, mode = "lead
 
   if (mode === "follow" && currentWinningPlay) {
     const beatsCurrent = wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay);
+    const invitationTakeover = isIntermediateInvitationTakeoverCandidate(playerId, combo, currentWinningPlay, beatsCurrent);
     if (!beatsCurrent) {
       return {
         shouldExtend: false,
@@ -1089,6 +1293,12 @@ function getIntermediateRolloutExtensionSignals(playerId, simState, mode = "lead
     if (!isFriendTeamResolved()
       && isAiTentativeDefender(playerId)
       && isAiTentativeDefender(currentWinningPlay.playerId)) {
+      if (invitationTakeover) {
+        return {
+          shouldExtend: false,
+          flags: ["unresolved_invitation_takeover"],
+        };
+      }
       return {
         shouldExtend: false,
         flags: ["tentative_defender_hold"],
@@ -1278,7 +1488,8 @@ function getIntermediateRolloutSummary(playerId, combo, baselineEvaluation, fall
     && !isFriendTeamResolved()
     && isAiTentativeDefender(playerId)
     && isAiTentativeDefender(currentWinningPlay.playerId)
-    && wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay);
+    && wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay)
+    && !isIntermediateInvitationTakeoverCandidate(playerId, combo, currentWinningPlay, true);
   if (!rollout.completed) {
     return {
       score: 0,
@@ -1761,6 +1972,8 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
     && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
   }
+  const invitationTakeoverChoice = chooseIntermediateInvitationTakeover(playerId, candidates, currentWinningPlay);
+  if (invitationTakeoverChoice.length > 0) return invitationTakeoverChoice;
   const highPairPreserveDiscard = chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay);
   if (highPairPreserveDiscard.length > 0) return highPairPreserveDiscard;
   const handoffReceiveChoice = chooseIntermediateHandoffReceive(playerId, candidates, currentWinningPlay);

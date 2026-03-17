@@ -272,11 +272,11 @@ function getBottomRevealVisibleCount() {
  * 读取当前 sprite 牌面在不同平台下应使用的可视缩放参数。
  *
  * 为什么这样写：
- * `m_cards_sprite.svg` 的牌面主体比 `poker.png` 更铺满整张卡；
+ * `m_cards_sprite.svg` 的牌面主体比旧的 `poker.png` 更铺满整张卡；
  * 在 mobile 的手牌区、朋友牌和亮主候选里，如果继续按 100% 填满容器，
  * 会显得牌面过大、边缘过紧，容易出现“像被切坏”的观感。
- * 把这套缩放参数集中成 helper 后，就能只对 mobile 新牌整图做局部收口，
- * 同时不影响 PC 和 `poker.png` 的现有显示口径。
+ * 把这套缩放参数集中成 helper 后，就能只对 mobile 的统一整图牌面做局部收口，
+ * 同时不影响 PC 和 `classic` 单张牌面的现有显示口径。
  *
  * 输入：
  * @param {{src?: string}|null} spriteSheet - 当前正在使用的 sprite 配置。
@@ -309,7 +309,7 @@ function getCardSpriteDisplayMetrics(spriteSheet) {
  * 为当前牌对象创建具体的牌面内容节点。
  *
  * 为什么这样写：
- * 现在 PC 既可能使用逐张 SVG，也可能切到 `poker.png` 这种整图 sprite；
+ * 现在 PC / mobile 都既可能使用逐张 SVG，也可能切到统一的 `m_cards_sprite.svg` 整图 sprite；
  * 把两种渲染分支都收口成同一个 helper 后，
  * 手牌、出牌区、底牌和朋友预览就能共用同一套牌面装载逻辑。
  *
@@ -382,8 +382,8 @@ function buildDisplayCardNode(card, className) {
  * 为当前牌面主题创建一张只读的牌背内容节点。
  *
  * 为什么这样写：
- * 用户要求翻底定主阶段的未翻开底牌固定走 `poker.png` 里的统一牌背，
- * 不能因为当前牌面主题切回 `modern / classic` 就退回几何牌背；
+ * 用户希望翻底定主阶段的未翻开底牌优先复用当前整图牌面里的统一牌背，
+ * 不能因为当前牌面主题切回 `classic` 就退回几何牌背；
  * 同时保留最终回退逻辑，避免未来彻底移除 sprite 资源时直接缺图。
  *
  * 输入：

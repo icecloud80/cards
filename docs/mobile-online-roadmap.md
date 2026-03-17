@@ -8,6 +8,8 @@
 
 - 产品需求见 [mobile-app-product-requirements.md](mobile-app-product-requirements.md)。
 - 技术设计见 [mobile-online-architecture.md](mobile-online-architecture.md)。
+- 首发任务拆解见 [mobile-app-launch-task-breakdown.md](mobile-app-launch-task-breakdown.md)。
+- 联机接口与状态机草案见 [mobile-online-api-state-machine.md](mobile-online-api-state-machine.md)。
 
 ## 1. 路线图总原则
 

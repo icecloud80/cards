@@ -70,6 +70,9 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 
 ## Recent Updates
 
+- 2026-03-16 - 【规划文档】 - 新增 `联机服务端接口与房间状态机草案`，补齐好友房 / 匹配阶段的 HTTP 接口、WebSocket 命令、房间层与对局层状态机、托管与重连流程以及回放事件模型。
+- 2026-03-16 - 【规划文档】 - 新增 `App 首发版本任务拆解清单`，把 `v1.0` 单机 App 首发按产品、客户端、原生能力、广告、QA、发布与上线后监控拆成可排期、可验收的执行项。
+- 2026-03-16 - 【Bug修复】 - 修复了共享跟牌短路把“保大对”放得过早的问题：当 AI 已经缺首门、闲家当前正在拿分，但自己仍握有不拆高对的安全主牌可毙时，不会再被“先贴小牌保高对”直接拦回去；初级与中级现在都会继续评估这些安全毙牌。
 - 2026-03-16 - 【UI增强】 - 手游开始页与设置页里的 `对局节奏` 标题已移除“与 PC 一致”文案；mobile 继续保留和 PC 一样的四档按钮组，但不再额外占用窄屏说明位。
 - 2026-03-16 - 【UI增强】 - 手游设置菜单已移除重复的 `重置本局` 按钮；局内重开当前局统一只保留顶部 `icon_new_game.png` 图标入口，顶部 `重置游戏 / 返回首页` 入口继续保留原位。
 - 2026-03-16 - 【AI改进】 - 初级 AI 现在会在闲家侧的公开安全窗口里，优先把手里的副牌 `A` 或以 `A` 为顶张的大结构牌先打出来保控制，再为后续把小牌递给同伴留门；不再一拿到牌权就机械先递小牌。
@@ -91,6 +94,8 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 - 2026-03-16 - 【UI增强】 - PC 的“找朋友”面板已统一改成“叫朋友”：`用推荐` 按钮新增 30 秒倒计时，首次确认后可在读秒内点击顶部朋友牌再编辑一次；用掉这次机会后，首轮首手会恢复普通 15 秒出牌倒计时。
 - 2026-03-16 - 【资源增强】 - 新增 `m_cards_sprite.svg` 生成链路：可通过 `npm run build:m-card-sprite` 把 `m_cards/` 里的单张 SVG 按 `poker.png` 同款 `13x5` 网格拼成一张整图 SVG；mobile 默认牌面已切到这套 `新牌整图`，PC 也保留该选项，同时移除了旧的逐张 `m_cards` 牌面模式。
 - 2026-03-16 - 【Bug修复】 - 修复了 mobile `新牌整图` 里少数牌面没有完全对齐卡格的问题：`m_cards_sprite.svg` 生成时不再给 `hearts-3/4/5` 与大小王这类窄画布 tile 额外留边，手游小卡位里的 sprite 现在会统一贴满并与其它牌对齐。
+- 2026-03-16 - 【资源修复】 - `m_cards_sprite.svg` 已重制为严格 `90x120` 的无缝牌格输出：每张牌都固定落在 `90` 的整倍数横坐标与 `120` 的整倍数纵坐标上，外层 tile 统一裁成 `90x120`，相邻牌之间不再保留额外 gutter。
+- 2026-03-16 - 【UI统一】 - PC 与 mobile 的运行态整图牌面现已统一收口到 `m_cards_sprite.svg`：桌面端默认牌面不再落回旧的 `poker.png`，移动端与静态模板也只保留同一套 sprite 入口；旧存档里的 `modern-sprite` 会自动兼容映射到新的统一入口。
 - 2026-03-16 - 【规划文档】 - 新增 App 化与联机资料包：补齐 `移动 App 产品需求`、`App 与多人在线技术设计`、`移动 / 联机 / 广告路线图`，统一首发范围、免费运营边界、广告位策略以及好友房到匹配的阶段目标。
 - 2026-03-16 - 【Bug修复】 - 修复了 PC 最后反主候选区把“`不反主`”渲染成 `undefined` 的问题：共享声明候选现在统一走跳过按钮 helper，PC 反主区会稳定显示 `不反主`。
 - 2026-03-16 - 【UI增强】 - 补亮等待窗口新增显式 `不亮` 选择；当其他玩家都没亮主、轮到玩家1在 15 秒内补亮时，点击后会立即进入翻底定主，不再被迫等倒计时结束。
@@ -127,6 +132,8 @@ The same hook now also runs a real browser UI smoke regression when staged app-l
 - Mobile App product requirements / 移动 App 产品需求: [mobile-app-product-requirements.md](docs/mobile-app-product-requirements.md)
 - Mobile and online architecture / App 与多人在线技术设计: [mobile-online-architecture.md](docs/mobile-online-architecture.md)
 - Mobile, online and ads roadmap / 移动 / 联机 / 广告路线图: [mobile-online-roadmap.md](docs/mobile-online-roadmap.md)
+- App launch task breakdown / App 首发版本任务拆解清单: [mobile-app-launch-task-breakdown.md](docs/mobile-app-launch-task-breakdown.md)
+- Online API and room state machine draft / 联机服务端接口与房间状态机草案: [mobile-online-api-state-machine.md](docs/mobile-online-api-state-machine.md)
 - AI implementation checklist / AI 实现清单: [ai-checklist.md](docs/ai-checklist.md)
 - JS comment template for AI-generated code / AI 生成代码注释模板: [js-ai-comment-template.md](docs/js-ai-comment-template.md)
 - Local HTTP preview workflow / 本地 HTTP 预览工作流: [local-preview-workflow.md](docs/local-preview-workflow.md)

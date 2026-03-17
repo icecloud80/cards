@@ -51,6 +51,10 @@
 
 ## 最近 Bug Fix
 
+- 修复了一个会让 `保大对先贴牌` 过早吞掉安全毙牌的共享跟牌短路：
+  当 AI 已经缺首门、当前又是闲家正在拿分的单张窗口时，旧逻辑只要看到“某些可毙单张会拆高对”，就会直接退回贴小牌；
+  现在只有在“所有可毙单张都会拆掉受保护高对”时才保留这条短路，若仍存在不拆高对的安全主牌，beginner 与 intermediate 都会继续评估这些毙牌。
+- 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - `级牌扣底` 路线现在已经从“beginner 专属 heuristic”扩成 `beginner + intermediate` 共用能力：
   `beginner` 继续保留轻量画像、吊主和延迟站队；
   `intermediate` 则新增了 `grade_bottom` objective，并把“保王 / 保级牌结构 / 特殊级升权”正式接进评分器与 rollout 扩展。
@@ -60,8 +64,11 @@
 - 当前实现会先优先注入与首家牌型完全匹配的结构候选，再按组合规模动态放宽枚举预算；对应回归见 [tests/unit/check-ai-follow-candidate-limit.js](../tests/unit/check-ai-follow-candidate-limit.js)。
 - `递牌` 现在有了正式实现口径：
   `beginner` 会在公开绝门已经明确、且自己没有明显主控手时，把小牌递给同伴接手；
-  `intermediate` 则额外支持“公开高张已经被敌方花掉后的软递牌”与“接同伴递牌时用更大的主/王稳接”。
+  `intermediate` 则额外支持“公开高张已经被敌方花掉后的软递牌”“接同伴递牌时用更大的主/王稳接”，以及“朋友未站队时，中位把前位闲家递出的高副牌当成接手窗口、主动用同门控张抢回牌权”。
 - 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- 修复了一个中级 AI 在未站队阶段的接手误判：
+  当上一手闲家前位打出 `10 / J / Q / K` 这类公开上已经不再稳控的副牌、且打家仍在后位时，旧实现会把中位继续压回 `tentative_defender_hold`，导致本该用同门 `A / K` 抢回主动的窗口被错过。
+- 当前实现已补上“未站队递门接手”识别，并改成按当前墩真实顺位判断后位是否还有打家；对应回归已补到 [tests/unit/check-ai-intermediate-foundation.js](../tests/unit/check-ai-intermediate-foundation.js)。
 - `beginner` 的闲家首发又补了一条更靠前的“先出大牌保控制” heuristic：
   当同伴已知、这门还没人公开绝、自己手里又有 `A` 且后面还能留小牌时，当前实现会先把这门 `A` 或以 `A` 为顶张的大结构牌兑现，再把后续小牌留给下一拍递同伴，而不是一上来就机械先递小牌。
 - 对应回归同样补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
@@ -79,6 +86,8 @@
 - 当前实现已改成：缺门贴副时不再奖励“别门同型”，并显式优先保留副牌对子、连对等后续资源；对应回归同样写入 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - 牌面资源层新增了 `m_cards_sprite.svg`：把 `m_cards/` 的单张 SVG 按 `poker.png` 同款 `13x5` 网格生成成整图 SVG；mobile 默认牌面现已切到这套 `新牌整图`，PC 保留该选项，旧的逐张 `m_cards` 模式已移除。这次只改渲染资源，不改变 AI 的规则边界、难度差异和评分逻辑。
 - `m_cards_sprite.svg` 现已修正少数窄画布牌面的 tile 留边：`hearts-3/4/5` 与大小王在整图里会直接贴满统一卡格，避免手游小牌位上出现“单张更瘦、更偏”的错位观感；这仍然只是渲染资源修复，不改变 AI 输入与 heuristic。
+- `m_cards_sprite.svg` 现已进一步收口成严格 `90x120` 的无缝 tile：外层牌格固定按 `90x120` 输出、坐标只落在整倍数网格上；这仍然只是渲染资源修复，不改变 AI 输入、评分或 heuristic。
+- PC 与 mobile 的运行态整图牌面现已统一收口到 `m_cards_sprite.svg`，旧的 `modern-sprite` 只保留兼容映射；这仍然只是渲染资源与配置收口，不改变 AI 输入、评分或 heuristic。
 - 手游手牌区的花色标签现已去掉张数计数，只保留花色文字；这属于移动端信息密度调整，不改变 AI 的难度档位、信息边界或任何 heuristic。
 - 手游顶部 `主 / 朋` 状态牌现已统一复用当前牌面主题，并给小卡位单独使用铺满式 sprite；这仍属于 UI 渲染修复，不改变 AI 读取的信息边界与任何 heuristic。
 - PC 与 mobile 顶栏现已补回 `重置本局` 图标入口，并明确限定为“保级重洗当前局”；这次变更只影响共享状态机与 UI 入口，不改变任何 AI 评估和 heuristic。
@@ -118,6 +127,8 @@
 - `不透视甩牌`：甩牌风险已经改成公开信息评估，不再直接读对手暗手，见 [src/shared/ai-candidates.js](../src/shared/ai-candidates.js) 与 [tests/unit/check-ai-intermediate-foundation.js](../tests/unit/check-ai-intermediate-foundation.js)。
 - `递牌` 已有初级 / 中级分层：
   初级只用公开绝门做保守递牌；中级则会在公开高张耗尽、敌方仍保有小牌的情况下，把这门视作更值得尝试的递牌门，并在接牌时考虑直接用更大的主或王稳接。
+- 新补了一条未站队阶段的接手修正：
+  如果前位闲家递出的是公开上已经不再稳控的高副牌、打家仍在后位，而中位自己握有同门真正控张，中级会优先把这一手抢下来，不再被 `tentative_defender_hold` 误压回去。
 - `高张定门再递牌` 也开始进中级统一评分：
   当朋友已站队、公开信息显示这门全桌都还在跟、自己又同时握有这门 `A` 和后续小牌时，中级会把这手 `A` 视作“高张信号 + 递牌铺垫”的正向候选，而不是一律把它和控制过热混为一谈。
 

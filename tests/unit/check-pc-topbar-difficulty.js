@@ -251,7 +251,9 @@ function main() {
   const indexHtml = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
   assert.match(indexHtml, /<span class="topbar-summary-label">难度<\/span>/, "PC 顶栏左侧统计应补入“难度”标题");
   assert.match(indexHtml, /id="topbarDifficulty"/, "PC 顶栏应提供独立的难度值节点");
-  assert.match(indexHtml, /\.topbar-trump-card\s*\{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;/, "PC 顶栏主牌小卡位应提供独立样式，避免真实牌面挤坏布局");
+  assert.match(indexHtml, /\.topbar-friend-card \.friend-card::after\s*\{\s*display:\s*none;\s*\}/, "PC 顶部朋友牌应去掉全局橘色强调描边，只保留纯牌面");
+  assert.match(indexHtml, /\.topbar-trump-badge\s*\{[\s\S]*width:\s*40px;[\s\S]*height:\s*58px;[\s\S]*background:\s*transparent;[\s\S]*border:\s*0;/, "PC 顶栏主牌卡位应改成和朋友牌一致的尺寸，并去掉外层卡框");
+  assert.match(indexHtml, /\.topbar-trump-card\s*\{[\s\S]*width:\s*40px;[\s\S]*height:\s*58px;[\s\S]*border:\s*0;/, "PC 顶栏主牌小卡位应和朋友牌保持同尺寸牌面");
 
   const context = loadPcTopbarContext();
   context.setupGame();

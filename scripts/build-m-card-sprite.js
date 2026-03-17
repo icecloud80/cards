@@ -8,6 +8,9 @@ const SPRITE_COLUMNS = 13;
 const SPRITE_ROWS = 5;
 const CELL_WIDTH = 90;
 const CELL_HEIGHT = 120;
+const SPRITE_WIDTH = SPRITE_COLUMNS * CELL_WIDTH;
+const SPRITE_HEIGHT = SPRITE_ROWS * CELL_HEIGHT;
+const TILE_VIEW_BOX = `0 0 ${CELL_WIDTH} ${CELL_HEIGHT}`;
 const SQUARE_CARD_SOURCE_VIEWBOX = "0 0 512 512";
 const SQUARE_CARD_CROP_VIEWBOX = "64 0 384 512";
 const CARD_RANK_ORDER = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -229,12 +232,42 @@ function buildSpriteTiles() {
 
 /**
  * 作用：
+ * 给多行 SVG 片段统一补上缩进，方便生成后的 sprite 保持可读。
+ *
+ * 为什么这样写：
+ * 这次整图会在每个外层 `90x120` 牌格里再套一层真正承载原始牌面的内部 SVG；
+ * 如果不把内层标记统一缩进，生成文件虽然能用，但后续人工排查具体牌格时会很难看清层级关系。
+ *
+ * 输入：
+ * @param {string} markup - 需要缩进的多行 SVG 标记。
+ * @param {string} indent - 要补到每一行前面的缩进前缀。
+ *
+ * 输出：
+ * @returns {string} 已补好缩进的多行标记。
+ *
+ * 注意：
+ * - 这里只做纯文本缩进，不改变任何 SVG 语义。
+ * - 空字符串会原样返回，避免意外插入多余空白行。
+ */
+function indentMarkup(markup, indent) {
+  if (!markup) {
+    return markup;
+  }
+  return markup
+    .split("\n")
+    .map((line) => `${indent}${line}`)
+    .join("\n");
+}
+
+/**
+ * 作用：
  * 把一张 tile 数据渲染成整图 SVG 里的具体子节点。
  *
  * 为什么这样写：
  * 每张牌都需要落在自己的网格坐标上，同时保持原始 SVG 内容完整；
- * 使用嵌套 `<svg>` 能让每个牌面保留自己的视窗，再统一被拉伸进 sprite 的固定格子里。
- * 这里显式改成铺满卡格，而不是继续使用 `meet` 留边，
+ * 这里把每张牌拆成“外层固定 `90x120` 牌格 + 内层铺满牌格的原始 SVG”两层结构，
+ * 这样生成结果会显式保证每张牌在 sprite 里的占位都是严格 `90x120`，相邻牌格之间也不会夹杂额外 gutter。
+ * 继续保留 `preserveAspectRatio="none"`，
  * 是为了把 `579x800` 这类略窄于标准牌比例的素材也压到和其它牌同一口径，
  * 避免 mobile 小卡位里出现“少数牌比其它牌更瘦、更偏”的对齐漂移。
  *
@@ -245,11 +278,21 @@ function buildSpriteTiles() {
  * @returns {string} 可直接拼进整图文件的 SVG 片段。
  *
  * 注意：
- * - 这里显式使用 `preserveAspectRatio="none"`，优先保证所有 tile 都贴满统一卡格，不再为窄画布保留额外边距。
+ * - 外层牌格固定使用 `viewBox="0 0 90 120"` 与 `overflow="hidden"`，显式卡死每张牌的占位边界。
+ * - 内层 SVG 继续使用原始素材视窗，并用 `preserveAspectRatio="none"` 把内容铺满外层牌格。
  * - `data-card-id` 会保留下来，方便测试直接定位关键牌位。
  */
 function buildTileMarkup(tile) {
-  return `  <svg x="${tile.column * CELL_WIDTH}" y="${tile.row * CELL_HEIGHT}" width="${CELL_WIDTH}" height="${CELL_HEIGHT}" viewBox="${tile.viewBox}" preserveAspectRatio="none" data-card-id="${tile.cardId}" aria-label="${tile.ariaLabel}">\n${tile.innerMarkup}\n  </svg>`;
+  const tileX = tile.column * CELL_WIDTH;
+  const tileY = tile.row * CELL_HEIGHT;
+  const indentedInnerMarkup = indentMarkup(tile.innerMarkup, "      ");
+  return [
+    `  <svg x="${tileX}" y="${tileY}" width="${CELL_WIDTH}" height="${CELL_HEIGHT}" viewBox="${TILE_VIEW_BOX}" preserveAspectRatio="none" overflow="hidden" data-card-id="${tile.cardId}" aria-label="${tile.ariaLabel}">`,
+    `    <svg x="0" y="0" width="${CELL_WIDTH}" height="${CELL_HEIGHT}" viewBox="${tile.viewBox}" preserveAspectRatio="none" aria-hidden="true">`,
+    indentedInnerMarkup,
+    "    </svg>",
+    "  </svg>",
+  ].join("\n");
 }
 
 /**
@@ -273,9 +316,9 @@ function buildTileMarkup(tile) {
 function buildSpriteMarkup(tiles) {
   const tileMarkup = tiles.map(buildTileMarkup).join("\n");
   return [
-    '<svg xmlns="http://www.w3.org/2000/svg" width="1170" height="600" viewBox="0 0 1170 600">',
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${SPRITE_WIDTH}" height="${SPRITE_HEIGHT}" viewBox="0 0 ${SPRITE_WIDTH} ${SPRITE_HEIGHT}">`,
     "  <title>m_cards SVG sprite sheet</title>",
-    "  <desc>Generated from the m_cards single-card SVG assets using the same 13x5 layout as poker.png.</desc>",
+    "  <desc>Generated from the m_cards single-card SVG assets using the same 13x5 layout as poker.png, with strict 90x120 gapless tile slots.</desc>",
     tileMarkup,
     "</svg>",
     "",

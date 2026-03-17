@@ -1618,6 +1618,15 @@ function chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPla
   );
   if (riskyPairBeats.length === 0) return [];
 
+  // 只有当“所有能压住的候选都会拆掉受保护的大对”时，才提前退回贴牌。
+  // 若仍存在不拆高对的安全毙牌，就让后续正常评分继续比较“该不该毙、该用多大的主”。
+  const safeBeatingChoices = candidates.filter((combo) =>
+    combo.length === 1
+    && wouldAiComboBeatCurrent(playerId, combo, winningPlay)
+    && scoreOffSuitHighPairPreservation(playerId, combo, player.hand, winningPlay) === 0
+  );
+  if (safeBeatingChoices.length > 0) return [];
+
   const allyWinning = areAiSameSide(playerId, winningPlay.playerId);
   const safePointDiscards = candidates.filter((combo) =>
     combo.length === 1

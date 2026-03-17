@@ -68,8 +68,12 @@ const FALLBACK_CARD_ASSET_DIR = window.CARD_ASSET_DIR || "./cards";
 const CARD_FACE_OPTIONS = Array.isArray(window.CARD_FACE_OPTIONS) && window.CARD_FACE_OPTIONS.length > 0
   ? window.CARD_FACE_OPTIONS
   : [{ key: "default", label: "默认", dir: FALLBACK_CARD_ASSET_DIR }];
-const DEFAULT_CARD_FACE_KEY = CARD_FACE_OPTIONS.some((option) => option.key === window.DEFAULT_CARD_FACE_KEY)
-  ? window.DEFAULT_CARD_FACE_KEY
+const CARD_FACE_KEY_ALIASES = {
+  "modern-sprite": "sprite",
+};
+const NORMALIZED_WINDOW_DEFAULT_CARD_FACE_KEY = CARD_FACE_KEY_ALIASES[window.DEFAULT_CARD_FACE_KEY] || window.DEFAULT_CARD_FACE_KEY;
+const DEFAULT_CARD_FACE_KEY = CARD_FACE_OPTIONS.some((option) => option.key === NORMALIZED_WINDOW_DEFAULT_CARD_FACE_KEY)
+  ? NORMALIZED_WINDOW_DEFAULT_CARD_FACE_KEY
   : CARD_FACE_OPTIONS[0].key;
 const AI_DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "初级" },
@@ -151,16 +155,44 @@ const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const MAX_BURY_POINT_TOTAL = 25;
 
+/**
+ * 作用：
+ * 规范化牌面配置键值，并兼容历史存档里的旧 key。
+ *
+ * 为什么这样写：
+ * 这次把运行态的整图牌面统一收口成单一的 `sprite` 入口后，
+ * 已保存在本地的 `modern-sprite` 不能直接失效，否则 PC / mobile 已有存档会突然回退到默认牌面。
+ * 统一在共享层做 alias 归一化后，运行态配置、按钮切换和本地存档都能继续走同一套读取逻辑。
+ *
+ * 输入：
+ * @param {string} [key=DEFAULT_CARD_FACE_KEY] - 调用方传入的牌面键值。
+ *
+ * 输出：
+ * @returns {string} 当前环境里真实可用的牌面键值；拿不到时回落到默认值。
+ *
+ * 注意：
+ * - 这里只兼容明确收口过的历史 key，不做模糊匹配。
+ * - 返回值必须保证能在 `CARD_FACE_OPTIONS` 里找到对应配置。
+ */
+function normalizeCardFaceKey(key = DEFAULT_CARD_FACE_KEY) {
+  const rawKey = typeof key === "string" ? key : DEFAULT_CARD_FACE_KEY;
+  const aliasedKey = CARD_FACE_OPTIONS.some((option) => option.key === rawKey)
+    ? rawKey
+    : (CARD_FACE_KEY_ALIASES[rawKey] || rawKey);
+  return CARD_FACE_OPTIONS.some((option) => option.key === aliasedKey) ? aliasedKey : DEFAULT_CARD_FACE_KEY;
+}
+
 // 获取牌面配置。
 function getCardFaceOption(key = DEFAULT_CARD_FACE_KEY) {
-  return CARD_FACE_OPTIONS.find((option) => option.key === key) || CARD_FACE_OPTIONS[0];
+  const normalizedKey = normalizeCardFaceKey(key);
+  return CARD_FACE_OPTIONS.find((option) => option.key === normalizedKey) || CARD_FACE_OPTIONS[0];
 }
 
 // 读取已保存的牌面样式键值。
 function loadSavedCardFaceKey() {
   try {
     const saved = window.localStorage.getItem(CARD_FACE_STORAGE_KEY);
-    return saved && CARD_FACE_OPTIONS.some((option) => option.key === saved) ? saved : DEFAULT_CARD_FACE_KEY;
+    return saved ? normalizeCardFaceKey(saved) : DEFAULT_CARD_FACE_KEY;
   } catch (error) {
     return DEFAULT_CARD_FACE_KEY;
   }
@@ -280,7 +312,7 @@ function getAiPaceDelay(key, pace = state?.aiPace) {
  * 读取当前牌面配置里声明的整图牌面信息。
  *
  * 为什么这样写：
- * 现在 PC 既支持传统的“单张 SVG 牌面”，也支持 `poker.png` 这种整图 sprite；
+ * 现在 PC 和 mobile 都支持传统的“单张 SVG 牌面”，也支持统一的 `m_cards_sprite.svg` 整图 sprite；
  * 把读取逻辑统一收口后，渲染层只需要判断是否拿到 sprite 配置，
  * 就能在不改玩法层的前提下切换不同牌面来源。
  *
@@ -292,7 +324,7 @@ function getAiPaceDelay(key, pace = state?.aiPace) {
  *
  * 注意：
  * - 只有同时具备 `src / columns / rows` 的配置才视为有效 sprite。
- * - mobile 当前不提供 sprite 牌面，这里必须允许返回 `null`。
+ * - 当前仍需允许返回 `null`，兼容用户切回 `classic` 单张牌面时的兜底分支。
  */
 function getCardFaceSpriteSheet(option = getCurrentCardFaceOption()) {
   if (!option?.spriteSheet?.src || !option.spriteSheet.columns || !option.spriteSheet.rows) {
@@ -308,7 +340,7 @@ function getCurrentCardAssetDir() {
 
 // 获取下一套牌面配置。
 function getNextCardFaceOption() {
-  const currentIndex = CARD_FACE_OPTIONS.findIndex((option) => option.key === state.cardFaceKey);
+  const currentIndex = CARD_FACE_OPTIONS.findIndex((option) => option.key === normalizeCardFaceKey(state.cardFaceKey));
   const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % CARD_FACE_OPTIONS.length : 0;
   return CARD_FACE_OPTIONS[nextIndex] || CARD_FACE_OPTIONS[0];
 }

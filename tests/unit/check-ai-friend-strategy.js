@@ -811,6 +811,96 @@ function runFriendStrategySuite(context) {
       state.currentTurnId = 2;
     }
 
+    /**
+     * 作用：
+     * 搭建“打家已断首门且闲家正在拿分时，若仍有不拆高对的安全毙牌，就不应被贴牌短路拦住”的测试场景。
+     *
+     * 为什么这样写：
+     * 真实复盘里暴露过一个共享跟牌短路问题：
+     * 旧逻辑只要发现“某些可毙单张会拆掉高对”，就会直接退回贴小牌，
+     * 却没有继续检查“我是否仍然握有不拆高对、而且能稳压的其它主牌”。
+     * 这会让打家在闲家领先分牌时，把本来可以收回来的分直接放走。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前测试状态，供 getLegalHintForPlayer(4) 使用。
+     *
+     * 注意：
+     * - 玩家 4 是打家，玩家 1 已明友，因此当前属于“打家侧需要保这墩分”的窗口。
+     * - 玩家 4 既有“会拆高对的危险毙牌”，也有“不会拆高对的安全毙牌”；回归重点是后者不能被旧短路吞掉。
+     */
+    function setupBankerPointProtectRuffScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.declaration = { suit: "clubs", rank: "2", count: 2, playerId: 4 };
+      state.bankerId = 4;
+      state.hiddenFriendId = 1;
+      state.trickNumber = 6;
+      state.currentTurnId = 4;
+      state.leaderId = 1;
+      state.friendTarget = {
+        suit: "spades",
+        rank: "A",
+        occurrence: 2,
+        revealed: true,
+        revealedBy: 1,
+        matchesSeen: 2,
+        failed: false,
+      };
+      state.exposedSuitVoid[4].spades = true;
+      state.players = [
+        basePlayer(1, [makeCard("point-protect-p1-s-4", "spades", "4")], true),
+        basePlayer(2, [makeCard("point-protect-p2-s-5", "spades", "5")]),
+        basePlayer(3, [makeCard("point-protect-p3-s-5", "spades", "5")]),
+        basePlayer(4, [
+          makeCard("point-protect-p4-h-6", "hearts", "6"),
+          makeCard("point-protect-p4-c-j", "clubs", "J"),
+          makeCard("point-protect-p4-d-5", "diamonds", "5"),
+          makeCard("point-protect-p4-d-10", "diamonds", "10"),
+          makeCard("point-protect-p4-c-2-a", "clubs", "2"),
+          makeCard("point-protect-p4-c-2-b", "clubs", "2"),
+          makeCard("point-protect-p4-h-a-a", "hearts", "A"),
+          makeCard("point-protect-p4-h-a-b", "hearts", "A"),
+          makeCard("point-protect-p4-h-4-a", "hearts", "4"),
+          makeCard("point-protect-p4-h-4-b", "hearts", "4"),
+          makeCard("point-protect-p4-c-a-a", "clubs", "A"),
+          makeCard("point-protect-p4-c-a-b", "clubs", "A"),
+          makeCard("point-protect-p4-rj-a", "joker", "RJ"),
+          makeCard("point-protect-p4-rj-b", "joker", "RJ"),
+          makeCard("point-protect-p4-bj", "joker", "BJ"),
+          makeCard("point-protect-p4-d-2", "diamonds", "2"),
+          makeCard("point-protect-p4-s-2", "spades", "2"),
+          makeCard("point-protect-p4-c-3", "clubs", "3"),
+          makeCard("point-protect-p4-c-4", "clubs", "4"),
+          makeCard("point-protect-p4-h-2", "hearts", "2"),
+          makeCard("point-protect-p4-h-8", "hearts", "8"),
+          makeCard("point-protect-p4-c-10", "clubs", "10"),
+          makeCard("point-protect-p4-h-5", "hearts", "5"),
+          makeCard("point-protect-p4-d-a", "diamonds", "A"),
+        ]),
+        basePlayer(5, [
+          makeCard("point-protect-p5-d-7", "diamonds", "7"),
+          makeCard("point-protect-p5-c-2", "clubs", "2"),
+          makeCard("point-protect-p5-h-2-a", "hearts", "2"),
+          makeCard("point-protect-p5-h-2-b", "hearts", "2"),
+          makeCard("point-protect-p5-c-7-a", "clubs", "7"),
+          makeCard("point-protect-p5-c-7-b", "clubs", "7"),
+          makeCard("point-protect-p5-c-3", "clubs", "3"),
+          makeCard("point-protect-p5-c-8", "clubs", "8"),
+          makeCard("point-protect-p5-bj", "joker", "BJ"),
+        ]),
+      ];
+      state.currentTrick = [
+        { playerId: 1, cards: [makeCard("point-protect-live-p1-s-4", "spades", "4")] },
+        { playerId: 2, cards: [makeCard("point-protect-live-p2-s-5", "spades", "5")] },
+        { playerId: 3, cards: [makeCard("point-protect-live-p3-s-5", "spades", "5")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    }
+
     // 搭建清主控场的测试场景。
     function setupTrumpClearControlScenario(difficulty) {
       resetCommonState();
@@ -1275,6 +1365,21 @@ function runFriendStrategySuite(context) {
         difficulty + ": should keep the side-suit pair instead of pasting it away while void on the lead suit"
       );
       results.push(difficulty + " off-suit discard preserves side pair ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupBankerPointProtectRuffScenario(difficulty);
+      const pointProtectChoice = getLegalHintForPlayer(4);
+      assert(pointProtectChoice.length === 1, difficulty + ": banker point-protect ruff scenario should choose a single follow card");
+      assert(
+        doesSelectionBeatCurrent(4, pointProtectChoice),
+        difficulty + ": banker point-protect ruff scenario should keep a safe beating option available instead of discarding"
+      );
+      assert(
+        effectiveSuit(pointProtectChoice[0]) === "trump",
+        difficulty + ": banker point-protect ruff scenario should use a trump to reclaim the current point trick"
+      );
+      results.push(difficulty + " banker point-protect ruff ok");
     }
 
     setupHandoffReceiveScenario();

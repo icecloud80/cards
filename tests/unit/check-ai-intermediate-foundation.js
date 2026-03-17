@@ -87,6 +87,10 @@ function runIntermediateFoundationSuite(context) {
       };
     }
 
+    function makeCards(specs) {
+      return specs.map((spec) => makeCard(spec[0], spec[1], spec[2]));
+    }
+
     function resetCommonState() {
       state.gameOver = false;
       state.phase = "playing";
@@ -272,6 +276,193 @@ function runIntermediateFoundationSuite(context) {
     state.aiDifficulty = "intermediate";
     const intermediatePreserveChoice = getLegalHintForPlayer(3);
     assert(getComboKey(intermediatePreserveChoice) === getComboKey([state.players[2].hand.find((card) => card.id === "preserve-p3-d-5")]), "intermediate follow: should also preserve control pair instead of拆对10");
+
+    // 回归真实 headless 样本：未站队阶段前位闲家递出副牌 Q，且打家仍在后位时，中位持 A 应主动上手。
+    resetCommonState();
+    state.aiDifficulty = "intermediate";
+    state.trumpSuit = "clubs";
+    state.levelRank = "2";
+    state.bankerId = 3;
+    state.currentTurnId = 2;
+    state.leaderId = 1;
+    state.trickNumber = 2;
+    state.friendTarget = { suit: "clubs", rank: "A", occurrence: 2, label: "第二张梅花 A", revealed: false, failed: false, matchesSeen: 0 };
+    state.playHistory = makeCards([
+      ["invite-hist-s-4-1", "spades", "4"],
+      ["invite-hist-s-4-2", "spades", "4"],
+      ["invite-hist-s-4-3", "spades", "4"],
+      ["invite-hist-s-3-1", "spades", "3"],
+      ["invite-hist-s-3-2", "spades", "3"],
+      ["invite-hist-s-8-1", "spades", "8"],
+      ["invite-hist-s-6-1", "spades", "6"],
+      ["invite-hist-s-6-2", "spades", "6"],
+      ["invite-hist-s-8-2", "spades", "8"],
+      ["invite-hist-s-3-3", "spades", "3"],
+      ["invite-hist-s-10-1", "spades", "10"],
+      ["invite-hist-s-10-2", "spades", "10"],
+      ["invite-hist-s-7-1", "spades", "7"],
+      ["invite-hist-s-7-2", "spades", "7"],
+      ["invite-hist-s-7-3", "spades", "7"],
+      ["invite-hist-d-5-1", "diamonds", "5"],
+      ["invite-hist-d-7-1", "diamonds", "7"],
+      ["invite-hist-d-10-1", "diamonds", "10"],
+      ["invite-hist-d-q-1", "diamonds", "Q"],
+      ["invite-hist-d-a-1", "diamonds", "A"],
+      ["invite-current-lead", "diamonds", "Q"],
+    ]);
+    state.players = [
+      basePlayer(1, makeCards([
+        ["invite-p1-c-q", "clubs", "Q"],
+        ["invite-p1-c-j", "clubs", "J"],
+        ["invite-p1-c-10", "clubs", "10"],
+        ["invite-p1-c-8-1", "clubs", "8"],
+        ["invite-p1-c-8-2", "clubs", "8"],
+        ["invite-p1-c-6", "clubs", "6"],
+        ["invite-p1-c-3", "clubs", "3"],
+        ["invite-p1-d-j", "diamonds", "J"],
+        ["invite-p1-d-9-1", "diamonds", "9"],
+        ["invite-p1-d-9-2", "diamonds", "9"],
+        ["invite-p1-d-8", "diamonds", "8"],
+        ["invite-p1-d-4", "diamonds", "4"],
+        ["invite-p1-d-3", "diamonds", "3"],
+        ["invite-p1-s-k", "spades", "K"],
+        ["invite-p1-s-q", "spades", "Q"],
+        ["invite-p1-h-a", "hearts", "A"],
+        ["invite-p1-h-k", "hearts", "K"],
+        ["invite-p1-h-j", "hearts", "J"],
+        ["invite-p1-h-10", "hearts", "10"],
+        ["invite-p1-h-7", "hearts", "7"],
+        ["invite-p1-h-3", "hearts", "3"],
+        ["invite-p1-j-rj", "joker", "RJ"],
+        ["invite-p1-j-bj", "joker", "BJ"],
+        ["invite-p1-d-2", "diamonds", "2"],
+        ["invite-p1-h-2-1", "hearts", "2"],
+        ["invite-p1-h-2-2", "hearts", "2"],
+      ]), true),
+      basePlayer(2, makeCards([
+        ["invite-p2-c-k", "clubs", "K"],
+        ["invite-p2-c-10-1", "clubs", "10"],
+        ["invite-p2-c-10-2", "clubs", "10"],
+        ["invite-p2-c-9", "clubs", "9"],
+        ["invite-p2-c-7", "clubs", "7"],
+        ["invite-p2-c-4", "clubs", "4"],
+        ["invite-p2-d-a", "diamonds", "A"],
+        ["invite-p2-d-9", "diamonds", "9"],
+        ["invite-p2-d-8", "diamonds", "8"],
+        ["invite-p2-s-a", "spades", "A"],
+        ["invite-p2-s-k", "spades", "K"],
+        ["invite-p2-s-j", "spades", "J"],
+        ["invite-p2-s-9", "spades", "9"],
+        ["invite-p2-h-a", "hearts", "A"],
+        ["invite-p2-h-k-1", "hearts", "K"],
+        ["invite-p2-h-k-2", "hearts", "K"],
+        ["invite-p2-h-q", "hearts", "Q"],
+        ["invite-p2-h-10", "hearts", "10"],
+        ["invite-p2-h-9", "hearts", "9"],
+        ["invite-p2-h-8", "hearts", "8"],
+        ["invite-p2-h-7", "hearts", "7"],
+        ["invite-p2-h-6", "hearts", "6"],
+        ["invite-p2-h-5", "hearts", "5"],
+        ["invite-p2-h-4", "hearts", "4"],
+        ["invite-p2-c-2", "clubs", "2"],
+        ["invite-p2-d-2", "diamonds", "2"],
+        ["invite-p2-s-2", "spades", "2"],
+      ])),
+      basePlayer(3, makeCards([
+        ["invite-p3-c-a", "clubs", "A"],
+        ["invite-p3-c-k", "clubs", "K"],
+        ["invite-p3-c-5-1", "clubs", "5"],
+        ["invite-p3-c-5-2", "clubs", "5"],
+        ["invite-p3-d-a", "diamonds", "A"],
+        ["invite-p3-d-7-1", "diamonds", "7"],
+        ["invite-p3-d-7-2", "diamonds", "7"],
+        ["invite-p3-d-6-1", "diamonds", "6"],
+        ["invite-p3-d-6-2", "diamonds", "6"],
+        ["invite-p3-d-5-1", "diamonds", "5"],
+        ["invite-p3-d-5-2", "diamonds", "5"],
+        ["invite-p3-d-4", "diamonds", "4"],
+        ["invite-p3-s-q-1", "spades", "Q"],
+        ["invite-p3-s-q-2", "spades", "Q"],
+        ["invite-p3-s-j", "spades", "J"],
+        ["invite-p3-s-10", "spades", "10"],
+        ["invite-p3-s-6", "spades", "6"],
+        ["invite-p3-s-5", "spades", "5"],
+        ["invite-p3-h-q", "hearts", "Q"],
+        ["invite-p3-h-9", "hearts", "9"],
+        ["invite-p3-h-5", "hearts", "5"],
+        ["invite-p3-j-rj-1", "joker", "RJ"],
+        ["invite-p3-j-bj-1", "joker", "BJ"],
+        ["invite-p3-j-bj-2", "joker", "BJ"],
+        ["invite-p3-c-2", "clubs", "2"],
+        ["invite-p3-s-2", "spades", "2"],
+        ["invite-p3-h-2", "hearts", "2"],
+      ])),
+      basePlayer(4, makeCards([
+        ["invite-p4-c-a", "clubs", "A"],
+        ["invite-p4-c-k", "clubs", "K"],
+        ["invite-p4-c-9-1", "clubs", "9"],
+        ["invite-p4-c-9-2", "clubs", "9"],
+        ["invite-p4-c-7-1", "clubs", "7"],
+        ["invite-p4-c-7-2", "clubs", "7"],
+        ["invite-p4-c-6", "clubs", "6"],
+        ["invite-p4-c-4-1", "clubs", "4"],
+        ["invite-p4-c-4-2", "clubs", "4"],
+        ["invite-p4-c-3-1", "clubs", "3"],
+        ["invite-p4-c-3-2", "clubs", "3"],
+        ["invite-p4-d-k-1", "diamonds", "K"],
+        ["invite-p4-d-k-2", "diamonds", "K"],
+        ["invite-p4-d-k-3", "diamonds", "K"],
+        ["invite-p4-d-j-1", "diamonds", "J"],
+        ["invite-p4-d-j-2", "diamonds", "J"],
+        ["invite-p4-d-8", "diamonds", "8"],
+        ["invite-p4-d-6", "diamonds", "6"],
+        ["invite-p4-d-4", "diamonds", "4"],
+        ["invite-p4-d-3", "diamonds", "3"],
+        ["invite-p4-s-a", "spades", "A"],
+        ["invite-p4-s-j", "spades", "J"],
+        ["invite-p4-s-9", "spades", "9"],
+        ["invite-p4-s-5", "spades", "5"],
+        ["invite-p4-h-10", "hearts", "10"],
+        ["invite-p4-h-3", "hearts", "3"],
+        ["invite-p4-c-2", "clubs", "2"],
+      ])),
+      basePlayer(5, makeCards([
+        ["invite-p5-c-a", "clubs", "A"],
+        ["invite-p5-c-q", "clubs", "Q"],
+        ["invite-p5-c-j-1", "clubs", "J"],
+        ["invite-p5-c-j-2", "clubs", "J"],
+        ["invite-p5-c-5", "clubs", "5"],
+        ["invite-p5-d-q", "diamonds", "Q"],
+        ["invite-p5-d-10-1", "diamonds", "10"],
+        ["invite-p5-d-10-2", "diamonds", "10"],
+        ["invite-p5-d-3", "diamonds", "3"],
+        ["invite-p5-s-a", "spades", "A"],
+        ["invite-p5-s-k", "spades", "K"],
+        ["invite-p5-s-9", "spades", "9"],
+        ["invite-p5-s-8", "spades", "8"],
+        ["invite-p5-s-5", "spades", "5"],
+        ["invite-p5-h-a", "hearts", "A"],
+        ["invite-p5-h-q", "hearts", "Q"],
+        ["invite-p5-h-j-1", "hearts", "J"],
+        ["invite-p5-h-j-2", "hearts", "J"],
+        ["invite-p5-h-9", "hearts", "9"],
+        ["invite-p5-h-8", "hearts", "8"],
+        ["invite-p5-h-7", "hearts", "7"],
+        ["invite-p5-h-6", "hearts", "6"],
+        ["invite-p5-h-5", "hearts", "5"],
+        ["invite-p5-h-4", "hearts", "4"],
+        ["invite-p5-j-rj", "joker", "RJ"],
+        ["invite-p5-d-2", "diamonds", "2"],
+        ["invite-p5-s-2", "spades", "2"],
+      ])),
+    ];
+    state.players[0].played = [makeCard("invite-current-lead", "diamonds", "Q")];
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("invite-current-lead", "diamonds", "Q")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    const invitationTakeoverChoice = getLegalHintForPlayer(2);
+    assert(getComboKey(invitationTakeoverChoice) === getComboKey([state.players[1].hand.find((card) => card.id === "invite-p2-d-a")]), "intermediate follow: unresolved defender relay should be treated as a takeover window, not as tentative-defender hold");
 
     resetCommonState();
     state.currentTurnId = 3;

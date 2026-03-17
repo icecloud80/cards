@@ -45,6 +45,8 @@ function chooseAiLeadPlay(playerId) {
   if (gradeBottomTrumpLead.length > 0) return gradeBottomTrumpLead;
   const safeAntiRuffLead = chooseAiSafeAntiRuffLead(playerId, player);
   if (safeAntiRuffLead.length > 0) return safeAntiRuffLead;
+  const highControlSignalLead = chooseAiHighControlSignalLead(playerId, player);
+  if (highControlSignalLead.length > 0) return highControlSignalLead;
   const handoffLead = chooseAiHandoffLead(playerId, player);
   if (handoffLead.length > 0) return handoffLead;
   const voidPressureLead = chooseAiVoidPressureLead(playerId, player);
@@ -79,6 +81,11 @@ function chooseAiFollowPlay(playerId, candidates) {
     return revealChoice;
   }
 
+  const highPairPreserveDiscard = chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (highPairPreserveDiscard.length > 0) {
+    return highPairPreserveDiscard;
+  }
+
   if (!allyWinning && safeBeatingCandidates.length > 0) {
     return safeBeatingCandidates.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
@@ -86,6 +93,9 @@ function chooseAiFollowPlay(playerId, candidates) {
       const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
         - scoreOffSuitDiscardStructurePreservation(playerId, a);
       if (preserveDiff !== 0) return preserveDiff;
+      const highPairDiff = scoreOffSuitHighPairPreservation(playerId, b, null, currentWinningPlay)
+        - scoreOffSuitHighPairPreservation(playerId, a, null, currentWinningPlay);
+      if (highPairDiff !== 0) return highPairDiff;
       const aPattern = classifyPlay(a);
       const bPattern = classifyPlay(b);
       const powerDiff = aPattern.power - bPattern.power;
@@ -113,6 +123,9 @@ function chooseAiFollowPlay(playerId, candidates) {
       const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
         - scoreOffSuitDiscardStructurePreservation(playerId, a);
       if (preserveDiff !== 0) return preserveDiff;
+      const highPairDiff = scoreOffSuitHighPairPreservation(playerId, b, null, currentWinningPlay)
+        - scoreOffSuitHighPairPreservation(playerId, a, null, currentWinningPlay);
+      if (highPairDiff !== 0) return highPairDiff;
       const scoreDiff = b.reduce((sum, card) => sum + scoreValue(card), 0) - a.reduce((sum, card) => sum + scoreValue(card), 0);
       if (scoreDiff !== 0) return scoreDiff;
       return classifyPlay(a).power - classifyPlay(b).power;
@@ -129,6 +142,9 @@ function chooseAiFollowPlay(playerId, candidates) {
     const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
       - scoreOffSuitDiscardStructurePreservation(playerId, a);
     if (preserveDiff !== 0) return preserveDiff;
+    const highPairDiff = scoreOffSuitHighPairPreservation(playerId, b, null, currentWinningPlay)
+      - scoreOffSuitHighPairPreservation(playerId, a, null, currentWinningPlay);
+    if (highPairDiff !== 0) return highPairDiff;
     const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;

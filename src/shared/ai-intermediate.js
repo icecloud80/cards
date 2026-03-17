@@ -114,6 +114,68 @@ function scoreIntermediateReturnLead(playerId, combo, player) {
   return score;
 }
 
+/**
+ * 作用：
+ * 为“先用高张定门，再留同门小牌递给同伴”的首发提供中级评分加成。
+ *
+ * 为什么这样写：
+ * 当前中级已经懂得公开绝门后的直接递牌，但还不够理解用户强调的“先出 `A` 定门”协同。
+ * 当朋友已站队、全桌公开上都还没有这门断门，而我方手里又同时握有这门 `A` 和后续小牌时，
+ * 这手 `A` 不只是单纯的高张首发，它还承担了“告诉同伴这门高张正在被我方兑现，
+ * 你后面的 `A / K` 可能已经升成大牌”的信号价值，因此应在统一评分里被显式奖励。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的首发牌组。
+ * @param {Array<object>} handBefore - 出牌前完整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回应加到候选分上的协同奖励；越高表示越像“定门后再递牌”的有效路线。
+ *
+ * 注意：
+ * - 只在朋友已站队后启用，且要求后续仍保留同门牌，避免把孤张 `A` 也误判成信号牌。
+ * - 同伴或敌人只要有人已经公开绝这门，就回退给直接递牌或断门施压逻辑，不在这里重复加分。
+ */
+function scoreIntermediateControlSignalLead(playerId, combo, handBefore) {
+  if (!Array.isArray(combo) || combo.length === 0 || !Array.isArray(handBefore)) return 0;
+  if (!isFriendTeamResolved()) return 0;
+
+  const leadSuit = effectiveSuit(combo[0]);
+  if (leadSuit === "trump") return 0;
+
+  const targetIds = getIntermediateReturnTargetIds(playerId);
+  if (targetIds.length === 0) return 0;
+  if (targetIds.some((targetId) => state.exposedSuitVoid[targetId]?.[leadSuit])) return 0;
+
+  const enemyIds = state.players
+    .map((seat) => seat.id)
+    .filter((otherId) => otherId !== playerId && !targetIds.includes(otherId));
+  if (enemyIds.some((enemyId) => state.exposedSuitVoid[enemyId]?.[leadSuit])) return 0;
+
+  const topComboCard = highestCard(combo);
+  if (!topComboCard || topComboCard.rank !== "A") return 0;
+
+  const comboIds = new Set(combo.map((card) => card.id));
+  const remainingSuitCards = handBefore.filter((card) =>
+    effectiveSuit(card) === leadSuit && !comboIds.has(card.id)
+  );
+  if (remainingSuitCards.length === 0) return 0;
+
+  const lowestRemainingCard = lowestCard(remainingSuitCards);
+  const softSignal = getIntermediateSoftHandoffSignal(playerId, leadSuit);
+  let score = 54;
+
+  if (combo.length > 1) score += 8;
+  if (scoreValue(lowestRemainingCard) === 0) score += 16;
+  if (getPatternUnitPower(lowestRemainingCard, leadSuit) <= 9) score += 10;
+  if (targetIds[0] === state.bankerId) score += 8;
+  if (softSignal > 0) score += softSignal * 6;
+  if (!isDefenderTeam(playerId) && hasAiDirectControlLead(getPlayer(playerId))) score -= 28;
+  if (!isDefenderTeam(playerId) && shouldAiUseBankerRevealedFriendControlMode(playerId)) score += 10;
+
+  return Math.max(0, score);
+}
+
 // 判断中级 AI 是否处于早期帮庄接手和带牌节奏。
 function isIntermediateEarlyFriendTempo(playerId) {
   if (playerId === state.bankerId || !state.friendTarget || state.trickNumber > 4) return false;
@@ -772,6 +834,7 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candida
   }
 
   score += scoreIntermediateReturnLead(playerId, combo, player);
+  score += scoreIntermediateControlSignalLead(playerId, combo, handBefore);
   score += scoreIntermediateFriendTempoLead(playerId, combo);
   score += scoreIntermediateGradeBottomLead(playerId, combo, handBefore);
   score += scoreLeadTripleBreakPenalty(handBefore, combo);
@@ -903,6 +966,7 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
 
   score += getFollowStructureScore(combo) * 0.7;
   score += scoreOffSuitDiscardStructurePreservation(playerId, combo, handBefore);
+  score += scoreOffSuitHighPairPreservation(playerId, combo, handBefore, currentWinningPlay);
   score += scoreHandContinuity(playerId, handAfter) - scoreHandContinuity(playerId, handBefore) * 0.1;
   score -= scoreComboResourceUse(combo) * (allyWinning ? 1.1 : 0.8);
 
@@ -1697,6 +1761,8 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
     && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
   }
+  const highPairPreserveDiscard = chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (highPairPreserveDiscard.length > 0) return highPairPreserveDiscard;
   const handoffReceiveChoice = chooseIntermediateHandoffReceive(playerId, candidates, currentWinningPlay);
   if (handoffReceiveChoice.length > 0) return handoffReceiveChoice;
 
@@ -1779,6 +1845,8 @@ function chooseAiLeadPlay(playerId) {
   if (gradeBottomTrumpLead.length > 0) return gradeBottomTrumpLead;
   const safeAntiRuffLead = chooseAiSafeAntiRuffLead(playerId, player);
   if (safeAntiRuffLead.length > 0) return safeAntiRuffLead;
+  const highControlSignalLead = chooseAiHighControlSignalLead(playerId, player);
+  if (highControlSignalLead.length > 0) return highControlSignalLead;
   const handoffLead = chooseAiHandoffLead(playerId, player);
   if (handoffLead.length > 0) return handoffLead;
   const voidPressureLead = chooseAiVoidPressureLead(playerId, player);
@@ -1813,6 +1881,11 @@ function chooseAiFollowPlay(playerId, candidates) {
     return revealChoice;
   }
 
+  const highPairPreserveDiscard = chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (highPairPreserveDiscard.length > 0) {
+    return highPairPreserveDiscard;
+  }
+
   if (!allyWinning && safeBeatingCandidates.length > 0) {
     return safeBeatingCandidates.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
@@ -1820,6 +1893,9 @@ function chooseAiFollowPlay(playerId, candidates) {
       const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
         - scoreOffSuitDiscardStructurePreservation(playerId, a);
       if (preserveDiff !== 0) return preserveDiff;
+      const highPairDiff = scoreOffSuitHighPairPreservation(playerId, b, null, currentWinningPlay)
+        - scoreOffSuitHighPairPreservation(playerId, a, null, currentWinningPlay);
+      if (highPairDiff !== 0) return highPairDiff;
       const aPattern = classifyPlay(a);
       const bPattern = classifyPlay(b);
       const powerDiff = aPattern.power - bPattern.power;
@@ -1847,6 +1923,9 @@ function chooseAiFollowPlay(playerId, candidates) {
       const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
         - scoreOffSuitDiscardStructurePreservation(playerId, a);
       if (preserveDiff !== 0) return preserveDiff;
+      const highPairDiff = scoreOffSuitHighPairPreservation(playerId, b, null, currentWinningPlay)
+        - scoreOffSuitHighPairPreservation(playerId, a, null, currentWinningPlay);
+      if (highPairDiff !== 0) return highPairDiff;
       const scoreDiff = b.reduce((sum, card) => sum + scoreValue(card), 0) - a.reduce((sum, card) => sum + scoreValue(card), 0);
       if (scoreDiff !== 0) return scoreDiff;
       return classifyPlay(a).power - classifyPlay(b).power;
@@ -1863,6 +1942,9 @@ function chooseAiFollowPlay(playerId, candidates) {
     const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
       - scoreOffSuitDiscardStructurePreservation(playerId, a);
     if (preserveDiff !== 0) return preserveDiff;
+    const highPairDiff = scoreOffSuitHighPairPreservation(playerId, b, null, currentWinningPlay)
+      - scoreOffSuitHighPairPreservation(playerId, a, null, currentWinningPlay);
+    if (highPairDiff !== 0) return highPairDiff;
     const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;

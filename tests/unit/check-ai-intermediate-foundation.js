@@ -248,6 +248,33 @@ function runIntermediateFoundationSuite(context) {
 
     resetCommonState();
     state.currentTurnId = 3;
+    state.leaderId = 1;
+    state.friendTarget = null;
+    state.players = [
+      basePlayer(1, [makeCard("preserve-p1-s-9", "spades", "9")], true),
+      basePlayer(2, [makeCard("preserve-p2-s-j", "spades", "J")]),
+      basePlayer(3, [
+        makeCard("preserve-p3-c-10-1", "clubs", "10"),
+        makeCard("preserve-p3-c-10-2", "clubs", "10"),
+        makeCard("preserve-p3-d-5", "diamonds", "5"),
+      ]),
+      basePlayer(4, [makeCard("preserve-p4-h-8", "hearts", "8")]),
+      basePlayer(5, [makeCard("preserve-p5-h-7", "hearts", "7")]),
+    ];
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("preserve-lead-s-9", "spades", "9")] },
+      { playerId: 2, cards: [makeCard("preserve-beat-s-j", "spades", "J")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    state.aiDifficulty = "beginner";
+    const beginnerPreserveChoice = getLegalHintForPlayer(3);
+    assert(getComboKey(beginnerPreserveChoice) === getComboKey([state.players[2].hand.find((card) => card.id === "preserve-p3-d-5")]), "beginner follow: should discard 5 points before拆掉对10去单张抢轮");
+    state.aiDifficulty = "intermediate";
+    const intermediatePreserveChoice = getLegalHintForPlayer(3);
+    assert(getComboKey(intermediatePreserveChoice) === getComboKey([state.players[2].hand.find((card) => card.id === "preserve-p3-d-5")]), "intermediate follow: should also preserve control pair instead of拆对10");
+
+    resetCommonState();
+    state.currentTurnId = 3;
     state.leaderId = 3;
     state.players = [
       basePlayer(1, [makeCard("throw-safe-p1-s-9", "spades", "9")], true),

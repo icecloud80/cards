@@ -112,6 +112,14 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-mobile-topbar-layout.js"),
   },
   {
+    name: "Mobile top status card regression",
+    file: path.join(__dirname, "check-mobile-top-status-card.js"),
+  },
+  {
+    name: "Mobile hand group chip regression",
+    file: path.join(__dirname, "check-mobile-hand-group-chip.js"),
+  },
+  {
     name: "Mobile auto-manage regression",
     file: path.join(__dirname, "check-mobile-auto-manage.js"),
   },

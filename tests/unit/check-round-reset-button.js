@@ -341,6 +341,11 @@ function assertTopbarMarkupOrder() {
     /<div class="score-actions">[\s\S]*id="newGameBtn"/,
     "mobile 旧的文字版新牌局按钮应从底部快捷操作区移除，避免和顶栏入口重复"
   );
+  assert.doesNotMatch(
+    mobileHtml,
+    /id="mobileMenuNewBtn"/,
+    "mobile 设置菜单不应再重复提供重置本局按钮，避免和顶部高频入口重复"
+  );
 }
 
 /**

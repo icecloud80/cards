@@ -2692,6 +2692,14 @@
         display: block;
       }
 
+      /* 顶部“主 / 朋”状态牌卡位比手牌更小，sprite 不能继续沿用手牌区的 90% 安全边。 */
+      body.mobile-index2 .mobile-state-card .card-face-sprite {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.16) !important;
+      }
+
       body.mobile-index2 .mobile-state-card.empty {
         border-radius: 6px;
         background: rgba(16, 44, 54, 0.08);
@@ -3500,7 +3508,7 @@
         justify-content: center;
         margin-bottom: 0;
         padding: 0;
-        min-width: 22px;
+        min-width: 0;
         border-radius: 999px;
         font-size: 9px;
         line-height: 1;
@@ -4254,7 +4262,6 @@
                   <button type="button" class="segmented-choice-btn mobile-segmented-choice-btn" data-ai-pace-value="instant" aria-pressed="false">瞬</button>
                 </div>
               </div>
-              <button id="mobileMenuNewBtn" class="mobile-menu-btn danger" type="button">重置本局</button>
               <button id="mobileMenuHomeBtn" class="mobile-menu-btn" type="button">返回首页</button>
               <button id="mobileMenuCardFaceBtn" class="mobile-menu-btn" type="button">牌面：新牌整图</button>
               <button id="mobileMenuLayoutBtn" class="mobile-menu-btn" type="button">布局编辑</button>
@@ -4660,7 +4667,6 @@
           menuLayoutBtn: document.getElementById("mobileMenuLayoutBtn"),
           menuBottomBtn: document.getElementById("mobileMenuBottomBtn"),
           menuRulesBtn: document.getElementById("mobileMenuRulesBtn"),
-          menuNewBtn: document.getElementById("mobileMenuNewBtn"),
           menuHomeBtn: document.getElementById("mobileMenuHomeBtn"),
         };
 
@@ -4760,8 +4766,32 @@
           }
         }
 
+        /**
+         * 作用：
+         * 为手游顶部 `主 / 朋` 状态条生成一张与当前牌面主题一致的缩略牌。
+         *
+         * 为什么这样写：
+         * 顶部状态牌和底部手牌如果分别走 `img` 与 sprite 两条渲染链，
+         * 就会在同一屏里出现牌宽、留白和阴影口径不一致的问题；
+         * 统一复用 shared 层的 `buildCardNode` 后，顶部状态牌也能跟随当前牌面主题一起切换。
+         *
+         * 输入：
+         * @param {{suit?: string, rank?: string, img?: string}|null} card - 当前要显示的状态牌。
+         * @param {string} altText - 当前牌的可访问性描述。
+         *
+         * 输出：
+         * @returns {string} 可直接写入顶部状态卡槽的 HTML 字符串。
+         *
+         * 注意：
+         * - 优先使用 `suit + rank` 走统一牌面渲染；拿不到完整牌面信息时才回退到单张 `img`。
+         * - 这里生成的是只读展示牌，不额外绑定点击事件。
+         */
         function buildTopStatusCardHtml(card, altText) {
-          if (!card?.img) return "";
+          if (!card) return "";
+          if (card.suit && card.rank && typeof buildCardNode === "function") {
+            return buildCardNode(card, "friend-card").outerHTML;
+          }
+          if (!card.img) return "";
           return `<button type="button" class="friend-card" tabindex="-1" aria-hidden="true"><img src="${card.img}" alt="${altText}" /></button>`;
         }
 
@@ -4839,7 +4869,7 @@
           renderMobileTopCard(
             mobileDom.trumpCard,
             buildTopStatusCardHtml(
-              { img: getCardImage(suitKey, rankMatch[1]) },
+              { suit: suitKey, rank: rankMatch[1], img: getCardImage(suitKey, rankMatch[1]) },
               `${suitMatch[1]}${rankMatch[1]}`
             ),
             "--"
@@ -5318,12 +5348,6 @@
         mobileDom.menuLayoutBtn.addEventListener("click", () => clickOriginal(originalDom.layoutEditBtn));
         mobileDom.menuBottomBtn.addEventListener("click", () => clickOriginal(originalDom.toggleBottomBtn));
         mobileDom.menuRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
-        mobileDom.menuNewBtn.addEventListener("click", () => {
-          if (typeof restartCurrentRound === "function") {
-            restartCurrentRound();
-          }
-          mobileDom.settingsSheet.classList.remove("show");
-        });
         mobileDom.menuHomeBtn.addEventListener("click", () => {
           if (typeof goToMainMenu === "function") {
             goToMainMenu();

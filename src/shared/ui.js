@@ -1545,11 +1545,38 @@ function renderPcHandStatsRail(visibleGroups, totalHandCount) {
   for (const group of visibleGroups) {
     const chip = document.createElement("div");
     chip.className = `group-chip${group.red ? " red" : ""}`;
-    chip.innerHTML = `<span>${group.label}</span><span class="group-chip-count">${group.cards.length}</span>`;
+    chip.innerHTML = buildHandGroupChipMarkup(group.label, group.cards.length, true);
     chip.style.left = `${trackInset + startIndex * step}px`;
     dom.handStatsRail.appendChild(chip);
     startIndex += group.cards.length;
   }
+}
+
+/**
+ * 作用：
+ * 生成手牌花色标签需要写入的 HTML 内容。
+ *
+ * 为什么这样写：
+ * PC 连续牌轨仍然需要显示每门张数，方便快速估算分布；
+ * 但 mobile 手牌区空间更紧，用户要求把花色文字后面的计数移除。
+ * 把两端差异集中在这个 helper 里后，渲染层只需要声明“是否显示计数”，不用复制两套标签拼接逻辑。
+ *
+ * 输入：
+ * @param {string} label - 当前花色分组的显示文案。
+ * @param {number} cardCount - 当前分组内的牌张数。
+ * @param {boolean} showCount - 当前标签是否需要显示张数。
+ *
+ * 输出：
+ * @returns {string} 可直接赋给 `innerHTML` 的标签片段。
+ *
+ * 注意：
+ * - `showCount=false` 时只返回花色文案，不再保留空的计数节点。
+ * - 这里是共享 helper，PC 和 mobile 都会走到，不能写平台专属样式类名。
+ */
+function buildHandGroupChipMarkup(label, cardCount, showCount) {
+  const safeLabel = String(label || "");
+  if (!showCount) return `<span>${safeLabel}</span>`;
+  return `<span>${safeLabel}</span><span class="group-chip-count">${cardCount}</span>`;
 }
 
 // 渲染手牌。
@@ -1602,7 +1629,7 @@ function renderHand() {
     wrapper.dataset.groupKey = group.key;
     const chip = document.createElement("div");
     chip.className = `group-chip${group.red ? " red" : ""}`;
-    chip.innerHTML = `<span>${group.label}</span><span class="group-chip-count">${cards.length}</span>`;
+    chip.innerHTML = buildHandGroupChipMarkup(group.label, cards.length, false);
     wrapper.appendChild(chip);
 
     const row = document.createElement("div");

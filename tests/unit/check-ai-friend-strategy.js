@@ -573,6 +573,139 @@ function runFriendStrategySuite(context) {
       state.leaderId = 4;
     }
 
+    /**
+     * 作用：
+     * 搭建“闲家先用 A 开路保控制，再为后续递牌留小牌”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户新增了一条 beginner heuristic：
+     * 当闲家已经拿到首发、同伴已知、且公开信息还没有显示这门任何人绝门时，
+     * 不应直接把小牌递出去，而应先把这门 A 打出来，先稳一手控制并给同伴传递高张信号。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入首发测试状态。
+     *
+     * 注意：
+     * - 玩家 4 持有“红桃 A + 红桃 3”，验证的是“先出 A，再留 3 给后续递牌”。
+     * - 敌我双方都没有公开红桃绝门，确保不会提前落到旧的 handoff / pressure_void 逻辑。
+     */
+    function setupDefenderHighControlSignalScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.players = [
+        basePlayer(1, [makeCard("b-s-9-signal", "spades", "9")], true),
+        basePlayer(2, [makeCard("p2-d-a-signal", "diamonds", "A")]),
+        basePlayer(3, [makeCard("p3-c-8-signal", "clubs", "8")]),
+        basePlayer(4, [
+          makeCard("p4-h-a-signal", "hearts", "A"),
+          makeCard("p4-h-3-signal", "hearts", "3"),
+          makeCard("p4-c-6-signal", "clubs", "6"),
+        ]),
+        basePlayer(5, [makeCard("p5-s-k-signal", "spades", "K")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.hiddenFriendId = 3;
+      state.currentTurnId = 4;
+      state.leaderId = 4;
+    }
+
+    /**
+     * 作用：
+     * 搭建“朋友已站队后，打家在没有明确主控资源时先用 A 定门”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户补充了一个更细的协同判断：
+     * 如果打家已经拿到首发，但手里没有足够稳的主控资源，那么不应机械地出低张保守牌，
+     * 而应趁这次出牌权先把副牌 A 打出去，给同伴传递“这门高张正在被我方兑现”的信号，
+     * 再把同门小牌留作后续递牌口。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入首发测试状态。
+     *
+     * 注意：
+     * - 打家刻意不带主控结构，验证的是“没有明确清主线时会先定门”。
+     * - 所有人公开信息里都还没出现红桃断门，确保这手 A 真的是信号牌而不是断门施压。
+     */
+    function setupBankerHighControlSignalScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "spades";
+      state.trickNumber = 4;
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-h-a-signal", "hearts", "A"),
+          makeCard("b-h-3-signal", "hearts", "3"),
+          makeCard("b-c-6-signal", "clubs", "6"),
+        ], true),
+        basePlayer(2, [makeCard("p2-s-9-signal", "spades", "9")]),
+        basePlayer(3, [makeCard("p3-d-8-signal", "diamonds", "8")]),
+        basePlayer(4, [makeCard("p4-c-7-signal", "clubs", "7")]),
+        basePlayer(5, [makeCard("p5-h-8-signal", "hearts", "8")]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 3;
+      state.friendTarget.revealedTrickNumber = 2;
+      state.hiddenFriendId = 3;
+    }
+
+    /**
+     * 作用：
+     * 搭建“同伴已经公开绝门后，打家应回退成直接递牌”的测试场景。
+     *
+     * 为什么这样写：
+     * “先用 A 定门”只适用于所有人还公开有这门牌的窗口。
+     * 一旦同伴已经明确绝门，就不需要再额外打信号，而应直接把同门小牌递过去。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入首发测试状态。
+     *
+     * 注意：
+     * - 这里沿用上一组手牌，只额外把同伴标成红桃绝门。
+     * - 预期会从“红桃 A 定门”切回“红桃 3 递牌”。
+     */
+    function setupBankerSignalFallsBackToHandoffScenario(difficulty) {
+      setupBankerHighControlSignalScenario(difficulty);
+      state.exposedSuitVoid[3].hearts = true;
+    }
+
+    /**
+     * 作用：
+     * 搭建“同伴已经公开绝门时，不应继续走高张开路，而应回到递牌”的测试场景。
+     *
+     * 为什么这样写：
+     * 新 heuristic 只覆盖“大家都还没公开绝门”的控制窗口；
+     * 一旦同伴已经明确绝门，就应该回到旧的 handoff 思路，优先把小牌递过去。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入首发测试状态。
+     *
+     * 注意：
+     * - 这里沿用上一组手牌，只额外把玩家 2 标成红桃绝门。
+     * - 预期是高张开路 helper 失效，首发改成红桃 3。
+     */
+    function setupDefenderSignalFallsBackToHandoffScenario(difficulty) {
+      setupDefenderHighControlSignalScenario(difficulty);
+      state.exposedSuitVoid[2].hearts = true;
+    }
+
     // 搭建闲家跟牌配合的测试场景。
     function setupDefenderFollowSupportScenario(difficulty) {
       resetCommonState();
@@ -1039,6 +1172,38 @@ function runFriendStrategySuite(context) {
       assert(returnLead.length === 1, difficulty + ": return scenario should choose a single lead");
       assert(returnLead[0].suit === "hearts" && returnLead[0].rank === "3", difficulty + ": should prefer low heart to hand off control back to banker");
       results.push(difficulty + " return-to-banker handoff ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupDefenderHighControlSignalScenario(difficulty);
+      const highControlSignalLead = chooseAiLeadPlay(4);
+      assert(highControlSignalLead.length === 1, difficulty + ": high-control signal scenario should choose a single lead");
+      assert(highControlSignalLead[0].suit === "hearts" && highControlSignalLead[0].rank === "A", difficulty + ": should cash the side-suit A first when everyone is still publicly in-suit");
+      results.push(difficulty + " defender high-control signal lead ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupBankerHighControlSignalScenario(difficulty);
+      const bankerHighControlSignalLead = getLegalHintForPlayer(1);
+      assert(bankerHighControlSignalLead.length === 1, difficulty + ": banker high-control signal scenario should choose a single lead");
+      assert(bankerHighControlSignalLead[0].suit === "hearts" && bankerHighControlSignalLead[0].rank === "A", difficulty + ": banker should cash the side-suit A first when no clear trump-control line exists");
+      results.push(difficulty + " banker high-control signal lead ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupDefenderSignalFallsBackToHandoffScenario(difficulty);
+      const fallbackSignalLead = chooseAiLeadPlay(4);
+      assert(fallbackSignalLead.length === 1, difficulty + ": signal fallback scenario should still choose a single lead");
+      assert(fallbackSignalLead[0].suit === "hearts" && fallbackSignalLead[0].rank === "3", difficulty + ": should switch back to low-card handoff once ally is publicly void in that suit");
+      results.push(difficulty + " defender signal fallback-to-handoff ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupBankerSignalFallsBackToHandoffScenario(difficulty);
+      const bankerFallbackSignalLead = getLegalHintForPlayer(1);
+      assert(bankerFallbackSignalLead.length === 1, difficulty + ": banker signal fallback scenario should still choose a single lead");
+      assert(bankerFallbackSignalLead[0].suit === "hearts" && bankerFallbackSignalLead[0].rank === "3", difficulty + ": banker should switch back to low-card handoff once friend is publicly void in that suit");
+      results.push(difficulty + " banker signal fallback-to-handoff ok");
     }
 
     setupReturnToBankerHiddenVoidScenario("beginner");

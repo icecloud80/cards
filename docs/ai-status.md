@@ -11,6 +11,7 @@
 术语补充：
 
 - `危险带分领牌` 不是泛指“任何带分首发”，而是特指那种“主动把 `5 / 10 / K` 这类分牌，或 `A / 高主 / 王` 这类高价值高张领出来试探争轮，但这手并不能稳定续控，反而可能同时送分、送先手，或白白交掉关键控制资源”的高风险首发。
+- `高张定门再递牌` 指“朋友已站队后，先用某门 `A` 拿一手稳定控制并向同伴传递高张信号，再把同门小牌留作下一拍递牌口”的协同线；它不是危险带分领牌的同义词。
 
 ## 2026-03-17 最新复核
 
@@ -25,7 +26,7 @@
 
 这次额外复核使用的现时证据：
 
-- 快速单测 `34 / 34` 通过，说明目前共享层与 AI 专项回归处于稳定状态。
+- 快速单测 `36 / 36` 通过，说明目前共享层与 AI 专项回归处于稳定状态。
 - 最新无 UI 全游戏回归 `3 / 3` 完局、`0` 告警，见 [artifacts/headless-regression/latest/analysis.md](../artifacts/headless-regression/latest/analysis.md)。
 - 最新 mixed 验证 `2 / 2` 完局、`0` 告警，当前样本里 `turn_access_risk = 2`、`point_run_risk = 3`、`dangerous_point_lead = 1`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
 
@@ -43,6 +44,7 @@
 - 对局节奏现已和 AI 难度拆开：`慢 / 中 / 快 / 瞬` 只控制 AI 行动等待与过渡速度，不改变三档 AI 的决策强度和信息利用边界。
 - mobile 顶部托管现已对齐 `关闭 / 本局托管 / 跨局托管` 三态；这只改变玩家 1 是否交给 AI 接管，以及是否跨局保留，不改变 AI 的难度层级、信息边界和启发式强度。
 - PC 与 mobile 顶部新增的 `重置本局` 图标同样只属于局内流程控制：它只会保留当前级别并重新洗牌发牌，不会改变 AI 难度、策略边界或信息利用能力。
+- mobile 设置菜单现已移除重复的 `重置本局` 按钮；这次只是把同一能力收口到顶部高频入口，不涉及任何 AI 策略、评分或 heuristic 调整。
 - 跟牌候选枚举已补上“直接匹配首家牌型优先 + 中小规模组合空间完整扫描”的保护，不再把真实存在的合法主拖拉机误判成“无合法跟牌”并卡住回合。
 
 换句话说，当前项目最准确的判断不是“高级不够强”，而是“中级搜索框架已经起骨架，但还没完全收口；高级暂时还不该往 hidden belief 硬冲”。
@@ -60,6 +62,15 @@
   `beginner` 会在公开绝门已经明确、且自己没有明显主控手时，把小牌递给同伴接手；
   `intermediate` 则额外支持“公开高张已经被敌方花掉后的软递牌”与“接同伴递牌时用更大的主/王稳接”。
 - 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- `beginner` 的闲家首发又补了一条更靠前的“先出大牌保控制” heuristic：
+  当同伴已知、这门还没人公开绝、自己手里又有 `A` 且后面还能留小牌时，当前实现会先把这门 `A` 或以 `A` 为顶张的大结构牌兑现，再把后续小牌留给下一拍递同伴，而不是一上来就机械先递小牌。
+- 对应回归同样补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- `高张定门再递牌` 现在已从“闲家侧 heuristic”扩到“朋友已站队后的通用协同”：
+  打家若已经没有明显主控资源，也会先考虑用副牌 `A` 定门，再把同门小牌留给后续递牌；但只要同伴已经公开绝这门，就会立刻回退成直接递牌，而不是继续打信号。
+- 对应回归同样补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- 修复了一个初级和中级共用的“贴大对留 5”跟牌误判：
+  当 AI 已经缺首门、面对单张跟牌，而手里同时有 `10+ / 级牌 / 王` 的大对和 `5` 之类低分散牌时，当前实现会显式优先贴低分散牌，保住大对继续作为后续控轮资源。
+- 对应回归已补到 [tests/unit/check-ai-intermediate-foundation.js](../tests/unit/check-ai-intermediate-foundation.js)。
 - `危险带分领牌` 现在新增了一层 rollout 后的“控制型硬否决”：
   当 objective 已经切到 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 一类控制目标，且候选本身已经被识别为高风险带分领牌，同时 rollout 又继续暴露 `turn_access_risk / point_run_risk`、下一拍不安全或未来收益不足时，这类候选会被二次明显降权，而不再只吃一层 heuristic 惩罚。
 - 对应回归已补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
@@ -68,6 +79,8 @@
 - 当前实现已改成：缺门贴副时不再奖励“别门同型”，并显式优先保留副牌对子、连对等后续资源；对应回归同样写入 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - 牌面资源层新增了 `m_cards_sprite.svg`：把 `m_cards/` 的单张 SVG 按 `poker.png` 同款 `13x5` 网格生成成整图 SVG；mobile 默认牌面现已切到这套 `新牌整图`，PC 保留该选项，旧的逐张 `m_cards` 模式已移除。这次只改渲染资源，不改变 AI 的规则边界、难度差异和评分逻辑。
 - `m_cards_sprite.svg` 现已修正少数窄画布牌面的 tile 留边：`hearts-3/4/5` 与大小王在整图里会直接贴满统一卡格，避免手游小牌位上出现“单张更瘦、更偏”的错位观感；这仍然只是渲染资源修复，不改变 AI 输入与 heuristic。
+- 手游手牌区的花色标签现已去掉张数计数，只保留花色文字；这属于移动端信息密度调整，不改变 AI 的难度档位、信息边界或任何 heuristic。
+- 手游顶部 `主 / 朋` 状态牌现已统一复用当前牌面主题，并给小卡位单独使用铺满式 sprite；这仍属于 UI 渲染修复，不改变 AI 读取的信息边界与任何 heuristic。
 - PC 与 mobile 顶栏现已补回 `重置本局` 图标入口，并明确限定为“保级重洗当前局”；这次变更只影响共享状态机与 UI 入口，不改变任何 AI 评估和 heuristic。
 
 ## 本轮规则复核结论
@@ -105,6 +118,8 @@
 - `不透视甩牌`：甩牌风险已经改成公开信息评估，不再直接读对手暗手，见 [src/shared/ai-candidates.js](../src/shared/ai-candidates.js) 与 [tests/unit/check-ai-intermediate-foundation.js](../tests/unit/check-ai-intermediate-foundation.js)。
 - `递牌` 已有初级 / 中级分层：
   初级只用公开绝门做保守递牌；中级则会在公开高张耗尽、敌方仍保有小牌的情况下，把这门视作更值得尝试的递牌门，并在接牌时考虑直接用更大的主或王稳接。
+- `高张定门再递牌` 也开始进中级统一评分：
+  当朋友已站队、公开信息显示这门全桌都还在跟、自己又同时握有这门 `A` 和后续小牌时，中级会把这手 `A` 视作“高张信号 + 递牌铺垫”的正向候选，而不是一律把它和控制过热混为一谈。
 
 仍未完全满足的部分：
 

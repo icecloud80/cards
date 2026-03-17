@@ -408,7 +408,7 @@ function shouldAiUseBankerSoloFallback(playerId) {
  * @returns {Array<object>} 若命中控局模式则返回建议首发，否则返回空数组。
  *
  * 注意：
- * - 先尝试可消耗主，其次才回退到对敌方绝门施压和安全零分侧门。
+ * - 先尝试可消耗主；若主控资源不够明确，再考虑“高张定门再递牌”的协同窗口。
  * - 这里只负责“亮友后立刻切档”，不取代常规末局保底逻辑。
  */
 function chooseAiBankerRevealedFriendControlLead(playerId, player) {
@@ -425,6 +425,12 @@ function chooseAiBankerRevealedFriendControlLead(playerId, player) {
   if (trumpCards.length > 0) {
     return chooseStrongLeadFromCards(trumpCards);
   }
+
+  const highControlSignalLead = chooseAiHighControlSignalLead(playerId, player);
+  if (highControlSignalLead.length > 0) return highControlSignalLead;
+
+  const handoffLead = chooseAiHandoffLead(playerId, player);
+  if (handoffLead.length > 0) return handoffLead;
 
   const pressureLead = chooseAiVoidPressureLead(playerId, player);
   if (pressureLead.length > 0) return pressureLead;
@@ -861,6 +867,103 @@ function hasAiDirectControlLead(player) {
     return true;
   }
   return findSerialTuples(trumpCards, 3).length > 0;
+}
+
+/**
+ * 作用：
+ * 判断当前玩家是否处于“先用高张定门，再留小牌递给同伴”的协同窗口。
+ *
+ * 为什么这样写：
+ * 用户补充的打法不只适用于闲家侧。
+ * 朋友已站队后，如果我方当前没有更稳的主控线路，而某门又还没有出现任何公开绝门，
+ * 那么先把这门 `A` 打出来，可以同时做到“稳拿当前一手”和“向同伴传递这门高张正在被我方兑现”的信号，
+ * 后面再用同门小牌递回去，就比一上来直接递小牌更像人类协同。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前允许启用“高张定门”窗口。
+ *
+ * 注意：
+ * - 只依赖公开站队和公开断门信息，不读取任何暗手。
+ * - 打家侧会更保守：若自己已经握有明显主控资源，仍应优先清主，不在这里抢跑。
+ */
+function shouldAiUseHighControlSignalWindow(playerId, player) {
+  if (!player || state.currentTrick.length !== 0 || !isFriendTeamResolved()) return false;
+  const targetIds = getAiKnownHandoffTargetIds(playerId);
+  if (targetIds.length === 0) return false;
+  if (isDefenderTeam(playerId)) return true;
+  if (!areSameSide(playerId, state.bankerId)) return false;
+  return !hasAiDirectControlLead(player);
+}
+
+/**
+ * 作用：
+ * 为初级 AI 选择一手“先出高张保控制，再为后续递牌留门”的首发。
+ *
+ * 为什么这样写：
+ * 用户补充了一个比“公开绝门递牌”更靠前的 beginner heuristic：
+ * 当朋友已站队、自己手里有这门 `A`，且公开信息还没有显示敌我任何人绝这门时，
+ * 不应立刻把小牌递出去，而应先把 `A` 或以 `A` 为顶张的大结构牌打出来，先稳定拿一手控制权，
+ * 同时给同伴传递“这门高张正在被我方兑现，后续你的 `A / K` 可能已经升成大牌”的直白信号。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“高张开路”窗口时返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 闲家侧默认更积极；打家侧只有在没有明显主控资源时才会走这条协同线。
+ * - 仍然只使用公开绝门信息；若敌方任何一人已经公开绝这门，就回退给其它 heuristic 处理。
+ */
+function chooseAiHighControlSignalLead(playerId, player) {
+  if (!shouldAiUseHighControlSignalWindow(playerId, player)) return [];
+
+  const targetIds = getAiKnownHandoffTargetIds(playerId);
+  const enemyIds = state.players
+    .map((seat) => seat.id)
+    .filter((otherId) => otherId !== playerId && !targetIds.includes(otherId));
+
+  const options = SUITS
+    .map((suit) => {
+      const suitCards = player.hand.filter((card) => effectiveSuit(card) === suit);
+      if (suitCards.length < 2) return null;
+      if (targetIds.some((targetId) => state.exposedSuitVoid[targetId]?.[suit])) return null;
+      if (enemyIds.some((enemyId) => state.exposedSuitVoid[enemyId]?.[suit])) return null;
+
+      const topSuitCard = highestCard(suitCards);
+      if (!topSuitCard || topSuitCard.rank !== "A") return null;
+
+      const combo = chooseStrongLeadFromCards(suitCards);
+      if (combo.length === 0) return null;
+
+      const comboTopCard = highestCard(combo);
+      if (!comboTopCard || comboTopCard.rank !== "A") return null;
+
+      const comboIds = new Set(combo.map((card) => card.id));
+      const remainingCards = suitCards.filter((card) => !comboIds.has(card.id));
+      if (remainingCards.length === 0) return null;
+
+      const lowestRemainingCard = lowestCard(remainingCards);
+      let score = 72;
+      score += combo.length * 18;
+      score += classifyPlay(combo).power;
+      if (scoreValue(lowestRemainingCard) === 0) score += 14;
+      if (targetIds.length > 1) score += 6;
+      score -= cardStrength(lowestRemainingCard);
+      return {
+        combo,
+        score,
+      };
+    })
+    .filter(Boolean);
+
+  if (options.length === 0) return [];
+  return options.sort((left, right) => right.score - left.score)[0].combo;
 }
 
 /**
@@ -1423,6 +1526,117 @@ function scoreOffSuitDiscardStructurePreservation(playerId, combo, handBefore = 
   const structureLoss = getSideStructureInventoryScore(sourceHand) - getSideStructureInventoryScore(handAfter);
   if (structureLoss <= 0) return 0;
   return -structureLoss;
+}
+
+/**
+ * 作用：
+ * 评估当前跟牌是否在“缺首门贴牌”时，不必要地拆掉了本来可用于控轮的大对。
+ *
+ * 为什么这样写：
+ * 用户明确补充了一个跟牌口径：
+ * 当自己已经缺首门，只是在贴牌或考虑是否用单张去压时，
+ * `10 / J / Q / K / A`、级牌、王这类大对的长期控牌价值，往往高于一张 `5` 之类的小分牌。
+ * 因此这里把“拆掉大对去贴牌 / 去抢一手不稳的单张”显式打成负分，避免初级和中级都继续走出“贴大对而留 5”的反直觉选择。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<object>} combo - 当前待评估的合法跟牌组合。
+ * @param {Array<object>|null} handBefore - 出这手牌前的完整手牌；为空时回退读取当前玩家手牌。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次的领先出牌；为空时回退读取 live state。
+ * @param {object|null} leadSpec - 当前首家牌型描述；为空时回退读取全局 `state.leadSpec`。
+ *
+ * 输出：
+ * @returns {number} 返回大对保留修正分；负数表示这手牌拆掉了应尽量保住的大对。
+ *
+ * 注意：
+ * - 只在“首家出单张、自己已经缺首门”的单张贴牌场景启用。
+ * - 这里只保护“正好两张”的大对；三张拆一张后仍剩对子，不按这条规则重罚。
+ */
+function scoreOffSuitHighPairPreservation(playerId, combo, handBefore = null, currentWinningPlay = null, leadSpec = state.leadSpec) {
+  if (!leadSpec || leadSpec.type !== "single" || !Array.isArray(combo) || combo.length !== 1) return 0;
+  const player = getPlayer(playerId);
+  const sourceHand = Array.isArray(handBefore) ? handBefore : player?.hand;
+  if (!Array.isArray(sourceHand) || sourceHand.length === 0) return 0;
+
+  const leadSuitCards = sourceHand.filter((card) => effectiveSuit(card) === leadSpec.suit);
+  if (leadSuitCards.length > 0) return 0;
+
+  const card = combo[0];
+  const sameCopies = sourceHand.filter((entry) => entry.suit === card.suit && entry.rank === card.rank);
+  if (sameCopies.length !== 2) return 0;
+
+  const isHighPair = card.suit === "joker"
+    || card.rank === getCurrentLevelRank()
+    || ["10", "J", "Q", "K", "A"].includes(card.rank);
+  if (!isHighPair) return 0;
+
+  const comboSuit = effectiveSuit(card);
+  const winningPlay = currentWinningPlay || getCurrentWinningPlay();
+  let score = comboSuit === "trump" ? -240 : -180;
+  if (winningPlay && wouldAiComboBeatCurrent(playerId, combo, winningPlay)) {
+    score -= comboSuit === "trump" ? 120 : 70;
+  }
+  return score;
+}
+
+/**
+ * 作用：
+ * 在“缺首门跟单张”场景里，主动挑出一手更应该被贴掉的低分牌，避免 AI 拆掉大对。
+ *
+ * 为什么这样写：
+ * 仅靠排序惩罚还不够，因为旧的 beginner / legacy intermediate 会先看“我能不能压”，
+ * 一旦存在能压的单张主牌，就可能直接跳过所有不压的贴牌候选。
+ * 这里补一层显式短路：当唯一值得出的控制资源是“大对的一半”，但手里还有 `5` 这类可接受的低分贴牌时，优先把低分牌送出去。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<Array<object>>} candidates - 当前所有合法候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次的领先出牌；为空时回退读取 live state。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“大对保留”窗口时返回推荐贴牌，否则返回空数组。
+ *
+ * 注意：
+ * - 只处理单张跟牌，不处理对子、拖拉机等必须按型出的场景。
+ * - 这里允许贴 `5` 分，但不会主动把 `10 / K` 这类更大分牌当成默认替代品。
+ */
+function chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay = null) {
+  if (!Array.isArray(candidates) || candidates.length === 0 || !state.leadSpec || state.leadSpec.type !== "single") return [];
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return [];
+
+  const leadSuitCards = player.hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
+  if (leadSuitCards.length > 0) return [];
+
+  const winningPlay = currentWinningPlay || getCurrentWinningPlay();
+  if (!winningPlay) return [];
+
+  const riskyPairBeats = candidates.filter((combo) =>
+    combo.length === 1
+    && wouldAiComboBeatCurrent(playerId, combo, winningPlay)
+    && scoreOffSuitHighPairPreservation(playerId, combo, player.hand, winningPlay) < 0
+  );
+  if (riskyPairBeats.length === 0) return [];
+
+  const allyWinning = areAiSameSide(playerId, winningPlay.playerId);
+  const safePointDiscards = candidates.filter((combo) =>
+    combo.length === 1
+    && !wouldAiComboBeatCurrent(playerId, combo, winningPlay)
+    && getComboPointValue(combo) <= 5
+    && scoreOffSuitHighPairPreservation(playerId, combo, player.hand, winningPlay) === 0
+  );
+  if (safePointDiscards.length === 0) return [];
+
+  return safePointDiscards.sort((a, b) => {
+    const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b, player.hand)
+      - scoreOffSuitDiscardStructurePreservation(playerId, a, player.hand);
+    if (preserveDiff !== 0) return preserveDiff;
+    const pointDiff = allyWinning
+      ? getComboPointValue(b) - getComboPointValue(a)
+      : getComboPointValue(a) - getComboPointValue(b);
+    if (pointDiff !== 0) return pointDiff;
+    return classifyPlay(a).power - classifyPlay(b).power;
+  })[0];
 }
 
 function isMemorableHighCard(card) {

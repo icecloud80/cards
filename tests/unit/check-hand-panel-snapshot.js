@@ -245,6 +245,7 @@ function main() {
   const uiSource = fs.readFileSync(path.join(__dirname, "../../src/shared/ui.js"), "utf8");
   const actionRowMatch = indexHtml.match(/<div class="bottom-action-row">([\s\S]*?)<\/div>/);
   const toolbarRowMatch = indexHtml.match(/<div class="toolbar-icon-row">([\s\S]*?)<\/div>/);
+  assert.match(indexHtml, /\.cards-row \.card-btn:first-child\s*\{\s*margin-left:\s*0;\s*\}/, "PC 连续牌轨的首张手牌不应继续吃到负外边距，否则 31 张时会被左侧裁掉");
   assert.match(indexHtml, /playerSeat-2[\s\S]*playerSeat-3[\s\S]*playerSeat-4[\s\S]*playerSeat-5[\s\S]*playerSeat-1/, "PC 左侧玩家面板 DOM 顺序应为 2, 3, 4, 5, 1");
   assert.notEqual(toolbarRowMatch, null, "PC 顶部应保留工具按钮行");
   assert.match(toolbarRowMatch[1], /id="toggleLastTrickBtn"[\s\S]*id="newGameBtn"[\s\S]*id="toggleRulesBtn"/, "PC 顶部工具按钮行应把重置本局图标放在上一轮与设置之间");
@@ -282,16 +283,16 @@ function main() {
   assert.equal(pcSpotTitle, "玩家3", "桌面端其他玩家标题不应继续拼接“出牌区”字样");
 
   const bankerSpotTag = context.buildPcTrickSpotRoleTag({ kind: "banker", label: "打家" });
-  assert.equal(bankerSpotTag.includes("打"), true, "桌面端出牌区应能渲染打家短签");
+  assert.equal(bankerSpotTag.includes("打家"), true, "桌面端出牌区应能渲染完整的“打家”短签");
 
   const friendSpotTag = context.buildPcTrickSpotRoleTag({ kind: "friend", label: "朋友" });
-  assert.equal(friendSpotTag.includes("朋"), true, "桌面端出牌区应能渲染朋友短签");
+  assert.equal(friendSpotTag.includes("朋友"), true, "桌面端出牌区应能渲染完整的“朋友”短签");
 
   const headerTags = context.buildPcTrickSpotHeaderTags(
     { id: 1, isHuman: false },
     { kind: "friend", label: "朋友" }
   );
-  assert.equal(headerTags.includes("朋"), true, "桌面端出牌区标题行应继续保留朋友短签");
+  assert.equal(headerTags.includes("朋友"), true, "桌面端出牌区标题行应继续保留完整的“朋友”短签");
   assert.equal(headerTags.includes("托管"), true, "桌面端出牌区应把托管胶囊并到身份短签旁边");
 
   const winningChips = context.buildTrickSpotMetricChips(

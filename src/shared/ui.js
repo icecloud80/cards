@@ -603,13 +603,7 @@ function renderFriendPanel() {
   dom.friendHint.textContent = TEXT.friend.fixedHint;
   dom.friendLabel.textContent = state.friendTarget.label;
   const canRetarget = typeof canRetargetFriendSelection === "function" && canRetargetFriendSelection();
-  dom.friendState.textContent = state.friendTarget.failed
-    ? "1打4"
-    : state.friendTarget.revealed
-      ? "已站队"
-      : canRetarget
-        ? getFriendRetargetStateLabel()
-        : "待站队";
+  dom.friendState.textContent = getFriendPanelStateText(canRetarget);
   dom.friendOwner.textContent = state.friendTarget.failed
     ? "0/0"
     : `${state.friendTarget.revealed
@@ -626,6 +620,34 @@ function renderFriendPanel() {
   dom.friendCardMount.title = canRetarget
     ? `剩余 ${getFriendRetargetCountdownSeconds()} 秒，可点击再次编辑一次`
     : state.friendTarget.label;
+}
+
+/**
+ * 作用：
+ * 生成顶部朋友牌状态行需要显示的紧凑文案。
+ *
+ * 为什么这样写：
+ * 这次 PC 顶栏要补上“已站队的是谁”，但又不能把整块朋友状态拉回成长说明；
+ * 把“待站队 / 可改 / 1打4 / 已站队 玩家X”统一收口后，顶栏和手游就能共享同一套判断口径。
+ *
+ * 输入：
+ * @param {boolean} canRetarget - 当前是否仍处于可重改朋友牌的 30 秒窗口内。
+ *
+ * 输出：
+ * @returns {string} 顶部朋友状态块第二行应展示的短文案。
+ *
+ * 注意：
+ * - 已站队时必须优先带出玩家名，避免只看到状态看不到是谁站队。
+ * - 名字缺失时要安全回退成 `已站队`，不要渲染出 `undefined`。
+ */
+function getFriendPanelStateText(canRetarget) {
+  if (!state.friendTarget) return "未开始";
+  if (state.friendTarget.failed) return "1打4";
+  if (state.friendTarget.revealed) {
+    const revealedPlayerName = state.friendTarget.revealedBy ? getPlayer(state.friendTarget.revealedBy)?.name : "";
+    return revealedPlayerName ? `已站队 ${revealedPlayerName}` : "已站队";
+  }
+  return canRetarget ? getFriendRetargetStateLabel() : "待站队";
 }
 
 /**
@@ -658,6 +680,39 @@ function getCompactTopbarTrumpLabel() {
 
 /**
  * 作用：
+ * 解析顶部主牌状态块应该展示的真实牌面对象。
+ *
+ * 为什么这样写：
+ * 手游顶部状态卡已经统一展示“实际亮出的那张主牌”，PC 这次也要对齐；
+ * 但共享层里无主和花色主的来源并不完全一致，所以需要先在这里把各种声明数据归一成一张可渲染的牌。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态里的声明结果。
+ *
+ * 输出：
+ * @returns {object|null} 可直接交给牌面渲染 helper 的牌对象；没有可展示牌时返回 `null`。
+ *
+ * 注意：
+ * - 无主优先使用声明链路里真实记录的王，避免退回成抽象的 `无` 字。
+ * - 花色主在拿不到 `cards` 明细时，要按 `suit + rank` 兜底补出一张展示牌。
+ */
+function getTopbarTrumpDisplayCard() {
+  if (!state.declaration) return null;
+  if (Array.isArray(state.declaration.cards) && state.declaration.cards.length > 0) {
+    return state.declaration.cards[0];
+  }
+  if (state.declaration.suit === "notrump" || !state.declaration.rank) {
+    return null;
+  }
+  return {
+    suit: state.declaration.suit,
+    rank: state.declaration.rank,
+    img: typeof getCardImage === "function" ? getCardImage(state.declaration.suit, state.declaration.rank) : undefined,
+  };
+}
+
+/**
+ * 作用：
  * 渲染顶部 `主` 状态块里的可视主牌徽章。
  *
  * 为什么这样写：
@@ -676,19 +731,23 @@ function getCompactTopbarTrumpLabel() {
  */
 function renderTopbarTrumpBadge() {
   if (!dom.topbarTrumpBadge) return;
+  const displayCard = getTopbarTrumpDisplayCard();
 
   if (!state.declaration) {
+    dom.topbarTrumpBadge.innerHTML = "";
     dom.topbarTrumpBadge.textContent = "--";
     dom.topbarTrumpBadge.classList.remove("red");
     return;
   }
 
-  if (state.declaration.suit === "notrump") {
-    dom.topbarTrumpBadge.textContent = "无";
+  if (displayCard) {
+    dom.topbarTrumpBadge.innerHTML = "";
+    dom.topbarTrumpBadge.appendChild(buildDisplayCardNode(displayCard, "topbar-trump-card"));
     dom.topbarTrumpBadge.classList.remove("red");
     return;
   }
 
+  dom.topbarTrumpBadge.innerHTML = "";
   const symbol = SUIT_SYMBOL[state.declaration.suit] || SUIT_LABEL[state.declaration.suit] || "--";
   dom.topbarTrumpBadge.textContent = symbol;
   dom.topbarTrumpBadge.classList.toggle("red", state.declaration.suit === "hearts" || state.declaration.suit === "diamonds");
@@ -721,7 +780,7 @@ function getCompactTopbarBankerLabel() {
   if (state.phase === "countering") return `玩家${state.currentTurnId}反主`;
   if (state.phase === "burying") return playerIdLabel(state.bankerId, "扣底中");
   if (state.phase === "callingFriend") return playerIdLabel(state.bankerId, "叫朋友");
-  return `打 ${getPlayer(state.bankerId).name}`;
+  return `打家 ${getPlayer(state.bankerId).name}`;
 }
 
 /**
@@ -1187,7 +1246,7 @@ function getPcTrickSpotTitle(player) {
  * 生成桌面端出牌区里用背景色区分的阵营短签。
  *
  * 为什么这样写：
- * 用户希望 PC 出牌区像手游一样，直接用带底色的 `打 / 朋` 短签表达关键身份，
+ * 用户希望 PC 出牌区像手游一样，直接用带底色的 `打家 / 朋友` 短签表达关键身份，
  * 而不是再通过一整行解释性副标题说明；统一从 helper 出 HTML，
  * 可以让桌面端只改一处就同步所有出牌区头部。
  *
@@ -1198,15 +1257,15 @@ function getPcTrickSpotTitle(player) {
  * @returns {string} 可直接插入桌面端出牌区标题行的身份短签 HTML。
  *
  * 注意：
- * - 这里只显示 `打` 和 `朋` 两种高优先级短签，其他身份保持留空。
+ * - 这里只显示 `打家` 和 `朋友` 两种高优先级短签，其他身份保持留空。
  * - `unknown` 必须返回空字符串，避免重新出现“阵营未明”。
  */
 function buildPcTrickSpotRoleTag(role) {
   if (role?.kind === "banker") {
-    return '<span class="spot-role-chip banker">打</span>';
+    return '<span class="spot-role-chip banker">打家</span>';
   }
   if (role?.kind === "friend") {
-    return '<span class="spot-role-chip friend">朋</span>';
+    return '<span class="spot-role-chip friend">朋友</span>';
   }
   return "";
 }

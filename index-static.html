@@ -1622,7 +1622,7 @@
               <div class="spot-player">
                 <div class="spot-name-row">
                   <span class="spot-name">${spot.name}</span>
-                  ${spot.role ? `<span class="spot-role-chip ${spot.role}">${spot.role === "banker" ? "打" : "朋"}</span>` : ""}
+                  ${spot.role ? `<span class="spot-role-chip ${spot.role}">${spot.role === "banker" ? "打家" : "朋友"}</span>` : ""}
                   ${spot.position === "bottom" && STATIC_STATE.autoManageMode !== "off" ? '<span class="spot-role-chip managed">托管</span>' : ""}
                 </div>
               </div>

@@ -71,6 +71,7 @@ function createClassListStub() {
  * - `querySelector("img")` 默认返回 `null` 即可，满足这条回归。
  */
 function createElementStub(identifier) {
+  const attributes = new Map();
   return {
     id: identifier,
     dataset: {},
@@ -92,7 +93,11 @@ function createElementStub(identifier) {
       return child;
     },
     setAttribute(name, value) {
+      attributes.set(name, String(value));
       this[name] = value;
+    },
+    getAttribute(name) {
+      return attributes.get(name) || null;
     },
     addEventListener() {},
     removeEventListener() {},
@@ -120,7 +125,7 @@ function createElementStub(identifier) {
  * @param {void} - 通过固定脚本路径加载 PC 运行时所需脚本。
  *
  * 输出：
- * @returns {{setupGame: Function, renderScorePanel: Function, state: object, document: object}} 当前回归需要的真实接口集合。
+ * @returns {{setupGame: Function, renderHud: Function, renderFriendPanel: Function, renderScorePanel: Function, state: object, document: object}} 当前回归需要的真实接口集合。
  *
  * 注意：
  * - `document.querySelector(".table")` 必须返回元素桩，避免布局逻辑取空。
@@ -220,17 +225,17 @@ function loadPcTopbarContext() {
     }
   `, context);
 
-  return vm.runInContext("({ setupGame, renderScorePanel, state, document })", context);
+  return vm.runInContext("({ setupGame, renderHud, renderFriendPanel, renderScorePanel, state, document })", context);
 }
 
 /**
  * 作用：
- * 校验 PC 顶栏已经补入与手游一致的难度短标签。
+ * 校验 PC 顶栏已经补入与手游一致的难度短标签，并同步锁住主牌与朋友状态的关键信息。
  *
  * 为什么这样写：
- * 这次改动目标是把“难度”从开始页配置同步带回到 PC 顶栏；
- * 如果后续有人删掉 DOM 节点、忘记写回共享状态，或把短标签改回空白，
- * 这条回归可以第一时间提示桌面端和手游口径重新分叉。
+ * 这次改动除了补“难度”外，还要求 PC 顶栏在无主时展示真实亮牌、把 `打 玩家X` 修正成 `打家 玩家X`，
+ * 同时让朋友状态在已站队后直接带出玩家名；
+ * 把这几项集中锁在同一条小回归里，可以更快发现 PC 和手游顶部状态再次分叉。
  *
  * 输入：
  * @param {void} - 无额外输入。
@@ -239,13 +244,14 @@ function loadPcTopbarContext() {
  * @returns {void} 全部断言通过后正常退出。
  *
  * 注意：
- * - 这里只验证 PC 顶栏难度结构和短标签映射，不做像素级布局截图断言。
+ * - 这里只验证 PC 顶栏结构和关键文案，不做像素级布局截图断言。
  * - 紧凑短标签必须沿用 `初 / 中 / 高`，和手游保持一致。
  */
 function main() {
   const indexHtml = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
   assert.match(indexHtml, /<span class="topbar-summary-label">难度<\/span>/, "PC 顶栏左侧统计应补入“难度”标题");
   assert.match(indexHtml, /id="topbarDifficulty"/, "PC 顶栏应提供独立的难度值节点");
+  assert.match(indexHtml, /\.topbar-trump-card\s*\{[\s\S]*width:\s*100%;[\s\S]*height:\s*100%;/, "PC 顶栏主牌小卡位应提供独立样式，避免真实牌面挤坏布局");
 
   const context = loadPcTopbarContext();
   context.setupGame();
@@ -261,6 +267,35 @@ function main() {
   context.state.aiDifficulty = "advanced";
   context.renderScorePanel();
   assert.equal(context.document.getElementById("topbarDifficulty").textContent, "高", "PC 顶栏应把高级难度压缩成“高”");
+
+  context.state.phase = "playing";
+  context.state.bankerId = 3;
+  context.state.currentTurnId = 1;
+  context.state.declaration = {
+    playerId: 3,
+    suit: "notrump",
+    rank: "2",
+    count: 2,
+    cards: [{ suit: "joker", rank: "RJ", img: "./cards/joker-RJ.svg" }],
+  };
+  context.state.friendTarget = {
+    label: "第二张方块A",
+    occurrence: 2,
+    suit: "diamonds",
+    rank: "A",
+    matchesSeen: 2,
+    revealed: true,
+    revealedBy: 4,
+    failed: false,
+  };
+
+  context.renderHud();
+  context.renderFriendPanel();
+
+  assert.equal(context.document.getElementById("bankerLabel").textContent, "打家 玩家3", "PC 顶栏主牌副标题应明确写成“打家 玩家X”");
+  assert.equal(context.document.getElementById("friendState").textContent, "已站队 玩家4", "PC 顶栏朋友状态在已站队后应直接带出玩家名");
+  assert.equal(context.document.getElementById("topbarTrumpBadge").children.length, 1, "PC 顶栏无主时应渲染真实亮牌，而不是只显示“无”字");
+  assert.equal(context.document.getElementById("topbarTrumpBadge").children[0].getAttribute("aria-label"), "大王", "PC 顶栏无主状态应展示触发亮牌的真实王");
 }
 
 main();

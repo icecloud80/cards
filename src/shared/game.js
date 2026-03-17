@@ -1373,6 +1373,7 @@ function startDealing() {
   state.phase = "dealing";
   state.awaitingHumanDeclaration = false;
   appendLog(TEXT.log.startDealing);
+  persistNativeRecentReplayFromState();
   render();
   queueDealStep(getAiPaceDelay("dealStartDelay"));
 }

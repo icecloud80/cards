@@ -45,8 +45,11 @@ function closeToolbarMenu() {
  * - 若当前局还没生成值，统一回退为空字符串，保持输入框可继续编辑。
  */
 function primeReplayPanelDraftsFromCurrentRound() {
-  state.debugReplaySeedDraft = state.replaySeed || "";
-  state.debugOpeningCodeDraft = state.openingCode || "";
+  const preferredReplayBundle = typeof getPreferredReplayDraftSource === "function"
+    ? getPreferredReplayDraftSource()
+    : null;
+  state.debugReplaySeedDraft = preferredReplayBundle?.replaySeed || state.replaySeed || "";
+  state.debugOpeningCodeDraft = preferredReplayBundle?.openingCode || state.openingCode || "";
   state.debugReplayStatusTone = "";
   state.debugReplayStatusText = "";
 }
@@ -182,6 +185,7 @@ function setAiDifficulty(value) {
   if (typeof render === "function") {
     render();
   }
+  persistNativeAppSettingsFromState();
 }
 
 /**
@@ -213,6 +217,7 @@ function setAiPace(value) {
   if (typeof render === "function") {
     render();
   }
+  persistNativeAppSettingsFromState();
 }
 
 /**
@@ -250,6 +255,7 @@ function applyAutoManagedState(mode) {
     render();
   }
   syncAutoManagedButton();
+  persistNativeAppSettingsFromState();
 
   if (!enabled) {
     if (typeof clearTimers === "function" && typeof startTurn === "function" && state.phase === "playing" && state.currentTurnId === 1) {
@@ -769,4 +775,53 @@ for (const element of getLayoutElements()) {
 applySavedLayoutState();
 dom.versionBadge.textContent = APP_VERSION_LABEL;
 
-setupGame();
+/**
+ * 作用：
+ * 以“先同步起盘、再异步吸收原生存储”的顺序启动运行态。
+ *
+ * 为什么这样写：
+ * 现有 Web 与测试都依赖 `setupGame()` 在脚本加载末尾同步执行；
+ * 这轮 App 存储又需要异步读取 `Preferences`，因此最稳妥的做法是先保持旧的同步启动不变，
+ * 再在原生壳里补一轮轻量 hydration，把设置、等级进度和最近一局复盘输入吸收到当前状态里。
+ *
+ * 输入：
+ * @param {void} - 直接复用共享状态、渲染函数和原生存储 helper。
+ *
+ * 输出：
+ * @returns {void} 启动流程进入运行态后结束，不返回额外数据。
+ *
+ * 注意：
+ * - Web 环境必须保持原有同步启动语义。
+ * - 原生 hydration 失败时只告警并保留当前默认牌局，不能阻断页面启动。
+ */
+function bootstrapRuntimeState() {
+  setupGame();
+  if (!isNativeAppRuntime() || typeof hydrateNativeAppStorageState !== "function") return;
+  state.appStorageHydrationPromise = hydrateNativeAppStorageState()
+    .then(() => {
+      if (state.nativeAppSettingsSnapshot) {
+        state.cardFaceKey = normalizeCardFaceKey(state.nativeAppSettingsSnapshot.cardFaceKey);
+        state.aiDifficulty = normalizeAiDifficulty(state.nativeAppSettingsSnapshot.aiDifficulty);
+        state.aiPace = normalizeAiPace(state.nativeAppSettingsSnapshot.aiPace);
+        state.autoManageMode = normalizeAutoManageMode(state.nativeAppSettingsSnapshot.autoManageMode);
+      }
+      if (state.nativeProgressSnapshot?.playerLevels) {
+        state.playerLevels = normalizePlayerLevels(state.nativeProgressSnapshot.playerLevels);
+      }
+      refreshSavedProgressAvailability();
+      setupGame();
+      if (typeof render === "function") {
+        render();
+      }
+    })
+    .catch((error) => {
+      console.warn?.("Failed to hydrate native app storage state", error);
+      state.appStorageHydrated = true;
+      refreshSavedProgressAvailability();
+      if (typeof render === "function") {
+        render();
+      }
+    });
+}
+
+bootstrapRuntimeState();

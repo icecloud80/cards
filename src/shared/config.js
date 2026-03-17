@@ -153,9 +153,16 @@ const CARD_FACE_STORAGE_KEY = `five-friends-card-face-${APP_PLATFORM}-v1`;
 const LAYOUT_STORAGE_KEY = `five-friends-layout-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_KEY = `five-friends-progress-${APP_PLATFORM}-v1`;
 const PROGRESS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const APP_SETTINGS_STORAGE_KEY = "five-friends-app-settings-v1";
+const APP_PROGRESS_STORAGE_KEY = "five-friends-app-progress-v1";
+const APP_ROUND_STORAGE_KEY = "five-friends-app-round-v1";
+const APP_STORAGE_MIGRATION_KEY = "five-friends-app-storage-migration-v1";
 const MAX_BURY_POINT_TOTAL = 25;
 const OPENING_CODE_LEVEL_ORDER = [...NEGATIVE_LEVELS, ...RANKS];
 const OPENING_CODE_AI_DIFFICULTY_ORDER = AI_DIFFICULTY_OPTIONS.map((option) => option.value);
+let nativeAppSettingsSnapshotCache = null;
+let nativeProgressSnapshotCache = null;
+let nativeRecentReplaySnapshotCache = null;
 
 /**
  * 作用：
@@ -212,8 +219,423 @@ function getCardFaceOption(key = DEFAULT_CARD_FACE_KEY) {
   return CARD_FACE_OPTIONS.find((option) => option.key === normalizedKey) || CARD_FACE_OPTIONS[0];
 }
 
+/**
+ * 作用：
+ * 判断当前运行环境是否处于 Capacitor 原生壳内。
+ *
+ * 为什么这样写：
+ * 这轮轻量迁移要求 Web 完全保持旧行为，只有原生 App 才走 `Preferences`；
+ * 把环境判断统一收口后，牌面、进度和最近一局复盘输入都能复用同一条分流逻辑。
+ *
+ * 输入：
+ * @param {void} - 直接读取 `window.Capacitor` 运行时能力。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前为原生 App 运行时。
+ *
+ * 注意：
+ * - Web 浏览器和测试 VM 必须稳定返回 `false`。
+ * - 这里只判断运行时，不代表插件一定可用。
+ */
+function isNativeAppRuntime() {
+  return !!window.Capacitor?.isNativePlatform?.();
+}
+
+/**
+ * 作用：
+ * 读取当前原生壳里可用的 `Preferences` 插件实例。
+ *
+ * 为什么这样写：
+ * 当前仓库仍是全局脚本模式，不通过打包器直接 `import` Capacitor 插件；
+ * 统一从运行时全局读取后，业务层既能在原生壳里工作，也能在浏览器和测试里安全降级。
+ *
+ * 输入：
+ * @param {void} - 直接读取 `window.Capacitor.Plugins`。
+ *
+ * 输出：
+ * @returns {?object} 可用的 `Preferences` 插件；拿不到时返回 `null`。
+ *
+ * 注意：
+ * - 插件缺失时调用方必须自行降级，不能直接抛错阻断开局。
+ * - 这里只返回实例，不负责做能力探测缓存。
+ */
+function getNativePreferencesPlugin() {
+  const plugin = window.Capacitor?.Plugins?.Preferences || null;
+  return plugin && typeof plugin.get === "function" && typeof plugin.set === "function" ? plugin : null;
+}
+
+/**
+ * 作用：
+ * 规范化 App 侧设置快照。
+ *
+ * 为什么这样写：
+ * 原生壳会把多项设置收口到同一份 JSON 里保存；
+ * 统一在这里做兜底，可以避免旧值、脏值或缺字段把 App 启动态带偏。
+ *
+ * 输入：
+ * @param {?object} snapshot - 从 `Preferences` 读取到的原始设置对象。
+ *
+ * 输出：
+ * @returns {{cardFaceKey:string,aiDifficulty:string,aiPace:string,autoManageMode:string}} 规范化后的设置快照。
+ *
+ * 注意：
+ * - 这里只处理 App 额外持久化的字段，不扩展到 Web 现有布局存储。
+ * - 牌面键值仍需兼容历史 `modern-sprite` 别名。
+ */
+function normalizeNativeAppSettingsSnapshot(snapshot) {
+  return {
+    cardFaceKey: normalizeCardFaceKey(snapshot?.cardFaceKey),
+    aiDifficulty: normalizeAiDifficulty(snapshot?.aiDifficulty),
+    aiPace: normalizeAiPace(snapshot?.aiPace),
+    autoManageMode: normalizeStoredAutoManageMode(snapshot?.autoManageMode),
+  };
+}
+
+/**
+ * 作用：
+ * 规范化 App 侧玩家等级进度快照。
+ *
+ * 为什么这样写：
+ * 原生存储要接管“继续游戏”入口，但我们仍希望沿用现有等级结构和 cookie 兼容口径；
+ * 用统一 helper 包一层后，读旧值、写新值和测试断言都能共享同一份结构。
+ *
+ * 输入：
+ * @param {?object} snapshot - 从 `Preferences` 读取到的原始进度对象。
+ *
+ * 输出：
+ * @returns {{playerLevels:object,savedAt:number}|null} 合法进度对象；没有可用内容时返回 `null`。
+ *
+ * 注意：
+ * - `savedAt` 只用于调试与未来扩展，不参与玩法逻辑。
+ * - 玩家等级始终按共享层合法值兜底。
+ */
+function normalizeNativeAppProgressSnapshot(snapshot) {
+  if (!snapshot?.playerLevels) return null;
+  return {
+    playerLevels: normalizePlayerLevels(snapshot.playerLevels),
+    savedAt: Number.isFinite(snapshot.savedAt) ? snapshot.savedAt : Date.now(),
+  };
+}
+
+/**
+ * 作用：
+ * 规范化 App 侧最近一局复盘输入快照。
+ *
+ * 为什么这样写：
+ * 这轮 `round` 不再保存中途牌局，只保留“最近一局的开局输入”；
+ * 提前把开局码和回放种子一起收口后，复盘面板和未来 App 专用恢复入口都能稳定读取同一份数据。
+ *
+ * 输入：
+ * @param {?object} snapshot - 从 `Preferences` 读取到的原始 round 对象。
+ *
+ * 输出：
+ * @returns {{openingCode:string,replaySeed:string}|null} 合法的复盘输入对象；无效时返回 `null`。
+ *
+ * 注意：
+ * - 两个字段缺一不可；拿不到完整开局输入时统一视为没有最近一局记录。
+ * - 这里只保留最小复盘输入，不额外存 phase、手牌或日志。
+ */
+function normalizeNativeRecentReplaySnapshot(snapshot) {
+  const openingCode = String(snapshot?.openingCode || "").trim().toUpperCase();
+  const replaySeed = normalizeReplaySeedInput(snapshot?.replaySeed);
+  if (!openingCode || !replaySeed) return null;
+  return {
+    openingCode,
+    replaySeed,
+  };
+}
+
+/**
+ * 作用：
+ * 以 JSON 形式读取一份原生 `Preferences` 存储值。
+ *
+ * 为什么这样写：
+ * App 侧三类存储都统一走 JSON 文本；
+ * 收口成同一个 helper 后，迁移逻辑、设置保存和最近一局复盘输入都可以复用相同的容错规则。
+ *
+ * 输入：
+ * @param {string} storageKey - 当前要读取的 `Preferences` key。
+ *
+ * 输出：
+ * @returns {Promise<object|null>} 解析后的对象；没有值或解析失败时返回 `null`。
+ *
+ * 注意：
+ * - 插件缺失或读取失败时必须静默降级，不能阻断运行时。
+ * - 返回对象只代表“原始读取结果”，业务字段仍需单独规范化。
+ */
+async function readNativePreferenceJson(storageKey) {
+  const preferences = getNativePreferencesPlugin();
+  if (!preferences) return null;
+  try {
+    const result = await preferences.get({ key: storageKey });
+    if (!result?.value) return null;
+    return JSON.parse(result.value);
+  } catch (error) {
+    console.warn?.(`Failed to read native preference "${storageKey}"`, error);
+    return null;
+  }
+}
+
+/**
+ * 作用：
+ * 把一份 JSON 对象写入原生 `Preferences`。
+ *
+ * 为什么这样写：
+ * App 侧最近一局复盘输入、设置和进度都只需要轻量 key-value 持久化；
+ * 统一封装写入逻辑后，可以让业务层专注于准备快照本身，不用重复处理 JSON 和插件缺失兜底。
+ *
+ * 输入：
+ * @param {string} storageKey - 当前要写入的 `Preferences` key。
+ * @param {?object} payload - 待写入的业务对象；传 `null` 时视为清理该 key。
+ *
+ * 输出：
+ * @returns {Promise<void>} 写入或清理结束后正常完成。
+ *
+ * 注意：
+ * - 写入失败时只打告警，不阻断牌局流程。
+ * - 传 `null` 时需要显式删除 key，避免把字符串 `"null"` 留在原生存储里。
+ */
+async function writeNativePreferenceJson(storageKey, payload) {
+  const preferences = getNativePreferencesPlugin();
+  if (!preferences) return;
+  try {
+    if (payload == null) {
+      await preferences.remove({ key: storageKey });
+      return;
+    }
+    await preferences.set({
+      key: storageKey,
+      value: JSON.stringify(payload),
+    });
+  } catch (error) {
+    console.warn?.(`Failed to write native preference "${storageKey}"`, error);
+  }
+}
+
+/**
+ * 作用：
+ * 生成当前 App 侧设置快照。
+ *
+ * 为什么这样写：
+ * 牌面、AI 难度、节奏和托管模式会在多个入口里被修改；
+ * 集中在一个 helper 里取当前快照后，原生保存逻辑就不必到处手拼对象字段。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态。
+ *
+ * 输出：
+ * @returns {{cardFaceKey:string,aiDifficulty:string,aiPace:string,autoManageMode:string}} 当前设置快照。
+ *
+ * 注意：
+ * - 输出字段必须与 `normalizeNativeAppSettingsSnapshot(...)` 对齐。
+ * - 这里只返回轻量设置，不包含布局或调试状态。
+ */
+function buildNativeAppSettingsSnapshot() {
+  return normalizeNativeAppSettingsSnapshot({
+    cardFaceKey: state?.cardFaceKey,
+    aiDifficulty: state?.aiDifficulty,
+    aiPace: state?.aiPace,
+    autoManageMode: state?.autoManageMode === "persistent" ? "persistent" : "off",
+  });
+}
+
+/**
+ * 作用：
+ * 生成当前共享状态对应的最近一局复盘输入快照。
+ *
+ * 为什么这样写：
+ * 这轮 `round` 只保留“最近一局的开局输入”；
+ * 抽成 helper 后，发牌开始、调试重开和未来 App 入口都能复用同一套最小快照结构。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态。
+ *
+ * 输出：
+ * @returns {{openingCode:string,replaySeed:string}|null} 当前局可保存的复盘输入；不完整时返回 `null`。
+ *
+ * 注意：
+ * - 必须同时具备 `openingCode` 和 `replaySeed` 才允许写入。
+ * - 这里只表示“最近一局开局输入”，不是中途牌局快照。
+ */
+function buildNativeRecentReplaySnapshot() {
+  return normalizeNativeRecentReplaySnapshot({
+    openingCode: state?.openingCode,
+    replaySeed: state?.replaySeed,
+  });
+}
+
+/**
+ * 作用：
+ * 在原生 App 中异步持久化当前设置快照。
+ *
+ * 为什么这样写：
+ * 这轮新增的设置持久化只对原生壳开放，Web 仍保持旧语义；
+ * 用单独 helper 隔离后，事件处理器只需要在状态变更后轻量调用一次，不会把平台分支散落到各处。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态并写入当前设置。
+ *
+ * 输出：
+ * @returns {Promise<void>} 写入完成后结束。
+ *
+ * 注意：
+ * - 只在 `state.appStorageHydrated === true` 后真正写原生存储，避免启动阶段误覆盖旧数据。
+ * - Web 调用时必须静默跳过。
+ */
+async function persistNativeAppSettingsFromState() {
+  if (!isNativeAppRuntime() || !state?.appStorageHydrated) return;
+  const snapshot = buildNativeAppSettingsSnapshot();
+  nativeAppSettingsSnapshotCache = snapshot;
+  state.nativeAppSettingsSnapshot = snapshot;
+  await writeNativePreferenceJson(APP_SETTINGS_STORAGE_KEY, snapshot);
+}
+
+/**
+ * 作用：
+ * 在原生 App 中异步持久化当前玩家等级进度。
+ *
+ * 为什么这样写：
+ * “继续游戏”入口需要在 App 内不再依赖浏览器 cookie；
+ * 把原生进度保存收口后，旧 cookie 兼容和新 App 存储可以并行存在，但读取优先级保持清晰。
+ *
+ * 输入：
+ * @param {object} [levels=state.playerLevels] - 当前要写入的玩家等级。
+ *
+ * 输出：
+ * @returns {Promise<void>} 写入完成后结束。
+ *
+ * 注意：
+ * - 只保存长期等级进度，不扩展到中途牌局。
+ * - Web 仍继续写 cookie；原生保存只是额外补一份可控存储。
+ */
+async function persistNativeProgressFromState(levels = state?.playerLevels) {
+  if (!isNativeAppRuntime() || !state?.appStorageHydrated) return;
+  const snapshot = normalizeNativeAppProgressSnapshot({
+    playerLevels: levels,
+    savedAt: Date.now(),
+  });
+  nativeProgressSnapshotCache = snapshot;
+  state.nativeProgressSnapshot = snapshot;
+  await writeNativePreferenceJson(APP_PROGRESS_STORAGE_KEY, snapshot);
+}
+
+/**
+ * 作用：
+ * 在原生 App 中异步持久化最近一局复盘输入。
+ *
+ * 为什么这样写：
+ * 这轮 `round` 的职责已经收口成“给日志、QA 和手动重建开局用”；
+ * 用统一 helper 保存最近一局后，发牌真正开始时就能把这份输入稳定留在 App 可控存储里。
+ *
+ * 输入：
+ * @param {{openingCode:string,replaySeed:string}|null} [snapshot] - 可选的最近一局复盘输入；不传时默认读取当前局。
+ *
+ * 输出：
+ * @returns {Promise<void>} 写入完成后结束。
+ *
+ * 注意：
+ * - 这里只保存最近一份记录，新局开始后允许覆盖旧值。
+ * - 当开局输入不完整时必须跳过，避免写入半成品。
+ */
+async function persistNativeRecentReplayFromState(snapshot = buildNativeRecentReplaySnapshot()) {
+  if (!isNativeAppRuntime() || !state?.appStorageHydrated || !snapshot) return;
+  nativeRecentReplaySnapshotCache = snapshot;
+  state.nativeRecentReplaySnapshot = snapshot;
+  await writeNativePreferenceJson(APP_ROUND_STORAGE_KEY, snapshot);
+}
+
+/**
+ * 作用：
+ * 返回当前运行时更适合预填到复盘面板里的开局输入。
+ *
+ * 为什么这样写：
+ * Web 仍希望默认预填“当前局”的回放信息，而 App 则更希望优先带出最近一局持久化下来的复盘输入；
+ * 把优先级统一写死后，复盘面板入口和未来 App 恢复入口都能得到同一份结果。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态和原生缓存。
+ *
+ * 输出：
+ * @returns {{openingCode:string,replaySeed:string}|null} 当前应优先使用的复盘输入。
+ *
+ * 注意：
+ * - 原生缓存可用时优先返回最近一局记录。
+ * - 拿不到完整字段时统一返回 `null`。
+ */
+function getPreferredReplayDraftSource() {
+  return nativeRecentReplaySnapshotCache || state?.nativeRecentReplaySnapshot || buildNativeRecentReplaySnapshot();
+}
+
+/**
+ * 作用：
+ * 执行一次原生 App 存储初始化与旧 Web 数据迁移。
+ *
+ * 为什么这样写：
+ * 原生 App 这轮要开始接管设置、等级进度和最近一局复盘输入，
+ * 但现有代码里仍有 `localStorage/cookie` 历史数据；统一在启动时做一次轻量迁移后，
+ * 就能让后续读取优先走 App 可控存储，同时又不影响 Web 原本行为。
+ *
+ * 输入：
+ * @param {void} - 直接读取原生存储、当前共享状态和旧 Web 存储。
+ *
+ * 输出：
+ * @returns {Promise<void>} 初始化和迁移结束后完成。
+ *
+ * 注意：
+ * - 只迁移这轮方案需要的最小字段，不扩展到完整牌局快照。
+ * - 初始化完成前不能回写原生设置，避免把默认值误覆盖成用户旧值。
+ */
+async function hydrateNativeAppStorageState() {
+  if (!isNativeAppRuntime()) return;
+
+  const migrationMarker = await readNativePreferenceJson(APP_STORAGE_MIGRATION_KEY);
+  const storedSettingsSnapshot = await readNativePreferenceJson(APP_SETTINGS_STORAGE_KEY);
+  let settingsSnapshot = storedSettingsSnapshot ? normalizeNativeAppSettingsSnapshot(storedSettingsSnapshot) : null;
+  let progressSnapshot = normalizeNativeAppProgressSnapshot(await readNativePreferenceJson(APP_PROGRESS_STORAGE_KEY));
+  let recentReplaySnapshot = normalizeNativeRecentReplaySnapshot(await readNativePreferenceJson(APP_ROUND_STORAGE_KEY));
+
+  if (!migrationMarker?.done) {
+    if (!settingsSnapshot) {
+      settingsSnapshot = normalizeNativeAppSettingsSnapshot({
+        cardFaceKey: loadSavedCardFaceKey(),
+        aiDifficulty: state.aiDifficulty,
+        aiPace: state.aiPace,
+        autoManageMode: state.autoManageMode,
+      });
+      await writeNativePreferenceJson(APP_SETTINGS_STORAGE_KEY, settingsSnapshot);
+    }
+
+    if (!progressSnapshot) {
+      const browserProgress = loadProgressFromCookie();
+      if (browserProgress) {
+        progressSnapshot = normalizeNativeAppProgressSnapshot({
+          playerLevels: browserProgress,
+          savedAt: Date.now(),
+        });
+        await writeNativePreferenceJson(APP_PROGRESS_STORAGE_KEY, progressSnapshot);
+      }
+    }
+
+    await writeNativePreferenceJson(APP_STORAGE_MIGRATION_KEY, {
+      done: true,
+      migratedAt: Date.now(),
+    });
+  }
+
+  nativeAppSettingsSnapshotCache = settingsSnapshot;
+  nativeProgressSnapshotCache = progressSnapshot;
+  nativeRecentReplaySnapshotCache = recentReplaySnapshot;
+  state.nativeAppSettingsSnapshot = settingsSnapshot;
+  state.nativeProgressSnapshot = progressSnapshot;
+  state.nativeRecentReplaySnapshot = recentReplaySnapshot;
+  state.appStorageHydrated = true;
+}
+
 // 读取已保存的牌面样式键值。
 function loadSavedCardFaceKey() {
+  if (isNativeAppRuntime() && nativeAppSettingsSnapshotCache?.cardFaceKey) {
+    return normalizeCardFaceKey(nativeAppSettingsSnapshotCache.cardFaceKey);
+  }
   try {
     const saved = window.localStorage.getItem(CARD_FACE_STORAGE_KEY);
     return saved ? normalizeCardFaceKey(saved) : DEFAULT_CARD_FACE_KEY;
@@ -229,6 +651,7 @@ function saveCardFaceKey(key) {
   } catch (error) {
     // Ignore storage failures so the game still works in private mode.
   }
+  persistNativeAppSettingsFromState();
 }
 
 // 获取当前牌面配置。
@@ -256,6 +679,28 @@ function getCurrentCardFaceOption() {
  */
 function normalizeAiPace(value) {
   return AI_PACE_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_PACE;
+}
+
+/**
+ * 作用：
+ * 规范化托管模式在持久化层里的取值。
+ *
+ * 为什么这样写：
+ * `config.js` 需要在 `main.js` 之前加载，但原生设置快照又要保存托管模式；
+ * 在这里补一份同口径兜底后，就能避免脚本加载顺序导致的未定义引用。
+ *
+ * 输入：
+ * @param {string} value - 外部传入的托管模式键值。
+ *
+ * 输出：
+ * @returns {"off"|"round"|"persistent"} 合法托管模式；非法输入回退到关闭。
+ *
+ * 注意：
+ * - 这里只服务持久化层与启动期读取，不改变 `main.js` 里的业务入口。
+ * - 合法值必须和顶部托管按钮循环口径保持一致。
+ */
+function normalizeStoredAutoManageMode(value) {
+  return AUTO_MANAGE_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AUTO_MANAGE_MODE;
 }
 
 /**
@@ -808,6 +1253,11 @@ const state = {
   exposedSuitVoid: {},
   awaitingHumanDeclaration: false,
   hasSavedProgress: false,
+  appStorageHydrated: false,
+  appStorageHydrationPromise: null,
+  nativeAppSettingsSnapshot: null,
+  nativeProgressSnapshot: null,
+  nativeRecentReplaySnapshot: null,
   startSelection: null,
   selectedDebugPlayerId: 2,
   selectedDebugDecisionOffsets: createDebugDecisionOffsets(),
@@ -841,6 +1291,9 @@ function readCookieValue(name) {
 
 // 从 Cookie 里加载玩家等级进度。
 function loadProgressFromCookie() {
+  if (isNativeAppRuntime() && nativeProgressSnapshotCache?.playerLevels) {
+    return normalizePlayerLevels(nativeProgressSnapshotCache.playerLevels);
+  }
   const raw = readCookieValue(PROGRESS_COOKIE_KEY);
   if (!raw) return null;
   try {
@@ -861,6 +1314,7 @@ function saveProgressToCookie(levels = state.playerLevels) {
   }));
   document.cookie = `${PROGRESS_COOKIE_KEY}=${payload}; Max-Age=${PROGRESS_COOKIE_MAX_AGE}; path=/; SameSite=Lax`;
   state.hasSavedProgress = true;
+  persistNativeProgressFromState(playerLevels);
 }
 
 // 刷新当前是否存在可继续进度的状态。

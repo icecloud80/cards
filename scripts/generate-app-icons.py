@@ -47,9 +47,9 @@ ANDROID_FOREGROUND_SIZES = {
     "mipmap-xxxhdpi": 432,
 }
 
-CARD_BG_TOP = (126, 29, 31, 255)
-CARD_BG_BOTTOM = (62, 10, 13, 255)
-CARD_BG_GLOW = (255, 176, 84, 255)
+CARD_BG_TOP = (252, 249, 242, 255)
+CARD_BG_BOTTOM = (236, 224, 207, 255)
+CARD_BG_GLOW = (255, 223, 177, 255)
 NAVY_CARD = (29, 51, 95, 255)
 NAVY_CARD_ACCENT = (65, 92, 151, 255)
 IVORY_CARD = (248, 239, 227, 255)
@@ -139,7 +139,7 @@ def create_radial_glow(width: int, height: int, center_x: float, center_y: float
     
     为什么这样写：
     单靠线性渐变会让图标中心偏闷；
-    径向光晕可以把视觉焦点压到图标主体附近，同时让红金配色更像有体积感的珐琅或漆面，而不是单纯平涂。
+    径向光晕可以把视觉焦点压到图标主体附近，同时让暖白浅金配色更像有体积感的釉面，而不是单纯平涂。
     
     输入：
     @param {int} width - 光晕图宽度。
@@ -409,12 +409,12 @@ def add_background_pattern(background: Image.Image) -> Image.Image:
     for offset in range(-height, width + height, spacing):
         draw.line(
             ((offset, 0), (offset - height, height)),
-            fill=(255, 230, 196, 34),
+            fill=(168, 138, 112, 28),
             width=stroke_width,
         )
         draw.line(
             ((offset, 0), (offset + height, height)),
-            fill=(255, 255, 255, 18),
+            fill=(255, 255, 255, 72),
             width=stroke_width,
         )
 
@@ -424,7 +424,7 @@ def add_background_pattern(background: Image.Image) -> Image.Image:
 def create_icon_background(size: int, rounded: bool) -> Image.Image:
     """
     作用：
-    生成 App Icon 的红金背景母稿。
+    生成 App Icon 的亮色背景母稿。
     
     为什么这样写：
     iOS、Android legacy icon 和预览图都需要共用同一套品牌背景；
@@ -446,11 +446,11 @@ def create_icon_background(size: int, rounded: bool) -> Image.Image:
     background = add_background_pattern(background)
     background = Image.alpha_composite(
         background,
-        create_radial_glow(size, size, size * 0.34, size * 0.24, size * 0.7, (CARD_BG_GLOW[0], CARD_BG_GLOW[1], CARD_BG_GLOW[2], 128)),
+        create_radial_glow(size, size, size * 0.34, size * 0.24, size * 0.7, (CARD_BG_GLOW[0], CARD_BG_GLOW[1], CARD_BG_GLOW[2], 118)),
     )
     background = Image.alpha_composite(
         background,
-        create_radial_glow(size, size, size * 0.65, size * 0.78, size * 0.8, (0, 0, 0, 96)),
+        create_radial_glow(size, size, size * 0.68, size * 0.8, size * 0.82, (176, 140, 114, 72)),
     )
 
     highlight = Image.new("RGBA", (size, size), (0, 0, 0, 0))

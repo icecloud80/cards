@@ -224,13 +224,13 @@ function assertAndroidAdaptiveIconConfig() {
   );
   assert.match(
     backgroundDrawableXml,
-    /<gradient[\s\S]*android:startColor="#C4492E"/,
-    "Android adaptive 背景应保留品牌红金渐变起始色",
+    /<gradient[\s\S]*android:startColor="#FFF9F1"/,
+    "Android adaptive 背景应保留品牌亮色渐变起始色",
   );
   assert.match(
     backgroundDrawableXml,
-    /android:endColor="#3E0A0D"/,
-    "Android adaptive 背景应保留品牌深红渐变终止色",
+    /android:endColor="#EBDCCC"/,
+    "Android adaptive 背景应保留品牌浅金渐变终止色",
   );
 }
 

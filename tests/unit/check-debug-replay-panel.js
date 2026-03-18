@@ -312,6 +312,8 @@ async function main() {
   const sourceFirstDealPlayerId = context.state.nextFirstDealPlayerId;
   const sourcePlayerLevels = { ...context.state.playerLevels };
   const sourceAiDifficulty = context.state.aiDifficulty;
+  assert.equal(sourceOpeningCode.length, 169, "复盘面板使用的当前开局码应切到 169 位短码");
+  assert.match(sourceOpeningCode, /^[0-9A-Za-z]+$/, "复盘面板当前开局码应只包含数字和字母");
 
   context.state.showReplayPanel = true;
   context.renderReplayPanel();

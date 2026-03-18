@@ -39,7 +39,7 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(198px,\s*30\.5vh,\s*232px\)[\s\S]*minmax\(36px,\s*max-content\);/,
+    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(268px,\s*31vh,\s*282px\)[\s\S]*minmax\(36px,\s*max-content\);/,
     "App 专用页面应把桌面行高改成顶部固定、中部自适应、底部手牌固定、操作区固定",
   );
   assert.match(
@@ -56,6 +56,31 @@ function main() {
     html,
     /body\.mobile-app-shell \.hand-group \{[\s\S]*gap:\s*8px;/,
     "App 专用页面应把左侧花色标签和第一张手牌之间的间距再拉开一点",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \{[\s\S]*--mobile-app-play-card-width:\s*38px;[\s\S]*--mobile-app-play-card-height:\s*55px;[\s\S]*--mobile-app-hand-row-min-height:\s*52px;[\s\S]*--mobile-app-hand-label-width:\s*18px;/,
+    "App 专用页面应为手牌区、标签列和中央出牌区收口同一套布局变量",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.trick-spot \.played-card \{[\s\S]*width:\s*var\(--mobile-app-play-card-width\);[\s\S]*height:\s*var\(--mobile-app-play-card-height\);/,
+    "App 专用页面的中央出牌区应继续使用统一的 38x55 牌面变量",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.card-btn,[\s\S]*body\.mobile-app-shell \.friend-card \{[\s\S]*width:\s*var\(--mobile-app-play-card-width\);[\s\S]*height:\s*var\(--mobile-app-play-card-height\);/,
+    "App 专用页面的手牌区应把牌面放大到与中央出牌区相同的尺寸",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.mobile-hand-row \{[\s\S]*min-height:\s*var\(--mobile-app-hand-row-min-height\);/,
+    "App 专用页面在放大手牌后应同步抬高手牌行最小高度，避免五行分组继续把牌压小",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.group-chip \{[\s\S]*width:\s*var\(--mobile-app-hand-label-width\);[\s\S]*text-align:\s*left;/,
+    "App 专用页面应固定手牌标签列宽度，确保无主时各门花色仍保持同一条左对齐基线",
   );
   assert.match(
     html,
@@ -86,6 +111,26 @@ function main() {
     html,
     /body\.mobile-app-shell \.friend-picker \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/,
     "App 叫朋友弹层的操作行仍应保留两列 grid，不应被底部主操作条的新规则误伤",
+  );
+  assert.match(
+    html,
+    /function getAppHandOverlap\(cardCount\) \{[\s\S]*return Math\.min\(18,\s*8 \+ Math\.max\(0,\s*normalizedCount - 6\)\);[\s\S]*\}/,
+    "App 专用页面在放大手牌后应提供独立的手牌重叠估算逻辑，避免长手牌横向撑爆",
+  );
+  assert.match(
+    html,
+    /cardsRow\.style\.setProperty\("--mobile-app-card-overlap", getAppHandOverlap\(entry\.count\)\.toFixed\(1\)\);/,
+    "App 专用页面应把放大后的手牌重叠量写到 App 专用 CSS 变量，不影响通用 mobile 口径",
+  );
+  assert.match(
+    html,
+    /const rowCount = 5;/,
+    "App 专用页面在无主场景下应给主牌和四门副牌各预留一行，不能再把某一门副牌挤到同一行",
+  );
+  assert.match(
+    html,
+    /if \(row\.childElementCount === 0\) continue;/,
+    "App 专用页面在扩成五行后应跳过空行，避免四组手牌时被额外空轨拉散",
   );
   assert.doesNotMatch(
     html,

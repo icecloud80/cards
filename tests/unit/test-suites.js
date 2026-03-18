@@ -178,6 +178,11 @@ const UNIT_TEST_SUITES = [
     name: "Mobile app template regression",
     file: path.join(__dirname, "check-mobile-app-template.js"),
   },
+  // 锁住 index2 和 App 壳在手牌尺寸、底部操作条与花色左对齐上的移动布局一致性。
+  {
+    name: "Mobile index2 template regression",
+    file: path.join(__dirname, "check-mobile-index2-template.js"),
+  },
   {
     name: "PC card-face sprite regression",
     file: path.join(__dirname, "check-card-face-sprite.js"),

@@ -400,9 +400,11 @@ async function main() {
 
     const recentRound = JSON.parse(nativeContext.preferenceMap.get(APP_ROUND_STORAGE_KEY));
     assert.equal(typeof recentRound.openingCode, "string", "native recent-round storage should save opening code");
-    assert.equal(recentRound.openingCode.length > 0, true, "native recent-round opening code should be non-empty");
+    assert.equal(recentRound.openingCode.length, 169, "native recent-round opening code should use the 169-char short format");
+    assert.match(recentRound.openingCode, /^[0-9A-Za-z]+$/, "native recent-round opening code should only contain numbers and letters");
     assert.equal(typeof recentRound.replaySeed, "string", "native recent-round storage should save replay seed");
-    assert.equal(recentRound.replaySeed.length > 0, true, "native recent-round replay seed should be non-empty");
+    assert.equal(recentRound.replaySeed.length, 11, "native recent-round replay seed should use the 11-char short format");
+    assert.match(recentRound.replaySeed, /^[0-9A-Za-z]+$/, "native recent-round replay seed should only contain numbers and letters");
 
     const preferredReplayBundle = nativeContext.context.getPreferredReplayDraftSource();
     assert.equal(preferredReplayBundle.openingCode, recentRound.openingCode, "native replay drafts should prefer persisted recent opening code");

@@ -160,6 +160,11 @@ const APP_STORAGE_MIGRATION_KEY = "five-friends-app-storage-migration-v1";
 const MAX_BURY_POINT_TOTAL = 25;
 const OPENING_CODE_LEVEL_ORDER = [...NEGATIVE_LEVELS, ...RANKS];
 const OPENING_CODE_AI_DIFFICULTY_ORDER = AI_DIFFICULTY_OPTIONS.map((option) => option.value);
+const COMPACT_REPLAY_CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const AUTO_GENERATED_REPLAY_SEED_LENGTH = 11;
+const AUTO_GENERATED_REPLAY_SEED_TIME_BITS = 41n;
+const AUTO_GENERATED_REPLAY_SEED_ENTROPY_BITS = 24n;
+const AUTO_GENERATED_REPLAY_SEED_ENTROPY_MASK = Number((1n << AUTO_GENERATED_REPLAY_SEED_ENTROPY_BITS) - 1n);
 let nativeAppSettingsSnapshotCache = null;
 let nativeProgressSnapshotCache = null;
 let nativeRecentReplaySnapshotCache = null;
@@ -184,6 +189,105 @@ let nativeRecentReplaySnapshotCache = null;
  */
 function normalizeAiDifficulty(value) {
   return AI_DIFFICULTY_OPTIONS.some((option) => option.value === value) ? value : DEFAULT_AI_DIFFICULTY;
+}
+
+/**
+ * 作用：
+ * 把非负整数编码成更短的字母数字混合文本。
+ *
+ * 为什么这样写：
+ * 回放种子和开局码都要从旧的长 hex 文本切到更紧凑的跨端短码；
+ * 统一收口成一套 base62 helper 后，默认 seed 分配、开局码压缩和未来调试短码都能复用同一实现。
+ *
+ * 输入：
+ * @param {bigint|number} value - 当前要编码的非负整数。
+ * @param {number} [minimumLength=1] - 输出至少要补齐到的长度。
+ *
+ * 输出：
+ * @returns {string} 编码后的字母数字混合文本；输入非法时返回空串。
+ *
+ * 注意：
+ * - 这里只接受非负整数，不处理负数或小数。
+ * - 左侧补位统一使用字符 `0`，保证固定长度短码跨端显示一致。
+ */
+function encodeCompactReplayCodeValue(value, minimumLength = 1) {
+  const minimumTextLength = Number.isInteger(minimumLength) && minimumLength > 0 ? minimumLength : 1;
+  const normalizedValue = typeof value === "bigint"
+    ? value
+    : (Number.isInteger(value) && value >= 0 ? BigInt(value) : -1n);
+  if (normalizedValue < 0n) return "";
+
+  const base = BigInt(COMPACT_REPLAY_CODE_ALPHABET.length);
+  let encoded = "";
+  let currentValue = normalizedValue;
+  do {
+    const digit = Number(currentValue % base);
+    encoded = `${COMPACT_REPLAY_CODE_ALPHABET[digit]}${encoded}`;
+    currentValue /= base;
+  } while (currentValue > 0n);
+
+  return encoded.padStart(minimumTextLength, COMPACT_REPLAY_CODE_ALPHABET[0]);
+}
+
+/**
+ * 作用：
+ * 把字母数字混合短码反解回非负整数。
+ *
+ * 为什么这样写：
+ * 新开局码和未来更多调试短码都需要从文本稳定恢复出原始数值；
+ * 集中在共享层做反解后，规则层、日志入口和测试都不用重复维护字母表映射。
+ *
+ * 输入：
+ * @param {string|null|undefined} text - 当前要反解的短码文本。
+ *
+ * 输出：
+ * @returns {bigint|null} 成功时返回非负整数；文本为空或包含非法字符时返回 `null`。
+ *
+ * 注意：
+ * - 编码表区分大小写，不能在调用前擅自转大写或转小写。
+ * - 这里只做字符层反解，不负责校验业务范围是否合法。
+ */
+function decodeCompactReplayCodeValue(text) {
+  const normalizedText = String(text || "").trim();
+  if (!normalizedText) return null;
+
+  const base = BigInt(COMPACT_REPLAY_CODE_ALPHABET.length);
+  let value = 0n;
+  for (let index = 0; index < normalizedText.length; index += 1) {
+    const digit = COMPACT_REPLAY_CODE_ALPHABET.indexOf(normalizedText[index]);
+    if (digit < 0) return null;
+    value = value * base + BigInt(digit);
+  }
+  return value;
+}
+
+/**
+ * 作用：
+ * 把任意文本稳定映射成 64 位无符号整数。
+ *
+ * 为什么这样写：
+ * 预置回放基础 seed 现在也要缩成更短的字母数字 token；
+ * 用稳定的 64 位哈希先把“基础 seed + 局号”压成整数后，就能在不依赖兼容旧格式的前提下生成固定长度短码。
+ *
+ * 输入：
+ * @param {string|number|null|undefined} textInput - 当前要参与哈希的原始文本。
+ *
+ * 输出：
+ * @returns {bigint} 对应的 64 位无符号整数哈希值。
+ *
+ * 注意：
+ * - 相同输入必须得到相同输出，方便 headless 回归稳定复盘。
+ * - 返回值即使为 `0` 也允许保留；调用方如需非零约束，应自行再做兜底。
+ */
+function hashTextToUint64(textInput) {
+  const raw = String(textInput ?? "");
+  const mod = 18446744073709551616n;
+  let hash = 14695981039346656037n;
+  for (let index = 0; index < raw.length; index += 1) {
+    hash ^= BigInt(raw.charCodeAt(index));
+    hash = (hash * 1099511628211n) % mod;
+  }
+  return hash;
 }
 
 /**
@@ -336,7 +440,7 @@ function normalizeNativeAppProgressSnapshot(snapshot) {
  * - 这里只保留最小复盘输入，不额外存 phase、手牌或日志。
  */
 function normalizeNativeRecentReplaySnapshot(snapshot) {
-  const openingCode = String(snapshot?.openingCode || "").trim().toUpperCase();
+  const openingCode = normalizeOpeningCodeInput(snapshot?.openingCode);
   const replaySeed = normalizeReplaySeedInput(snapshot?.replaySeed);
   if (!openingCode || !replaySeed) return null;
   return {
@@ -773,6 +877,29 @@ function normalizeReplaySeedInput(seedInput) {
 
 /**
  * 作用：
+ * 规范化外部传入的开局码文本。
+ *
+ * 为什么这样写：
+ * 新开局码已经改成区分大小写的字母数字混合格式；
+ * 把 trim 规则收口到共享层后，运行态输入、原生持久化和测试夹具都能保留同一份原始编码，不会被误转成旧 hex 口径。
+ *
+ * 输入：
+ * @param {string|null|undefined} openingCodeInput - 外部传入的原始开局码。
+ *
+ * 输出：
+ * @returns {string} 去掉首尾空白后的开局码；拿不到有效值时返回空串。
+ *
+ * 注意：
+ * - 这里故意不做大小写转换，因为新编码区分大小写。
+ * - 这里只做文本归一化，合法性校验仍交给 `decodeOpeningCode(...)`。
+ */
+function normalizeOpeningCodeInput(openingCodeInput) {
+  if (openingCodeInput == null) return "";
+  return String(openingCodeInput).trim();
+}
+
+/**
+ * 作用：
  * 读取当前环境预置的默认回放 seed 基础串。
  *
  * 为什么这样写：
@@ -874,7 +1001,10 @@ function allocateDefaultReplaySeed() {
     if (state) {
       state.replaySeedCounter = nextRoundIndex;
     }
-    return `${presetSeedBase}:round-${String(nextRoundIndex).padStart(4, "0")}`;
+    return encodeCompactReplayCodeValue(
+      hashTextToUint64(`${presetSeedBase}:${nextRoundIndex}`),
+      AUTO_GENERATED_REPLAY_SEED_LENGTH
+    );
   }
 
   let entropy = 0;
@@ -885,9 +1015,11 @@ function allocateDefaultReplaySeed() {
   } else {
     entropy = Math.floor(Math.random() * 4294967296) >>> 0;
   }
-  const timePart = Date.now().toString(16).padStart(11, "0");
-  const entropyPart = entropy.toString(16).padStart(8, "0");
-  return `${timePart}-${entropyPart}`;
+  const replaySeedValue = (
+    (BigInt(Date.now()) & ((1n << AUTO_GENERATED_REPLAY_SEED_TIME_BITS) - 1n))
+    << AUTO_GENERATED_REPLAY_SEED_ENTROPY_BITS
+  ) | BigInt(entropy & AUTO_GENERATED_REPLAY_SEED_ENTROPY_MASK);
+  return encodeCompactReplayCodeValue(replaySeedValue, AUTO_GENERATED_REPLAY_SEED_LENGTH);
 }
 
 /**

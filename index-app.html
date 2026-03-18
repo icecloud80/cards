@@ -2577,6 +2577,11 @@
 
       body.mobile-app-shell {
         overflow: hidden;
+        /* App 壳把手牌区和中央出牌区统一到同一套牌面尺寸，避免两处读牌口径继续割裂。 */
+        --mobile-app-play-card-width: 38px;
+        --mobile-app-play-card-height: 55px;
+        --mobile-app-hand-row-min-height: 52px;
+        --mobile-app-hand-label-width: 18px;
       }
 
       body.mobile-app-shell .scene {
@@ -2596,7 +2601,8 @@
         grid-template-rows:
           clamp(56px, 8.8svh, 64px)
           minmax(0, 1fr)
-          clamp(198px, 30.5vh, 232px)
+          /* App 手牌区要稳定容纳“主牌 + 四门副牌”共 5 行，避免无主时某一门花色被挤到同一行后失去左对齐。 */
+          clamp(268px, 31vh, 282px)
           minmax(36px, max-content);
         gap: 8px;
         overflow: hidden;
@@ -3358,8 +3364,8 @@
       }
 
       body.mobile-app-shell .trick-spot .played-card {
-        width: 38px;
-        height: 55px;
+        width: var(--mobile-app-play-card-width);
+        height: var(--mobile-app-play-card-height);
         margin-left: -12px;
       }
 
@@ -3517,7 +3523,7 @@
         gap: 6px;
         flex: 1 1 0;
         width: 100%;
-        min-height: 44px;
+        min-height: var(--mobile-app-hand-row-min-height);
         overflow: visible;
         padding-left: 4px;
       }
@@ -3527,24 +3533,26 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        align-items: center;
         gap: 8px;
-        flex: 0 1 auto;
+        flex: 1 1 auto;
         justify-content: flex-start;
+        width: 100%;
         max-width: 100%;
       }
 
       body.mobile-app-shell .group-chip {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         margin-bottom: 0;
         padding: 0;
         min-width: 0;
+        width: var(--mobile-app-hand-label-width);
         border-radius: 999px;
         font-size: 9px;
         line-height: 1;
         flex: 0 0 auto;
+        text-align: left;
       }
 
       body.mobile-app-shell .cards-row {
@@ -3554,11 +3562,19 @@
         padding: 0 0 1px 6px;
         overflow: visible;
         min-width: 0;
-        flex: 0 1 auto;
+        flex: 1 1 auto;
       }
 
+      /* App 壳手牌直接对齐中央出牌区的牌面尺寸；辅助面板继续保留更紧凑的卡位。 */
       body.mobile-app-shell .card-btn,
-      body.mobile-app-shell .friend-card,
+      body.mobile-app-shell .friend-card {
+        width: var(--mobile-app-play-card-width);
+        height: var(--mobile-app-play-card-height);
+        flex: 0 0 auto;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+
       body.mobile-app-shell .bottom-reveal-cards .played-card,
       body.mobile-app-shell .last-trick .played-card {
         width: 32px;
@@ -3660,7 +3676,7 @@
       }
 
       body.mobile-app-shell .cards-row .card-btn {
-        margin-left: calc(-1px * var(--mobile-card-overlap, 7));
+        margin-left: calc(-1px * var(--mobile-app-card-overlap, var(--mobile-card-overlap, 7)));
       }
 
       body.mobile-app-shell .card-btn.selected {
@@ -5276,6 +5292,30 @@
           mobileDom.broadcastText.textContent = focusText || "";
         }
 
+        /**
+         * 作用：
+         * 为 App 壳的手牌行估算更合适的重叠量。
+         *
+         * 为什么这样写：
+         * 这轮把 App 手牌直接放大到和中央出牌区同一套 `38 x 55` 牌面；
+         * 如果继续沿用 shared mobile 里“只在 13+ 张时才明显加大重叠”的旧口径，
+         * 长手牌会在 App 窄屏上横向撑爆。
+         *
+         * 输入：
+         * @param {number} cardCount - 当前这一行的手牌张数。
+         *
+         * 输出：
+         * @returns {number} 当前行应使用的负外边距像素值。
+         *
+         * 注意：
+         * - 这里只服务 `index-app.html` 的 App 壳，不回写 shared mobile 的通用口径。
+         * - 小牌组保持轻重叠，避免 4-6 张时也被压得太死。
+         */
+        function getAppHandOverlap(cardCount) {
+          const normalizedCount = Number.isFinite(cardCount) ? Math.max(0, cardCount) : 0;
+          return Math.min(18, 8 + Math.max(0, normalizedCount - 6));
+        }
+
         function layoutHandRows() {
           handLayoutRunning = true;
           const groups = [...originalDom.handGroups.querySelectorAll(".hand-group")];
@@ -5284,13 +5324,39 @@
             return;
           }
 
-          const rowCount = 4;
+          // App 壳要给无主场景预留出完整 5 行，避免某一门副牌被挤到和主牌同一行后破坏左对齐。
+          const rowCount = 5;
           const isNoTrump = originalDom.trumpLabel?.textContent.includes("无主");
           const groupEntries = groups.map((group, index) => ({
             node: group,
             index,
             count: group.querySelectorAll(".card-btn").length,
           }));
+          /**
+           * 作用：
+           * 把 App 壳专用的手牌重叠量写回当前分组行。
+           *
+           * 为什么这样写：
+           * shared 层已经先写入一份通用 mobile 重叠值；
+           * App 壳此处只在最终排版前覆写自己的 CSS 变量，就能避免影响 `index2.html`。
+           *
+           * 输入：
+           * @param {{node: Element, count: number}} entry - 当前要写入重叠变量的分组描述。
+           *
+           * 输出：
+           * @returns {void} 只更新当前分组行样式，不返回额外结果。
+           *
+           * 注意：
+           * - 只有 `.cards-row` 存在时才写值，避免测试桩或空组时报错。
+           * - 这里写的是 App 专用变量，shared 的 `--mobile-card-overlap` 仍保留原值作为兜底。
+           */
+          function applyAppHandOverlap(entry) {
+            const cardsRow = entry.node?.querySelector(".cards-row");
+            if (!cardsRow) return;
+            cardsRow.style.setProperty("--mobile-app-card-overlap", getAppHandOverlap(entry.count).toFixed(1));
+          }
+
+          groupEntries.forEach((entry) => applyAppHandOverlap(entry));
           const rows = Array.from({ length: rowCount }, () => {
             const row = document.createElement("div");
             row.className = "mobile-hand-row";
@@ -5338,6 +5404,7 @@
           }
 
           for (const row of rows) {
+            if (row.childElementCount === 0) continue;
             originalDom.handGroups.appendChild(row);
           }
           handLayoutRunning = false;

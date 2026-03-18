@@ -77,7 +77,10 @@ function main() {
   assert.equal(html.includes('label: "现代整图"'), true, "手游静态模板页应提供现代整图主题标签");
   assert.equal(typeof mockPage.replaySeed, "string", "手游静态模板页应提供 mock 回放种子");
   assert.equal(typeof mockPage.openingCode, "string", "手游静态模板页应提供 mock 开局码");
-  assert.equal(mockPage.openingCode.length, 332, "手游静态模板页 mock 开局码应保持 332 位十六进制长度");
+  assert.equal(mockPage.replaySeed.length, 11, "手游静态模板页 mock 回放种子应切到 11 位短码");
+  assert.match(mockPage.replaySeed, /^[0-9A-Za-z]+$/, "手游静态模板页 mock 回放种子应只包含数字和字母");
+  assert.equal(mockPage.openingCode.length, 169, "手游静态模板页 mock 开局码应保持 169 位字母数字混合长度");
+  assert.match(mockPage.openingCode, /^[0-9A-Za-z]+$/, "手游静态模板页 mock 开局码应只包含数字和字母");
 
   assert.equal(mockPage.trickSpots.length, 5, "手游静态模板页应保留完整的 5 个中央出牌位");
   assert.equal(mockPage.players.length, 5, "手游静态模板页应保留完整的 5 位玩家信息");

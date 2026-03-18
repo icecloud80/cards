@@ -2577,6 +2577,11 @@
 
       body.mobile-index2 {
         overflow: hidden;
+        /* 手游运行页现已和 App 壳统一手牌/出牌区牌面口径，并预留固定标签列来锁住花色左对齐。 */
+        --mobile-index2-play-card-width: 38px;
+        --mobile-index2-play-card-height: 55px;
+        --mobile-index2-hand-row-min-height: 52px;
+        --mobile-index2-hand-label-width: 18px;
       }
 
       body.mobile-index2 .scene {
@@ -2597,8 +2602,9 @@
           clamp(80px, 10.6vh, 96px)
           clamp(80px, 10.6vh, 96px)
           clamp(86px, 11.1vh, 102px)
-          clamp(186px, 28.8vh, 228px)
-          clamp(42px, 5.2vh, 50px);
+          /* index2 也需要稳定容纳“主牌 + 四门副牌”共 5 行，避免无主时红桃等分组被横向挤到右侧。 */
+          clamp(268px, 31vh, 282px)
+          minmax(36px, max-content);
         gap: 6px;
         overflow: hidden;
         align-content: stretch;
@@ -3344,8 +3350,8 @@
       }
 
       body.mobile-index2 .trick-spot .played-card {
-        width: 38px;
-        height: 55px;
+        width: var(--mobile-index2-play-card-width);
+        height: var(--mobile-index2-play-card-height);
         margin-left: -12px;
       }
 
@@ -3509,7 +3515,7 @@
         gap: 6px;
         flex: 1 1 0;
         width: 100%;
-        min-height: 44px;
+        min-height: var(--mobile-index2-hand-row-min-height);
         overflow: visible;
         padding-left: 2px;
       }
@@ -3519,38 +3525,48 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        align-items: center;
         gap: 4px;
-        flex: 0 1 auto;
+        flex: 1 1 auto;
         justify-content: flex-start;
+        width: 100%;
         max-width: 100%;
       }
 
       body.mobile-index2 .group-chip {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         margin-bottom: 0;
         padding: 0;
         min-width: 0;
+        width: var(--mobile-index2-hand-label-width);
         border-radius: 999px;
         font-size: 9px;
         line-height: 1;
         flex: 0 0 auto;
+        text-align: left;
       }
 
       body.mobile-index2 .cards-row {
         display: flex;
         align-items: flex-end;
         justify-content: flex-start;
-        padding: 0 0 1px 2px;
+        padding: 0 0 1px 0;
         overflow: visible;
         min-width: 0;
-        flex: 0 1 auto;
+        flex: 1 1 auto;
       }
 
+      /* index2 手牌也统一使用和中央出牌区相同的 38x55 口径；辅助面板继续保留更紧凑的卡位。 */
       body.mobile-index2 .card-btn,
-      body.mobile-index2 .friend-card,
+      body.mobile-index2 .friend-card {
+        width: var(--mobile-index2-play-card-width);
+        height: var(--mobile-index2-play-card-height);
+        flex: 0 0 auto;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+
       body.mobile-index2 .bottom-reveal-cards .played-card,
       body.mobile-index2 .last-trick .played-card {
         width: 32px;
@@ -3652,7 +3668,7 @@
       }
 
       body.mobile-index2 .cards-row .card-btn {
-        margin-left: calc(-1px * var(--mobile-card-overlap, 7));
+        margin-left: calc(-1px * var(--mobile-index2-card-overlap, var(--mobile-card-overlap, 7)));
       }
 
       body.mobile-index2 .card-btn.selected {
@@ -3669,15 +3685,26 @@
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        padding: 5px 6px calc(5px + max(4px, env(safe-area-inset-bottom)) + clamp(0px, calc(var(--mobile-bottom-clearance) - 24px), 4px));
+        /* 底部操作区安全区已由外层 scene 吸收；这里必须贴着按钮本体收口，避免继续把手牌往上顶。 */
+        height: auto !important;
+        min-height: auto !important;
+        padding: 1px 6px 1px;
         border-radius: 12px;
         z-index: 6;
         margin: 0 auto;
         align-self: end;
       }
 
+      /* 普通按钮态固定收在 36px 高；只有 setup-choice-mode 真正展开候选区时才放开。 */
+      body.mobile-index2 .center-panel:not(.setup-choice-mode) {
+        height: 36px !important;
+        min-height: 36px !important;
+      }
+
       body.mobile-index2 .center-panel.setup-choice-mode {
-        padding-top: 6px;
+        min-height: 40px !important;
+        padding-top: 4px;
+        padding-bottom: 2px;
       }
 
       body.mobile-index2 .center-head {
@@ -3685,12 +3712,18 @@
       }
 
       body.mobile-index2 .action-row {
+        /* index2 也不能继续继承 shared mobile 的固定三列动作行，否则单行两按钮会残留空列和 ghost gap。 */
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        grid-template-columns: none;
         margin-top: 0;
         gap: 4px;
       }
 
       body.mobile-index2 button.action-btn {
-        min-height: 28px;
+        height: 30px;
+        min-height: 30px;
         padding: 4px 4px;
         font-size: 10px;
       }
@@ -4135,6 +4168,7 @@
       }
 
       body.mobile-index2 .friend-picker .action-row {
+        display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         margin-top: 10px !important;
       }
@@ -5248,6 +5282,29 @@
           mobileDom.broadcastText.textContent = focusText || "";
         }
 
+        /**
+         * 作用：
+         * 为 `index2.html` 的放大手牌行估算更合适的重叠量。
+         *
+         * 为什么这样写：
+         * 这轮把 index2 的手牌也统一抬到了 `38 x 55`；
+         * 如果继续只吃 shared mobile 的旧重叠口径，长门在窄屏上会明显横向撑开。
+         *
+         * 输入：
+         * @param {number} cardCount - 当前这一行的手牌张数。
+         *
+         * 输出：
+         * @returns {number} 当前行应使用的负外边距像素值。
+         *
+         * 注意：
+         * - 这里只服务 `index2.html`，不回写 App 壳和 shared mobile 的默认变量。
+         * - 小牌组仍保留较轻重叠，避免 4-6 张时读牌过于拥挤。
+         */
+        function getIndex2HandOverlap(cardCount) {
+          const normalizedCount = Number.isFinite(cardCount) ? Math.max(0, cardCount) : 0;
+          return Math.min(18, 8 + Math.max(0, normalizedCount - 6));
+        }
+
         function layoutHandRows() {
           handLayoutRunning = true;
           const groups = [...originalDom.handGroups.querySelectorAll(".hand-group")];
@@ -5256,13 +5313,39 @@
             return;
           }
 
-          const rowCount = 4;
+          // index2 运行页同样要给无主场景预留完整 5 行，确保四门花色标签都能落在同一条左边基线上。
+          const rowCount = 5;
           const isNoTrump = originalDom.trumpLabel?.textContent.includes("无主");
           const groupEntries = groups.map((group, index) => ({
             node: group,
             index,
             count: group.querySelectorAll(".card-btn").length,
           }));
+          /**
+           * 作用：
+           * 把 index2 专用的手牌重叠量写回当前分组行。
+           *
+           * 为什么这样写：
+           * shared 层会先写入一份通用 mobile 重叠值；
+           * index2 此处只在最终排版前覆写自己的 CSS 变量，就能同步放大手牌而不改动别的平台口径。
+           *
+           * 输入：
+           * @param {{node: Element, count: number}} entry - 当前要写入重叠变量的分组描述。
+           *
+           * 输出：
+           * @returns {void} 只更新当前分组行样式，不返回额外结果。
+           *
+           * 注意：
+           * - 只有 `.cards-row` 存在时才写值，避免测试桩或空组时报错。
+           * - 写的是 index2 专用变量，shared 的 `--mobile-card-overlap` 继续保留作兜底。
+           */
+          function applyIndex2HandOverlap(entry) {
+            const cardsRow = entry.node?.querySelector(".cards-row");
+            if (!cardsRow) return;
+            cardsRow.style.setProperty("--mobile-index2-card-overlap", getIndex2HandOverlap(entry.count).toFixed(1));
+          }
+
+          groupEntries.forEach((entry) => applyIndex2HandOverlap(entry));
           const rows = Array.from({ length: rowCount }, () => {
             const row = document.createElement("div");
             row.className = "mobile-hand-row";
@@ -5310,6 +5393,7 @@
           }
 
           for (const row of rows) {
+            if (row.childElementCount === 0) continue;
             originalDom.handGroups.appendChild(row);
           }
           handLayoutRunning = false;

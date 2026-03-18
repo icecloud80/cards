@@ -58,40 +58,17 @@ function resolveCardImage(card) {
 
 /**
  * 作用：
- * 把单个 0~255 数值编码成两位十六进制字节文本。
+ * 把玩家等级映射成开局码元信息里使用的稳定索引。
  *
  * 为什么这样写：
- * 开局码会把元信息和整副牌顺序都压成连续 hex 文本；
- * 把字节格式统一收口后，编码和解码都能共享同一套长度约束，避免出现大小写或补零不一致。
- *
- * 输入：
- * @param {number} value - 需要编码的字节数值。
- *
- * 输出：
- * @returns {string} 两位大写十六进制文本；非法输入时返回空串。
- *
- * 注意：
- * - 只接受 `0~255` 的整数。
- * - 返回值固定补齐两位，不能省略前导 `0`。
- */
-function toOpeningCodeHexByte(value) {
-  if (!Number.isInteger(value) || value < 0 || value > 255) return "";
-  return value.toString(16).toUpperCase().padStart(2, "0");
-}
-
-/**
- * 作用：
- * 把玩家等级映射成开局码里使用的 4 bit 索引。
- *
- * 为什么这样写：
- * 开局码需要在少量元信息里同时带上 5 位玩家等级；
- * 当前等级集合固定为 `-2 / -A / 2..A` 共 15 档，刚好可以压进半字节。
+ * 新开局码虽然不再使用旧的 meta byte 布局，但仍需要在紧凑元信息里稳定记录 5 位玩家等级；
+ * 先收口成固定顺序索引后，无论底层继续用排列压缩还是以后再换编码，都能保持同一份业务映射。
  *
  * 输入：
  * @param {string} level - 当前玩家等级文本。
  *
  * 输出：
- * @returns {number} 对应的半字节索引；非法值统一回退到 `2`。
+ * @returns {number} 对应的等级索引；非法值统一回退到 `2`。
  *
  * 注意：
  * - 这里和 UI 展示等级共用同一份原始等级文本，不额外做业务翻译。
@@ -105,27 +82,71 @@ function getOpeningCodeLevelIndex(level) {
 
 /**
  * 作用：
- * 把 AI 难度映射成开局码元信息里使用的 4 bit 索引。
+ * 把 AI 难度映射成开局码元信息里使用的稳定索引。
  *
  * 为什么这样写：
  * 用户希望复盘重开时能自动切回原局 AI 难度；
- * 当前开局码第 4 个 meta byte 的低 4 bit 之前保留未用，正好可以稳定塞下 `beginner / intermediate / advanced` 三档索引。
+ * 新开局码现在会把元信息整体压成一段整数，因此先保留稳定索引映射，更方便跨端共享和后续继续扩展。
  *
  * 输入：
  * @param {string} aiDifficulty - 当前局使用的 AI 难度键值。
  *
  * 输出：
- * @returns {number} 对应的半字节索引；非法值统一回退到默认难度。
+ * @returns {number} 对应的难度索引；非法值统一回退到默认难度。
  *
  * 注意：
  * - 这里只记录全局 AI 难度，不记录未来可能出现的逐座位难度映射。
- * - 旧开局码若没有记录该字段，会自然按索引 0 回落到 `beginner`。
+ * - 默认索引必须继续回落到 `beginner`，避免脏值把复盘局带到未知难度。
  */
 function getOpeningCodeAiDifficultyIndex(aiDifficulty) {
   const normalizedDifficulty = normalizeAiDifficulty(aiDifficulty);
   const difficultyIndex = OPENING_CODE_AI_DIFFICULTY_ORDER.indexOf(normalizedDifficulty);
   return difficultyIndex >= 0 ? difficultyIndex : OPENING_CODE_AI_DIFFICULTY_ORDER.indexOf(DEFAULT_AI_DIFFICULTY);
 }
+
+const OPENING_CODE_VERSION = 1;
+const OPENING_CODE_CARD_COUNT = 162;
+const OPENING_CODE_CHECKSUM_LENGTH = 3;
+const OPENING_CODE_CHECKSUM_SPACE = COMPACT_REPLAY_CODE_ALPHABET.length ** OPENING_CODE_CHECKSUM_LENGTH;
+const OPENING_CODE_LEVEL_RADIX = BigInt(OPENING_CODE_LEVEL_ORDER.length);
+const OPENING_CODE_AI_DIFFICULTY_RADIX = BigInt(OPENING_CODE_AI_DIFFICULTY_ORDER.length);
+const OPENING_CODE_FIRST_DEAL_PLAYER_RADIX = BigInt(PLAYER_ORDER.length);
+
+/**
+ * 作用：
+ * 预计算开局码排列压缩需要的阶乘表。
+ *
+ * 为什么这样写：
+ * 新开局码不再逐张写 162 个字节，而是把整副牌顺序映射成一个排列序号；
+ * 先把 `0! ~ 162!` 阶乘表算好后，编码和解码都能稳定复用同一套基数，不用在每次开局时重复做大整数乘法。
+ *
+ * 输入：
+ * @param {number} cardCount - 当前要支持编码的总牌数。
+ *
+ * 输出：
+ * @returns {bigint[]} 从 `0!` 到 `cardCount!` 的阶乘数组；输入非法时返回空数组。
+ *
+ * 注意：
+ * - 这里默认服务于 162 张牌的完整牌堆，不要随意改成只算 155 张手牌。
+ * - 返回数组下标就是阶乘里的 `n`，调用方不要自己再做偏移换算。
+ */
+function buildOpeningCodePermutationFactorials(cardCount) {
+  if (!Number.isInteger(cardCount) || cardCount < 0) return [];
+  const factorials = [1n];
+  for (let value = 1; value <= cardCount; value += 1) {
+    factorials[value] = factorials[value - 1] * BigInt(value);
+  }
+  return factorials;
+}
+
+const OPENING_CODE_PERMUTATION_FACTORIALS = buildOpeningCodePermutationFactorials(OPENING_CODE_CARD_COUNT);
+const OPENING_CODE_META_SPACE = OPENING_CODE_FIRST_DEAL_PLAYER_RADIX
+  * (OPENING_CODE_LEVEL_RADIX ** BigInt(PLAYER_ORDER.length))
+  * OPENING_CODE_AI_DIFFICULTY_RADIX;
+const OPENING_CODE_PAYLOAD_FIXED_LENGTH = encodeCompactReplayCodeValue(
+  OPENING_CODE_PERMUTATION_FACTORIALS[OPENING_CODE_CARD_COUNT] * OPENING_CODE_META_SPACE - 1n
+).length;
+const OPENING_CODE_FIXED_LENGTH = OPENING_CODE_PAYLOAD_FIXED_LENGTH + OPENING_CODE_CHECKSUM_LENGTH;
 
 /**
  * 作用：
@@ -172,7 +193,7 @@ function getOpeningCodeCardIndex(card) {
  * 根据开局码里的唯一牌编号反解出可直接参与规则层的牌对象。
  *
  * 为什么这样写：
- * 未来“按开局码重开”需要把日志里的 hex 文本还原回真实牌堆；
+ * 未来“按开局码重开”需要把日志里的字母数字混合短码还原回真实牌堆；
  * 先在共享规则层补齐解码函数，后续无论是测试还是 UI 入口都能复用这一份还原逻辑。
  *
  * 输入：
@@ -186,7 +207,7 @@ function getOpeningCodeCardIndex(card) {
  * - 这里还原的是“牌身份”，不是某一时刻的手牌归属。
  */
 function createCardFromOpeningCodeIndex(cardIndex) {
-  if (!Number.isInteger(cardIndex) || cardIndex < 0 || cardIndex >= 162) return null;
+  if (!Number.isInteger(cardIndex) || cardIndex < 0 || cardIndex >= OPENING_CODE_CARD_COUNT) return null;
   const pack = Math.floor(cardIndex / 54);
   const localIndex = cardIndex % 54;
 
@@ -218,11 +239,190 @@ function createCardFromOpeningCodeIndex(cardIndex) {
 
 /**
  * 作用：
- * 把当前牌局开局信息编码成单行十六进制开局码。
+ * 把开局元信息压成排列序号后面的附加整数。
+ *
+ * 为什么这样写：
+ * 新开局码的主要空间要留给 162 张牌顺序本身，但首抓玩家、5 位等级和 AI 难度仍必须一起回放；
+ * 先把这些小字段压成固定范围整数后，就能和排列序号一起统一走字母数字混合短码。
+ *
+ * 输入：
+ * @param {{firstDealPlayerId?: number, playerLevels?: Record<number,string>, aiDifficulty?: string}} [options={}] - 当前开局元信息。
+ *
+ * 输出：
+ * @returns {bigint} 当前元信息对应的压缩整数。
+ *
+ * 注意：
+ * - 当前版本固定为 `1`，不再为旧 hex 兼容额外占位。
+ * - 字段顺序必须和 `decodeOpeningCodeMetaValue(...)` 完全一致，不能私自互换。
+ */
+function getOpeningCodeMetaValue(options = {}) {
+  const firstDealPlayerId = PLAYER_ORDER.includes(options.firstDealPlayerId) ? options.firstDealPlayerId : 1;
+  const playerLevels = normalizePlayerLevels(options.playerLevels);
+  const aiDifficultyIndex = getOpeningCodeAiDifficultyIndex(options.aiDifficulty);
+  const firstDealPlayerIndex = PLAYER_ORDER.indexOf(firstDealPlayerId);
+
+  let metaValue = BigInt(firstDealPlayerIndex);
+  for (const playerId of PLAYER_ORDER) {
+    metaValue = metaValue * OPENING_CODE_LEVEL_RADIX + BigInt(getOpeningCodeLevelIndex(playerLevels[playerId]));
+  }
+  metaValue = metaValue * OPENING_CODE_AI_DIFFICULTY_RADIX + BigInt(aiDifficultyIndex);
+  return metaValue;
+}
+
+/**
+ * 作用：
+ * 把压缩后的元信息整数还原成业务可读字段。
+ *
+ * 为什么这样写：
+ * 开局码重建时既要拿回整副牌顺序，也要同步恢复首抓玩家、5 位玩家等级和 AI 难度；
+ * 把元信息解码单独收口后，主解码器可以专注于校验长度、校验码和排列序号，不会把字段拆分逻辑揉在一起。
+ *
+ * 输入：
+ * @param {bigint} metaValue - 当前开局码里拆出来的元信息整数。
+ *
+ * 输出：
+ * @returns {{firstDealPlayerId:number,playerLevels:Record<number,string>,aiDifficulty:string}|null} 解码结果；取值越界时返回 `null`。
+ *
+ * 注意：
+ * - 拆分顺序必须和 `getOpeningCodeMetaValue(...)` 完全镜像。
+ * - 任一索引落到非法范围都必须判错，避免脏码静默回退成错误局面。
+ */
+function decodeOpeningCodeMetaValue(metaValue) {
+  if (typeof metaValue !== "bigint" || metaValue < 0n || metaValue >= OPENING_CODE_META_SPACE) return null;
+
+  let remainingValue = metaValue;
+  const aiDifficultyIndex = Number(remainingValue % OPENING_CODE_AI_DIFFICULTY_RADIX);
+  remainingValue /= OPENING_CODE_AI_DIFFICULTY_RADIX;
+
+  const playerLevels = {};
+  for (let orderIndex = PLAYER_ORDER.length - 1; orderIndex >= 0; orderIndex -= 1) {
+    const levelIndex = Number(remainingValue % OPENING_CODE_LEVEL_RADIX);
+    remainingValue /= OPENING_CODE_LEVEL_RADIX;
+    const playerId = PLAYER_ORDER[orderIndex];
+    playerLevels[playerId] = OPENING_CODE_LEVEL_ORDER[levelIndex];
+  }
+
+  const firstDealPlayerIndex = Number(remainingValue % OPENING_CODE_FIRST_DEAL_PLAYER_RADIX);
+  const firstDealPlayerId = PLAYER_ORDER[firstDealPlayerIndex];
+  const aiDifficulty = OPENING_CODE_AI_DIFFICULTY_ORDER[aiDifficultyIndex];
+  if (!firstDealPlayerId || !aiDifficulty) return null;
+  if (PLAYER_ORDER.some((playerId) => !playerLevels[playerId])) return null;
+
+  return {
+    firstDealPlayerId,
+    playerLevels,
+    aiDifficulty: normalizeAiDifficulty(aiDifficulty),
+  };
+}
+
+/**
+ * 作用：
+ * 把 162 张唯一牌序映射成排列序号。
+ *
+ * 为什么这样写：
+ * 旧方案把每张牌都写成一个字节，空间浪费比较大；
+ * 现在改成排列压缩后，只要知道“这 162 张牌在所有可能顺序里排第几”，就能在保持可逆的前提下把开局码显著缩短。
+ *
+ * 输入：
+ * @param {number[]} cardIndexes - 当前完整牌堆顺序对应的唯一牌编号流。
+ *
+ * 输出：
+ * @returns {bigint|null} 当前牌序对应的排列序号；牌序非法时返回 `null`。
+ *
+ * 注意：
+ * - 输入必须覆盖全部 162 张唯一牌，不能有重复或缺失。
+ * - 这里的编号顺序必须继续复用 `getOpeningCodeCardIndex(...)` 的定义。
+ */
+function getOpeningCodePermutationRank(cardIndexes) {
+  if (!Array.isArray(cardIndexes) || cardIndexes.length !== OPENING_CODE_CARD_COUNT) return null;
+
+  const availableIndexes = Array.from({ length: OPENING_CODE_CARD_COUNT }, (_, index) => index);
+  let rankValue = 0n;
+
+  for (let index = 0; index < cardIndexes.length; index += 1) {
+    const availableIndex = availableIndexes.indexOf(cardIndexes[index]);
+    if (availableIndex < 0) return null;
+    rankValue += BigInt(availableIndex) * OPENING_CODE_PERMUTATION_FACTORIALS[OPENING_CODE_CARD_COUNT - 1 - index];
+    availableIndexes.splice(availableIndex, 1);
+  }
+
+  return rankValue;
+}
+
+/**
+ * 作用：
+ * 把排列序号还原成完整的 162 张牌编号顺序。
+ *
+ * 为什么这样写：
+ * 只要能把排列序号稳定解回唯一牌编号流，就能进一步还原出完整牌堆、5 家手牌和逐张发牌过程；
+ * 把 unrank 逻辑单独收口后，开局码解码器就能直接复用，不必再混杂在主流程里手写数组操作。
+ *
+ * 输入：
+ * @param {bigint} rankValue - 当前开局码里拆出来的排列序号。
+ *
+ * 输出：
+ * @returns {number[]|null} 还原后的 162 张牌编号顺序；序号越界时返回 `null`。
+ *
+ * 注意：
+ * - 这里会完整还原全部 162 张牌，不只是 155 张发牌区。
+ * - 阶乘表和牌编号总数必须和编码端完全一致，否则任何码都会解错。
+ */
+function decodeOpeningCodePermutationRank(rankValue) {
+  if (
+    typeof rankValue !== "bigint"
+    || rankValue < 0n
+    || rankValue >= OPENING_CODE_PERMUTATION_FACTORIALS[OPENING_CODE_CARD_COUNT]
+  ) {
+    return null;
+  }
+
+  const availableIndexes = Array.from({ length: OPENING_CODE_CARD_COUNT }, (_, index) => index);
+  const cardIndexes = [];
+  let remainingRank = rankValue;
+
+  for (let remainingCount = OPENING_CODE_CARD_COUNT; remainingCount >= 1; remainingCount -= 1) {
+    const factorialValue = OPENING_CODE_PERMUTATION_FACTORIALS[remainingCount - 1];
+    const availableIndex = remainingCount === 1 ? 0 : Number(remainingRank / factorialValue);
+    remainingRank = remainingCount === 1 ? 0n : (remainingRank % factorialValue);
+    if (availableIndex < 0 || availableIndex >= availableIndexes.length) return null;
+    cardIndexes.push(availableIndexes.splice(availableIndex, 1)[0]);
+  }
+
+  return cardIndexes;
+}
+
+/**
+ * 作用：
+ * 为压缩后的开局码 payload 生成短校验码。
+ *
+ * 为什么这样写：
+ * 排列序号方案几乎任何合法字符组合都能解出一副牌，如果没有额外校验，用户手动少敲或敲错一位也可能“解出另一局”；
+ * 补一段固定 3 位校验码后，大多数录入错误都能在进入牌局前被挡住。
+ *
+ * 输入：
+ * @param {string} payloadCode - 已补齐长度的开局码主体。
+ *
+ * 输出：
+ * @returns {string} 固定 3 位的校验码；输入为空时返回空串。
+ *
+ * 注意：
+ * - 校验码只用于检错，不参与决定真实牌序。
+ * - 这里必须基于补齐后的 payload 计算，不能对去前导零的版本做哈希。
+ */
+function buildOpeningCodeChecksum(payloadCode) {
+  const normalizedPayload = normalizeOpeningCodeInput(payloadCode);
+  if (!normalizedPayload) return "";
+  const checksumValue = hashReplaySeedInput(normalizedPayload) % OPENING_CODE_CHECKSUM_SPACE;
+  return encodeCompactReplayCodeValue(BigInt(checksumValue), OPENING_CODE_CHECKSUM_LENGTH);
+}
+
+/**
+ * 作用：
+ * 把当前牌局开局信息编码成更短的字母数字混合开局码。
  *
  * 为什么这样写：
  * 调试日志需要一个“足够短、能直接复制、能完整还原开局”的载体；
- * 这里把首抓玩家、5 位玩家等级和完整 162 张牌顺序压成纯 hex，后续既方便写日志，也方便人工排查时复制回放。
+ * 这次改成“排列序号 + 元信息 + 校验码”的紧凑结构后，长度能从旧的 332 位明显缩短，同时继续完整复原整副牌顺序。
  *
  * 输入：
  * @param {Array<object>} deckCards - 本局完整牌堆顺序，长度必须为 162。
@@ -233,35 +433,32 @@ function createCardFromOpeningCodeIndex(cardIndex) {
  *
  * 注意：
  * - 这里记录的是“完整发牌顺序”，而不是已经分好家的 5 份手牌。
- * - 版本号目前固定为 `1`；后续升级格式时只能新增版本，不能直接改旧版含义。
+ * - 当前版本固定为 `1`；因为这轮明确不做兼容旧格式，所以版本只保留在解码结果里，不再单独占字符。
  */
 function buildOpeningCode(deckCards, options = {}) {
   const cards = Array.isArray(deckCards) ? deckCards : [];
-  if (cards.length !== 162) return "";
+  if (cards.length !== OPENING_CODE_CARD_COUNT) return "";
 
-  const firstDealPlayerId = PLAYER_ORDER.includes(options.firstDealPlayerId) ? options.firstDealPlayerId : 1;
-  const playerLevels = normalizePlayerLevels(options.playerLevels);
-  const aiDifficultyIndex = getOpeningCodeAiDifficultyIndex(options.aiDifficulty);
-  const encodedCardBytes = cards.map((card) => getOpeningCodeCardIndex(card));
-  if (encodedCardBytes.some((value) => value < 0)) return "";
+  const cardIndexes = cards.map((card) => getOpeningCodeCardIndex(card));
+  if (cardIndexes.some((value) => value < 0) || new Set(cardIndexes).size !== OPENING_CODE_CARD_COUNT) return "";
 
-  const metaBytes = [
-    ((1 & 0x0f) << 4) | (firstDealPlayerId & 0x0f),
-    (getOpeningCodeLevelIndex(playerLevels[1]) << 4) | getOpeningCodeLevelIndex(playerLevels[2]),
-    (getOpeningCodeLevelIndex(playerLevels[3]) << 4) | getOpeningCodeLevelIndex(playerLevels[4]),
-    (getOpeningCodeLevelIndex(playerLevels[5]) << 4) | (aiDifficultyIndex & 0x0f),
-  ];
+  const permutationRank = getOpeningCodePermutationRank(cardIndexes);
+  if (permutationRank == null) return "";
 
-  return [...metaBytes, ...encodedCardBytes].map((value) => toOpeningCodeHexByte(value)).join("");
+  const payloadValue = permutationRank * OPENING_CODE_META_SPACE + getOpeningCodeMetaValue(options);
+  const payloadCode = encodeCompactReplayCodeValue(payloadValue, OPENING_CODE_PAYLOAD_FIXED_LENGTH);
+  const checksumCode = buildOpeningCodeChecksum(payloadCode);
+  if (!payloadCode || !checksumCode) return "";
+  return `${payloadCode}${checksumCode}`;
 }
 
 /**
  * 作用：
- * 把十六进制开局码还原成可读的元信息和完整牌堆顺序。
+ * 把字母数字混合开局码还原成可读的元信息和完整牌堆顺序。
  *
  * 为什么这样写：
- * 当前这轮先把开局码写进日志，下一轮就会需要把日志里的码真正解开回放；
- * 提前把解码器落进共享层后，测试可以直接做 round-trip 校验，后续 UI 入口也不必再重复写一套解析逻辑。
+ * 新编码已经不再是旧的逐字节 hex 文本，而是“payload + 校验码”的紧凑结构；
+ * 提前把校验、元信息解包和排列反解统一落进共享层后，PC、手游 App 和 headless 回归都能直接共用同一套回放入口。
  *
  * 输入：
  * @param {string} openingCode - 日志中的开局码文本。
@@ -270,47 +467,42 @@ function buildOpeningCode(deckCards, options = {}) {
  * @returns {{version:number,firstDealPlayerId:number,playerLevels:Record<number,string>,aiDifficulty:string,deckCards:Array<object>}|null} 解码结果；文本非法时返回 `null`。
  *
  * 注意：
- * - 当前只接受 `1` 号版本、固定 166 字节长度。
- * - 解码后会校验 162 张牌编号必须唯一，避免脏日志伪造出重复牌。
+ * - 编码表区分大小写，调用前不能再做大写归一化。
+ * - 解码前必须先校验末尾 3 位校验码，避免错码被误解成另一副合法牌序。
  */
 function decodeOpeningCode(openingCode) {
-  const normalizedCode = String(openingCode ?? "").trim().toUpperCase();
-  if (!normalizedCode || normalizedCode.length !== 332 || normalizedCode.length % 2 !== 0) return null;
-  if (!/^[0-9A-F]+$/.test(normalizedCode)) return null;
-
-  const bytes = [];
-  for (let index = 0; index < normalizedCode.length; index += 2) {
-    bytes.push(Number.parseInt(normalizedCode.slice(index, index + 2), 16));
+  const normalizedCode = normalizeOpeningCodeInput(openingCode);
+  if (!normalizedCode || normalizedCode.length <= OPENING_CODE_CHECKSUM_LENGTH || normalizedCode.length > OPENING_CODE_FIXED_LENGTH) {
+    return null;
   }
-  if (bytes.length !== 166) return null;
 
-  const version = (bytes[0] >> 4) & 0x0f;
-  const firstDealPlayerId = bytes[0] & 0x0f;
-  if (version !== 1 || !PLAYER_ORDER.includes(firstDealPlayerId)) return null;
+  const payloadCode = normalizedCode
+    .slice(0, normalizedCode.length - OPENING_CODE_CHECKSUM_LENGTH)
+    .padStart(OPENING_CODE_PAYLOAD_FIXED_LENGTH, COMPACT_REPLAY_CODE_ALPHABET[0]);
+  const checksumCode = normalizedCode.slice(-OPENING_CODE_CHECKSUM_LENGTH);
+  if (payloadCode.length !== OPENING_CODE_PAYLOAD_FIXED_LENGTH) return null;
+  if (buildOpeningCodeChecksum(payloadCode) !== checksumCode) return null;
 
-  const playerLevels = {
-    1: OPENING_CODE_LEVEL_ORDER[(bytes[1] >> 4) & 0x0f],
-    2: OPENING_CODE_LEVEL_ORDER[bytes[1] & 0x0f],
-    3: OPENING_CODE_LEVEL_ORDER[(bytes[2] >> 4) & 0x0f],
-    4: OPENING_CODE_LEVEL_ORDER[bytes[2] & 0x0f],
-    5: OPENING_CODE_LEVEL_ORDER[(bytes[3] >> 4) & 0x0f],
-  };
-  const aiDifficulty = normalizeAiDifficulty(OPENING_CODE_AI_DIFFICULTY_ORDER[bytes[3] & 0x0f]);
-  if (PLAYER_ORDER.some((playerId) => !playerLevels[playerId])) return null;
+  const payloadValue = decodeCompactReplayCodeValue(payloadCode);
+  if (payloadValue == null || payloadValue < 0n) return null;
 
-  const cardIndexes = bytes.slice(4);
-  if (cardIndexes.length !== 162) return null;
-  const uniqueCardIndexCount = new Set(cardIndexes).size;
-  if (uniqueCardIndexCount !== 162) return null;
+  const maxPayloadValue = OPENING_CODE_PERMUTATION_FACTORIALS[OPENING_CODE_CARD_COUNT] * OPENING_CODE_META_SPACE;
+  if (payloadValue >= maxPayloadValue) return null;
+
+  const metaValue = payloadValue % OPENING_CODE_META_SPACE;
+  const permutationRank = payloadValue / OPENING_CODE_META_SPACE;
+  const decodedMeta = decodeOpeningCodeMetaValue(metaValue);
+  const cardIndexes = decodeOpeningCodePermutationRank(permutationRank);
+  if (!decodedMeta || !cardIndexes || cardIndexes.length !== OPENING_CODE_CARD_COUNT) return null;
 
   const deckCards = cardIndexes.map((cardIndex) => createCardFromOpeningCodeIndex(cardIndex));
   if (deckCards.some((card) => !card)) return null;
 
   return {
-    version,
-    firstDealPlayerId,
-    playerLevels,
-    aiDifficulty,
+    version: OPENING_CODE_VERSION,
+    firstDealPlayerId: decodedMeta.firstDealPlayerId,
+    playerLevels: decodedMeta.playerLevels,
+    aiDifficulty: decodedMeta.aiDifficulty,
     deckCards,
   };
 }

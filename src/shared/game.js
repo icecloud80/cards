@@ -63,13 +63,13 @@ function shouldShowPcToolbarMenu() {
  *
  * 注意：
  * - 纯字符串/数字沿用旧语义，继续视为 replay seed。
- * - 开局码会在这里顺手做 trim，后续统一按大写十六进制解析。
+ * - 开局码会在这里顺手做 trim，但不会改动大小写；新编码区分大小写。
  */
 function normalizeSetupGameOptions(setupInput) {
   if (setupInput && typeof setupInput === "object" && !Array.isArray(setupInput)) {
     return {
       replaySeedInput: setupInput.replaySeedInput,
-      openingCode: String(setupInput.openingCode || "").trim().toUpperCase(),
+      openingCode: normalizeOpeningCodeInput(setupInput.openingCode),
     };
   }
   return {
@@ -335,12 +335,12 @@ function setupGame(setupInput) {
  * @returns {string} 规范化后的复盘码；任一关键字段缺失时返回空串。
  *
  * 注意：
- * - `开局码` 始终统一转成大写十六进制，避免跨端大小写混排。
+ * - `开局码` 必须保留原始大小写；新编码大小写会参与实际解码。
  * - 这里只负责拼文本，不校验调用方是否真的处于对局中。
  */
 function buildReplayClipboardBundle(replaySeedInput, openingCodeInput) {
   const normalizedSeed = normalizeReplaySeedInput(replaySeedInput);
-  const normalizedOpeningCode = String(openingCodeInput || "").trim().toUpperCase();
+  const normalizedOpeningCode = normalizeOpeningCodeInput(openingCodeInput);
   if (!normalizedSeed || !normalizedOpeningCode) return "";
   return `${normalizedSeed} + ${normalizedOpeningCode}`;
 }
@@ -368,15 +368,15 @@ function parseReplayClipboardBundle(rawText) {
   if (!normalizedText) return null;
 
   const labeledSeedMatch = normalizedText.match(/回放种子[:：]\s*([^\n\r]+)/);
-  const labeledOpeningCodeMatch = normalizedText.match(/开局码[:：]\s*([0-9a-fA-F]+)/);
-  const compactMatch = normalizedText.match(/^([\s\S]*?)\s*\+\s*([0-9a-fA-F]+)\s*$/);
+  const labeledOpeningCodeMatch = normalizedText.match(/开局码[:：]\s*([0-9A-Za-z]+)/);
+  const compactMatch = normalizedText.match(/^([\s\S]*?)\s*\+\s*([0-9A-Za-z]+)\s*$/);
 
   const normalizedSeed = normalizeReplaySeedInput(
     labeledSeedMatch?.[1] || compactMatch?.[1] || ""
   );
-  const normalizedOpeningCode = String(
+  const normalizedOpeningCode = normalizeOpeningCodeInput(
     labeledOpeningCodeMatch?.[1] || compactMatch?.[2] || ""
-  ).trim().toUpperCase();
+  );
 
   if (!normalizedSeed || !normalizedOpeningCode) return null;
   if (!decodeOpeningCode(normalizedOpeningCode)) return null;
@@ -605,7 +605,7 @@ function applyDebugReplaySeedReplay(replaySeedInput) {
  * - 若只提供开局码，不保证后续 AI 随机路径与原局完全一致；要尽量靠近原局，需要同时填回放种子。
  */
 function applyDebugOpeningCodeReplay(openingCodeInput, replaySeedInput = "") {
-  const normalizedOpeningCode = String(openingCodeInput || "").trim().toUpperCase();
+  const normalizedOpeningCode = normalizeOpeningCodeInput(openingCodeInput);
   if (!normalizedOpeningCode) {
     state.debugReplayStatusTone = "error";
     state.debugReplayStatusText = TEXT.debug.openingCodeRequired;

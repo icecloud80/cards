@@ -32,12 +32,19 @@ function validateHeadlessDecisionSignals(summary) {
     "turnAccessRisk",
     "pointRunRisk",
     "dangerousPointLead",
+    "unresolvedProbeRisk",
     "revealedFriendControlShift",
   ];
   for (const key of signalKeys) {
     if (typeof overallSignals.selectedSignals?.[key] !== "number") {
       throw new Error(`headless 回归摘要缺少 overall decisionSignals.selectedSignals.${key}`);
     }
+  }
+  if (typeof overallSignals.selectedByFriendState?.turnAccessRisk?.unrevealed !== "number") {
+    throw new Error("headless 回归摘要缺少 overall decisionSignals.selectedByFriendState.turnAccessRisk.unrevealed");
+  }
+  if (typeof overallSignals.selectedByFriendState?.pointRunRisk?.unrevealed !== "number") {
+    throw new Error("headless 回归摘要缺少 overall decisionSignals.selectedByFriendState.pointRunRisk.unrevealed");
   }
 
   if (typeof overallSignals.candidateAudit?.turnAccessRiskCandidates !== "number") {
@@ -65,6 +72,12 @@ function validateHeadlessDecisionSignals(summary) {
       if (typeof detail.decisionSignals.selectedSignals?.[key] !== "number") {
         throw new Error(`headless 回归摘要缺少 ${difficulty} decisionSignals.selectedSignals.${key}`);
       }
+    }
+    if (typeof detail.decisionSignals.selectedByFriendState?.turnAccessRisk?.unrevealed !== "number") {
+      throw new Error(`headless 回归摘要缺少 ${difficulty} decisionSignals.selectedByFriendState.turnAccessRisk.unrevealed`);
+    }
+    if (typeof detail.decisionSignals.selectedByFriendState?.pointRunRisk?.unrevealed !== "number") {
+      throw new Error(`headless 回归摘要缺少 ${difficulty} decisionSignals.selectedByFriendState.pointRunRisk.unrevealed`);
     }
   }
 }

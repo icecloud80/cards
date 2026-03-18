@@ -110,10 +110,19 @@
   - `朋友已站队后的控制型切换` 已能在 headless 对局里稳定出现，但仍有一部分来自入口短路规则，尚未完全评分化。
   - 当前工作区已补 `controlExit` breakdown：
     朋友已站队后，评估器会额外区分“当前控牌是否还能安全续控 / 是否适合顺势把牌权交给同侧”，并把这项分值接入 `clear_trump / keep_control` 的目标权重与危险带分领牌 veto。
+  - 当前工作区已补 `probeRisk` breakdown：
+    朋友未站队时，评估器会额外区分“这份找朋友试探是否已经过热”，并把“高张 / 高主 / 王 / 带分资源的消耗，是否换来了更好的回手保障或更强 friendBelief”沉到统一评分。
   - `Friend Belief Lite` 第一版已落地，并已补基础回归验证“持有目标牌的自己更像朋友”“公开断门的座位更像闲家”。
   - `dangerous_point_lead` 现已从“heuristic 扣分”补到“rollout 后二次否决”：在 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 这类控制目标下，若 `5 / 10 / K` 这类分牌首发继续暴露 `turn_access_risk / point_run_risk` 且未来收益不足，会被再次显著降权。
   - `dangerous_point_lead` 的二次否决现在还会额外读取未来评估里的 `controlExit`：
     如果 rollout 已经说明“这手控牌既不安全，也不利于同侧顺势接手”，否决会继续加重；反过来，若未来局面已转成健康续控，则会适度减轻惩罚。
+  - 当前工作区也已补 `unresolvedProbeVetoPenalty`：
+    lead 侧会对“未站队且无回手保障的高成本试探”做更硬 veto；
+    follow 侧只做中等降权，避免把必要接手和合法亮友路线误杀。
+  - 使用这套新口径补跑的 `20` 局 mixed（seed=`mid-ai-next-step`）结果为：
+    `20/20` 完局、`friend failed = 0`、平均 AI 决策耗时 `237.46 ms`；
+    但未站队阶段仍有 `turn_access_risk = 15`、`point_run_risk = 9`，且 `dangerous_point_lead = 3` 仍未归零，
+    说明本轮更偏“观测与 veto 骨架已立住”，后续还需要继续压行为权重，而不是把这一项直接视作完成。
   - 同时新增“高张定门再递牌”保护：朋友已站队、全桌公开仍在跟某门、且自己同时握有该门 `A` 与后续小牌时，中级会把这手 `A` 视作正向协同候选，而不是和危险带分领牌混写。
 - 验收：
   - `evaluateState` 输出可解释 breakdown
@@ -149,6 +158,11 @@
   - `check-ai-intermediate-foundation.js` 已覆盖“AI 不得透视甩牌成败”和“公开信息下的甩牌安全边界”。
   - `Friend Belief Lite` 的基础场景已补进 `check-ai-intermediate-foundation.js`。
 - `check-ai-intermediate-search.js` 已新增“控制型目标下危险带分领牌会被 rollout 二次否决”的专项回归。
+- `check-ai-intermediate-search.js` 现也已新增：
+  - 未站队高张试探被 `unresolvedProbeVetoPenalty` 压住；
+  - 直接亮友与 `turn_access_hold` 明确成立时，不会被 probe veto 误杀；
+  - `grade_bottom` 显式优先时，试探约束不会压掉保级牌扣底路线；
+  - `probeRisk` breakdown 能区分“保留资源的健康试探”和“已过热的未站队试探”。
 - 失先手连续跑分、固定 seed 异常候选摘要仍待补到更专项的搜索/整局回归里。
 - 验收：
   - 复盘过的问题都能被至少一条单测或回归覆盖。
@@ -169,6 +183,7 @@
   - 增加关键搜索场景的专项回归
   - 记录“候选被过滤数量”和“过滤原因分布”
   - 记录“赢轮后下一拍是否仍有出牌权优势”的摘要指标
+  - 记录 `turn_access_risk / point_run_risk` 在 `friend=unrevealed` 阶段的拆分计数，以及 `unresolved_probe_risk` 命中样本
   - 为残局模式单独设置扩展深度和候选上限，避免普通局面也被高成本搜索拖慢
   - 为大改动提交流程补一条真实浏览器 UI smoke，确认 PC / mobile 在 `瞬` 档托管下都能完整结算，避免共享层改动只过了 headless 却卡在真实页面流程
 - 验收：

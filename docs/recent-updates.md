@@ -1,5 +1,7 @@
 ## Recent Updates
 
+- 2026-03-17 - 【规划文档】 - 已将 `mobile-app-launch-task-breakdown.md` 从旧的“`v1.0` 单机 App 首发拆解”重写为承接 `Phase A` 的“前 6 周执行清单”：当前阶段只聚焦 `HTML / Capacitor` 过渡版稳定、`game-core` 抽离和 `Cocos` 样机启动，并明确删除了不再适用的旧默认范围，例如把旧 `HTML` 牌桌继续扩成长期正式联机主线、提前启动小游戏 / 桌面端 / 正式联机服务端实现等。
+- 2026-03-17 - 【规划文档】 - 已重写移动与多端路线：明确当前 `HTML / Capacitor` 只作为过渡期手机 App 继续迭代，长期正式客户端主线切换为 `Cocos Creator`；同时长期保留一个无服务器依赖的 `HTML Legacy` 单机版，并把未来联机、小游戏与桌面端统一收口到 `Cocos Mainline + Referee Server`。本轮同步改写了 `mobile-online-roadmap.md`、`mobile-online-architecture.md` 与 `mobile-app-product-requirements.md`，删除了旧文档里把 `Capacitor WebView` 视为长期正式主线的过时假设。
 - 2026-03-17 - 【Bug修复】 - App 壳底部主操作区已进一步压薄：`index-app.html` 的底部操作行高与容器内边距已收口，不再在按钮容器里重复叠加 `safe-area-inset-bottom` 留白，避免 iPhone 上主操作条继续上顶遮住最后一行手牌；同时补了对应模板回归测试。此次只改 App 布局表现层，不改规则、玩法逻辑、AI 策略或 AI heuristic。
 - 2026-03-17 - 【设计稿】 - 新增 `PC / H5 / App` 三端主战场中保真界面图：补入 `images/mockups/ui-mock-pc.svg`、`images/mockups/ui-mock-h5.svg`、`images/mockups/ui-mock-app.svg` 与配套说明 `docs/three-surface-ui-mock.md`；本轮只新增视觉母稿与落地边界说明，不修改规则、玩法逻辑、AI 策略或 AI heuristic。
 - 2026-03-17 - 【App存储】 - 原生壳轻量存储迁移第一版已接入 `@capacitor/preferences`：当前 App 会把 `牌面 / AI难度 / 对局节奏 / 跨局托管态 / 玩家等级进度 / 最近一局复盘输入` 写入可控存储，其中最近一局记录只保留 `回放种子 + 开局码` 供日志、QA 和手动重建开局使用，不承诺中途续打恢复；同时补上原生迁移与 Web 不回退的专项回归测试。

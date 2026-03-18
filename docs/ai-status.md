@@ -24,6 +24,17 @@
 - `危险带分领牌` 与 `point_run_risk` 都出现了继续下降：这轮全桌 smoke 里，`dangerous_point_lead` 从上一轮观察到的 `4` 次降到 `2` 次，`point_run_risk` 从 `13` 次降到 `9` 次，说明“控制型高风险领牌二次否决”方向有效；但 mixed 小样本里仍有 `1` 次危险带分领牌，说明这条线还没有收官。
 - 当前最准确的工程判断不是“AI 还不够聪明”，而是“中级搜索框架已经站住，接下来应该继续做评估函数第二版和 legacy 规则下沉”。
 - 当前工作区已补一条新的收口线：`evaluateState(...)` 现已新增 `controlExit` breakdown，并接入 `resolved friend + clear_trump / keep_control` 的 objective 权重与危险带分领牌 veto，用来专门处理“朋友已站队后控牌过热”的问题。
+- 当前工作区也已补上“未站队阶段高张试探预算”的统一入口：
+  `evaluateState(...)` 新增 `probeRisk` breakdown，
+  `buildScoredIntermediateLeadEntries(...)` / `buildScoredIntermediateFollowEntries(...)` 新增 `unresolvedProbeVetoPenalty`，
+  用来收紧“为了找朋友而过早花掉 `A / 高主 / 王 / 带分牌`，却没有明确回手保障”的候选。
+- headless 批量复盘现在除了总量外，还会额外记录：
+  `selectedRolloutTriggerFlags` 里的 `unresolved_probe_risk`，
+  以及 `turn_access_risk / point_run_risk` 在 `friend=unrevealed` 阶段各自命中了多少次。
+- 最新一轮 `20` 局 mixed 批跑（seed=`mid-ai-next-step`）已经完成：
+  `20/20` 完局、`friend failed = 0`、平均 AI 决策耗时 `237.46 ms`；
+  但当前仍有 `dangerous_point_lead = 3`、未站队阶段 `turn_access_risk = 15`、未站队阶段 `point_run_risk = 9`，
+  说明这轮实现已经把“未站队风险”变成可观测、可专项压的正式口径，但还没有达到路线图里“明显下降后再固化门禁”的收口状态。
 
 这次额外复核使用的现时证据：
 
@@ -90,6 +101,10 @@
 - `危险带分领牌` 现在新增了一层 rollout 后的“控制型硬否决”：
   当 objective 已经切到 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 一类控制目标，且候选本身已经被识别为高风险带分领牌，同时 rollout 又继续暴露 `turn_access_risk / point_run_risk`、下一拍不安全或未来收益不足时，这类候选会被二次明显降权，而不再只吃一层 heuristic 惩罚。
 - 对应回归已补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
+- `朋友未站队阶段的高张试探预算` 现在也有了正式评分口径：
+  `probeRisk` 会在未站队阶段评估“高张 / 主控 / 带分资源的消耗是否值得”，
+  `unresolvedProbeVetoPenalty` 则会在首发与跟牌排序里，对没有 `turn_access_hold / 正向 futureDelta / 更强 friendBelief` 兜底的高成本试探追加 veto 或降权。
+- 同一条专项回归同样补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
 - `朋友已站队后的控牌降温` 现在又往前推进了一步：
   统一评估器新增 `controlExit` 分项，专门判断“当前控牌是否还能安全续控，或是否应该顺势交给同侧接手”；
   目标层也已给 `resolved friend + clear_trump / keep_control` 增加 `controlExit` 权重，并对打家侧过热的 `control / tempo` 做了小幅降温。
@@ -189,6 +204,7 @@
 第四优先级：`把规则复盘场景补成专项回归`
 
 - 新增“未站队阶段误判朋友方向”的固定样本。
+- 新增“未站队阶段高张试探是否被 probeRisk / unresolvedProbeVetoPenalty 正确压住”的固定样本。
 - 新增“保扣底阶段是否及时卸王”的固定样本。
 - 新增“甩牌风险进入 evaluateState 后，权重调整不回退”的单项回归。
 

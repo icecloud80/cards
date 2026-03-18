@@ -128,6 +128,7 @@ function scoreIntermediateReturnLead(playerId, combo, player) {
  * @param {number} playerId - 当前准备首发的玩家 ID。
  * @param {Array<object>} combo - 当前待评分的首发牌组。
  * @param {Array<object>} handBefore - 出牌前完整手牌。
+ * @param {object|null} [objective=null] - 当前局面的 objective；未传入时才回退到 live state 计算。
  *
  * 输出：
  * @returns {number} 返回应加到候选分上的协同奖励；越高表示越像“定门后再递牌”的有效路线。
@@ -908,6 +909,192 @@ function scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore)
 
 /**
  * 作用：
+ * 评估某手牌在“朋友未站队”阶段是否属于高成本试探，并返回资源暴露强度。
+ *
+ * 为什么这样写：
+ * 新一轮路线图不只是压“危险带分领牌”，还要压住那些
+ * “虽然未必立刻送分，但已经为了试探朋友花掉太多 A / 高主 / 王 / 结构资源”的动作。
+ * 这里先把这种暴露成本收敛成一个统一分值，供 lead/follow veto 共用。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ * @param {Array<object>} combo - 当前待评估的牌组。
+ * @param {Array<object>} handBefore - 出牌前完整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回试探暴露强度；`0` 表示这手不属于需要额外约束的高成本试探。
+ *
+ * 注意：
+ * - 只在 `friendTarget` 未站队时生效。
+ * - 直接亮友、直接推进打家找朋友前置张、以及显式 `grade_bottom` 优先路线，不在这里一刀切压掉。
+ * - 这里只衡量“成本”，是否允许继续激进，还要看 rollout 和未来评估。
+ */
+function getIntermediateUnresolvedProbeExposure(playerId, combo, handBefore, objective = null) {
+  if (!state.friendTarget || isFriendTeamResolved()) return 0;
+  if (!Array.isArray(combo) || combo.length === 0 || !Array.isArray(handBefore)) return 0;
+
+  const effectiveObjective = objective || getIntermediateObjective(playerId, "lead", state);
+  if (effectiveObjective?.primary === "grade_bottom" || effectiveObjective?.secondary === "grade_bottom") {
+    return 0;
+  }
+
+  const containsTarget = combo.some((card) =>
+    card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  if (containsTarget) {
+    return 0;
+  }
+
+  const pattern = classifyPlay(combo);
+  const comboPoints = getComboPointValue(combo);
+  const comboResourceUse = scoreComboResourceUse(combo);
+  const highTrumpCount = combo.filter((card) =>
+    effectiveSuit(card) === "trump" && getPatternUnitPower(card, "trump") >= 15
+  ).length;
+  const sideAceCount = combo.filter((card) => effectiveSuit(card) !== "trump" && card.rank === "A").length;
+  const jokerCount = combo.filter((card) => card.suit === "joker").length;
+  const quickHighCost = comboPoints > 0
+    || highTrumpCount > 0
+    || sideAceCount > 0
+    || jokerCount > 0
+    || (
+      ["pair", "tractor", "train", "bulldozer"].includes(pattern.type)
+      && comboResourceUse >= 24
+      && effectiveSuit(combo[0]) === "trump"
+    );
+  if (!quickHighCost) {
+    return 0;
+  }
+
+  let exposure = 0;
+
+  exposure += comboResourceUse;
+  exposure += comboPoints * 1.6;
+  exposure += highTrumpCount * 12;
+  exposure += sideAceCount * 10;
+  exposure += jokerCount * 18;
+
+  if (pattern.type === "single" && (comboPoints > 0 || sideAceCount > 0 || highTrumpCount > 0 || jokerCount > 0)) {
+    exposure += 10;
+  }
+  if (pattern.type === "pair" && (comboPoints > 0 || highTrumpCount > 0 || jokerCount > 0)) {
+    exposure += 16;
+  }
+  if (["tractor", "train", "bulldozer"].includes(pattern.type) && effectiveSuit(combo[0]) === "trump") {
+    exposure += 18;
+  }
+
+  return exposure >= 18 ? exposure : 0;
+}
+
+/**
+ * 作用：
+ * 判断某个未站队高成本试探，是否已经拿到了足够明确的“可以继续激进”的依据。
+ *
+ * 为什么这样写：
+ * 新 veto 不能把所有高张试探一刀切打死。
+ * 直接亮友、安全递牌、`A` 定门后能续控，或者 rollout 已经明确给出 `turn_access_hold`、
+ * 更好的 `friendBelief / probeRisk`，都应视作合理例外。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ * @param {object|null} entry - 已带 rollout 与 future evaluation 的候选条目。
+ *
+ * 输出：
+ * @returns {boolean} 返回 `true` 表示这手即使成本高，也值得保留激进性。
+ *
+ * 注意：
+ * - 这里只做“保留例外”的判断，不直接返回惩罚分。
+ * - 例外必须依赖 rollout 或明确的找友推进信号，避免重新放开无保障试探。
+ */
+function shouldKeepIntermediateUnresolvedProbeAggressive(playerId, entry) {
+  if (!entry || !Array.isArray(entry.cards) || entry.cards.length === 0) return false;
+  if (!state.friendTarget || isFriendTeamResolved()) return false;
+
+  const containsTarget = entry.cards.some((card) =>
+    card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  if (containsTarget) {
+    return true;
+  }
+
+  const triggerFlags = Array.isArray(entry.rolloutTriggerFlags) ? entry.rolloutTriggerFlags : [];
+  const nextBreakdown = entry.rolloutEvaluation?.breakdown || {};
+  const futureBreakdown = entry.rolloutFutureEvaluation?.breakdown || {};
+  const nextFriendBelief = nextBreakdown.friendBelief || 0;
+  const futureFriendBelief = futureBreakdown.friendBelief || nextFriendBelief;
+  const nextProbeRisk = nextBreakdown.probeRisk || 0;
+  const futureProbeRisk = futureBreakdown.probeRisk || nextProbeRisk;
+  const futureTurnAccess = futureBreakdown.turnAccess || nextBreakdown.turnAccess || 0;
+  const futureSafeLead = futureBreakdown.safeLead || nextBreakdown.safeLead || 0;
+  const futureDelta = typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : 0;
+  const keepsAccess = triggerFlags.includes("turn_access_hold");
+  const beliefImproved = futureFriendBelief - nextFriendBelief >= 4 || futureFriendBelief >= 18;
+  const safeProbe = futureProbeRisk >= 12 && futureTurnAccess >= 0;
+  const healthyContinuation = futureDelta >= 10 || futureSafeLead > 0;
+
+  return keepsAccess || beliefImproved || safeProbe || healthyContinuation;
+}
+
+/**
+ * 作用：
+ * 为未站队阶段的高成本试探追加 veto / 降权。
+ *
+ * 为什么这样写：
+ * 这条规则专门补路线图里的“高张试探预算 + 回手保障”。
+ * 与 `dangerousPointLeadPenalty` 的区别是：
+ * - 后者只盯“明显危险带分领牌”；
+ * - 这里要拦的是“虽然还没危险到立刻送分，但已经不值得为了试探去花高资源”的动作。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ * @param {object|null} entry - 已带 rollout 与 future evaluation 的候选条目。
+ * @param {string} [mode="lead"] - 当前评估模式，支持 `lead / follow`。
+ * @param {object|null} [objective=null] - 当前局面的 objective；未传入时才回退到 live state 计算。
+ *
+ * 输出：
+ * @returns {number} 返回应从候选总分里扣除的试探惩罚；`lead` 更硬，`follow` 更温和。
+ *
+ * 注意：
+ * - `follow` 侧只做中等惩罚，避免误伤必要接手。
+ * - 如果 rollout 已明确给出续控、找友推进或健康 probeRisk，这里会直接放行。
+ */
+function scoreIntermediateUnresolvedProbeVetoPenalty(playerId, entry, mode = "lead", objective = null) {
+  if (!entry || !Array.isArray(entry.cards) || entry.cards.length === 0) return 0;
+  if (!state.friendTarget || isFriendTeamResolved()) return 0;
+
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.hand)) return 0;
+
+  const exposure = getIntermediateUnresolvedProbeExposure(playerId, entry.cards, player.hand, objective);
+  if (exposure <= 0) return 0;
+  if (shouldKeepIntermediateUnresolvedProbeAggressive(playerId, entry)) return 0;
+
+  const triggerFlags = Array.isArray(entry.rolloutTriggerFlags) ? entry.rolloutTriggerFlags : [];
+  const nextBreakdown = entry.rolloutEvaluation?.breakdown || {};
+  const futureBreakdown = entry.rolloutFutureEvaluation?.breakdown || {};
+  const futureDelta = typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : 0;
+  const probeRisk = futureBreakdown.probeRisk || nextBreakdown.probeRisk || 0;
+  const turnAccess = futureBreakdown.turnAccess || nextBreakdown.turnAccess || 0;
+  const friendBelief = futureBreakdown.friendBelief || nextBreakdown.friendBelief || 0;
+  if (mode === "follow" && !triggerFlags.includes("turn_access_risk") && !triggerFlags.includes("point_run_risk") && exposure < 30) {
+    return 0;
+  }
+  const baseMultiplier = mode === "lead" ? 1.18 : 0.6;
+  let penalty = Math.round(exposure * baseMultiplier);
+
+  if (triggerFlags.includes("turn_access_risk")) penalty += mode === "lead" ? 16 : 8;
+  if (triggerFlags.includes("point_run_risk")) penalty += mode === "lead" ? 18 : 10;
+  if (turnAccess <= 0) penalty += mode === "lead" ? 12 : 6;
+  if (probeRisk < 0) penalty += Math.min(mode === "lead" ? 26 : 14, Math.abs(probeRisk) * 0.5);
+  if (friendBelief < 10) penalty += mode === "lead" ? 10 : 6;
+  if (futureDelta < 6) penalty += mode === "lead" ? 12 : 6;
+
+  return Math.max(0, penalty);
+}
+
+/**
+ * 作用：
  * 为“打家早期先走掉延迟型朋友牌前置副本”的动作提供中级评分加成。
  *
  * 为什么这样写：
@@ -951,6 +1138,53 @@ function scoreIntermediateFriendSetupLead(playerId, combo, handBefore) {
   if (targetCopiesInHand >= 2) bonus += 10;
   if (effectiveSuit(targetCard) !== "trump") bonus += 8;
   return bonus;
+}
+
+/**
+ * 作用：
+ * 在朋友未站队且自己并不更像朋友时，避免中级随手把最低张递给“暂定同侧”。
+ *
+ * 为什么这样写：
+ * 这轮 `probeRisk` 会压掉一部分没有保障的高张试探；
+ * 如果不补这条窄保护，少数 lead 场景会退化成“高张不敢试，就机械递最低张”，
+ * 从而把牌权白送给尚未确认的潜在同伴，违反原有 public-info-only 口径。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的首发牌组。
+ * @param {Array<object>} handBefore - 出牌前完整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回应扣除的惩罚；越负表示越不该做这种盲目低张递牌。
+ *
+ * 注意：
+ * - 只在 `friend 未站队`、且当前玩家并不明显更像朋友时生效。
+ * - 只处理非主、零分、单张且明显偏低的 lead，不影响公开 handoff、直接亮友或 banker 回手。
+ */
+function scoreIntermediateTentativeLowHandoffPenalty(playerId, combo, handBefore) {
+  if (playerId === state.bankerId || !state.friendTarget || isFriendTeamResolved()) return 0;
+  if (!Array.isArray(combo) || combo.length !== 1 || !Array.isArray(handBefore)) return 0;
+
+  const card = combo[0];
+  const suit = effectiveSuit(card);
+  if (suit === "trump" || scoreValue(card) > 0) return 0;
+  if (card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank) return 0;
+  if (getPatternUnitPower(card, suit) > 9) return 0;
+  if (canAiRevealFriendNow(playerId)) return 0;
+
+  const beliefLean = typeof getSimulationFriendBeliefLean === "function"
+    ? getSimulationFriendBeliefLean(state, playerId)
+    : 0;
+  if (beliefLean > 0) return 0;
+
+  const sameSuitHigherCardExists = handBefore.some((entry) =>
+    entry.id !== card.id
+    && effectiveSuit(entry) === suit
+    && getPatternUnitPower(entry, suit) > getPatternUnitPower(card, suit)
+  );
+  if (!sameSuitHigherCardExists) return 0;
+
+  return -28;
 }
 
 // 收集中级 AI 可用的首发候选牌组。
@@ -1038,6 +1272,7 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candida
   score += scoreIntermediateControlSignalLead(playerId, combo, handBefore);
   score += scoreIntermediateFriendTempoLead(playerId, combo);
   score += scoreIntermediateGradeBottomLead(playerId, combo, handBefore);
+  score += scoreIntermediateTentativeLowHandoffPenalty(playerId, combo, handBefore);
   score += scoreLeadTripleBreakPenalty(handBefore, combo);
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
@@ -1384,6 +1619,33 @@ function cloneDebugValue(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+/**
+ * 作用：
+ * 为调试快照补齐候选的结构化决策 flags。
+ *
+ * 为什么这样写：
+ * rollout 自带的 `turn_access_risk / point_run_risk` 只覆盖模拟阶段信号；
+ * 这轮新增的 `unresolved_probe_risk` 属于排序 veto，需要在快照层统一拼进去，
+ * 这样 headless 汇总和 debug 面板才能共用同一套 flags 口径。
+ *
+ * 输入：
+ * @param {object|null} entry - 已带评分结果的候选条目。
+ *
+ * 输出：
+ * @returns {Array<string>} 返回去重后的决策 flags 列表。
+ *
+ * 注意：
+ * - 这里只做调试输出整形，不参与实际排序。
+ * - 新增 flags 时应优先走这里，避免不同快照字段各自拼一份。
+ */
+function getCandidateDecisionFlags(entry) {
+  const flags = Array.isArray(entry?.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [];
+  if ((entry?.unresolvedProbeVetoPenalty || 0) > 0 && !flags.includes("unresolved_probe_risk")) {
+    flags.push("unresolved_probe_risk");
+  }
+  return flags;
+}
+
 function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTimeMs) {
   const candidateEntries = Array.isArray(scoredEntries)
     ? scoredEntries.slice(0, 8).map((entry) => ({
@@ -1401,11 +1663,14 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
       riskyPointLeadVetoPenalty: typeof entry.riskyPointLeadVetoPenalty === "number"
         ? entry.riskyPointLeadVetoPenalty
         : null,
+      unresolvedProbeVetoPenalty: typeof entry.unresolvedProbeVetoPenalty === "number"
+        ? entry.unresolvedProbeVetoPenalty
+        : null,
       rolloutScore: typeof entry.rolloutScore === "number" ? entry.rolloutScore : null,
       rolloutFutureDelta: typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : null,
       rolloutDepth: entry.rolloutDepth ?? 0,
       rolloutReachedOwnTurn: !!entry.rolloutReachedOwnTurn,
-      rolloutTriggerFlags: Array.isArray(entry.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [],
+      rolloutTriggerFlags: getCandidateDecisionFlags(entry),
       throwRiskLevel: entry.throwAssessment?.level || null,
       throwRiskPenalty: typeof entry.throwAssessment?.scorePenalty === "number" ? entry.throwAssessment.scorePenalty : null,
       throwUnresolvedThreatCount: typeof entry.throwAssessment?.unresolvedThreatCount === "number"
@@ -1446,7 +1711,10 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
     selectedRiskyPointLeadVetoPenalty: typeof bestEntry?.riskyPointLeadVetoPenalty === "number"
       ? bestEntry.riskyPointLeadVetoPenalty
       : null,
-    selectedRolloutTriggerFlags: Array.isArray(bestEntry?.rolloutTriggerFlags) ? [...bestEntry.rolloutTriggerFlags] : [],
+    selectedUnresolvedProbeVetoPenalty: typeof bestEntry?.unresolvedProbeVetoPenalty === "number"
+      ? bestEntry.unresolvedProbeVetoPenalty
+      : null,
+    selectedRolloutTriggerFlags: getCandidateDecisionFlags(bestEntry),
     selectedCards: cloneCardsForSimulation(bestEntry?.cards || []),
     selectedBreakdown: cloneDebugValue(bestEntry?.rolloutEvaluation) || summarizeEvaluationForDebug(bundle.evaluation),
     debugStats: summarizeCandidateDebugStats(scoredEntries, bundle.filteredCandidateEntries),
@@ -1817,11 +2085,18 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
       };
       const structureControlPenalty = scoreIntermediateStructureControlPenalty(rolloutEntry, baseEvaluation?.objective);
       const riskyPointLeadVetoPenalty = scoreIntermediateRiskyPointLeadVetoPenalty(rolloutEntry, baseEvaluation?.objective);
+      const unresolvedProbeVetoPenalty = scoreIntermediateUnresolvedProbeVetoPenalty(
+        playerId,
+        rolloutEntry,
+        "lead",
+        baseEvaluation?.objective
+      );
       return {
         ...rolloutEntry,
         structureControlPenalty,
         riskyPointLeadVetoPenalty,
-        score: heuristicScore + rollout.score - structureControlPenalty - riskyPointLeadVetoPenalty,
+        unresolvedProbeVetoPenalty,
+        score: heuristicScore + rollout.score - structureControlPenalty - riskyPointLeadVetoPenalty - unresolvedProbeVetoPenalty,
       };
     })
     .sort((a, b) => {
@@ -2058,6 +2333,15 @@ function buildScoredIntermediateFollowEntries(
           beginnerChoice
         );
       if (index >= rolloutBudget) {
+        const unresolvedProbeVetoPenalty = scoreIntermediateUnresolvedProbeVetoPenalty(playerId, {
+          ...entry,
+          heuristicScore,
+          rolloutScore: 0,
+          rolloutFutureDelta: 0,
+          rolloutTriggerFlags: ["rollout_skipped_by_budget"],
+          rolloutEvaluation: summarizeEvaluationForDebug(baseEvaluation),
+          rolloutFutureEvaluation: null,
+        }, "follow", baseEvaluation?.objective);
         return {
           ...entry,
           heuristicScore,
@@ -2075,11 +2359,12 @@ function buildScoredIntermediateFollowEntries(
           rolloutTriggerFlags: ["rollout_skipped_by_budget"],
           rolloutEvaluation: summarizeEvaluationForDebug(baseEvaluation),
           rolloutFutureEvaluation: null,
-          score: heuristicScore,
+          unresolvedProbeVetoPenalty,
+          score: heuristicScore - unresolvedProbeVetoPenalty,
         };
       }
       const rollout = getIntermediateRolloutSummary(playerId, entry.cards, baseEvaluation, "follow");
-      return {
+      const rolloutEntry = {
         ...entry,
         heuristicScore,
         rolloutScore: rollout.score,
@@ -2096,7 +2381,17 @@ function buildScoredIntermediateFollowEntries(
         rolloutTriggerFlags: rollout.triggerFlags,
         rolloutEvaluation: rollout.nextEvaluation,
         rolloutFutureEvaluation: rollout.futureEvaluation,
-        score: heuristicScore + rollout.score,
+      };
+      const unresolvedProbeVetoPenalty = scoreIntermediateUnresolvedProbeVetoPenalty(
+        playerId,
+        rolloutEntry,
+        "follow",
+        baseEvaluation?.objective
+      );
+      return {
+        ...rolloutEntry,
+        unresolvedProbeVetoPenalty,
+        score: heuristicScore + rollout.score - unresolvedProbeVetoPenalty,
       };
     })
     .sort((a, b) => {

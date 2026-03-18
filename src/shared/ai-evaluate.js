@@ -1004,6 +1004,78 @@ function getSimulationFriendRiskScore(simState, playerId) {
   return score;
 }
 
+/**
+ * 作用：
+ * 评估朋友未站队阶段，当前局面对“高张试探是否过热”的风险。
+ *
+ * 为什么这样写：
+ * 这轮路线图要补的是“未站队阶段高张试探预算 + 回手保障”。
+ * `probeRisk` 不直接判断某张牌该不该出，而是统一衡量当前模拟结果是否已经
+ * “为了试探朋友付出了太多高张 / 主控 / 带分资源，却没有换来更好的找友进展或回手保障”。
+ * 这样 rollout 之后的 `evaluateState(...)` 就能把这类局面显式算成负面结果，
+ * 而不是只靠若干局部 heuristic 零散兜底。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估该分项的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回 `probeRisk` 分值；正值表示当前试探成本可接受，负值表示试探过热。
+ *
+ * 注意：
+ * - 只在 `friendTarget` 未站队时生效；朋友已站队后固定返回 `0`。
+ * - 这里只看当前公开局势、玩家自己的保留资源和轻量 belief，不读取他人暗手。
+ * - `probeRisk` 与 `friendRisk` 不同：前者关注“试探成本是否值得”，后者关注“找朋友本身是否危险”。
+ */
+function getSimulationProbeRiskScore(simState, playerId) {
+  if (!simState?.friendTarget || isSimulationFriendTeamResolved(simState)) return 0;
+  const player = getSimulationPlayer(simState, playerId);
+  if (!player || !Array.isArray(player.hand)) return 0;
+
+  const beliefLean = getSimulationFriendBeliefLean(simState, playerId);
+  const controllerId = getSimulationTurnAccessControllerId(simState);
+  const sameSideControl = controllerId != null && isSimulationSameSide(simState, playerId, controllerId);
+  const reserveScore = Math.min(getSimulationTurnAccessReserveScore(simState, playerId), 34);
+  const targetCopies = getSimulationTargetCopiesInHand(simState, playerId);
+  const trickPoints = Array.isArray(simState.currentTrick)
+    ? simState.currentTrick.reduce((sum, play) => sum + getComboPointValue(play.cards || []), 0)
+    : 0;
+  const pointCardsInHand = player.hand.filter((card) => scoreValue(card) > 0).length;
+  const sideAcesInHand = player.hand.filter((card) => effectiveSuit(card) !== "trump" && card.rank === "A").length;
+  const topTrumpCount = player.hand.filter((card) =>
+    effectiveSuit(card) === "trump" && getPatternUnitPower(card, "trump") >= 15
+  ).length;
+  let score = 0;
+
+  score += Math.min(12, reserveScore * 0.25);
+  score += Math.min(8, pointCardsInHand * 2);
+  score += Math.min(14, sideAcesInHand * 8);
+  score += Math.min(16, topTrumpCount * 8);
+
+  if (sameSideControl) score += 4;
+
+  if (beliefLean > 0) score += Math.min(18, beliefLean * 0.35);
+  else if (beliefLean < 0) score += Math.max(-16, beliefLean * 0.25);
+
+  if (playerId !== simState.bankerId && targetCopies > 0) {
+    score += 8 + Math.min(10, targetCopies * 5);
+  }
+
+  if (!sameSideControl && trickPoints > 0 && reserveScore <= 2 && sideAcesInHand === 0 && topTrumpCount === 0) {
+    score -= 6 + trickPoints * 0.25;
+  }
+
+  if (reserveScore < 6 && beliefLean < 8 && sideAcesInHand === 0 && topTrumpCount === 0 && targetCopies === 0) {
+    score -= (6 - reserveScore) * 2;
+  }
+
+  if (pointCardsInHand === 0 && sideAcesInHand === 0 && topTrumpCount === 0 && targetCopies === 0 && beliefLean < 8) {
+    score -= 10;
+  }
+
+  return score;
+}
+
 function getSimulationBottomRiskScore(simState, playerId) {
   if (!simState?.players?.length) return 0;
   const cardsLeft = simState.players.reduce((sum, player) => sum + (player.hand?.length || 0), 0);
@@ -1116,6 +1188,7 @@ function evaluateState(simState, playerId, objective = getIntermediateObjective(
     points: getSimulationPointsScore(simState, playerId),
     friend: getSimulationFriendScore(simState, playerId),
     friendBelief: getSimulationFriendBeliefScore(simState, playerId),
+    probeRisk: getSimulationProbeRiskScore(simState, playerId),
     allySupport: getSimulationAllySupportScore(simState, playerId),
     bottom: getSimulationBottomScore(simState, playerId),
     gradeBottom: getSimulationGradeBottomScore(simState, playerId),

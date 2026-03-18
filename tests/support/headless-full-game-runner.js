@@ -518,7 +518,12 @@ function buildEmptyDecisionSignalSummary() {
       turnAccessRisk: 0,
       pointRunRisk: 0,
       dangerousPointLead: 0,
+      unresolvedProbeRisk: 0,
       revealedFriendControlShift: 0,
+    },
+    selectedByFriendState: {
+      turnAccessRisk: { unrevealed: 0, revealed: 0, failed: 0, not_called: 0 },
+      pointRunRisk: { unrevealed: 0, revealed: 0, failed: 0, not_called: 0 },
     },
     candidateAudit: {
       turnAccessRiskCandidates: 0,
@@ -530,10 +535,36 @@ function buildEmptyDecisionSignalSummary() {
       turnAccessRisk: [],
       pointRunRisk: [],
       dangerousPointLead: [],
+      unresolvedProbeRisk: [],
       revealedFriendControlShift: [],
     },
     topSignalGames: [],
   };
+}
+
+/**
+ * 作用：
+ * 把事件上的朋友状态归一化成回归摘要使用的稳定枚举值。
+ *
+ * 为什么这样写：
+ * 这轮 mixed 分析新增了“未站队阶段风险计数”，需要一套固定 friend-state 键名，
+ * 否则 summary / analysis / 单测会因为文案差异反复改结构。
+ *
+ * 输入：
+ * @param {string|null|undefined} friendState - 事件上记录的朋友状态。
+ *
+ * 输出：
+ * @returns {"unrevealed"|"revealed"|"failed"|"not_called"} 返回稳定 friend-state 键值。
+ *
+ * 注意：
+ * - 当前只保留摘要需要的 4 种状态。
+ * - 未识别输入统一回落到 `not_called`，避免 JSON 结构漂移。
+ */
+function normalizeDecisionSignalFriendState(friendState) {
+  if (friendState === "unrevealed" || friendState === "revealed" || friendState === "failed") {
+    return friendState;
+  }
+  return "not_called";
 }
 
 /**
@@ -680,6 +711,7 @@ function summarizeDecisionSignalsForGames(games) {
       const selectedFlags = Array.isArray(decision.selectedRolloutTriggerFlags)
         ? decision.selectedRolloutTriggerFlags
         : [];
+      const normalizedFriendState = normalizeDecisionSignalFriendState(event.friendState);
 
       summary.totalDecisions += 1;
       summary.candidateAudit.turnAccessRiskCandidates += debugStats.turnAccessRiskCount || 0;
@@ -695,12 +727,14 @@ function summarizeDecisionSignalsForGames(games) {
 
       if (selectedFlags.includes("turn_access_risk")) {
         summary.selectedSignals.turnAccessRisk += 1;
+        summary.selectedByFriendState.turnAccessRisk[normalizedFriendState] += 1;
         gameSignalCount += 1;
         pushDecisionSignalSample(summary.samples.turnAccessRisk, buildDecisionSignalSample(game, event, "turn_access_risk"));
       }
 
       if (selectedFlags.includes("point_run_risk")) {
         summary.selectedSignals.pointRunRisk += 1;
+        summary.selectedByFriendState.pointRunRisk[normalizedFriendState] += 1;
         gameSignalCount += 1;
         pushDecisionSignalSample(summary.samples.pointRunRisk, buildDecisionSignalSample(game, event, "point_run_risk"));
       }
@@ -711,6 +745,15 @@ function summarizeDecisionSignalsForGames(games) {
         pushDecisionSignalSample(
           summary.samples.dangerousPointLead,
           buildDecisionSignalSample(game, event, "dangerous_point_lead")
+        );
+      }
+
+      if (selectedFlags.includes("unresolved_probe_risk")) {
+        summary.selectedSignals.unresolvedProbeRisk += 1;
+        gameSignalCount += 1;
+        pushDecisionSignalSample(
+          summary.samples.unresolvedProbeRisk,
+          buildDecisionSignalSample(game, event, "unresolved_probe_risk")
         );
       }
 
@@ -1493,7 +1536,10 @@ function buildAnalysisMarkdown(summary) {
   lines.push(`- 触发 turn_access_risk 的已选动作：${overallSignals.selectedSignals.turnAccessRisk}`);
   lines.push(`- 触发 point_run_risk 的已选动作：${overallSignals.selectedSignals.pointRunRisk}`);
   lines.push(`- 仍被选中的危险带分领牌：${overallSignals.selectedSignals.dangerousPointLead}`);
+  lines.push(`- 触发 unresolved_probe_risk 的已选动作：${overallSignals.selectedSignals.unresolvedProbeRisk}`);
   lines.push(`- 朋友已站队后的控制型策略切换：${overallSignals.selectedSignals.revealedFriendControlShift}`);
+  lines.push(`- 未站队阶段触发 turn_access_risk：${overallSignals.selectedByFriendState.turnAccessRisk.unrevealed}`);
+  lines.push(`- 未站队阶段触发 point_run_risk：${overallSignals.selectedByFriendState.pointRunRisk.unrevealed}`);
   lines.push(`- 候选池内 turn_access_risk 总数：${overallSignals.candidateAudit.turnAccessRiskCandidates}`);
   lines.push(`- 候选池内 point_run_risk 总数：${overallSignals.candidateAudit.pointRunRiskCandidates}`);
   lines.push(`- 被过滤候选总数：${overallSignals.candidateAudit.filteredCandidates}`);
@@ -1516,7 +1562,10 @@ function buildAnalysisMarkdown(summary) {
     lines.push(`- 已选 turn_access_risk：${detail.decisionSignals.selectedSignals.turnAccessRisk}`);
     lines.push(`- 已选 point_run_risk：${detail.decisionSignals.selectedSignals.pointRunRisk}`);
     lines.push(`- 已选危险带分领牌：${detail.decisionSignals.selectedSignals.dangerousPointLead}`);
+    lines.push(`- 已选 unresolved_probe_risk：${detail.decisionSignals.selectedSignals.unresolvedProbeRisk}`);
     lines.push(`- 朋友站队后控制型切换：${detail.decisionSignals.selectedSignals.revealedFriendControlShift}`);
+    lines.push(`- 未站队 turn_access_risk：${detail.decisionSignals.selectedByFriendState.turnAccessRisk.unrevealed}`);
+    lines.push(`- 未站队 point_run_risk：${detail.decisionSignals.selectedByFriendState.pointRunRisk.unrevealed}`);
     lines.push("");
   }
 
@@ -1564,6 +1613,7 @@ function buildAnalysisMarkdown(summary) {
     overallSignals.samples.turnAccessRisk.length === 0
     && overallSignals.samples.pointRunRisk.length === 0
     && overallSignals.samples.dangerousPointLead.length === 0
+    && overallSignals.samples.unresolvedProbeRisk.length === 0
     && overallSignals.samples.revealedFriendControlShift.length === 0
   ) {
     lines.push("- 本轮未采到需要重点复跑的策略信号样本。");
@@ -1572,6 +1622,7 @@ function buildAnalysisMarkdown(summary) {
       ["turn_access_risk", overallSignals.samples.turnAccessRisk],
       ["point_run_risk", overallSignals.samples.pointRunRisk],
       ["dangerous_point_lead", overallSignals.samples.dangerousPointLead],
+      ["unresolved_probe_risk", overallSignals.samples.unresolvedProbeRisk],
       ["revealed_friend_control_shift", overallSignals.samples.revealedFriendControlShift],
     ];
     for (const [label, samples] of sampleSections) {

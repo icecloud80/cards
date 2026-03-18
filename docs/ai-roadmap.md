@@ -211,6 +211,19 @@
   `evaluateState(...)` 新增了 `controlExit` breakdown，用来识别“朋友已站队后，这份控制是否还能安全续控，或是否已经适合顺势交给同侧”。
   `getIntermediateObjective(...)` 也同步给 `resolved friend + clear_trump / keep_control` 增加了 `controlExit` 权重，并对打家侧的原始 `control / tempo` 做了小幅降温。
   这意味着“朋友已站队后的控牌降温”已经从路线图事项进入现时代码，而不再只停留在危险领牌 veto 的外围兜底。
+- 当前工作区也已开始把第 2 步正式下沉到统一评分：
+  `evaluateState(...)` 新增了只在 `friend 未站队` 时生效的 `probeRisk` breakdown，
+  用来识别“为了找朋友已经花掉过多高张 / 高主 / 王 / 带分资源，但没有换来更好回手或更清晰找友推进”的局面。
+  `buildScoredIntermediateLeadEntries(...)` / `buildScoredIntermediateFollowEntries(...)` 也同步新增了 `unresolvedProbeVetoPenalty`，
+  其中 lead 侧使用更硬 veto，follow 侧只做中等降权，避免把必要接手一刀切打死。
+- headless 汇总这轮也补上了新的观测口径：
+  决策 flags 新增 `unresolved_probe_risk`，
+  同时 `turn_access_risk / point_run_risk` 现在会额外按 `friendState` 拆出 `unrevealed / revealed / failed / not_called` 计数，
+  后续 mixed `20` 局就能直接判断“第 2 步有没有压住未站队阶段风险”，而不再只能看总量。
+- 用这套新口径补跑的 `20` 局 mixed（seed=`mid-ai-next-step`）已经验证：
+  `20/20` 完局、`friend failed = 0`、平均 AI 决策耗时 `237.46 ms`；
+  但当前仍有 `dangerous_point_lead = 3`、未站队阶段 `turn_access_risk = 15`、未站队阶段 `point_run_risk = 9`。
+  这说明“第 2 步的观测与 veto 基础设施”已经落地，但行为层还没有收平，后续仍应继续围绕同一条主线调权重，而不是提前切去别的路线。
 
 这里要特别注意：
 
@@ -226,6 +239,8 @@
 - 中级 AI 的主瓶颈已经不再只是权重和规则本身，而是 `每候选 rollout + 多次整局克隆 + 重复评估` 的累计成本。
 - 当前性能压力主要集中在 `cloneSimulationState(...)`、`getIntermediateRolloutSummary(...)`、`evaluateState(...)`、`getLegalSelectionsForState(...)` 和 `classifyPlay(...)` 这一条热路径。
 - 如果这一层不先收口，后面继续加 `Friend Belief`、`grade_bottom`、更完整残局搜索或更深 rollout，只会把现有卡顿风险继续放大。
+- 因此，像这轮新增的 `probeRisk / unresolvedProbeVetoPenalty` 之类行为修正，必须同步观察 mixed headless 的平均决策耗时；
+  若 `follow` 侧的试探判定开始把 mixed 单步耗时明显拉高，就要优先继续收紧快筛范围，而不是无上限增加结构差分。
 - 2026-03-17 已补第一条运行时止血线：
   对 `follow` 模式里的复杂多张跟牌，不能再默认把 shortlist 里的所有候选都送去 rollout；当前实现已改为“先 heuristic shortlist，再按预算决定是否 rollout”，最重的 `5` 张复杂跟牌样本允许直接跳过 rollout。
 - 因此，`AI 性能硬化` 现在应被视为中级路线图的正式主线之一，而不是单纯的工程清理。

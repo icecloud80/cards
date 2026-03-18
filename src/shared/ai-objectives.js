@@ -35,6 +35,8 @@ function buildIntermediateObjectiveWeights(baseWeights, primary, secondary) {
  * 这轮又额外补了“朋友已站队后的控牌降温”，因此要在目标层直接把
  * `controlExit` 纳入 resolved-friend 阶段的默认关注项，避免 `clear_trump`
  * 一路把高张硬控推到过热。
+ * 同时，未站队阶段也要把“高张试探预算”沉到统一权重里，
+ * 避免 `find_friend` 继续把高张试探误当成廉价收益。
  *
  * 输入：
  * @param {number} playerId - 当前准备决策的玩家 ID。
@@ -107,6 +109,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     points: defenderSide ? 0.8 : 1.0,
     friend: unresolvedFriend ? 1.15 : resolvedFriend ? 0.1 : 0.45,
     friendBelief: unresolvedFriend ? 0.75 : 0.05,
+    probeRisk: unresolvedFriend ? 0.95 : 0.05,
     allySupport: resolvedFriend ? 0.95 : 0.05,
     bottom: lateRound ? 1.0 : 0.3,
     gradeBottom: gradeBottomProfile.active ? (gradeBottomProfile.specialPriority ? 1.25 : 0.95) : 0.15,
@@ -140,6 +143,9 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (primary === "find_friend") weights.friendRisk += 0.35;
   if (secondary === "find_friend") weights.friendRisk += 0.15;
   if (unresolvedFriend) weights.friendBelief += 0.2;
+  if (primary === "find_friend") weights.probeRisk += 0.45;
+  if (secondary === "find_friend") weights.probeRisk += 0.2;
+  if (unresolvedFriend) weights.turnAccess += 0.1;
   if (primary === "keep_control" || primary === "clear_trump") weights.tempo += 0.35;
   if (secondary === "keep_control" || secondary === "clear_trump") weights.tempo += 0.15;
   if (primary === "keep_control" || primary === "clear_trump") weights.turnAccess += 0.45;
@@ -176,10 +182,12 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (unresolvedFriendBeliefLean >= 16) {
     weights.friend += 0.2;
     weights.turnAccess += 0.1;
+    weights.probeRisk = Math.max(0.45, weights.probeRisk - 0.2);
   }
   if (unresolvedFriendBeliefLean <= -16) {
     weights.voidPressure += 0.2;
     weights.controlRisk += 0.1;
+    weights.probeRisk += 0.15;
   }
   if (gradeBottomProfile.active) {
     weights.bottom += 0.15;

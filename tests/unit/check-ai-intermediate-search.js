@@ -483,6 +483,302 @@ function runIntermediateSearchSuite(context) {
     assert(riskyPointEntry.score < saferPointEntry.score, "buildScoredIntermediateLeadEntries: control-focused risky point leads should rank below safer low leads when rollout exposes control loss");
     assert(riskyPointEntry.riskyPointLeadVetoPenalty > 80, "buildScoredIntermediateLeadEntries: negative controlExit should further harden the risky point lead veto");
 
+    resetExtendedSearchState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.currentTrick = [];
+    state.players[2].hand = sortHand([
+      makeCard("probe-risk-s-a", "spades", "A"),
+      makeCard("probe-risk-c-7", "clubs", "7"),
+      makeCard("probe-risk-d-6", "diamonds", "6"),
+      makeCard("probe-risk-h-4", "hearts", "4"),
+    ]);
+    const unresolvedRiskyLead = [state.players[2].hand.find((card) => card.id === "probe-risk-s-a")];
+    const unresolvedSafeLead = [state.players[2].hand.find((card) => card.id === "probe-risk-d-6")];
+    const originalUnresolvedLeadScorer = scoreIntermediateLeadCandidate;
+    const originalUnresolvedRolloutSummary = getIntermediateRolloutSummary;
+    scoreIntermediateLeadCandidate = function mockedUnresolvedLeadScorer(playerId, combo) {
+      return getComboKey(combo) === getComboKey(unresolvedRiskyLead) ? 58 : 28;
+    };
+    getIntermediateRolloutSummary = function mockedUnresolvedRolloutSummary(playerId, combo) {
+      if (getComboKey(combo) === getComboKey(unresolvedRiskyLead)) {
+        return {
+          score: 10,
+          delta: 0,
+          futureDelta: 2,
+          completed: true,
+          nextMode: "lead",
+          winnerId: 3,
+          points: 0,
+          trace: [],
+          depth: 2,
+          reachedOwnTurn: true,
+          futureTrace: [],
+          triggerFlags: ["turn_access_risk", "point_run_risk"],
+          nextEvaluation: {
+            total: 6,
+            breakdown: { friendBelief: 8, probeRisk: -6, turnAccess: 2, safeLead: 0, pointRunRisk: -12 },
+            objective: { primary: "find_friend", secondary: "keep_control" },
+          },
+          futureEvaluation: {
+            total: -8,
+            breakdown: { friendBelief: 6, probeRisk: -20, turnAccess: -8, safeLead: -6, pointRunRisk: -24 },
+            objective: { primary: "find_friend", secondary: "keep_control" },
+          },
+        };
+      }
+      return {
+        score: 12,
+        delta: 0,
+        futureDelta: 10,
+        completed: true,
+        nextMode: "lead",
+        winnerId: 3,
+        points: 0,
+        trace: [],
+        depth: 2,
+        reachedOwnTurn: true,
+        futureTrace: [],
+        triggerFlags: [],
+        nextEvaluation: {
+          total: 10,
+          breakdown: { friendBelief: 10, probeRisk: 8, turnAccess: 4, safeLead: 0, pointRunRisk: 0 },
+          objective: { primary: "find_friend", secondary: "keep_control" },
+        },
+        futureEvaluation: {
+          total: 18,
+          breakdown: { friendBelief: 12, probeRisk: 14, turnAccess: 8, safeLead: 2, pointRunRisk: 0 },
+          objective: { primary: "find_friend", secondary: "keep_control" },
+        },
+      };
+    };
+    const unresolvedProbeEntries = buildScoredIntermediateLeadEntries(
+      3,
+      [
+        { cards: unresolvedRiskyLead, source: "heuristic", tags: ["single", "spades"] },
+        { cards: unresolvedSafeLead, source: "heuristic", tags: ["single", "diamonds"] },
+      ],
+      [],
+      {
+        total: 0,
+        breakdown: {},
+        objective: { primary: "find_friend", secondary: "keep_control", weights: {} },
+      }
+    );
+    scoreIntermediateLeadCandidate = originalUnresolvedLeadScorer;
+    getIntermediateRolloutSummary = originalUnresolvedRolloutSummary;
+    const unresolvedRiskyEntry = unresolvedProbeEntries.find((entry) => getComboKey(entry.cards) === getComboKey(unresolvedRiskyLead));
+    const unresolvedSafeEntry = unresolvedProbeEntries.find((entry) => getComboKey(entry.cards) === getComboKey(unresolvedSafeLead));
+    assert(unresolvedRiskyEntry.unresolvedProbeVetoPenalty > 0, "buildScoredIntermediateLeadEntries: unresolved high-cost probes without return path should receive an explicit unresolvedProbeVetoPenalty");
+    assert(unresolvedRiskyEntry.score < unresolvedSafeEntry.score, "buildScoredIntermediateLeadEntries: unresolved risky probes should rank below safer probing lines");
+
+    resetExtendedSearchState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.currentTrick = [];
+    state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false, matchesSeen: 0 };
+    state.players[2].hand = sortHand([
+      makeCard("probe-reveal-h-a", "hearts", "A"),
+      makeCard("probe-reveal-c-7", "clubs", "7"),
+      makeCard("probe-reveal-d-6", "diamonds", "6"),
+      makeCard("probe-reveal-s-4", "spades", "4"),
+    ]);
+    const revealProbeLead = [state.players[2].hand.find((card) => card.id === "probe-reveal-h-a")];
+    const revealFallbackLead = [state.players[2].hand.find((card) => card.id === "probe-reveal-d-6")];
+    const originalRevealLeadScorer = scoreIntermediateLeadCandidate;
+    const originalRevealRolloutSummary = getIntermediateRolloutSummary;
+    scoreIntermediateLeadCandidate = function mockedRevealLeadScorer(playerId, combo) {
+      return getComboKey(combo) === getComboKey(revealProbeLead) ? 42 : 22;
+    };
+    getIntermediateRolloutSummary = function mockedRevealRolloutSummary() {
+      return {
+        score: 8,
+        delta: 0,
+        futureDelta: 4,
+        completed: true,
+        nextMode: "lead",
+        winnerId: 3,
+        points: 0,
+        trace: [],
+        depth: 2,
+        reachedOwnTurn: true,
+        futureTrace: [],
+        triggerFlags: [],
+        nextEvaluation: {
+          total: 10,
+          breakdown: { friendBelief: 20, probeRisk: 10, turnAccess: 4, safeLead: 0, pointRunRisk: 0 },
+          objective: { primary: "find_friend", secondary: "keep_control" },
+        },
+        futureEvaluation: {
+          total: 14,
+          breakdown: { friendBelief: 22, probeRisk: 12, turnAccess: 6, safeLead: 2, pointRunRisk: 0 },
+          objective: { primary: "find_friend", secondary: "keep_control" },
+        },
+      };
+    };
+    const revealProbeEntries = buildScoredIntermediateLeadEntries(
+      3,
+      [
+        { cards: revealProbeLead, source: "heuristic", tags: ["single", "hearts"] },
+        { cards: revealFallbackLead, source: "heuristic", tags: ["single", "diamonds"] },
+      ],
+      [],
+      {
+        total: 0,
+        breakdown: {},
+        objective: { primary: "find_friend", secondary: "keep_control", weights: {} },
+      }
+    );
+    scoreIntermediateLeadCandidate = originalRevealLeadScorer;
+    getIntermediateRolloutSummary = originalRevealRolloutSummary;
+    const revealEntry = revealProbeEntries.find((entry) => getComboKey(entry.cards) === getComboKey(revealProbeLead));
+    const revealFallbackEntry = revealProbeEntries.find((entry) => getComboKey(entry.cards) === getComboKey(revealFallbackLead));
+    assert(revealEntry.unresolvedProbeVetoPenalty === 0, "buildScoredIntermediateLeadEntries: direct reveal lines should not be penalized as unresolved probes");
+    assert(revealEntry.score > revealFallbackEntry.score, "buildScoredIntermediateLeadEntries: direct reveal lines should remain eligible to beat low-risk filler leads");
+
+    resetExtendedSearchState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.currentTrick = [];
+    state.players[2].hand = sortHand([
+      makeCard("probe-safe-s-a", "spades", "A"),
+      makeCard("probe-safe-s-4", "spades", "4"),
+      makeCard("probe-safe-c-7", "clubs", "7"),
+      makeCard("probe-safe-d-6", "diamonds", "6"),
+    ]);
+    const safeSignalLead = [state.players[2].hand.find((card) => card.id === "probe-safe-s-a")];
+    const safeSignalFallback = [state.players[2].hand.find((card) => card.id === "probe-safe-d-6")];
+    const originalSafeSignalLeadScorer = scoreIntermediateLeadCandidate;
+    const originalSafeSignalRolloutSummary = getIntermediateRolloutSummary;
+    scoreIntermediateLeadCandidate = function mockedSafeSignalLeadScorer(playerId, combo) {
+      return getComboKey(combo) === getComboKey(safeSignalLead) ? 44 : 24;
+    };
+    getIntermediateRolloutSummary = function mockedSafeSignalRolloutSummary(playerId, combo) {
+      if (getComboKey(combo) === getComboKey(safeSignalLead)) {
+        return {
+          score: 12,
+          delta: 0,
+          futureDelta: 14,
+          completed: true,
+          nextMode: "lead",
+          winnerId: 3,
+          points: 0,
+          trace: [],
+          depth: 2,
+          reachedOwnTurn: true,
+          futureTrace: [],
+          triggerFlags: ["turn_access_hold"],
+          nextEvaluation: {
+            total: 14,
+            breakdown: { friendBelief: 14, probeRisk: 14, turnAccess: 6, safeLead: 0, pointRunRisk: 0 },
+            objective: { primary: "find_friend", secondary: "keep_control" },
+          },
+          futureEvaluation: {
+            total: 24,
+            breakdown: { friendBelief: 20, probeRisk: 18, turnAccess: 10, safeLead: 6, pointRunRisk: 0 },
+            objective: { primary: "find_friend", secondary: "keep_control" },
+          },
+        };
+      }
+      return {
+        score: 8,
+        delta: 0,
+        futureDelta: 2,
+        completed: true,
+        nextMode: "lead",
+        winnerId: 3,
+        points: 0,
+        trace: [],
+        depth: 2,
+        reachedOwnTurn: true,
+        futureTrace: [],
+        triggerFlags: [],
+        nextEvaluation: {
+          total: 8,
+          breakdown: { friendBelief: 8, probeRisk: 6, turnAccess: 2, safeLead: 0, pointRunRisk: 0 },
+          objective: { primary: "find_friend", secondary: "keep_control" },
+        },
+        futureEvaluation: {
+          total: 10,
+          breakdown: { friendBelief: 8, probeRisk: 8, turnAccess: 3, safeLead: 0, pointRunRisk: 0 },
+          objective: { primary: "find_friend", secondary: "keep_control" },
+        },
+      };
+    };
+    const safeSignalEntries = buildScoredIntermediateLeadEntries(
+      3,
+      [
+        { cards: safeSignalLead, source: "heuristic", tags: ["single", "spades"] },
+        { cards: safeSignalFallback, source: "heuristic", tags: ["single", "diamonds"] },
+      ],
+      [],
+      {
+        total: 0,
+        breakdown: {},
+        objective: { primary: "find_friend", secondary: "keep_control", weights: {} },
+      }
+    );
+    scoreIntermediateLeadCandidate = originalSafeSignalLeadScorer;
+    getIntermediateRolloutSummary = originalSafeSignalRolloutSummary;
+    const safeSignalEntry = safeSignalEntries.find((entry) => getComboKey(entry.cards) === getComboKey(safeSignalLead));
+    assert(safeSignalEntry.unresolvedProbeVetoPenalty === 0, "buildScoredIntermediateLeadEntries: high-card probes with explicit turn_access_hold should keep the exception lane");
+
+    resetExtendedSearchState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.currentTrick = [];
+    state.players[2].hand = sortHand([
+      makeCard("probe-grade-joker", "joker", "BJ"),
+      makeCard("probe-grade-c-a", "clubs", "A"),
+      makeCard("probe-grade-c-k", "clubs", "K"),
+      makeCard("probe-grade-c-q", "clubs", "Q"),
+    ]);
+    const gradeBottomLead = [state.players[2].hand.find((card) => card.id === "probe-grade-joker")];
+    const originalObjectiveGetter = getIntermediateObjective;
+    getIntermediateObjective = function mockedGradeBottomObjective() {
+      return { primary: "grade_bottom", secondary: "keep_control", weights: {} };
+    };
+    const gradeBottomProbeExposure = getIntermediateUnresolvedProbeExposure(3, gradeBottomLead, state.players[2].hand);
+    getIntermediateObjective = originalObjectiveGetter;
+    assert(gradeBottomProbeExposure === 0, "getIntermediateUnresolvedProbeExposure: explicit grade_bottom priority should bypass unresolved probe suppression");
+
+    resetExtendedSearchState();
+    const stableProbeState = cloneSimulationState(state);
+    stableProbeState.currentTurnId = 3;
+    stableProbeState.leaderId = 3;
+    stableProbeState.currentTrick = [];
+    stableProbeState.players[2].hand = sortHand([
+      makeCard("probe-eval-s-a", "spades", "A"),
+      makeCard("probe-eval-c-a", "clubs", "A"),
+      makeCard("probe-eval-c-k", "clubs", "K"),
+      makeCard("probe-eval-d-6", "diamonds", "6"),
+    ]);
+    const riskyProbeState = cloneSimulationState(state);
+    riskyProbeState.currentTurnId = 1;
+    riskyProbeState.leaderId = 1;
+    riskyProbeState.currentTrick = [
+      { playerId: 1, cards: [makeCard("probe-eval-table-h-k", "hearts", "K")] },
+    ];
+    riskyProbeState.players[2].hand = sortHand([
+      makeCard("probe-eval-s-4", "spades", "4"),
+      makeCard("probe-eval-d-6b", "diamonds", "6"),
+    ]);
+    const stableProbeEvaluation = evaluateState(
+      stableProbeState,
+      3,
+      getIntermediateObjective(3, "lead", stableProbeState)
+    );
+    const riskyProbeEvaluation = evaluateState(
+      riskyProbeState,
+      3,
+      getIntermediateObjective(3, "follow", riskyProbeState)
+    );
+    assert(riskyProbeEvaluation.breakdown.probeRisk < 0, "evaluateState: unresolved over-heated probing states should expose negative probeRisk");
+    assert(
+      stableProbeEvaluation.breakdown.probeRisk > riskyProbeEvaluation.breakdown.probeRisk,
+      "evaluateState: probeRisk should prefer retained probe resources plus healthier continuation over exhausted unresolved states"
+    );
+
     resetPositiveSafeLeadState();
     state.bankerId = 3;
     state.currentTurnId = 5;
@@ -518,6 +814,11 @@ function runIntermediateSearchSuite(context) {
         "evaluateState turn access breakdown ok",
         "structure lead control penalty ok",
         "risky point lead veto penalty ok",
+        "unresolved probe veto ok",
+        "direct reveal probe exception ok",
+        "safe high-card probe exception ok",
+        "grade-bottom probe exception ok",
+        "probeRisk breakdown ok",
         "control exit breakdown ok",
       ],
     };

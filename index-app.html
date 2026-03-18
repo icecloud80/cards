@@ -2592,12 +2592,12 @@
         padding: 6px;
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        /* App 壳底部只保留一条单行拇指操作轨；安全区已经由 scene / table 吸收，这里不能再把操作区行高撑大。 */
+        /* App 壳底部操作轨改成“至少 36px、按内容长”，避免固定猜高度把按钮下方的空白在真机上继续放大。 */
         grid-template-rows:
           clamp(56px, 8.8svh, 64px)
           minmax(0, 1fr)
           clamp(198px, 30.5vh, 232px)
-          clamp(34px, 4.8svh, 40px);
+          minmax(36px, max-content);
         gap: 8px;
         overflow: hidden;
         align-content: stretch;
@@ -3674,20 +3674,29 @@
         left: auto !important;
         right: auto !important;
         bottom: auto !important;
-        min-height: 100% !important;
         width: 100% !important;
         transform: none !important;
         display: block !important;
-        /* 底部安全区已在外层容器预留，这里只保留按钮本身需要的薄内边距，避免操作区上顶遮住最后一行手牌。 */
-        padding: 2px 6px 2px;
+        /* 普通出牌态的按钮条要尽量贴着按钮本体，避免“选择 / 出牌”下方残留被放大的空白带。 */
+        height: auto !important;
+        min-height: auto !important;
+        padding: 1px 6px 1px;
         border-radius: 12px;
         z-index: 6;
         margin: 0 auto;
         align-self: end;
       }
 
+      /* 普通按钮态固定收在 36px 高；真正需要展开候选区时，再交给 setup-choice-mode 单独放开。 */
+      body.mobile-app-shell .center-panel:not(.setup-choice-mode) {
+        height: 36px !important;
+        min-height: 36px !important;
+      }
+
       body.mobile-app-shell .center-panel.setup-choice-mode {
-        padding-top: 6px;
+        min-height: 40px !important;
+        padding-top: 4px;
+        padding-bottom: 2px;
       }
 
       body.mobile-app-shell .center-head {
@@ -3695,9 +3704,14 @@
       }
 
       body.mobile-app-shell .action-row {
+        /* App 壳不能继续继承通用 mobile 的固定三列 action-row；这里按可见按钮数量自动均分，避免空列和底部 ghost gap。 */
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        grid-template-columns: none;
         margin-top: 0;
         gap: 4px;
-        align-items: end;
+        align-items: stretch;
       }
 
       body.mobile-app-shell button.action-btn {
@@ -4148,6 +4162,7 @@
       }
 
       body.mobile-app-shell .friend-picker .action-row {
+        display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         margin-top: 10px !important;
       }

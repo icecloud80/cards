@@ -39,7 +39,7 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(198px,\s*30\.5vh,\s*232px\)[\s\S]*clamp\(34px,\s*4\.8svh,\s*40px\);/,
+    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(198px,\s*30\.5vh,\s*232px\)[\s\S]*minmax\(36px,\s*max-content\);/,
     "App 专用页面应把桌面行高改成顶部固定、中部自适应、底部手牌固定、操作区固定",
   );
   assert.match(
@@ -64,8 +64,28 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.center-panel \{[\s\S]*padding:\s*2px\s+6px\s+2px;/,
-    "App 专用页面的底部操作容器应只保留薄内边距，避免继续把按钮区整体顶高",
+    /body\.mobile-app-shell \.center-panel \{[\s\S]*height:\s*auto\s*!important;[\s\S]*min-height:\s*auto\s*!important;[\s\S]*padding:\s*1px\s+6px\s+1px;/,
+    "App 专用页面的底部操作容器应收口为贴按钮的薄内边距，避免继续把按钮区整体顶高",
+  );
+  assert.doesNotMatch(
+    html,
+    /body\.mobile-app-shell \.center-panel \{[\s\S]*min-height:\s*100%/,
+    "App 专用页面的底部操作容器不应继续把自己撑满整行，否则按钮下方会残留被放大的空白带",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*36px\s*!important;[\s\S]*min-height:\s*36px\s*!important;/,
+    "App 专用页面的普通底部按钮态应固定收口到贴近按钮的 36px 高度",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-auto-flow:\s*column;[\s\S]*grid-auto-columns:\s*minmax\(0,\s*1fr\);[\s\S]*grid-template-columns:\s*none;/,
+    "App 专用页面的底部按钮行应按可见按钮数量自动均分，不能继续继承旧的固定三列空轨",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.friend-picker \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/,
+    "App 叫朋友弹层的操作行仍应保留两列 grid，不应被底部主操作条的新规则误伤",
   );
   assert.doesNotMatch(
     html,

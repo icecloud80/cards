@@ -1,5 +1,6 @@
 ## Recent Updates
 
+- 2026-03-17 - 【Bug修复】 - App 壳底部操作条的“按钮下方空白轨”已定位并收口：根因是 `index-app.html` 里的 App 底部行高仍按固定轨道估算、同时主操作 `action-row` 继续继承了通用 mobile 的固定三列规则，导致 `选择 / 出牌` 下方残留空白在手机高 DPR 上被明显放大；现已改成按内容长的 36px 基线轨道与按可见按钮数自动均分的按钮行，并补上专项模板回归测试。
 - 2026-03-17 - 【规划文档】 - 已将 `mobile-app-launch-task-breakdown.md` 从旧的“`v1.0` 单机 App 首发拆解”重写为承接 `Phase A` 的“前 6 周执行清单”：当前阶段只聚焦 `HTML / Capacitor` 过渡版稳定、`game-core` 抽离和 `Cocos` 样机启动，并明确删除了不再适用的旧默认范围，例如把旧 `HTML` 牌桌继续扩成长期正式联机主线、提前启动小游戏 / 桌面端 / 正式联机服务端实现等。
 - 2026-03-17 - 【规划文档】 - 已重写移动与多端路线：明确当前 `HTML / Capacitor` 只作为过渡期手机 App 继续迭代，长期正式客户端主线切换为 `Cocos Creator`；同时长期保留一个无服务器依赖的 `HTML Legacy` 单机版，并把未来联机、小游戏与桌面端统一收口到 `Cocos Mainline + Referee Server`。本轮同步改写了 `mobile-online-roadmap.md`、`mobile-online-architecture.md` 与 `mobile-app-product-requirements.md`，删除了旧文档里把 `Capacitor WebView` 视为长期正式主线的过时假设。
 - 2026-03-17 - 【Bug修复】 - App 壳底部主操作区已进一步压薄：`index-app.html` 的底部操作行高与容器内边距已收口，不再在按钮容器里重复叠加 `safe-area-inset-bottom` 留白，避免 iPhone 上主操作条继续上顶遮住最后一行手牌；同时补了对应模板回归测试。此次只改 App 布局表现层，不改规则、玩法逻辑、AI 策略或 AI heuristic。

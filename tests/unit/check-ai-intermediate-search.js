@@ -483,6 +483,180 @@ function runIntermediateSearchSuite(context) {
     assert(riskyPointEntry.score < saferPointEntry.score, "buildScoredIntermediateLeadEntries: control-focused risky point leads should rank below safer low leads when rollout exposes control loss");
     assert(riskyPointEntry.riskyPointLeadVetoPenalty > 80, "buildScoredIntermediateLeadEntries: negative controlExit should further harden the risky point lead veto");
 
+    resetPositiveSafeLeadState();
+    state.bankerId = 3;
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    const riskyOvercontrolLead = [makeCard("resolved-control-lead-bj", "joker", "BJ")];
+    const safeReleaseLead = [makeCard("resolved-control-lead-c-3", "clubs", "3")];
+    const originalResolvedLeadScorer = scoreIntermediateLeadCandidate;
+    const originalResolvedLeadRolloutSummary = getIntermediateRolloutSummary;
+    scoreIntermediateLeadCandidate = function mockedResolvedLeadScorer(playerId, combo) {
+      return getComboKey(combo) === getComboKey(riskyOvercontrolLead) ? 72 : 34;
+    };
+    getIntermediateRolloutSummary = function mockedResolvedLeadRollout(playerId, combo) {
+      if (getComboKey(combo) === getComboKey(riskyOvercontrolLead)) {
+        return {
+          score: 24,
+          delta: 0,
+          futureDelta: 2,
+          completed: true,
+          nextMode: "lead",
+          winnerId: 3,
+          points: 0,
+          trace: [],
+          depth: 2,
+          reachedOwnTurn: true,
+          futureTrace: [],
+          triggerFlags: ["turn_access_risk", "point_run_risk", "no_safe_next_lead"],
+          nextEvaluation: {
+            total: 10,
+            breakdown: { turnAccess: 2, controlExit: 4, controlRisk: -8, safeLead: -4, pointRunRisk: -18 },
+            objective: { primary: "keep_control", secondary: "pressure_void" },
+          },
+          futureEvaluation: {
+            total: -14,
+            breakdown: { turnAccess: -8, controlExit: -20, controlRisk: -12, safeLead: -10, pointRunRisk: -28 },
+            objective: { primary: "keep_control", secondary: "pressure_void" },
+          },
+        };
+      }
+      return {
+        score: 8,
+        delta: 0,
+        futureDelta: 16,
+        completed: true,
+        nextMode: "lead",
+        winnerId: 3,
+        points: 0,
+        trace: [],
+        depth: 2,
+        reachedOwnTurn: true,
+        futureTrace: [],
+        triggerFlags: ["turn_access_hold"],
+        nextEvaluation: {
+          total: 16,
+          breakdown: { turnAccess: 10, controlExit: 8, controlRisk: -1, safeLead: 6, pointRunRisk: 0 },
+          objective: { primary: "keep_control", secondary: "pressure_void" },
+        },
+        futureEvaluation: {
+          total: 20,
+          breakdown: { turnAccess: 12, controlExit: 14, controlRisk: 0, safeLead: 10, pointRunRisk: 0 },
+          objective: { primary: "keep_control", secondary: "pressure_void" },
+        },
+      };
+    };
+    const resolvedControlLeadEntries = buildScoredIntermediateLeadEntries(
+      3,
+      [
+        { cards: riskyOvercontrolLead, source: "heuristic", tags: ["single", "trump"] },
+        { cards: safeReleaseLead, source: "heuristic", tags: ["single", "clubs"] },
+      ],
+      [],
+      {
+        total: 0,
+        breakdown: {},
+        objective: { primary: "keep_control", secondary: "pressure_void", weights: {} },
+      }
+    );
+    scoreIntermediateLeadCandidate = originalResolvedLeadScorer;
+    getIntermediateRolloutSummary = originalResolvedLeadRolloutSummary;
+    const riskyResolvedLeadEntry = resolvedControlLeadEntries.find((entry) => getComboKey(entry.cards) === getComboKey(riskyOvercontrolLead));
+    const safeResolvedLeadEntry = resolvedControlLeadEntries.find((entry) => getComboKey(entry.cards) === getComboKey(safeReleaseLead));
+    assert(riskyResolvedLeadEntry.resolvedFriendControlCoolingPenalty > 0, "buildScoredIntermediateLeadEntries: revealed-friend overcontrol leads should receive an explicit control-cooling penalty");
+    assert(riskyResolvedLeadEntry.score < safeResolvedLeadEntry.score, "buildScoredIntermediateLeadEntries: revealed-friend high-resource hard-control leads should rank below safer release leads");
+    assert(getCandidateDecisionFlags(riskyResolvedLeadEntry).includes("revealed_control_overheat"), "getCandidateDecisionFlags: revealed-friend overcontrol leads should expose a dedicated debug flag");
+
+    resetPositiveSafeLeadState();
+    state.currentTurnId = 3;
+    state.leaderId = 1;
+    state.currentTrick = [
+      { playerId: 1, cards: [makeCard("resolved-follow-current-h-9", "hearts", "9")] },
+    ];
+    state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    const currentWinningPlay = { playerId: 1, cards: [makeCard("resolved-follow-current-h-9", "hearts", "9")] };
+    const riskyOvercontrolFollow = [makeCard("resolved-follow-h-a", "hearts", "A")];
+    const safeReleaseFollow = [makeCard("resolved-follow-h-3", "hearts", "3")];
+    const originalResolvedFollowScorer = scoreIntermediateFollowCandidate;
+    const originalResolvedFollowRolloutSummary = getIntermediateRolloutSummary;
+    scoreIntermediateFollowCandidate = function mockedResolvedFollowScorer(playerId, combo) {
+      return getComboKey(combo) === getComboKey(riskyOvercontrolFollow) ? 220 : 38;
+    };
+    getIntermediateRolloutSummary = function mockedResolvedFollowRollout(playerId, combo) {
+      if (getComboKey(combo) === getComboKey(riskyOvercontrolFollow)) {
+        return {
+          score: 40,
+          delta: 0,
+          futureDelta: 2,
+          completed: true,
+          nextMode: "lead",
+          winnerId: 3,
+          points: 0,
+          trace: [],
+          depth: 2,
+          reachedOwnTurn: true,
+          futureTrace: [],
+          triggerFlags: ["turn_access_risk", "point_run_risk", "no_safe_next_lead"],
+          nextEvaluation: {
+            total: 12,
+            breakdown: { turnAccess: 4, controlExit: 4, controlRisk: -8, safeLead: -2, pointRunRisk: -16 },
+            objective: { primary: "keep_control", secondary: "run_points" },
+          },
+          futureEvaluation: {
+            total: -16,
+            breakdown: { turnAccess: -10, controlExit: -20, controlRisk: -12, safeLead: -10, pointRunRisk: -26 },
+            objective: { primary: "keep_control", secondary: "run_points" },
+          },
+        };
+      }
+      return {
+        score: -6,
+        delta: 0,
+        futureDelta: 14,
+        completed: true,
+        nextMode: "follow",
+        winnerId: 1,
+        points: 0,
+        trace: [],
+        depth: 2,
+        reachedOwnTurn: true,
+        futureTrace: [],
+        triggerFlags: [],
+        nextEvaluation: {
+          total: 8,
+          breakdown: { turnAccess: 6, controlExit: 10, controlRisk: -1, safeLead: 6, pointRunRisk: 0 },
+          objective: { primary: "keep_control", secondary: "run_points" },
+        },
+        futureEvaluation: {
+          total: 18,
+          breakdown: { turnAccess: 10, controlExit: 14, controlRisk: 0, safeLead: 10, pointRunRisk: 0 },
+          objective: { primary: "keep_control", secondary: "run_points" },
+        },
+      };
+    };
+    const resolvedControlFollowEntries = buildScoredIntermediateFollowEntries(
+      3,
+      [
+        { cards: riskyOvercontrolFollow, source: "legal", tags: ["single", "hearts", "beats"] },
+        { cards: safeReleaseFollow, source: "legal", tags: ["single", "hearts", "non_beating"] },
+      ],
+      currentWinningPlay,
+      false,
+      [],
+      {
+        total: 0,
+        breakdown: {},
+        objective: { primary: "keep_control", secondary: "run_points", weights: {} },
+      }
+    );
+    scoreIntermediateFollowCandidate = originalResolvedFollowScorer;
+    getIntermediateRolloutSummary = originalResolvedFollowRolloutSummary;
+    const riskyResolvedFollowEntry = resolvedControlFollowEntries.find((entry) => getComboKey(entry.cards) === getComboKey(riskyOvercontrolFollow));
+    const safeResolvedFollowEntry = resolvedControlFollowEntries.find((entry) => getComboKey(entry.cards) === getComboKey(safeReleaseFollow));
+    assert(riskyResolvedFollowEntry.resolvedFriendControlCoolingPenalty > 0, "buildScoredIntermediateFollowEntries: revealed-friend hard takeovers should receive an explicit control-cooling penalty");
+    assert(riskyResolvedFollowEntry.score < safeResolvedFollowEntry.score, "buildScoredIntermediateFollowEntries: revealed-friend risky hard takeovers should rank below safer release follows");
+    assert(getCandidateDecisionFlags(riskyResolvedFollowEntry).includes("revealed_control_overheat"), "getCandidateDecisionFlags: revealed-friend risky follows should expose a dedicated debug flag");
+
     resetExtendedSearchState();
     state.currentTurnId = 3;
     state.leaderId = 3;
@@ -893,6 +1067,8 @@ function runIntermediateSearchSuite(context) {
         "evaluateState turn access breakdown ok",
         "structure lead control penalty ok",
         "risky point lead veto penalty ok",
+        "revealed-friend lead cooling penalty ok",
+        "revealed-friend follow cooling penalty ok",
         "unresolved probe veto ok",
         "direct reveal probe exception ok",
         "safe high-card probe exception ok",

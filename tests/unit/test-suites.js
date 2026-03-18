@@ -35,6 +35,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-friend-strategy.js"),
   },
   {
+    name: "Beginner opening replay regression",
+    file: path.join(__dirname, "check-ai-beginner-opening-replay.js"),
+  },
+  {
     name: "AI bury strategy regression",
     file: path.join(__dirname, "check-bury-strategy.js"),
   },

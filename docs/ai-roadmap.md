@@ -238,17 +238,23 @@
 - `朋友已站队后的控牌过热` 又往统一评分里补了一层：
   `controlExit` 现在除了看 `safeLead / pointRunRisk / controlRisk`，也会额外识别“当前手里是否仍攥着过多王张 / 高主”；
   这让“明明已适合顺势把节奏交给同侧，却继续自己攥高张硬控”的状态更容易被评成负面。
+- 上面这条线在候选排序里也继续往下沉了一层：
+  lead / follow 的 rollout 排序现在新增 `resolvedFriendControlCoolingPenalty`，
+  若朋友已站队、objective 已切到 `keep_control / clear_trump / pressure_void` 一类控制目标，
+  且 rollout 已提示 `controlExit / turnAccess / pointRunRisk / safeLead` 变差，
+  就会直接下压继续烧 `王 / 高主 / 高张` 的候选，而不是只停留在状态评估层。
+  同时保留了“高张定门再递牌”和 `public-info-only` 回牌的窄例外，避免把已有协同窗口误杀成“控牌过热”。
 - `保扣底时的王张释放 / 高主释放` 已从 heuristic 升成正式 breakdown：
   `evaluateState(...)` 新增了 `bottomRelease`，
   专门衡量残局同侧控牌时，当前玩家是否已经把可让给同侧的高主资源让出来；
   `protect_bottom / grade_bottom` 目标也已同步给这项分值加权，不再只靠 `chooseAiBottomPrepDiscard(...)` 的局部跟牌启发。
 - 对应专项回归已同步补齐：
   `check-ai-intermediate-foundation.js` 新增 `bottomRelease` 基础断言，
-  `check-ai-intermediate-search.js` 新增“重复 probe 历史会加重 veto”和“高主释放会抬高 `controlExit` / `bottomRelease`”两条回归。
+  `check-ai-intermediate-search.js` 新增“重复 probe 历史会加重 veto”“已站队后高资源 hard-control 会被 cooling penalty 压住”和“高主释放会抬高 `controlExit` / `bottomRelease`”几条回归。
 
 这里要特别注意：
 
-- 这轮 mixed 只是一组 `2` 局的当前工作区 smoke，不足以替代上面的 `20` 局混编门槛；其中 `dangerous_point_lead` 仍有 `1` 次，也说明这条风险线还没有真正收平。
+- 当前工作区最新 mixed 仍只是一组 `2` 局的 smoke，不足以替代上面的 `20` 局混编门槛；最新重跑结果虽然把 `turn_access_risk` 压到 `2`、`point_run_risk` 压到 `2`、`unresolved_probe_risk` 压到 `0`，但 `dangerous_point_lead` 仍有 `3` 次，说明这条风险线还没有真正收平。
 - 因此，这轮最新校验只用于确认“优先级没有变”，而不是推翻 `2026-03-15` 那组长期开发顺序。
 
 ### 基于 2026-03-16 代码性能审查的新增优先项

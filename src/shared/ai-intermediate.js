@@ -1683,7 +1683,8 @@ function cloneDebugValue(value) {
  *
  * 为什么这样写：
  * rollout 自带的 `turn_access_risk / point_run_risk` 只覆盖模拟阶段信号；
- * 这轮新增的 `unresolved_probe_risk` 属于排序 veto，需要在快照层统一拼进去，
+ * 这轮新增的 `unresolved_probe_risk / revealed_control_overheat` 都属于排序 veto，
+ * 需要在快照层统一拼进去，
  * 这样 headless 汇总和 debug 面板才能共用同一套 flags 口径。
  *
  * 输入：
@@ -1700,6 +1701,9 @@ function getCandidateDecisionFlags(entry) {
   const flags = Array.isArray(entry?.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [];
   if ((entry?.unresolvedProbeVetoPenalty || 0) > 0 && !flags.includes("unresolved_probe_risk")) {
     flags.push("unresolved_probe_risk");
+  }
+  if ((entry?.resolvedFriendControlCoolingPenalty || 0) > 0 && !flags.includes("revealed_control_overheat")) {
+    flags.push("revealed_control_overheat");
   }
   return flags;
 }
@@ -1723,6 +1727,9 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
         : null,
       unresolvedProbeVetoPenalty: typeof entry.unresolvedProbeVetoPenalty === "number"
         ? entry.unresolvedProbeVetoPenalty
+        : null,
+      resolvedFriendControlCoolingPenalty: typeof entry.resolvedFriendControlCoolingPenalty === "number"
+        ? entry.resolvedFriendControlCoolingPenalty
         : null,
       rolloutScore: typeof entry.rolloutScore === "number" ? entry.rolloutScore : null,
       rolloutFutureDelta: typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : null,
@@ -1771,6 +1778,9 @@ function createAiDecisionSnapshot(bundle, scoredEntries, bestEntry, decisionTime
       : null,
     selectedUnresolvedProbeVetoPenalty: typeof bestEntry?.unresolvedProbeVetoPenalty === "number"
       ? bestEntry.unresolvedProbeVetoPenalty
+      : null,
+    selectedResolvedFriendControlCoolingPenalty: typeof bestEntry?.resolvedFriendControlCoolingPenalty === "number"
+      ? bestEntry.resolvedFriendControlCoolingPenalty
       : null,
     selectedRolloutTriggerFlags: getCandidateDecisionFlags(bestEntry),
     selectedCards: cloneCardsForSimulation(bestEntry?.cards || []),
@@ -2042,6 +2052,200 @@ function scoreIntermediateStructureControlPenalty(entry, objective = null) {
 
 /**
  * 作用：
+ * 估算朋友已站队后，这手候选还在“自己继续攥控”的资源承诺强度。
+ *
+ * 为什么这样写：
+ * `controlExit` 已能告诉我们“未来控牌是否过热”，
+ * 但候选级排序还需要知道“这手牌本身到底花了多少高成本控牌资源”。
+ * 把这份承诺强度单独抽出来后，lead / follow 都能共用同一口径，
+ * 更稳定地区分“顺手放一张低牌”和“继续烧王 / 高主 / 高张硬控”。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ * @param {Array<object>} combo - 当前待评估的候选牌组。
+ * @param {string} [mode="lead"] - 当前评估模式，支持 `lead / follow`。
+ * @param {{playerId:number,cards:Array<object>}|null} [currentWinningPlay=null] - 跟牌模式下的当前领先出牌。
+ *
+ * 输出：
+ * @returns {number} 返回这手候选的控牌资源承诺分；越高表示越像“继续自己攥高资源控牌”。
+ *
+ * 注意：
+ * - 这里只衡量候选本身的资源承诺，不直接判断这手牌最终值不值得出。
+ * - `follow` 模式会额外考虑当前是否压过领先牌，因为“主动上手硬控”和“被迫跟出”不是同一回事。
+ */
+function getIntermediateResolvedFriendControlCommitmentScore(
+  playerId,
+  combo,
+  mode = "lead",
+  currentWinningPlay = null
+) {
+  if (!Array.isArray(combo) || combo.length === 0) return 0;
+
+  const pattern = classifyPlay(combo);
+  const comboPoints = getComboPointValue(combo);
+  const comboResourceUse = scoreComboResourceUse(combo);
+  const comboSuit = pattern.suit || effectiveSuit(combo[0]);
+  const beatsCurrent = mode === "follow" && currentWinningPlay
+    ? wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay)
+    : false;
+  const trumpCount = combo.filter((card) => effectiveSuit(card) === "trump").length;
+  const topTrumpCount = combo.filter((card) =>
+    effectiveSuit(card) === "trump" && getPatternUnitPower(card, "trump") >= 15
+  ).length;
+  const jokerCount = combo.filter((card) => card.suit === "joker").length;
+  const sideHonorCount = combo.filter((card) =>
+    effectiveSuit(card) !== "trump" && ["10", "J", "Q", "K", "A"].includes(card.rank)
+  ).length;
+  const totalPower = combo.reduce((sum, card) => {
+    const suit = effectiveSuit(card);
+    return sum + getPatternUnitPower(card, suit);
+  }, 0);
+  let score = comboResourceUse * 3.5;
+
+  score += comboPoints * 2.8;
+  score += totalPower * (combo.length === 1 ? 16 : 9);
+  score += trumpCount * 18;
+  score += topTrumpCount * 32;
+  score += jokerCount * 46;
+  score += sideHonorCount * 12;
+
+  if (pattern.type === "pair") score += 18;
+  if (pattern.type === "triple") score += 20;
+  if (pattern.type === "tractor" || pattern.type === "train") score += 30;
+  if (pattern.type === "bulldozer") score += 42;
+
+  if (mode === "follow" && currentWinningPlay) {
+    if (beatsCurrent) {
+      score += 34;
+    } else if (comboSuit === state.leadSpec?.suit || comboSuit === effectiveSuit(currentWinningPlay.cards[0])) {
+      score += 12;
+    }
+  }
+
+  return score;
+}
+
+/**
+ * 作用：
+ * 在朋友已站队后，对“还在自己硬攥控牌”的候选追加统一降温惩罚。
+ *
+ * 为什么这样写：
+ * 这轮剩余风险已经明显集中到 `friend=revealed` 后的 `keep_control / clear_trump / pressure_void`，
+ * 纯靠 `evaluateState(...).breakdown.controlExit` 还不够把候选真正拉开。
+ * 这里把 rollout 里的 `controlExit / turnAccess / pointRunRisk / safeLead` 信号
+ * 和候选本身的控牌资源承诺拼起来：
+ * - 如果未来已经提示“继续控会过热”，就直接压掉继续烧王 / 高主 / 高张的候选；
+ * - 如果 rollout 明确说明“这手能健康续控或安全交给同侧”，再把惩罚放松。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ * @param {object|null} entry - 已带 rollout 结果的候选条目。
+ * @param {string} [mode="lead"] - 当前评估模式，支持 `lead / follow`。
+ * @param {object|null} [objective=null] - 当前局面的 objective。
+ * @param {{playerId:number,cards:Array<object>}|null} [currentWinningPlay=null] - 跟牌模式下的当前领先出牌。
+ * @param {boolean} [allyWinning=false] - 跟牌前当前领先者是否为己方。
+ *
+ * 输出：
+ * @returns {number} 返回应从候选总分中扣除的降温惩罚；值越高表示越不该继续自己硬控。
+ *
+ * 注意：
+ * - 只在朋友已站队后的控制型目标里生效。
+ * - 没有 rollout 前瞻时宁可返回 `0`，避免把这条规则误用成纯静态拍脑袋惩罚。
+ */
+function scoreIntermediateResolvedFriendControlCoolingPenalty(
+  playerId,
+  entry,
+  mode = "lead",
+  objective = null,
+  currentWinningPlay = null,
+  allyWinning = false
+) {
+  if (!entry || !Array.isArray(entry.cards) || entry.cards.length === 0) return 0;
+  if (!isFriendTeamResolved()) return 0;
+
+  const primary = objective?.primary || null;
+  const secondary = objective?.secondary || null;
+  const controlFocusedObjectives = new Set(["keep_control", "clear_trump", "pressure_void", "protect_bottom", "grade_bottom"]);
+  const controlFocused = controlFocusedObjectives.has(primary) || controlFocusedObjectives.has(secondary);
+  if (!controlFocused) return 0;
+
+  const triggerFlags = Array.isArray(entry.rolloutTriggerFlags) ? entry.rolloutTriggerFlags : [];
+  const nextBreakdown = entry.rolloutEvaluation?.breakdown || {};
+  const futureBreakdown = entry.rolloutFutureEvaluation?.breakdown || {};
+  const futureDelta = typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : 0;
+  const controlExit = futureBreakdown.controlExit || nextBreakdown.controlExit || 0;
+  const turnAccess = futureBreakdown.turnAccess || nextBreakdown.turnAccess || 0;
+  const safeLead = futureBreakdown.safeLead || nextBreakdown.safeLead || 0;
+  const pointRunRisk = futureBreakdown.pointRunRisk || nextBreakdown.pointRunRisk || 0;
+  const beatsCurrent = mode === "follow" && currentWinningPlay
+    ? wouldAiComboBeatCurrent(playerId, entry.cards, currentWinningPlay)
+    : false;
+  const hasTurnAccessRisk = triggerFlags.includes("turn_access_risk");
+  const hasPointRunRisk = triggerFlags.includes("point_run_risk");
+  const hasNoSafeNextLead = triggerFlags.includes("no_safe_next_lead");
+  const hasSafeAccessHold = triggerFlags.includes("turn_access_hold");
+  const hasImmediateRisk = hasTurnAccessRisk || hasPointRunRisk || hasNoSafeNextLead;
+  const controlClearlyHealthy = hasSafeAccessHold || (controlExit >= 12 && safeLead >= 6 && pointRunRisk >= -4);
+  if (!hasImmediateRisk && controlClearlyHealthy) return 0;
+
+  const pattern = classifyPlay(entry.cards);
+  const comboPoints = getComboPointValue(entry.cards);
+  const player = getPlayer(playerId);
+  const controlSignalLead = mode === "lead"
+    && player
+    && typeof shouldAiUseHighControlSignalWindow === "function"
+    && shouldAiUseHighControlSignalWindow(playerId, player)
+    && scoreIntermediateControlSignalLead(playerId, entry.cards, player.hand) > 0;
+  if (controlSignalLead && !triggerFlags.includes("late_bottom_pressure")) return 0;
+  if (
+    mode === "lead"
+    && pattern.type === "single"
+    && comboPoints === 0
+    && entry.cards.every((card) => effectiveSuit(card) !== "trump")
+  ) {
+    return 0;
+  }
+
+  const commitment = getIntermediateResolvedFriendControlCommitmentScore(
+    playerId,
+    entry.cards,
+    mode,
+    currentWinningPlay
+  );
+  let penalty = Math.round(commitment * 0.55);
+
+  if (mode === "lead") penalty += 12;
+  if (mode === "follow" && beatsCurrent) penalty += 22;
+  if (mode === "follow" && allyWinning) penalty += 18;
+  if (mode === "follow" && !beatsCurrent) penalty += 10;
+  if (primary === "clear_trump") penalty += 12;
+  if (primary === "keep_control" || secondary === "keep_control") penalty += 10;
+  if (primary === "pressure_void" || secondary === "pressure_void") penalty += 8;
+  if (comboPoints > 0) penalty += 14;
+  if (pattern.type === "pair") penalty += 12;
+  if (pattern.type === "tractor" || pattern.type === "train" || pattern.type === "bulldozer") penalty += 18;
+  if (hasTurnAccessRisk) penalty += 34;
+  if (hasPointRunRisk) penalty += 38;
+  if (hasTurnAccessRisk && hasPointRunRisk) penalty += 24;
+  if (hasNoSafeNextLead) penalty += 28;
+  if (triggerFlags.includes("late_bottom_pressure")) penalty += 18;
+  if (turnAccess <= 0) penalty += 20;
+  if (safeLead < 0) penalty += Math.min(28, Math.abs(safeLead) * 0.9);
+  if (pointRunRisk < 0) penalty += Math.min(42, Math.abs(pointRunRisk) * 0.72);
+  if (controlExit < 6) penalty += Math.min(48, Math.max(0, 6 - controlExit) * 4);
+  if (futureDelta < 6) penalty += 18;
+
+  if (hasSafeAccessHold) penalty -= 26;
+  if (futureDelta >= 12) penalty -= 34;
+  if (controlExit >= 12) penalty -= 34;
+  if (safeLead >= 10) penalty -= 18;
+  if (pointRunRisk >= 0) penalty -= 10;
+
+  return Math.max(0, penalty);
+}
+
+/**
+ * 作用：
  * 对“控制目标下仍主动领高分高张”的首发候选追加更硬的否决惩罚。
  *
  * 为什么这样写：
@@ -2149,12 +2353,24 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
         "lead",
         baseEvaluation?.objective
       );
+      const resolvedFriendControlCoolingPenalty = scoreIntermediateResolvedFriendControlCoolingPenalty(
+        playerId,
+        rolloutEntry,
+        "lead",
+        baseEvaluation?.objective
+      );
       return {
         ...rolloutEntry,
         structureControlPenalty,
         riskyPointLeadVetoPenalty,
         unresolvedProbeVetoPenalty,
-        score: heuristicScore + rollout.score - structureControlPenalty - riskyPointLeadVetoPenalty - unresolvedProbeVetoPenalty,
+        resolvedFriendControlCoolingPenalty,
+        score: heuristicScore
+          + rollout.score
+          - structureControlPenalty
+          - riskyPointLeadVetoPenalty
+          - unresolvedProbeVetoPenalty
+          - resolvedFriendControlCoolingPenalty,
       };
     })
     .sort((a, b) => {
@@ -2446,10 +2662,19 @@ function buildScoredIntermediateFollowEntries(
         "follow",
         baseEvaluation?.objective
       );
+      const resolvedFriendControlCoolingPenalty = scoreIntermediateResolvedFriendControlCoolingPenalty(
+        playerId,
+        rolloutEntry,
+        "follow",
+        baseEvaluation?.objective,
+        currentWinningPlay,
+        allyWinning
+      );
       return {
         ...rolloutEntry,
         unresolvedProbeVetoPenalty,
-        score: heuristicScore + rollout.score - unresolvedProbeVetoPenalty,
+        resolvedFriendControlCoolingPenalty,
+        score: heuristicScore + rollout.score - unresolvedProbeVetoPenalty - resolvedFriendControlCoolingPenalty,
       };
     })
     .sort((a, b) => {

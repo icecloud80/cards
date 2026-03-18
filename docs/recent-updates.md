@@ -1,5 +1,6 @@
 ## Recent Updates
 
+- 2026-03-18 - 【AI改进】 - 中级 AI 已继续把“朋友已站队后的控牌过热”下沉到候选级排序：lead / follow 现在新增 `resolvedFriendControlCoolingPenalty`，当 rollout 已提示 `controlExit / turnAccess / pointRunRisk / safeLead` 变差时，会直接下压继续烧 `王 / 高主 / 高张` 的候选；同时保留“高张定门再递牌”和 `public-info-only` 回牌的窄例外，避免误把已有协同窗口当成 hidden-void 推断；对应 `AI intermediate search / foundation / friend strategy / follow rollout budget / grade-bottom` 回归已同步通过。
 - 2026-03-18 - 【AI改进】 - 中级 / 高级叫朋友已显式补上“短门更容易找朋友、也更容易回手”的评分：当 `长门第二张 A` 与 `短门第一张 A + K / 小牌` 对冲时，会对短门路线加分、对长门补拥堵惩罚，不再因为长门同门牌多就天然压过短门；对应 `AI friend strategy` 回归已补齐。
 - 2026-03-18 - 【复盘增强】 - 结果日志里的 `AI 决策记录` 已继续补齐 `扣底 / 叫朋友` 两个阶段，并把 `亮主 / 反主 / 扣底 / 叫朋友 / 首发 / 跟牌` 统一分成不同标签，避免前置阶段继续被混写成“首发”。
 - 2026-03-18 - 【AI改进】 - 中级 AI 的三条主线继续往统一评分里收口：朋友未站队时，`probeRisk` 与 `unresolvedProbeVetoPenalty` 现在会额外读取当前玩家已公开打出的 `A / 王 / 高主 / 带分牌` 历史消耗，连续高成本试探会吃到更重 veto；朋友已站队后的 `controlExit` 也会继续识别“是否还在攥高主 / 王张硬控”；同时 `evaluateState(...)` 新增 `bottomRelease` breakdown，并由 `protect_bottom / grade_bottom` 正式加权，专门衡量残局同侧控牌时是否已经把可让给同侧的王张 / 高主资源让出来；对应 `foundation / search / friend / grade-bottom / rollout-budget / headless-full-game` 回归已同步通过。

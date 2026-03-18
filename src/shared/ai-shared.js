@@ -289,6 +289,244 @@ function chooseStrongLeadFromCards(cards) {
 
 /**
  * 作用：
+ * 判断当前玩家的对手里，是否已经有人公开绝了某门副牌。
+ *
+ * 为什么这样写：
+ * 亮友后的“副牌安全兑现”只应建立在敌方还没有公开绝门的前提上，
+ * 否则这手牌很容易立刻变成送将吃窗口。把这层判断收成 helper 后，
+ * 后续的升高控制牌兑现、同门连打和跨门 A 开路都能复用同一条安全边界。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {string} suit - 当前要检查的副牌花色。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示至少有一位敌方已公开绝这门牌。
+ *
+ * 注意：
+ * - 这里只检查副牌门，不对主牌门做这条判断。
+ * - 只读取公开绝门信息，不做任何暗手推断。
+ */
+function doAiOpponentsExposeSuitVoid(playerId, suit) {
+  if (!SUITS.includes(suit)) {
+    return false;
+  }
+  return state.players.some((seat) => seat.id !== playerId && !areSameSide(playerId, seat.id) && state.exposedSuitVoid[seat.id]?.[suit]);
+}
+
+/**
+ * 作用：
+ * 为“我刚靠副牌拿下一轮，是否还能继续走这门控制线”返回一份轻量的安全上下文。
+ *
+ * 为什么这样写：
+ * 用户这次给出的复盘差异不是“AI 完全不会控局”，而是“刚靠副牌稳住一手后，下一拍却立刻切回低主清控”，
+ * 导致把本可继续兑现的安全控制线中断。这里把“上一轮是不是全桌都跟了同一门副牌、且我方刚赢下来”收口成统一入口，
+ * 方便后续首发 heuristic 明确识别“这门还在 live，可以继续走”。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ *
+ * 输出：
+ * @returns {{suit: string, trickNumber: number}|null} 命中时返回上一轮的副牌花色与轮次，否则返回 `null`。
+ *
+ * 注意：
+ * - 当前只覆盖“单张副牌且全桌都跟了同一门”的简单安全窗口，不扩到对子 / 拖拉机。
+ * - 若上一轮有人已经公开绝门，这里会直接返回 `null`，避免误把副牌继续送成将吃窗口。
+ */
+function getAiRecentSafeSideSuitWinContext(playerId) {
+  if (!state.lastTrick || state.lastTrick.winnerId !== playerId || !Array.isArray(state.lastTrick.plays)) {
+    return null;
+  }
+
+  const plays = state.lastTrick.plays;
+  if (plays.length !== PLAYER_ORDER.length || plays.some((play) => !Array.isArray(play.cards) || play.cards.length !== 1)) {
+    return null;
+  }
+
+  const leadSuit = effectiveSuit(plays[0].cards[0]);
+  if (!SUITS.includes(leadSuit)) {
+    return null;
+  }
+  if (plays.some((play) => effectiveSuit(play.cards[0]) !== leadSuit)) {
+    return null;
+  }
+  if (doAiOpponentsExposeSuitVoid(playerId, leadSuit)) {
+    return null;
+  }
+  return {
+    suit: leadSuit,
+    trickNumber: state.lastTrick.trickNumber || 0,
+  };
+}
+
+/**
+ * 作用：
+ * 为亮友后刚刚升高的副牌控制线挑一手继续兑现的首发。
+ *
+ * 为什么这样写：
+ * 当打家或朋友刚靠副牌把朋友亮出来时，这门牌往往会马上出现“`A` 用完，`K/Q` 升成当前最大”的窗口；
+ * 如果下一拍立刻切去打低主，常常会把本可白拿的副牌控制线直接浪费掉。
+ * 这里补一条只覆盖“亮友后下一拍”的狭窄窗口，让 AI 先把这门刚升高的控制牌兑现出来。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“亮友后升高控制牌”窗口时返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 当前只覆盖“叫 A 找朋友”后，这门剩余最高牌已升到 `A/K` 的简单窗口。
+ * - 必须是当前玩家赢下亮友那轮，且下一拍立刻首发，避免把窗口放得过宽。
+ */
+function chooseAiFreshRevealCarryLead(playerId, player) {
+  if (!player || state.currentTrick.length !== 0 || !shouldAiUseBankerRevealedFriendControlMode(playerId)) {
+    return [];
+  }
+  if (!state.friendTarget?.revealed || state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") {
+    return [];
+  }
+
+  const revealedTrickNumber = getAiFriendRevealTrickNumber();
+  const currentTrickNumber = state.trickNumber || 1;
+  if (revealedTrickNumber == null || currentTrickNumber !== revealedTrickNumber + 1) {
+    return [];
+  }
+  if (state.lastTrick?.winnerId !== playerId || doAiOpponentsExposeSuitVoid(playerId, state.friendTarget.suit)) {
+    return [];
+  }
+
+  const revealSuitCards = player.hand.filter((card) => card.suit === state.friendTarget.suit && !isTrump(card));
+  if (revealSuitCards.length === 0) {
+    return [];
+  }
+
+  const highestRevealSuitCard = highestCard(revealSuitCards);
+  if (!highestRevealSuitCard || !["A", "K"].includes(highestRevealSuitCard.rank)) {
+    return [];
+  }
+  return chooseStrongLeadFromCards(revealSuitCards);
+}
+
+/**
+ * 作用：
+ * 从一门刚刚赢下的副牌里挑出“值得继续连打”的控制牌组。
+ *
+ * 为什么这样写：
+ * 人类在副牌安全赢轮后，常会继续把这门里已经升高的对子 / 高张再兑现一拍；
+ * 旧 heuristic 会直接切回低主，导致这条控制线被中断。这里把“继续同门连打”的门槛收成 helper，
+ * 方便亮友后控局模式只在真正安全、而且手里确实还有结构时才继续推进。
+ *
+ * 输入：
+ * @param {Array<object>} suitCards - 当前玩家手里这一门剩余的副牌。
+ *
+ * 输出：
+ * @returns {Array<object>} 若值得继续同门连打则返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 当前优先保留对子 / 连对这类结构，其次才接受 `A/K` 单张继续。
+ * - 低于 `K` 的孤张不在这里继续连打，避免把安全窗口用成机械甩单。
+ */
+function chooseAiCarryChainLeadFromSuit(suitCards) {
+  if (!Array.isArray(suitCards) || suitCards.length === 0) {
+    return [];
+  }
+
+  const strongLead = chooseStrongLeadFromCards(suitCards);
+  if (strongLead.length >= 2) {
+    return strongLead;
+  }
+
+  const highestSuitCard = highestCard(suitCards);
+  if (!highestSuitCard || !["A", "K"].includes(highestSuitCard.rank)) {
+    return [];
+  }
+  return [highestSuitCard];
+}
+
+/**
+ * 作用：
+ * 在“我刚靠副牌稳拿一手”后，为亮友侧延续一条更安全的副牌控制链。
+ *
+ * 为什么这样写：
+ * 用户这次给出的人工胜线，本质上是“副牌赢轮后继续兑现已经升高的副牌控制，而不是立刻打低主”。
+ * 这里把这条行为压成一条很克制的窗口：
+ * 1. 先看上一轮那门副牌自己能不能继续走；
+ * 2. 如果上一门已经没有值得继续的牌，再考虑开另一门带 `A` 的副牌控制线。
+ * 这样可以在不破坏“亮友后优先控局”大方向的前提下，少掉一批过早切回低主的送节奏样本。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前玩家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“副牌控制链延续”窗口时返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 当前只在“上一轮由自己用单张副牌赢下，且全桌都跟了这门”时触发。
+ * - 跨门开新控制线时，要求新门仍握有 `A + 后续跟手`，避免裸打孤张 `A`。
+ */
+function chooseAiPostWinCarryChainLead(playerId, player) {
+  if (!player || state.currentTrick.length !== 0 || !shouldAiUseBankerRevealedFriendControlMode(playerId)) {
+    return [];
+  }
+
+  const carryContext = getAiRecentSafeSideSuitWinContext(playerId);
+  if (!carryContext) {
+    return [];
+  }
+
+  const sameSuitCards = player.hand.filter((card) => effectiveSuit(card) === carryContext.suit);
+  const sameSuitCarryLead = chooseAiCarryChainLeadFromSuit(sameSuitCards);
+  if (sameSuitCarryLead.length > 0) {
+    return sameSuitCarryLead;
+  }
+
+  const otherSuitOptions = SUITS
+    .filter((suit) => suit !== carryContext.suit)
+    .map((suit) => {
+      if (doAiOpponentsExposeSuitVoid(playerId, suit)) {
+        return null;
+      }
+      const suitCards = player.hand.filter((card) => effectiveSuit(card) === suit);
+      if (suitCards.length < 2) {
+        return null;
+      }
+
+      const highestSuitCard = highestCard(suitCards);
+      if (!highestSuitCard || highestSuitCard.rank !== "A") {
+        return null;
+      }
+
+      const remainingCards = suitCards.filter((card) => card.id !== highestSuitCard.id);
+      const followUpLead = chooseStrongLeadFromCards(remainingCards);
+      if (remainingCards.length === 0 || followUpLead.length === 0) {
+        return null;
+      }
+
+      let score = 80;
+      score += remainingCards.length * 4;
+      if (followUpLead.length >= 2) {
+        score += 22 + classifyPlay(followUpLead).power;
+      }
+      if (remainingCards.some((card) => scoreValue(card) === 0)) {
+        score += 8;
+      }
+      return {
+        combo: [highestSuitCard],
+        score,
+      };
+    })
+    .filter(Boolean);
+
+  if (otherSuitOptions.length === 0) {
+    return [];
+  }
+  return otherSuitOptions.sort((left, right) => right.score - left.score)[0].combo;
+}
+
+/**
+ * 作用：
  * 返回朋友正式亮相时记录的轮次。
  *
  * 为什么这样写：
@@ -419,6 +657,16 @@ function shouldAiUseBankerSoloFallback(playerId) {
 function chooseAiBankerRevealedFriendControlLead(playerId, player) {
   if (!player || state.currentTrick.length !== 0 || !shouldAiUseBankerRevealedFriendControlMode(playerId)) {
     return [];
+  }
+
+  const freshRevealCarryLead = chooseAiFreshRevealCarryLead(playerId, player);
+  if (freshRevealCarryLead.length > 0) {
+    return freshRevealCarryLead;
+  }
+
+  const postWinCarryChainLead = chooseAiPostWinCarryChainLead(playerId, player);
+  if (postWinCarryChainLead.length > 0) {
+    return postWinCarryChainLead;
   }
 
   const levelRank = getCurrentLevelRank();
@@ -1207,6 +1455,50 @@ function chooseAiBankerFriendReturnLead(player) {
 
 /**
  * 作用：
+ * 在“叫第二张 / 第三张 A”时，为打家选择一手更像人类的强结构找朋友首发。
+ *
+ * 为什么这样写：
+ * 旧逻辑在没有形成“单张回手口”时，会直接把手里的朋友牌 `A` 拆成单张试探；
+ * 像 `AA + K/10/小牌` 这种明显更适合用对子强压、尽快把朋友逼出来的局面，
+ * 反而会被过早拆掉节奏。这里补一条更靠前的“强结构促亮友”规则，
+ * 让打家在持有两张及以上目标 `A` 时，优先用同门强结构去加速亮友。
+ *
+ * 输入：
+ * @param {object|null} player - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“强结构促亮友”窗口时返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 当前只覆盖副牌 `A` 找朋友，不扩到王找朋友或其它点数。
+ * - 必须保留至少 1 张同门非目标牌，避免把整门一次性打空后反而失去后续控制线。
+ */
+function chooseAiBankerFriendForceRevealLead(player) {
+  if (!player || !state.friendTarget || state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") {
+    return [];
+  }
+
+  const friendSuitCards = player.hand
+    .filter((card) => card.suit === state.friendTarget.suit && !isTrump(card))
+    .sort((left, right) => cardStrength(left) - cardStrength(right));
+  const targetCopies = friendSuitCards.filter((card) => card.rank === state.friendTarget.rank);
+  const nonTargetCards = friendSuitCards.filter((card) => card.rank !== state.friendTarget.rank);
+  if (targetCopies.length < 2 || nonTargetCards.length === 0) {
+    return [];
+  }
+
+  const forceRevealLead = chooseStrongLeadFromCards(targetCopies);
+  if (forceRevealLead.length < 2) {
+    return [];
+  }
+  if (!forceRevealLead.every((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)) {
+    return [];
+  }
+  return forceRevealLead;
+}
+
+/**
+ * 作用：
  * 为打家提供“短门单张回手优先，其次才兑现前置副本”的早期首发启发。
  *
  * 为什么这样写：
@@ -1240,6 +1532,9 @@ function chooseAiBankerFriendSetupLead(playerId, player) {
 
   const returnLead = chooseAiBankerFriendReturnLead(player);
   if (returnLead.length > 0) return returnLead;
+
+  const forceRevealLead = chooseAiBankerFriendForceRevealLead(player);
+  if (forceRevealLead.length > 0) return forceRevealLead;
 
   const targetCopies = player.hand.filter(
     (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank

@@ -269,6 +269,10 @@
 - 当前虽然还在控牌，但这份控制是否已经过热。
 - 若同侧已经有人接手，是否可以顺势把节奏交给同侧，而不是继续用高张硬控。
 - 若未来两拍里 `safeLead / pointRunRisk / controlRisk` 已经转差，就不应再把高分高张领牌当成“正常清主”。
+- 这条线现在也已经正式下沉到候选排序：
+- 如果朋友已站队，且某手候选还在继续烧 `王 / 高主 / 高张`，同时 rollout 已提示 `controlExit / turnAccess / pointRunRisk / safeLead` 变差，
+- lead / follow 都会额外吃一层 `resolvedFriendControlCoolingPenalty`，而不是只等总评估慢慢体现。
+- 但“高张定门再递牌”和 `public-info-only` 回牌窗口仍保留窄例外，不会因为这条 penalty 被误杀。
 
 设计原则：
 
@@ -363,6 +367,14 @@
 - 或者掉控后会被连续跑分。
 
 它仍然会被压分；如果这手同时还是控制目标下的危险带分领牌，它还会额外吃一层 rollout 后的“二次否决”惩罚，而不是只靠 heuristic 小幅扣分。
+
+现在又多了一层专门针对“已站队后继续自己硬控”的候选级降温：
+
+- 如果朋友已站队，而这手牌还在继续烧 `王 / 高主 / 高张` 去维持自己控牌，
+- 且 rollout 已经说明未来两拍里的 `controlExit / turnAccess / pointRunRisk / safeLead` 会转差，
+- 它会直接吃 `resolvedFriendControlCoolingPenalty`。
+
+这样做的目的不是让 AI 一概不控牌，而是把“健康续控”和“过热硬控”拆开。
 
 ## 9. 跟牌评分逻辑
 

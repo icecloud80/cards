@@ -43,6 +43,11 @@
   朋友仍未站队时，连续重复这类高成本试探会被更重地下压。
 - `朋友已站队后的控牌过热` 现在会额外识别“手里是否仍攥着过多王张 / 高主”：
   `controlExit` 除了 `safeLead / pointRunRisk / controlRisk`，也会继续参考这份“高主释放压力”，避免 AI 在适合交给同侧接手时还继续自己硬控。
+- 这条“已站队后控牌降温”现在也正式下沉到了候选级排序：
+  lead / follow 新增 `resolvedFriendControlCoolingPenalty`，
+  当 rollout 已经提示 `controlExit / turnAccess / pointRunRisk / safeLead` 变差时，
+  会直接下压继续烧 `王 / 高主 / 高张` 的候选，而不是只等统一评估在总分里慢慢体现。
+  同时也保住了“高张定门再递牌”和 `public-info-only` 回牌窗口，不会因为新 penalty 去误推断暗断门。
 - `保扣底时的王张释放 / 高主释放` 已正式进入统一评估：
   `evaluateState(...)` 新增 `bottomRelease` breakdown，
   `protect_bottom / grade_bottom` 目标也已同步对它加权，不再只靠 `chooseAiBottomPrepDiscard(...)` 这类局部 heuristic。
@@ -51,13 +56,13 @@
   `chooseAiSupportBeforeReveal(...)`、共享跟单张排序和搜索兜底都会显式比较“是否拆掉同门对子 / 拖拉机 / 火车”，避免再出现 `8899 + 5` 却去跟 `8` 的走法。
 - 对应单测已补齐：
   `check-ai-intermediate-foundation.js` 现在会检查 `bottomRelease`，
-  `check-ai-intermediate-search.js` 现在会检查“重复 probe 历史加重 veto”和“释放高主后 `controlExit` / `bottomRelease` 变好”。
+  `check-ai-intermediate-search.js` 现在会检查“重复 probe 历史加重 veto”“已站队后高资源 hard-control 会吃 cooling penalty”和“释放高主后 `controlExit` / `bottomRelease` 变好”。
 
 这次额外复核使用的现时证据：
 
 - 快速单测 `36 / 36` 通过，说明目前共享层与 AI 专项回归处于稳定状态。
-- 最新无 UI 全游戏回归 `3 / 3` 完局、`0` 告警，见 [artifacts/headless-regression/latest/analysis.md](../artifacts/headless-regression/latest/analysis.md)。
-- 最新 mixed 验证 `2 / 2` 完局、`0` 告警，当前样本里 `turn_access_risk = 2`、`point_run_risk = 3`、`dangerous_point_lead = 1`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
+- 最新无 UI 全游戏回归 `3 / 3` 完局、`0` 告警，且 `selected turn_access_risk = 9`、`selected point_run_risk = 4`，见 [artifacts/headless-regression/latest/analysis.md](../artifacts/headless-regression/latest/analysis.md)。
+- 最新 mixed 验证 `2 / 2` 完局、`0` 告警，当前样本里 `turn_access_risk = 2`、`point_run_risk = 2`、`dangerous_point_lead = 3`、`unresolved_probe_risk = 0`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
 
 需要明确保留的边界：
 

@@ -133,6 +133,11 @@
   - `bottomRelease` 现已正式进入 `evaluateState(...)`：
     它会在残局同侧控牌时，评估“当前玩家是否已经把王张 / 高主这类可让给同侧的资源让出来”，
     并被 `protect_bottom / grade_bottom` 明确加权；`controlExit` 也会继续参考这项压力，避免 resolved-friend 阶段继续高张硬控。
+  - `朋友已站队后的控牌降温` 这次也正式进入候选级排序：
+    lead / follow 新增 `resolvedFriendControlCoolingPenalty`，
+    若 rollout 已经说明“继续自己攥高资源控牌”会让 `controlExit / turnAccess / pointRunRisk / safeLead` 转差，
+    就会直接把继续烧 `王 / 高主 / 高张` 的候选往下压。
+    同时保留“高张定门再递牌”和 `public-info-only` 回牌的窄例外，避免把已有协同窗口误杀成 hidden-void 推断。
 - 验收：
   - `evaluateState` 输出可解释 breakdown
   - 至少能解释这 3 类局面：
@@ -170,6 +175,7 @@
 - `check-ai-intermediate-search.js` 现也已新增：
   - 未站队高张试探被 `unresolvedProbeVetoPenalty` 压住；
   - 未站队重复高张试探会因历史公开消耗而继续加重 veto；
+  - 朋友已站队后继续用高资源 hard-control，会被 `resolvedFriendControlCoolingPenalty` 压住；
   - 直接亮友与 `turn_access_hold` 明确成立时，不会被 probe veto 误杀；
   - `grade_bottom` 显式优先时，试探约束不会压掉保级牌扣底路线；
   - `probeRisk` breakdown 能区分“保留资源的健康试探”和“已过热的未站队试探”。

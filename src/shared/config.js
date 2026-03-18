@@ -14,7 +14,32 @@ const SUIT_SYMBOL = {
   hearts: "♥",
 };
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
-const NEGATIVE_LEVELS = ["-2", "-A"];
+
+/**
+ * 作用：
+ * 生成共享规则层使用的完整负级顺序。
+ *
+ * 为什么这样写：
+ * 用户已经明确确认：`A` 再往下降级时，不应只落到 `-A / -2` 两档，
+ * 而是要按 `-K -> -Q -> -J -> -10 ... -> -2` 的完整链路逐档回退；
+ * 这里直接从普通点数序列派生，能同时保证负级显示、结算、回放编码三处共用同一套顺序。
+ *
+ * 输入：
+ * @param {void} - 无额外输入，直接复用全局 `RANKS`。
+ *
+ * 输出：
+ * @returns {string[]} 按“最低到最高负级”排列的负级数组，即 `-2 ... -K`。
+ *
+ * 注意：
+ * - 这里只覆盖 `2..K`，不再保留旧的 `-A`。
+ * - 返回顺序服务于升级链和开局码索引，不要擅自改成 `-K ... -2`。
+ */
+function buildNegativeLevels() {
+  return RANKS.slice(0, -1).map((rank) => `-${rank}`);
+}
+
+const NEGATIVE_LEVELS = buildNegativeLevels();
+const LEVEL_ORDER = [...NEGATIVE_LEVELS, ...RANKS];
 const APP_VERSION = "2.0";
 const APP_VERSION_LABEL = `原型版 v${APP_VERSION}`;
 const MANDATORY_LEVELS = new Set(["5", "10", "J", "Q", "K", "A"]);
@@ -23,13 +48,11 @@ const TRUMP_PENALTY_LEVEL_FALLBACK = {
   J: "2",
   Q: "6",
   K: "J",
-  A: "Q",
 };
 const VICE_PENALTY_LEVEL_FALLBACK = {
   J: "9",
   Q: "J",
   K: "Q",
-  A: "K",
 };
 const RANK_WEIGHT = {
   "2": 2,
@@ -158,7 +181,7 @@ const APP_PROGRESS_STORAGE_KEY = "five-friends-app-progress-v1";
 const APP_ROUND_STORAGE_KEY = "five-friends-app-round-v1";
 const APP_STORAGE_MIGRATION_KEY = "five-friends-app-storage-migration-v1";
 const MAX_BURY_POINT_TOTAL = 25;
-const OPENING_CODE_LEVEL_ORDER = [...NEGATIVE_LEVELS, ...RANKS];
+const OPENING_CODE_LEVEL_ORDER = LEVEL_ORDER;
 const OPENING_CODE_AI_DIFFICULTY_ORDER = AI_DIFFICULTY_OPTIONS.map((option) => option.value);
 const COMPACT_REPLAY_CODE_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const AUTO_GENERATED_REPLAY_SEED_LENGTH = 11;
@@ -1403,11 +1426,29 @@ function isAiDecisionDebugEnabled() {
   return APP_PLATFORM === "pc" && !!state.showDebugPanel;
 }
 
-// 规范化玩家等级进度。
+/**
+ * 作用：
+ * 把外部读到的玩家等级进度整理成共享状态机可直接使用的标准结构。
+ *
+ * 为什么这样写：
+ * 玩家等级既会来自 Cookie / 原生存储，也会来自开局码元信息与测试注入；
+ * 这次负级链已经扩成 `Lv:-K ... Lv:-2`，如果这里仍只接受正级，就会把新负级 silently 洗回 `2`，
+ * 让存档、复盘和结果结算出现“规则层算对了，但落盘又丢了”的假一致性问题。
+ *
+ * 输入：
+ * @param {Record<number|string, string>} levels - 待规范化的玩家等级映射。
+ *
+ * 输出：
+ * @returns {Record<number, string>} 覆盖 5 位玩家的合法等级映射；非法值回退到初始等级。
+ *
+ * 注意：
+ * - 这里必须接受完整 `LEVEL_ORDER`，不能只认正级。
+ * - 回退值继续使用 `INITIAL_LEVELS`，避免脏数据把所有人都重置成同一档。
+ */
 function normalizePlayerLevels(levels) {
   return PLAYER_ORDER.reduce((acc, playerId) => {
     const value = levels?.[playerId] ?? levels?.[String(playerId)];
-    acc[playerId] = RANKS.includes(value) ? value : INITIAL_LEVELS[playerId];
+    acc[playerId] = LEVEL_ORDER.includes(value) ? value : INITIAL_LEVELS[playerId];
     return acc;
   }, {});
 }

@@ -553,6 +553,105 @@ function getSimulationBottomScore(simState, playerId) {
   return cardsLeft <= 20 ? bottomPoints : bottomPoints * 0.3;
 }
 
+/**
+ * 作用：
+ * 统计当前玩家手里还保留了多少“扣底准备期本可提前释放”的高主资源压力。
+ *
+ * 为什么这样写：
+ * 现有 `chooseAiBottomPrepDiscard(...)` 已经会在跟牌 heuristic 里优先丢王和高主，
+ * 但评估器还看不见“我是不是仍把这些高成本控牌资源攥在自己手里”。
+ * 把这份压力单独抽成 helper 后，`controlExit` 和新的 `bottomRelease` 都能共用同一口径，
+ * 避免一个地方奖励卸王，另一个地方却继续把“高主还很多”当成纯正收益。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要统计保留压力的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回当前玩家仍保留的高主 / 王张压力；越高表示越像“还没把可让出的资源让出去”。
+ *
+ * 注意：
+ * - 主级牌默认不视作“应优先释放”的负担，因为它们往往同时属于 `grade_bottom` 关键资源。
+ * - 这里只看当前玩家自己的手牌，不读取其他玩家暗手。
+ */
+function getSimulationBottomReleaseBurdenScore(simState, playerId) {
+  const player = getSimulationPlayer(simState, playerId);
+  if (!player || !Array.isArray(player.hand)) return 0;
+  const levelRank = getCurrentLevelRank();
+
+  return player.hand.reduce((sum, card) => {
+    if (!card) return sum;
+    if (card.rank === levelRank) return sum;
+    if (card.suit === "joker") return sum + 28;
+    if (effectiveSuit(card) !== "trump") return sum;
+
+    let burden = 6;
+    if (getPatternUnitPower(card, "trump") >= 15) burden += 10;
+    if (scoreValue(card) > 0) burden += 6;
+    return sum + burden;
+  }, 0);
+}
+
+/**
+ * 作用：
+ * 评估当前局面对“为了保扣底而提前释放王张 / 高主”是否友好。
+ *
+ * 为什么这样写：
+ * 路线图要求把“保扣底时该不该提前卸王 / 卸高主”从 heuristic 提升成正式评分项。
+ * 这里显式衡量：
+ * 1. 当前是否已经进入底牌价值显著放大的残局；
+ * 2. 牌权是否仍在同侧；
+ * 3. 我手里是否还攥着本可让给同侧、却继续占着节奏的高主资源。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估该分项的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回 `bottomRelease` 分值；正值表示当前更像“已经为保扣底释放出合适资源”，负值表示仍明显攥着高主 / 王张。
+ *
+ * 注意：
+ * - 只在残局且同侧已经握有牌权时生效；若我方根本没控牌，就谈不上“释放给谁”。
+ * - `grade_bottom` 会降低“必须立刻卸光高主”的力度，但不会完全取消这条评估。
+ */
+function getSimulationBottomReleaseScore(simState, playerId) {
+  if (!simState?.players?.length) return 0;
+  const cardsLeft = getSimulationCardsLeft(simState);
+  if (cardsLeft > 20) return 0;
+
+  const gradeBottomProfile = getSimulationGradeBottomProfile(simState, playerId);
+  const bottomPoints = (simState.bottomCards || []).reduce((sum, card) => sum + scoreValue(card), 0);
+  if (bottomPoints <= 0 && !gradeBottomProfile.active) return 0;
+  if (!isSimulationDefenderTeam(simState, playerId) && !gradeBottomProfile.active) return 0;
+
+  const controllerId = getSimulationTurnAccessControllerId(simState);
+  if (controllerId == null || !isSimulationSameSide(simState, playerId, controllerId)) return 0;
+
+  const controllerIsSelf = controllerId === playerId;
+  const reserveScore = Math.min(getSimulationTurnAccessReserveScore(simState, playerId), 28);
+  const allySupport = getSimulationAllySupportScore(simState, playerId);
+  const burden = getSimulationBottomReleaseBurdenScore(simState, playerId);
+  let score = controllerIsSelf ? 6 : 14;
+
+  score += Math.min(8, bottomPoints * 0.15);
+  score += controllerIsSelf
+    ? Math.min(5, reserveScore * 0.12)
+    : Math.min(8, Math.max(0, allySupport) * 0.18);
+  score -= Math.min(controllerIsSelf ? 24 : 34, burden * (controllerIsSelf ? 0.42 : 0.68));
+
+  if (burden <= 8) score += controllerIsSelf ? 6 : 10;
+  if (burden >= 24) score -= controllerIsSelf ? 8 : 12;
+
+  if (gradeBottomProfile.active) {
+    score += gradeBottomProfile.specialPriority ? 6 : 3;
+    if (controllerIsSelf && gradeBottomProfile.specialPriority && reserveScore >= 16) {
+      score += 4;
+    }
+  }
+
+  return score;
+}
+
 function getSimulationVoidPressureScore(simState, playerId) {
   const player = getSimulationPlayer(simState, playerId);
   if (!player) return 0;
@@ -841,6 +940,8 @@ function getSimulationControlExitScore(simState, playerId) {
   const safeLead = getSimulationSafeLeadScore(simState, playerId);
   const controlRisk = getSimulationControlRiskScore(simState, playerId);
   const pointRunRisk = getSimulationPointRunRiskScore(simState, playerId);
+  const bottomRelease = getSimulationBottomReleaseScore(simState, playerId);
+  const releaseBurden = Math.min(getSimulationBottomReleaseBurdenScore(simState, playerId), 36);
   let score = 0;
 
   if (!sameSideControl) {
@@ -863,9 +964,18 @@ function getSimulationControlExitScore(simState, playerId) {
   score += Math.max(-16, Math.min(18, safeLead * 0.45));
   score += Math.max(-16, pointRunRisk * 0.28);
   score += Math.max(-14, controlRisk * 0.22);
+  if (lateRound) {
+    score += Math.max(-14, Math.min(controllerIsSelf ? 8 : 12, bottomRelease * (controllerIsSelf ? 0.35 : 0.45)));
+  }
 
   if (controllerIsSelf && reserveScore <= 10) score -= 12;
   if (controllerIsSelf && safeLead < 0) score -= Math.min(14, Math.abs(safeLead) * 0.35);
+  if (controllerIsSelf && lateRound && releaseBurden >= 18 && safeLead <= 8) {
+    score -= Math.min(14, releaseBurden * 0.22);
+  }
+  if (!controllerIsSelf && lateRound && releaseBurden <= 8) {
+    score += 4;
+  }
   if (!controllerIsSelf && safeLead >= 0) score += 6;
   if (controllerIsSelf && trickPoints > 0 && (safeLead < 0 || pointRunRisk < 0)) {
     score -= 8 + trickPoints * 0.5;
@@ -1006,6 +1116,41 @@ function getSimulationFriendRiskScore(simState, playerId) {
 
 /**
  * 作用：
+ * 汇总当前玩家在未站队阶段已经公开花掉了多少“高成本试探资源”。
+ *
+ * 为什么这样写：
+ * 这轮不只要判断“这一手贵不贵”，还要判断“前面是不是已经贵过很多次了”。
+ * 把历史公开消耗收成一个 helper 后，`probeRisk` 和 lead veto 就能识别
+ * “朋友还没出来，但我已经连续打掉 A / 王 / 高主 / 带分牌”的过热状态。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要统计历史公开消耗的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回该玩家当前已公开消耗的试探资源分；越高表示历史试探越重。
+ *
+ * 注意：
+ * - 这里只使用该玩家已公开打出的牌，不读取任何其他玩家暗手。
+ * - 该分值不代表“打错了几手”，只作为未站队阶段连续高成本试探的风险信号。
+ */
+function getSimulationProbeSpendScore(simState, playerId) {
+  const player = getSimulationPlayer(simState, playerId);
+  if (!player || !Array.isArray(player.played)) return 0;
+
+  return player.played.reduce((sum, card) => {
+    if (!card) return sum;
+    let cost = 0;
+    if (card.suit === "joker") cost += 18;
+    if (scoreValue(card) > 0) cost += 6 + scoreValue(card) * 0.25;
+    if (effectiveSuit(card) !== "trump" && card.rank === "A") cost += 12;
+    if (effectiveSuit(card) === "trump" && getPatternUnitPower(card, "trump") >= 15) cost += 12;
+    return sum + cost;
+  }, 0);
+}
+
+/**
+ * 作用：
  * 评估朋友未站队阶段，当前局面对“高张试探是否过热”的风险。
  *
  * 为什么这样写：
@@ -1045,6 +1190,7 @@ function getSimulationProbeRiskScore(simState, playerId) {
   const topTrumpCount = player.hand.filter((card) =>
     effectiveSuit(card) === "trump" && getPatternUnitPower(card, "trump") >= 15
   ).length;
+  const spentProbeScore = Math.min(getSimulationProbeSpendScore(simState, playerId), 40);
   let score = 0;
 
   score += Math.min(12, reserveScore * 0.25);
@@ -1061,12 +1207,21 @@ function getSimulationProbeRiskScore(simState, playerId) {
     score += 8 + Math.min(10, targetCopies * 5);
   }
 
+  if (spentProbeScore > 0 && targetCopies === 0 && beliefLean < 12) {
+    score -= spentProbeScore * (sameSideControl ? 0.18 : 0.4);
+    if (!sameSideControl && spentProbeScore >= 18) score -= 6;
+  }
+
   if (!sameSideControl && trickPoints > 0 && reserveScore <= 2 && sideAcesInHand === 0 && topTrumpCount === 0) {
     score -= 6 + trickPoints * 0.25;
   }
 
   if (reserveScore < 6 && beliefLean < 8 && sideAcesInHand === 0 && topTrumpCount === 0 && targetCopies === 0) {
     score -= (6 - reserveScore) * 2;
+  }
+
+  if (spentProbeScore >= 24 && reserveScore < 12 && beliefLean < 8) {
+    score -= 6;
   }
 
   if (pointCardsInHand === 0 && sideAcesInHand === 0 && topTrumpCount === 0 && targetCopies === 0 && beliefLean < 8) {
@@ -1192,6 +1347,7 @@ function evaluateState(simState, playerId, objective = getIntermediateObjective(
     allySupport: getSimulationAllySupportScore(simState, playerId),
     bottom: getSimulationBottomScore(simState, playerId),
     gradeBottom: getSimulationGradeBottomScore(simState, playerId),
+    bottomRelease: getSimulationBottomReleaseScore(simState, playerId),
     voidPressure: getSimulationVoidPressureScore(simState, playerId),
     tempo: getSimulationTempoScore(simState, playerId),
     turnAccess: getSimulationTurnAccessScore(simState, playerId),

@@ -909,6 +909,40 @@ function scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore)
 
 /**
  * 作用：
+ * 汇总当前玩家在朋友未站队阶段已经公开花掉了多少高成本试探资源。
+ *
+ * 为什么这样写：
+ * 第 2 步要压的不只是“这一手贵”，还包括“前面已经连续贵了几手还没换来站队结果”。
+ * 这里直接复用当前玩家公开 `played` 记录，把 `A / 王 / 高主 / 带分牌`
+ * 的历史消耗收成一个轻量压力值，供未站队 probe veto 判断“是否已经试探过热”。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备决策的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回历史试探压力；越高表示当前玩家已经公开花掉越多高成本试探资源。
+ *
+ * 注意：
+ * - 这里只读取该玩家自己的公开出牌记录，不依赖任何暗手信息。
+ * - 分值只用于未站队阶段的相对比较，不代表真实失误次数。
+ */
+function getIntermediateUnresolvedProbeHistoryPressure(playerId) {
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.played)) return 0;
+
+  return player.played.reduce((sum, card) => {
+    if (!card) return sum;
+    let pressure = 0;
+    if (card.suit === "joker") pressure += 18;
+    if (scoreValue(card) > 0) pressure += 6 + scoreValue(card) * 0.25;
+    if (effectiveSuit(card) !== "trump" && card.rank === "A") pressure += 12;
+    if (effectiveSuit(card) === "trump" && getPatternUnitPower(card, "trump") >= 15) pressure += 12;
+    return sum + pressure;
+  }, 0);
+}
+
+/**
+ * 作用：
  * 评估某手牌在“朋友未站队”阶段是否属于高成本试探，并返回资源暴露强度。
  *
  * 为什么这样写：
@@ -966,6 +1000,10 @@ function getIntermediateUnresolvedProbeExposure(playerId, combo, handBefore, obj
     return 0;
   }
 
+  const historyPressure = Math.min(getIntermediateUnresolvedProbeHistoryPressure(playerId), 36);
+  const beliefLean = typeof getSimulationFriendBeliefLean === "function"
+    ? getSimulationFriendBeliefLean(state, playerId)
+    : 0;
   let exposure = 0;
 
   exposure += comboResourceUse;
@@ -982,6 +1020,12 @@ function getIntermediateUnresolvedProbeExposure(playerId, combo, handBefore, obj
   }
   if (["tractor", "train", "bulldozer"].includes(pattern.type) && effectiveSuit(combo[0]) === "trump") {
     exposure += 18;
+  }
+  if (historyPressure > 0 && beliefLean < 12) {
+    exposure += historyPressure * (beliefLean > 0 ? 0.28 : 0.45);
+  }
+  if (historyPressure >= 18 && beliefLean < 8) {
+    exposure += 6;
   }
 
   return exposure >= 18 ? exposure : 0;
@@ -1028,10 +1072,12 @@ function shouldKeepIntermediateUnresolvedProbeAggressive(playerId, entry) {
   const futureTurnAccess = futureBreakdown.turnAccess || nextBreakdown.turnAccess || 0;
   const futureSafeLead = futureBreakdown.safeLead || nextBreakdown.safeLead || 0;
   const futureDelta = typeof entry.rolloutFutureDelta === "number" ? entry.rolloutFutureDelta : 0;
+  const historyPressure = getIntermediateUnresolvedProbeHistoryPressure(playerId);
+  const repeatedProbePressure = historyPressure >= 18;
   const keepsAccess = triggerFlags.includes("turn_access_hold");
   const beliefImproved = futureFriendBelief - nextFriendBelief >= 4 || futureFriendBelief >= 18;
-  const safeProbe = futureProbeRisk >= 12 && futureTurnAccess >= 0;
-  const healthyContinuation = futureDelta >= 10 || futureSafeLead > 0;
+  const safeProbe = futureProbeRisk >= (repeatedProbePressure ? 16 : 12) && futureTurnAccess >= 0;
+  const healthyContinuation = futureDelta >= (repeatedProbePressure ? 14 : 10) || futureSafeLead > 0;
 
   return keepsAccess || beliefImproved || safeProbe || healthyContinuation;
 }
@@ -1066,6 +1112,7 @@ function scoreIntermediateUnresolvedProbeVetoPenalty(playerId, entry, mode = "le
   const player = getPlayer(playerId);
   if (!player || !Array.isArray(player.hand)) return 0;
 
+  const effectiveObjective = objective || getIntermediateObjective(playerId, mode, state);
   const exposure = getIntermediateUnresolvedProbeExposure(playerId, entry.cards, player.hand, objective);
   if (exposure <= 0) return 0;
   if (shouldKeepIntermediateUnresolvedProbeAggressive(playerId, entry)) return 0;
@@ -1077,17 +1124,27 @@ function scoreIntermediateUnresolvedProbeVetoPenalty(playerId, entry, mode = "le
   const probeRisk = futureBreakdown.probeRisk || nextBreakdown.probeRisk || 0;
   const turnAccess = futureBreakdown.turnAccess || nextBreakdown.turnAccess || 0;
   const friendBelief = futureBreakdown.friendBelief || nextBreakdown.friendBelief || 0;
+  const historyPressure = getIntermediateUnresolvedProbeHistoryPressure(playerId);
+  const carriesProbeHonor = entry.cards.some((card) =>
+    scoreValue(card) > 0
+    || (effectiveSuit(card) !== "trump" && card.rank === "A")
+    || (effectiveSuit(card) === "trump" && getPatternUnitPower(card, "trump") >= 15)
+  );
   if (mode === "follow" && !triggerFlags.includes("turn_access_risk") && !triggerFlags.includes("point_run_risk") && exposure < 30) {
     return 0;
   }
   const baseMultiplier = mode === "lead" ? 1.18 : 0.6;
   let penalty = Math.round(exposure * baseMultiplier);
 
+  if (effectiveObjective?.primary === "find_friend") penalty += mode === "lead" ? 8 : 4;
+  if (effectiveObjective?.secondary === "find_friend") penalty += mode === "lead" ? 4 : 2;
   if (triggerFlags.includes("turn_access_risk")) penalty += mode === "lead" ? 16 : 8;
   if (triggerFlags.includes("point_run_risk")) penalty += mode === "lead" ? 18 : 10;
   if (turnAccess <= 0) penalty += mode === "lead" ? 12 : 6;
   if (probeRisk < 0) penalty += Math.min(mode === "lead" ? 26 : 14, Math.abs(probeRisk) * 0.5);
   if (friendBelief < 10) penalty += mode === "lead" ? 10 : 6;
+  if (carriesProbeHonor) penalty += mode === "lead" ? 8 : 4;
+  if (historyPressure >= 18) penalty += mode === "lead" ? 10 : 4;
   if (futureDelta < 6) penalty += mode === "lead" ? 12 : 6;
 
   return Math.max(0, penalty);
@@ -1402,6 +1459,7 @@ function scoreIntermediateFollowCandidate(playerId, combo, currentWinningPlay, a
   let score = 0;
 
   score += getFollowStructureScore(combo) * 0.7;
+  score += scoreSameSuitSingleStructurePreservationFromHand(combo, handBefore);
   score += scoreOffSuitDiscardStructurePreservation(playerId, combo, handBefore);
   score += scoreOffSuitHighPairPreservation(playerId, combo, handBefore, currentWinningPlay);
   score += scoreHandContinuity(playerId, handAfter) - scoreHandContinuity(playerId, handBefore) * 0.1;
@@ -2593,6 +2651,8 @@ function chooseAiLeadPlay(playerId) {
 // 选择 AI 当前的跟牌出牌。
 function chooseAiFollowPlay(playerId, candidates) {
   if (candidates.length === 0) return [];
+  const player = getPlayer(playerId);
+  const handBefore = Array.isArray(player?.hand) ? player.hand : [];
   const forcedReveal = getForcedCertainFriendRevealPlay(playerId, candidates);
   if (forcedReveal.length > 0) return forcedReveal;
   const currentWinningPlay = getCurrentWinningPlay();
@@ -2626,6 +2686,9 @@ function chooseAiFollowPlay(playerId, candidates) {
     return safeBeatingCandidates.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
       if (structureDiff !== 0) return structureDiff;
+      const sameSuitPreserveDiff = scoreSameSuitSingleStructurePreservationFromHand(b, handBefore)
+        - scoreSameSuitSingleStructurePreservationFromHand(a, handBefore);
+      if (sameSuitPreserveDiff !== 0) return sameSuitPreserveDiff;
       const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
         - scoreOffSuitDiscardStructurePreservation(playerId, a);
       if (preserveDiff !== 0) return preserveDiff;
@@ -2656,6 +2719,9 @@ function chooseAiFollowPlay(playerId, candidates) {
     return feedChoices.sort((a, b) => {
       const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
       if (structureDiff !== 0) return structureDiff;
+      const sameSuitPreserveDiff = scoreSameSuitSingleStructurePreservationFromHand(b, handBefore)
+        - scoreSameSuitSingleStructurePreservationFromHand(a, handBefore);
+      if (sameSuitPreserveDiff !== 0) return sameSuitPreserveDiff;
       const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
         - scoreOffSuitDiscardStructurePreservation(playerId, a);
       if (preserveDiff !== 0) return preserveDiff;
@@ -2675,6 +2741,9 @@ function chooseAiFollowPlay(playerId, candidates) {
   return candidates.sort((a, b) => {
     const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
     if (structureDiff !== 0) return structureDiff;
+    const sameSuitPreserveDiff = scoreSameSuitSingleStructurePreservationFromHand(b, handBefore)
+      - scoreSameSuitSingleStructurePreservationFromHand(a, handBefore);
+    if (sameSuitPreserveDiff !== 0) return sameSuitPreserveDiff;
     const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b)
       - scoreOffSuitDiscardStructurePreservation(playerId, a);
     if (preserveDiff !== 0) return preserveDiff;

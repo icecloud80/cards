@@ -47,6 +47,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-bottom-reveal.js"),
   },
   {
+    name: "Negative level order regression",
+    file: path.join(__dirname, "check-negative-level-order.js"),
+  },
+  {
     name: "AI intermediate foundation regression",
     file: path.join(__dirname, "check-ai-intermediate-foundation.js"),
   },

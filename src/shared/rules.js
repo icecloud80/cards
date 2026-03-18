@@ -600,23 +600,43 @@ function getCurrentLevelRank() {
   return getLevelRank(state.declaration?.rank || state.levelRank || null);
 }
 
-// 按升级步数推进等级。
+/**
+ * 作用：
+ * 按结算给出的升级步数推进玩家等级。
+ *
+ * 为什么这样写：
+ * 负级现在已经扩成 `-2 ... -K` 的完整链路，升级时既要能在负级区间里一档一档往上走，
+ * 也要继续保留正级里的“必打级不可在一次结算里被跳过”规则；
+ * 统一在这里收口后，打家、闲家和结果页都能共用同一套等级推进口径。
+ *
+ * 输入：
+ * @param {string} rank - 当前玩家等级文本。
+ * @param {number} delta - 本次结算希望前进的级数。
+ *
+ * 输出：
+ * @returns {string} 结算后应落到的等级文本。
+ *
+ * 注意：
+ * - 负级打回正级时，一次结算最多只会回到 `2`，不会继续顺带跳到更高正级。
+ * - 正级仍要遵守 `5 / 10 / J / Q / K / A` 的必打级停靠规则。
+ */
 function shiftLevel(rank, delta) {
-  let current = [...NEGATIVE_LEVELS, ...RANKS].includes(rank) ? rank : "2";
+  let current = LEVEL_ORDER.includes(rank) ? rank : "2";
   for (let i = 0; i < delta; i += 1) {
-    if (current === "-2") {
-      current = "-A";
-      break;
-    } else if (current === "-A") {
+    if (isNegativeLevel(current)) {
+      const negativeIndex = NEGATIVE_LEVELS.indexOf(current);
+      if (negativeIndex >= 0 && negativeIndex < NEGATIVE_LEVELS.length - 1) {
+        current = NEGATIVE_LEVELS[negativeIndex + 1];
+        continue;
+      }
       current = "2";
       break;
-    } else {
-      const currentIndex = RANKS.indexOf(current);
-      if (currentIndex < 0 || currentIndex >= RANKS.length - 1) {
-        return "A";
-      }
-      current = RANKS[currentIndex + 1];
     }
+    const currentIndex = RANKS.indexOf(current);
+    if (currentIndex < 0 || currentIndex >= RANKS.length - 1) {
+      return "A";
+    }
+    current = RANKS[currentIndex + 1];
     if (!isNegativeLevel(current) && MANDATORY_LEVELS.has(current)) {
       break;
     }
@@ -630,28 +650,55 @@ function getPenaltyFallbackMap(mode = "trump") {
   return TRUMP_PENALTY_LEVEL_FALLBACK;
 }
 
-// 按惩罚规则降低等级。
+/**
+ * 作用：
+ * 按级牌扣底等惩罚规则降低玩家等级。
+ *
+ * 为什么这样写：
+ * 当前规则同时存在两套要求：
+ * 1. `J / Q / K` 仍要继续走主扣 / 副扣的特殊回退锚点；
+ * 2. `A` 再往下降级时要改成 `-K -> -Q -> -J -> -10 ... -> -2` 的完整负级链；
+ * 这里把两条口径放进同一套循环里，既能兼容旧的面牌回退规则，也能让新的负级链稳定生效。
+ *
+ * 输入：
+ * @param {string} rank - 当前玩家等级文本。
+ * @param {number} [steps=1] - 本次惩罚总共需要降低的步数。
+ * @param {"trump"|"vice"} [mode="trump"] - 当前惩罚属于主扣还是副扣。
+ *
+ * 输出：
+ * @returns {string} 惩罚执行后的等级文本。
+ *
+ * 注意：
+ * - `-2` 仍然是最低档，继续降级时必须原地停留。
+ * - `A` 进入负级链后，不再复用旧的 `A -> Q / K` 回退锚点。
+ */
 function dropLevel(rank, steps = 1, mode = "trump") {
-  let current = [...NEGATIVE_LEVELS, ...RANKS].includes(rank) ? rank : "2";
+  let current = LEVEL_ORDER.includes(rank) ? rank : "2";
   const fallbackMap = getPenaltyFallbackMap(mode);
+  const highestNegativeLevel = NEGATIVE_LEVELS[NEGATIVE_LEVELS.length - 1] || "-2";
   for (let i = 0; i < steps; i += 1) {
     if (current === "-2") {
       current = "-2";
       continue;
     }
-    if (current === "-A") {
-      current = "-2";
+    if (isNegativeLevel(current)) {
+      const negativeIndex = NEGATIVE_LEVELS.indexOf(current);
+      current = negativeIndex <= 0 ? "-2" : NEGATIVE_LEVELS[negativeIndex - 1];
       continue;
     }
     if (!RANKS.includes(current)) {
       current = "2";
       continue;
     }
+    if (current === "A") {
+      current = highestNegativeLevel;
+      continue;
+    }
     if (fallbackMap[current]) {
       current = fallbackMap[current];
       continue;
     }
-    current = current === "2" ? "-A" : RANKS[Math.max(0, RANKS.indexOf(current) - 1)];
+    current = current === "2" ? highestNegativeLevel : RANKS[Math.max(0, RANKS.indexOf(current) - 1)];
   }
   return current;
 }

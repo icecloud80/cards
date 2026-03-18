@@ -413,6 +413,8 @@ function loadHeadlessGameContext(options = {}) {
   const api = vm.runInContext(`({
     state,
     Math,
+    NEGATIVE_LEVELS,
+    LEVEL_ORDER,
     setupGame,
     startDealing,
     dealOneCard,
@@ -434,6 +436,8 @@ function loadHeadlessGameContext(options = {}) {
     findEmergencyLegalSelection,
     playCards,
     getPlayer,
+    shiftLevel,
+    dropLevel,
     getBottomResultSummary,
     getOutcome,
     getResultLogText,

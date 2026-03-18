@@ -576,6 +576,49 @@ function runIntermediateSearchSuite(context) {
     state.currentTurnId = 3;
     state.leaderId = 3;
     state.currentTrick = [];
+    state.players[2].hand = sortHand([
+      makeCard("probe-history-s-a", "spades", "A"),
+      makeCard("probe-history-c-7", "clubs", "7"),
+      makeCard("probe-history-d-6", "diamonds", "6"),
+      makeCard("probe-history-h-4", "hearts", "4"),
+    ]);
+    const repeatedProbeLead = [state.players[2].hand.find((card) => card.id === "probe-history-s-a")];
+    const repeatedProbeEntry = {
+      cards: repeatedProbeLead,
+      rolloutFutureDelta: 2,
+      rolloutTriggerFlags: ["turn_access_risk", "point_run_risk"],
+      rolloutEvaluation: {
+        breakdown: { friendBelief: 8, probeRisk: -6, turnAccess: 2, safeLead: 0, pointRunRisk: -12 },
+      },
+      rolloutFutureEvaluation: {
+        breakdown: { friendBelief: 6, probeRisk: -20, turnAccess: -8, safeLead: -6, pointRunRisk: -24 },
+      },
+    };
+    const freshProbePenalty = scoreIntermediateUnresolvedProbeVetoPenalty(
+      3,
+      repeatedProbeEntry,
+      "lead",
+      { primary: "find_friend", secondary: "keep_control", weights: {} }
+    );
+    state.players[2].played = [
+      makeCard("probe-history-bj", "joker", "BJ"),
+      makeCard("probe-history-h-k", "hearts", "K"),
+    ];
+    const repeatedProbePenalty = scoreIntermediateUnresolvedProbeVetoPenalty(
+      3,
+      repeatedProbeEntry,
+      "lead",
+      { primary: "find_friend", secondary: "keep_control", weights: {} }
+    );
+    assert(
+      repeatedProbePenalty > freshProbePenalty,
+      "scoreIntermediateUnresolvedProbeVetoPenalty: repeated unresolved high-cost probing should harden the veto beyond a fresh single probe"
+    );
+
+    resetExtendedSearchState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.currentTrick = [];
     state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false, matchesSeen: 0 };
     state.players[2].hand = sortHand([
       makeCard("probe-reveal-h-a", "hearts", "A"),
@@ -805,6 +848,42 @@ function runIntermediateSearchSuite(context) {
       "evaluateState: controlExit should clearly prefer allied continuation over opponent control"
     );
 
+    resetPositiveSafeLeadState();
+    const heavySelfControlState = cloneSimulationState(state);
+    heavySelfControlState.currentTurnId = 4;
+    heavySelfControlState.leaderId = 4;
+    heavySelfControlState.players[2].hand = sortHand([
+      makeCard("control-heavy-bj", "joker", "BJ"),
+      makeCard("control-heavy-rj", "joker", "RJ"),
+      makeCard("control-heavy-c-a", "clubs", "A"),
+      makeCard("control-heavy-s-6", "spades", "6"),
+    ]);
+    const lightSelfControlState = cloneSimulationState(heavySelfControlState);
+    lightSelfControlState.players[2].hand = sortHand([
+      makeCard("control-light-c-9", "clubs", "9"),
+      makeCard("control-light-d-6", "diamonds", "6"),
+      makeCard("control-light-s-6", "spades", "6"),
+      makeCard("control-light-h-4", "hearts", "4"),
+    ]);
+    const heavySelfControlEvaluation = evaluateState(
+      heavySelfControlState,
+      3,
+      getIntermediateObjective(3, "lead", heavySelfControlState)
+    );
+    const lightSelfControlEvaluation = evaluateState(
+      lightSelfControlState,
+      3,
+      getIntermediateObjective(3, "lead", lightSelfControlState)
+    );
+    assert(
+      lightSelfControlEvaluation.breakdown.bottomRelease > heavySelfControlEvaluation.breakdown.bottomRelease,
+      "evaluateState: late-round same-side control should treat already-released high trump resources as a stronger bottomRelease state"
+    );
+    assert(
+      lightSelfControlEvaluation.breakdown.controlExit > heavySelfControlEvaluation.breakdown.controlExit,
+      "evaluateState: resolved-friend allied control should cool down once the hand stops hoarding jokers and high trumps"
+    );
+
     globalThis.__intermediateSearchResults = {
       results: [
         "next-own-turn simulation isolation ok",
@@ -818,8 +897,10 @@ function runIntermediateSearchSuite(context) {
         "direct reveal probe exception ok",
         "safe high-card probe exception ok",
         "grade-bottom probe exception ok",
+        "repeated probe history veto ok",
         "probeRisk breakdown ok",
         "control exit breakdown ok",
+        "bottom release breakdown ok",
       ],
     };
   `;

@@ -36,6 +36,23 @@
   但当前仍有 `dangerous_point_lead = 3`、未站队阶段 `turn_access_risk = 15`、未站队阶段 `point_run_risk = 9`，
   说明这轮实现已经把“未站队风险”变成可观测、可专项压的正式口径，但还没有达到路线图里“明显下降后再固化门禁”的收口状态。
 
+2026-03-18 的当前工作区追加收口：
+
+- `朋友未站队阶段的连续高张试探` 现在又加了一层“历史公开消耗”约束：
+  `probeRisk` 与 `unresolvedProbeVetoPenalty` 不再只看这一手本身，还会读取当前玩家已经公开打掉过多少 `A / 王 / 高主 / 带分牌`；
+  朋友仍未站队时，连续重复这类高成本试探会被更重地下压。
+- `朋友已站队后的控牌过热` 现在会额外识别“手里是否仍攥着过多王张 / 高主”：
+  `controlExit` 除了 `safeLead / pointRunRisk / controlRisk`，也会继续参考这份“高主释放压力”，避免 AI 在适合交给同侧接手时还继续自己硬控。
+- `保扣底时的王张释放 / 高主释放` 已正式进入统一评估：
+  `evaluateState(...)` 新增 `bottomRelease` breakdown，
+  `protect_bottom / grade_bottom` 目标也已同步对它加权，不再只靠 `chooseAiBottomPrepDiscard(...)` 这类局部 heuristic。
+- `延迟站队时的同门结构保护` 也已补进共享跟牌链：
+  当打家首轮先出朋友牌、朋友选择先压住不站队时，
+  `chooseAiSupportBeforeReveal(...)`、共享跟单张排序和搜索兜底都会显式比较“是否拆掉同门对子 / 拖拉机 / 火车”，避免再出现 `8899 + 5` 却去跟 `8` 的走法。
+- 对应单测已补齐：
+  `check-ai-intermediate-foundation.js` 现在会检查 `bottomRelease`，
+  `check-ai-intermediate-search.js` 现在会检查“重复 probe 历史加重 veto”和“释放高主后 `controlExit` / `bottomRelease` 变好”。
+
 这次额外复核使用的现时证据：
 
 - 快速单测 `36 / 36` 通过，说明目前共享层与 AI 专项回归处于稳定状态。
@@ -75,6 +92,10 @@
   当 AI 已经缺首门、当前又是闲家正在拿分的单张窗口时，旧逻辑只要看到“某些可毙单张会拆高对”，就会直接退回贴小牌；
   现在只有在“所有可毙单张都会拆掉受保护高对”时才保留这条短路，若仍存在不拆高对的安全主牌，beginner 与 intermediate 都会继续评估这些毙牌。
 - 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- 修复了一个会让 `延迟站队` 支持跟牌拆掉同门拖拉机的共享排序缺口：
+  当打家先出朋友牌、朋友决定先压住不亮身份时，旧逻辑会只按“先丢零分牌”挑支持牌，导致像 `8899 + 5` 这种手牌错误跟出 `8`；
+  当前实现已改成先比较同门结构损耗，再看分值与牌力，beginner / intermediate / advanced 都会优先保住同门现成结构。
+- 对应回归同样补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - `级牌扣底` 路线现在已经从“beginner 专属 heuristic”扩成 `beginner + intermediate` 共用能力：
   `beginner` 继续保留轻量画像、吊主和延迟站队；
   `intermediate` 则新增了 `grade_bottom` objective，并把“保王 / 保级牌结构 / 特殊级升权”正式接进评分器与 rollout 扩展。
@@ -104,10 +125,15 @@
 - `朋友未站队阶段的高张试探预算` 现在也有了正式评分口径：
   `probeRisk` 会在未站队阶段评估“高张 / 主控 / 带分资源的消耗是否值得”，
   `unresolvedProbeVetoPenalty` 则会在首发与跟牌排序里，对没有 `turn_access_hold / 正向 futureDelta / 更强 friendBelief` 兜底的高成本试探追加 veto 或降权。
+- 这条线在 2026-03-18 又继续补了一层“连续试探历史”：
+  若当前玩家在朋友仍未站队时，已经公开打掉过较多 `A / 王 / 高主 / 带分牌`，后续再拿高成本牌试探会被视作“重复过热 probe”进一步加重 veto，而不再只按单手成本处理。
 - 同一条专项回归同样补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
 - `朋友已站队后的控牌降温` 现在又往前推进了一步：
   统一评估器新增 `controlExit` 分项，专门判断“当前控牌是否还能安全续控，或是否应该顺势交给同侧接手”；
   目标层也已给 `resolved friend + clear_trump / keep_control` 增加 `controlExit` 权重，并对打家侧过热的 `control / tempo` 做了小幅降温。
+- 2026-03-18 又补上了“高主释放压力”：
+  `controlExit` 现在会额外识别“我方已适合同侧接手，但当前玩家手里仍攥着过多王张 / 高主”的状态；
+  同时 `evaluateState(...)` 新增了 `bottomRelease`，把“保扣底时是否已经卸出可让给同侧的高主资源”提升成正式 breakdown。
 - 同一条专项回归也已补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
 - 修复了一个初级和中级共用的跟牌误判：
   当 AI 已经缺首门、又没有成型主可毙时，旧排序会把“另一门正好成对”误当成更顺手的贴牌，导致把副牌对子白白贴掉。
@@ -147,6 +173,7 @@
 已经满足或基本满足的部分：
 
 - `找朋友不再局限于最短副牌 A`：中级叫朋友已经会比较高张、回手路线、自己是否持有前置张数、是否更适合叫第二张/第三张，见 [src/shared/game.js](../src/shared/game.js) 和 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- `短门叫朋友` 现在也被显式接进中级 / 高级叫朋友评分：当长门第二张 `A` 与短门 `K + 小牌` 的找友路线对冲时，中级 / 高级会额外奖励“短门更容易找朋友、也更容易回手”的路线，而不再只因为长门同门牌多就偏向长门 `A`，见 [src/shared/game.js](../src/shared/game.js) 与 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - `延迟站队与叫死协同`：规则里关于“打家先出次高牌时朋友可延迟站队”“第三张叫死时提前按朋友思路协同”都已有专项回归，见 [src/shared/ai-shared.js](../src/shared/ai-shared.js) 与 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - `无主打家强主先行`：无主打家会先清自己可用的大主和高张，再转入找朋友，见 [src/shared/ai-shared.js](../src/shared/ai-shared.js) 与 [src/shared/ai-beginner.js](../src/shared/ai-beginner.js)。
 - `后程保扣底转向`：当前已经有 `protect_bottom / bottomRisk / chooseAiBottomPrepDiscard`，说明“后程转守底”和“同侧领先时优先腾出可扣底资源”已有第一版实现，见 [src/shared/ai-objectives.js](../src/shared/ai-objectives.js)、[src/shared/ai-evaluate.js](../src/shared/ai-evaluate.js) 与 [src/shared/ai-shared.js](../src/shared/ai-shared.js)。

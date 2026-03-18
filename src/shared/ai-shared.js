@@ -240,6 +240,8 @@ function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (!state.friendTarget || !currentWinningPlay || currentWinningPlay.playerId !== state.bankerId) return [];
   if (state.currentTrick[0]?.playerId !== state.bankerId) return [];
   if (state.currentTrick[0]?.cards.length !== 1) return [];
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return [];
 
   const bankerLeadCard = state.currentTrick[0].cards[0];
   const neededOccurrence = state.friendTarget.occurrence || 1;
@@ -260,6 +262,9 @@ function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (supportChoices.length === 0) return [];
 
   return supportChoices.sort((a, b) => {
+    const preserveDiff = scoreSameSuitSingleStructurePreservationFromHand(b, player.hand)
+      - scoreSameSuitSingleStructurePreservationFromHand(a, player.hand);
+    if (preserveDiff !== 0) return preserveDiff;
     const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;
@@ -1488,6 +1493,77 @@ function getSideStructureInventoryScore(hand) {
   const trains = findSerialTuples(sideCards, 2).filter((combo) => classifyPlay(combo).type === "train").length;
   const bulldozers = findSerialTuples(sideCards, 3).length;
   return pairs * 42 + triples * 60 + tractors * 88 + trains * 104 + bulldozers * 128;
+}
+
+/**
+ * 作用：
+ * 估算指定有效花色在当前手牌里的结构库存分。
+ *
+ * 为什么这样写：
+ * 这轮要同时修“延迟站队时乱拆同门拖拉机”和“普通跟单张时只顾丢零分牌”两类问题；
+ * 先把单门的对子、刻子、拖拉机、火车、推土机都折算成同一套库存分，
+ * 后面的延迟站队 shortcut、中级评分和搜索兜底才能共用一条“这手会不会把同门结构拆坏”的判断。
+ *
+ * 输入：
+ * @param {Array<object>} hand - 当前评估使用的整手牌。
+ * @param {string} suit - 需要统计的有效花色；可以是普通花色或 `trump`。
+ *
+ * 输出：
+ * @returns {number} 返回这门当前保有的结构库存分；数值越高表示这门结构越完整。
+ *
+ * 注意：
+ * - 这里按 `effectiveSuit(...)` 统计，确保主级牌和王会正确并入 `trump`。
+ * - 这是启发式库存分，不等于真实残局胜率。
+ */
+function getSuitStructureInventoryScore(hand, suit) {
+  if (!Array.isArray(hand) || hand.length === 0 || !suit) return 0;
+  const suitedCards = hand.filter((card) => effectiveSuit(card) === suit);
+  if (suitedCards.length === 0) return 0;
+  const pairs = findPairs(suitedCards).length;
+  const triples = findTriples(suitedCards).length;
+  const tractors = findSerialTuples(suitedCards, 2).filter((combo) => classifyPlay(combo).type === "tractor").length;
+  const trains = findSerialTuples(suitedCards, 2).filter((combo) => classifyPlay(combo).type === "train").length;
+  const bulldozers = findSerialTuples(suitedCards, 3).length;
+  return pairs * 42 + triples * 60 + tractors * 88 + trains * 104 + bulldozers * 128;
+}
+
+/**
+ * 作用：
+ * 评估“仍能按首门跟单张”时，这手牌是否拆掉了该门本来可保留的对子或拖拉机结构。
+ *
+ * 为什么这样写：
+ * 用户反馈的异常不是“AI 不会跟单张”，而是“明明能用同门散牌跟，却为了省几点或只看零分，
+ * 把 `8899` 这类同门现成结构拆掉了”。
+ * 这条修正把“同门结构损耗”显式收口成统一惩罚，避免延迟站队 shortcut、beginner 跟牌排序、
+ * intermediate 评分和搜索兜底各自散写一套不一致的补丁。
+ *
+ * 输入：
+ * @param {Array<object>} combo - 当前待评估的跟牌组合。
+ * @param {Array<object>} handBefore - 出这手牌前的完整手牌。
+ * @param {object|null} [leadSpec=state.leadSpec] - 当前首家牌型描述；为空时回退读取全局 `state.leadSpec`。
+ *
+ * 输出：
+ * @returns {number} 返回同门结构保留修正分；负数表示这手牌拆掉了本该优先保住的同门结构。
+ *
+ * 注意：
+ * - 只在“首家出单张、自己仍有首门、且这手也在跟首门单张”时启用。
+ * - 这里只衡量结构损耗，不负责决定是否该亮友或是否该抢分。
+ */
+function scoreSameSuitSingleStructurePreservationFromHand(combo, handBefore, leadSpec = state.leadSpec) {
+  if (!leadSpec || leadSpec.type !== "single" || !Array.isArray(combo) || combo.length !== 1) return 0;
+  if (!Array.isArray(handBefore) || handBefore.length === 0) return 0;
+
+  const card = combo[0];
+  if (!card || effectiveSuit(card) !== leadSpec.suit) return 0;
+
+  const leadSuitCards = handBefore.filter((entry) => effectiveSuit(entry) === leadSpec.suit);
+  if (leadSuitCards.length <= 1) return 0;
+
+  const handAfter = getHandAfterCombo(handBefore, combo);
+  const structureLoss = getSuitStructureInventoryScore(handBefore, leadSpec.suit)
+    - getSuitStructureInventoryScore(handAfter, leadSpec.suit);
+  if (structureLoss <= 0) return 0;
+  return -structureLoss;
 }
 
 /**

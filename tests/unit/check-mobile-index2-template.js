@@ -50,13 +50,23 @@ function main() {
   );
   assert.match(
     html,
+    /body\.mobile-index2 \.hand-group \{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*var\(--mobile-index2-hand-label-width\)\s+minmax\(0,\s*1fr\);/,
+    "index2 应把手牌分组改成固定标签列和牌轨列，确保主牌行与各花色行的起点稳定对齐",
+  );
+  assert.match(
+    html,
     /body\.mobile-index2 \.group-chip \{[\s\S]*width:\s*var\(--mobile-index2-hand-label-width\);[\s\S]*text-align:\s*left;/,
     "index2 应固定手牌标签列宽度，确保梅花、方块、黑桃、红桃都落在同一条左对齐基线",
   );
   assert.match(
     html,
-    /body\.mobile-index2 button\.action-btn \{[\s\S]*height:\s*34px;[\s\S]*min-height:\s*34px;[\s\S]*padding:\s*6px\s+4px;/,
-    "index2 的底部操作按钮应保留更舒服的上下内边距，避免按钮触控区显得过窄",
+    /body\.mobile-index2 \.cards-row \.card-btn:first-child \{[\s\S]*margin-left:\s*0;/,
+    "index2 应禁止首张手牌继续吃负外边距，确保主牌行和花色行的第一张牌起点真正对齐",
+  );
+  assert.match(
+    html,
+    /body\.mobile-index2 button\.action-btn \{[\s\S]*height:\s*38px;[\s\S]*min-height:\s*38px;[\s\S]*padding:\s*8px\s+4px;/,
+    "index2 的底部操作按钮应保留更宽松的上下内边距，避免按钮触控区显得过窄",
   );
   assert.match(
     html,
@@ -65,8 +75,13 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*40px\s*!important;[\s\S]*min-height:\s*40px\s*!important;/,
-    "index2 的普通底部按钮态应略微抬高到 40px，给按钮上下 padding 留出呼吸空间",
+    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*54px\s*!important;[\s\S]*min-height:\s*54px\s*!important;[\s\S]*padding-top:\s*8px;[\s\S]*padding-bottom:\s*8px;/,
+    "index2 的普通底部按钮态应单独放大到约 1.5 倍体量，给选择/出牌按钮留出更明显的上下留白",
+  );
+  assert.match(
+    html,
+    /body\.mobile-index2 \.center-panel\.setup-choice-mode \{[\s\S]*min-height:\s*34px\s*!important;[\s\S]*padding-top:\s*2px;[\s\S]*padding-bottom:\s*1px;/,
+    "index2 的亮主/反主态应继续保持紧凑，避免候选区被底部主按钮的放大规则挤出屏幕",
   );
   assert.match(
     html,

@@ -35,6 +35,8 @@ function buildIntermediateObjectiveWeights(baseWeights, primary, secondary) {
  * 这轮又额外补了“朋友已站队后的控牌降温”，因此要在目标层直接把
  * `controlExit` 纳入 resolved-friend 阶段的默认关注项，避免 `clear_trump`
  * 一路把高张硬控推到过热。
+ * 同时，“保扣底时王张 / 高主释放”也要进正式评分，因此 `protect_bottom / grade_bottom`
+ * 现在会额外抬高 `bottomRelease`，让评估器看懂“我是不是已经把该让给同侧的资源让出来了”。
  * 同时，未站队阶段也要把“高张试探预算”沉到统一权重里，
  * 避免 `find_friend` 继续把高张试探误当成廉价收益。
  *
@@ -113,6 +115,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     allySupport: resolvedFriend ? 0.95 : 0.05,
     bottom: lateRound ? 1.0 : 0.3,
     gradeBottom: gradeBottomProfile.active ? (gradeBottomProfile.specialPriority ? 1.25 : 0.95) : 0.15,
+    bottomRelease: lateRound ? 0.25 : 0.05,
     voidPressure: defenderSide ? 0.95 : 0.45,
     tempo: 0.85,
     turnAccess: 0.95,
@@ -161,6 +164,8 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (resolvedFriend && (secondary === "keep_control" || secondary === "clear_trump")) weights.allySupport += 0.15;
   if (primary === "protect_bottom") weights.bottomRisk += 0.35;
   if (secondary === "protect_bottom") weights.bottomRisk += 0.15;
+  if (primary === "protect_bottom") weights.bottomRelease += 0.45;
+  if (secondary === "protect_bottom") weights.bottomRelease += 0.2;
   if (primary === "protect_bottom") weights.safeLead += 0.35;
   if (secondary === "protect_bottom") weights.safeLead += 0.15;
   if (primary === "protect_bottom") weights.turnAccess += 0.2;
@@ -173,6 +178,8 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "grade_bottom") weights.controlRisk += 0.15;
   if (primary === "grade_bottom") weights.pointRunRisk += 0.3;
   if (secondary === "grade_bottom") weights.pointRunRisk += 0.15;
+  if (primary === "grade_bottom") weights.bottomRelease += 0.3;
+  if (secondary === "grade_bottom") weights.bottomRelease += 0.15;
   if (primary === "grade_bottom") weights.bottomRisk += 0.35;
   if (secondary === "grade_bottom") weights.bottomRisk += 0.15;
   if (primary === "grade_bottom") weights.safeLead += 0.25;

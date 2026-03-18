@@ -535,6 +535,7 @@ function runIntermediateFoundationSuite(context) {
     assert(typeof evaluation.breakdown.friendBelief === "number", "evaluateState: should expose friend-belief breakdown");
     assert(typeof evaluation.breakdown.friendRisk === "number", "evaluateState: should expose friend-risk breakdown");
     assert(typeof evaluation.breakdown.bottomRisk === "number", "evaluateState: should expose bottom-risk breakdown");
+    assert(typeof evaluation.breakdown.bottomRelease === "number", "evaluateState: should expose bottom-release breakdown");
     assert(typeof evaluation.breakdown.pointRunRisk === "number", "evaluateState: should expose point-run-risk breakdown");
     assert(evaluation.objective.primary.length > 0, "evaluateState: should include objective");
 
@@ -647,6 +648,50 @@ function runIntermediateFoundationSuite(context) {
     resetCommonState();
     state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
     state.hiddenFriendId = 2;
+    state.currentTrick = [];
+    state.leadSpec = null;
+    state.trickNumber = 11;
+    state.bottomCards = [makeCard("release-bottom-h-5", "hearts", "5"), makeCard("release-bottom-s-10", "spades", "10")];
+    state.players = [
+      basePlayer(1, [makeCard("release-p1-c-5", "clubs", "5")], true),
+      basePlayer(2, [makeCard("release-p2-s-a", "spades", "A")]),
+      basePlayer(3, [
+        makeCard("release-p3-bj", "joker", "BJ"),
+        makeCard("release-p3-rj", "joker", "RJ"),
+        makeCard("release-p3-c-a", "clubs", "A"),
+        makeCard("release-p3-c-9", "clubs", "9"),
+      ]),
+      basePlayer(4, [makeCard("release-p4-d-9", "diamonds", "9")]),
+      basePlayer(5, [makeCard("release-p5-h-9", "hearts", "9")]),
+    ];
+    const heavyReleaseState = cloneSimulationState(state);
+    heavyReleaseState.currentTurnId = 4;
+    heavyReleaseState.leaderId = 4;
+    const lightReleaseState = cloneSimulationState(state);
+    lightReleaseState.currentTurnId = 4;
+    lightReleaseState.leaderId = 4;
+    lightReleaseState.players[2].hand = sortHand([
+      makeCard("release-p3-c-9-light", "clubs", "9"),
+      makeCard("release-p3-d-6-light", "diamonds", "6"),
+    ]);
+    const heavyReleaseEval = evaluateState(
+      heavyReleaseState,
+      3,
+      getIntermediateObjective(3, "follow", heavyReleaseState)
+    );
+    const lightReleaseEval = evaluateState(
+      lightReleaseState,
+      3,
+      getIntermediateObjective(3, "follow", lightReleaseState)
+    );
+    assert(
+      lightReleaseEval.breakdown.bottomRelease > heavyReleaseEval.breakdown.bottomRelease,
+      "evaluateState: same-side late-round release states should prefer hands that no longer hoard jokers and high trumps"
+    );
+
+    resetCommonState();
+    state.friendTarget = { suit: "spades", rank: "A", occurrence: 1, revealed: true, failed: false, revealedBy: 2, matchesSeen: 1 };
+    state.hiddenFriendId = 2;
     state.bankerId = 1;
     state.players = [
       basePlayer(1, [makeCard("runrisk-p1-c-5", "clubs", "5")], true),
@@ -754,6 +799,65 @@ function runIntermediateFoundationSuite(context) {
     assert(simulatedBundle.sourceState !== state, "buildIntermediateDecisionBundleForState: should preserve explicit source state reference");
 
     resetCommonState();
+    state.showDebugPanel = true;
+    state.phase = "callingFriend";
+    state.bankerId = 3;
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.players = [
+      basePlayer(1, [makeCard("friend-log-p1-c-6", "clubs", "6")], true),
+      basePlayer(2, [makeCard("friend-log-p2-h-8", "hearts", "8")]),
+      basePlayer(3, [
+        makeCard("friend-log-b-s-a", "spades", "A"),
+        makeCard("friend-log-b-s-10a", "spades", "10"),
+        makeCard("friend-log-b-s-10b", "spades", "10"),
+        makeCard("friend-log-b-s-j", "spades", "J"),
+        makeCard("friend-log-b-s-7", "spades", "7"),
+        makeCard("friend-log-b-d-k", "diamonds", "K"),
+        makeCard("friend-log-b-d-5", "diamonds", "5"),
+        makeCard("friend-log-b-c-9", "clubs", "9"),
+      ]),
+      basePlayer(4, [makeCard("friend-log-p4-d-9", "diamonds", "9")]),
+      basePlayer(5, [makeCard("friend-log-p5-h-7", "hearts", "7")]),
+    ];
+    const friendDecision = buildAiFriendTargetDecision(3, "intermediate");
+    recordFriendDecisionSnapshot(3, friendDecision);
+    assert(state.aiDecisionHistory.length === 1, "recordFriendDecisionSnapshot: should append calling-friend snapshot");
+    assert(state.aiDecisionHistory[0].mode === "call_friend", "recordFriendDecisionSnapshot: should use call_friend mode");
+    const friendExport = formatAiDecisionExportEntry(state.aiDecisionHistory[0], 0);
+    assert(friendExport.includes("玩家3 叫朋友"), "formatAiDecisionExportEntry: should label call-friend snapshots as 叫朋友");
+    assert(friendExport.includes("方块 A"), "formatAiDecisionExportEntry: should export friend target labels instead of empty cards");
+
+    resetCommonState();
+    state.showDebugPanel = true;
+    state.phase = "burying";
+    state.bankerId = 3;
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.players = [
+      basePlayer(1, [makeCard("bury-log-p1-c-6", "clubs", "6")], true),
+      basePlayer(2, [makeCard("bury-log-p2-h-8", "hearts", "8")]),
+      basePlayer(3, [
+        makeCard("bury-log-b-c-5", "clubs", "5"),
+        makeCard("bury-log-b-c-7", "clubs", "7"),
+        makeCard("bury-log-b-d-5", "diamonds", "5"),
+        makeCard("bury-log-b-d-7", "diamonds", "7"),
+        makeCard("bury-log-b-h-9", "hearts", "9"),
+        makeCard("bury-log-b-h-j", "hearts", "J"),
+        makeCard("bury-log-b-s-4", "spades", "4"),
+        makeCard("bury-log-b-s-6", "spades", "6"),
+      ]),
+      basePlayer(4, [makeCard("bury-log-p4-d-9", "diamonds", "9")]),
+      basePlayer(5, [makeCard("bury-log-p5-h-7", "hearts", "7")]),
+    ];
+    const buryCards = getBuryHintForPlayer(3);
+    recordBuryDecisionSnapshot(3, buryCards);
+    assert(state.aiDecisionHistory.length === 1, "recordBuryDecisionSnapshot: should append bury snapshot");
+    assert(state.aiDecisionHistory[0].mode === "bury", "recordBuryDecisionSnapshot: should use bury mode");
+    const buryExport = formatAiDecisionExportEntry(state.aiDecisionHistory[0], 0);
+    assert(buryExport.includes("玩家3 扣底"), "formatAiDecisionExportEntry: should label bury snapshots as 扣底");
+
+    resetCommonState();
     state.currentTurnId = 4;
     state.leaderId = 1;
     state.currentTrickBeatCount = 1;
@@ -823,6 +927,7 @@ function runIntermediateFoundationSuite(context) {
         "friend belief evaluation scaffold ok",
         "friend-risk evaluation scaffold ok",
         "bottom-risk evaluation scaffold ok",
+        "bottom-release evaluation scaffold ok",
         "point-run-risk evaluation scaffold ok",
         "dangerous point-lead penalty scaffold ok",
         "single trick rollout isolation ok",

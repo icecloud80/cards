@@ -238,6 +238,38 @@ function runFriendStrategySuite(context) {
       state.currentTurnId = 3;
     }
 
+    // 搭建“延迟站队时不该拆同门拖拉机”的测试场景。
+    function setupDelayRevealPreserveSuitStructureScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [
+          makeCard("p1-s-a-1", "spades", "A"),
+          makeCard("p1-s-a-2", "spades", "A"),
+          makeCard("p1-s-9-1", "spades", "9"),
+          makeCard("p1-s-9-2", "spades", "9"),
+          makeCard("p1-s-8-1", "spades", "8"),
+          makeCard("p1-s-8-2", "spades", "8"),
+          makeCard("p1-s-5", "spades", "5"),
+        ], true),
+        basePlayer(2, [makeCard("banker-d-9", "diamonds", "9")]),
+        basePlayer(3, [makeCard("p3-h-7", "hearts", "7")]),
+        basePlayer(4, [makeCard("p4-c-7", "clubs", "7")]),
+        basePlayer(5, [makeCard("p5-d-7", "diamonds", "7")]),
+      ];
+      state.bankerId = 2;
+      state.currentTrick = [{
+        playerId: 2,
+        cards: [makeCard("lead-s-a", "spades", "A")],
+      }];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 2;
+      state.currentTurnId = 1;
+      setFriendTarget({ suit: "spades", rank: "A", occurrence: 2 });
+      state.friendTarget.matchesSeen = 1;
+    }
+
     function setupRevealTakeoverScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -548,6 +580,51 @@ function runFriendStrategySuite(context) {
           makeCard("b-d-a", "diamonds", "A"),
           makeCard("b-d-9", "diamonds", "9"),
           makeCard("b-s-k", "spades", "K"),
+        ]),
+      ];
+    }
+
+    /**
+     * 作用：
+     * 搭建“中级 / 高级应覆盖初级短门叫朋友思路”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户提供的问题局说明，旧版中级更容易把“长门第二张 A”误判成好目标，
+     * 却忽略“短门第一张 A 更容易用 K + 小牌找朋友，后续也更容易回手”的路线；
+     * 这里专门验证中级 / 高级会显式把这条短门线抬起来。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入 callingFriend 状态。
+     *
+     * 注意：
+     * - 黑桃故意做成 "A + 多张跟张" 的长门，旧逻辑更容易误选它。
+     * - 方片只有 "K + 5" 两张，预期会改成叫 "第一张方片 A"。
+     */
+    function setupIntermediateShortSuitFriendCallScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.phase = "callingFriend";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [makeCard("p1-h-8-short-friend", "hearts", "8")], true),
+        basePlayer(2, [makeCard("p2-c-9-short-friend", "clubs", "9")]),
+        basePlayer(3, [makeCard("p3-s-k-short-friend", "spades", "K")]),
+        basePlayer(4, [makeCard("p4-d-a-short-friend", "diamonds", "A")]),
+        basePlayer(5, [
+          makeCard("b-s-a-short-friend", "spades", "A"),
+          makeCard("b-s-10a-short-friend", "spades", "10"),
+          makeCard("b-s-10b-short-friend", "spades", "10"),
+          makeCard("b-s-j-short-friend", "spades", "J"),
+          makeCard("b-s-7-short-friend", "spades", "7"),
+          makeCard("b-d-k-short-friend", "diamonds", "K"),
+          makeCard("b-d-5-short-friend", "diamonds", "5"),
+          makeCard("b-h-9-short-friend", "hearts", "9"),
         ]),
       ];
     }
@@ -1214,6 +1291,15 @@ function runFriendStrategySuite(context) {
       results.push(difficulty + " second banker-A delay stand ok");
     }
 
+    for (const difficulty of ["beginner", "intermediate", "advanced"]) {
+      setupDelayRevealPreserveSuitStructureScenario(difficulty);
+      assert(canAiRevealFriendNow(1) === true, difficulty + ": preserve-structure delay case should still be a stand opportunity");
+      const hint = getLegalHintForPlayer(1);
+      assert(hint.length === 1, difficulty + ": preserve-structure delay case should choose a single follow card");
+      assert(hint[0].suit === "spades" && hint[0].rank === "5", difficulty + ": should keep 8899 intact and shed the side 5 while delaying stand");
+      results.push(difficulty + " delay-reveal preserve structure ok");
+    }
+
     for (const difficulty of ["beginner", "intermediate"]) {
       setupBankerFriendSetupLeadScenario(difficulty);
       const hint = chooseAiLeadPlay(5);
@@ -1255,6 +1341,16 @@ function runFriendStrategySuite(context) {
     const intermediateAvoidKingWhileAceAlive = chooseFriendTarget().target;
     assert(!(intermediateAvoidKingWhileAceAlive.suit === "hearts" && intermediateAvoidKingWhileAceAlive.rank === "K"), "intermediate: should not call hearts K while hearts A is still outside banker");
     results.push("intermediate avoid-K-with-live-A ok -> " + intermediateAvoidKingWhileAceAlive.suit + "-" + intermediateAvoidKingWhileAceAlive.rank);
+
+    for (const difficulty of ["intermediate", "advanced"]) {
+      setupIntermediateShortSuitFriendCallScenario(difficulty);
+      const friendDecision = buildAiFriendTargetDecision(5, difficulty);
+      assert(friendDecision.selectedEntry.target.suit === "diamonds", difficulty + ": should prefer the short diamonds route over long spades A");
+      assert(friendDecision.selectedEntry.target.rank === "A", difficulty + ": short-suit cover should still keep A as the target rank");
+      assert(friendDecision.selectedEntry.target.occurrence === 1, difficulty + ": should call the first diamonds A instead of the second spades A");
+      assert(friendDecision.selectedEntry.source === "short-suit-friend", difficulty + ": short-suit route should be tagged as short-suit-friend");
+      results.push(difficulty + " short-suit friend call ok -> " + friendDecision.selectedEntry.label);
+    }
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupReturnToBankerScenario(difficulty);

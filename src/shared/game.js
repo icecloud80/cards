@@ -880,48 +880,6 @@ function getBeginnerShortSuitFriendPlan(banker, options = {}) {
   return collectBeginnerShortSuitFriendCandidates(banker, options)[0] || null;
 }
 
-// 选择新手难度下的朋友目标牌。
-function chooseBeginnerFriendTarget() {
-  const banker = getPlayer(state.bankerId);
-  if (!banker) return getFriendTargetFallback();
-  const shortSuitPlan = getBeginnerShortSuitFriendPlan(banker, { countKnownBuriedCopies: true });
-  if (shortSuitPlan) {
-    return {
-      target: buildFriendTarget({
-        suit: shortSuitPlan.suit,
-        rank: "A",
-        occurrence: shortSuitPlan.occurrence,
-      }),
-      ownerId: null,
-    };
-  }
-  for (const ranks of getFriendAutoRankGroups()) {
-    const candidates = collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate);
-    const best = pickBestFriendTargetFromCandidates(candidates);
-    if (best) return best;
-  }
-  return getFriendTargetFallback();
-}
-
-// 选择中级难度下的朋友目标牌。
-function chooseIntermediateFriendTarget() {
-  const banker = getPlayer(state.bankerId);
-  if (!banker) return getFriendTargetFallback();
-  for (const ranks of getFriendAutoRankGroups()) {
-    const candidates = collectFriendTargetCandidates(banker, ranks, scoreFriendTargetCandidate);
-    const best = pickBestFriendTargetFromCandidates(candidates);
-    if (best) return best;
-  }
-  return getFriendTargetFallback();
-}
-
-// 选择朋友目标牌。
-function chooseFriendTarget() {
-  return state.aiDifficulty === "beginner"
-    ? chooseBeginnerFriendTarget()
-    : chooseIntermediateFriendTarget();
-}
-
 // 取出指定朋友花色对应的牌。
 function getCardsForFriendSuit(cards, suit) {
   return cards.filter((card) => (suit === "joker" ? card.suit === "joker" : card.suit === suit));
@@ -1080,16 +1038,49 @@ function getFriendPickerRecommendation() {
   };
 }
 
-// 为朋友目标牌候选项计算综合分数。
-function scoreFriendTargetCandidate(target, banker, meta = {}) {
-  const bankerSuitCards = banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
-  const bankerTargetCopies = bankerSuitCards.filter((card) => card.rank === target.rank).length;
-  const bankerSupportCards = bankerSuitCards.filter((card) => card.rank !== target.rank);
+/**
+ * 作用：
+ * 为中级 / 高级 AI 拆解“短门叫朋友、方便回手”的专项评分。
+ *
+ * 为什么这样写：
+ * 旧版中级叫朋友虽然会看“同门还有多少可回手牌”，
+ * 但没有把“短门更容易叫到朋友，也更容易在同门里做回手”单独抬权；
+ * 用户给出的 `方片 K + 5 叫方片 A` 这类案例说明，
+ * 如果不显式区分“短门好回手”和“长门只是同门牌多”，AI 会错误偏向长门第二张 `A`。
+ *
+ * 输入：
+ * @param {object} target - 当前候选的朋友牌定义。
+ * @param {object} banker - 当前打家对象。
+ * @param {{bankerSuitCards?: Array<object>, bankerTargetCopies?: number, bankerSupportCards?: Array<object>, buriedCopies?: number}} [meta={}] - 已预先统计好的同门信息。
+ *
+ * 输出：
+ * @returns {object} 返回完整评分拆解，供中级 / 高级选朋友与 debug 日志共用。
+ *
+ * 注意：
+ * - 这里只读取打家明手与已知底牌，不依赖任何暗手信息。
+ * - 这条拆解只补“短门叫朋友”覆盖，不取代原有 rank / 自持 / 被压风险判断。
+ */
+function buildIntermediateFriendTargetScoreBreakdown(target, banker, meta = {}) {
+  const bankerSuitCards = Array.isArray(meta.bankerSuitCards)
+    ? meta.bankerSuitCards
+    : banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
+  const bankerTargetCopies = typeof meta.bankerTargetCopies === "number"
+    ? meta.bankerTargetCopies
+    : bankerSuitCards.filter((card) => card.rank === target.rank).length;
+  const bankerSupportCards = Array.isArray(meta.bankerSupportCards)
+    ? meta.bankerSupportCards
+    : bankerSuitCards.filter((card) => card.rank !== target.rank);
   const buriedCopies = meta.buriedCopies || 0;
   const targetPower = target.suit === "joker"
     ? (target.rank === "RJ" ? 200 : 190)
     : cardStrength({ suit: target.suit, rank: target.rank, deckIndex: 0, id: `friend-target-${target.suit}-${target.rank}` });
   const bankerReturnCards = bankerSupportCards.filter((card) => cardStrength(card) < targetPower).length;
+  const zeroPointSupportCount = bankerSupportCards.filter((card) => scoreValue(card) === 0 && cardStrength(card) < targetPower).length;
+  const supportCount = bankerSupportCards.length;
+  const suitCount = bankerSuitCards.length;
+  const isSideSuitTarget = target.suit !== "joker" && target.suit !== state.trumpSuit;
+  const hasHonorProbeCard = bankerSupportCards.some((card) => ["10", "J", "Q", "K"].includes(card.rank));
+  const hasStructuredReturnRoute = bankerTargetCopies > 0 || supportCount > 1 || hasHonorProbeCard;
   const rankBonus = {
     A: 60,
     K: 48,
@@ -1099,24 +1090,394 @@ function scoreFriendTargetCandidate(target, banker, meta = {}) {
     RJ: 52,
     BJ: 44,
   }[target.rank] || 0;
-  const occurrenceBonus = target.occurrence === 2 ? 12 : target.occurrence === 3 ? 8 : 0;
+  const occurrenceBonus = bankerTargetCopies > 0
+    ? (target.occurrence === bankerTargetCopies + 1 ? 12 : target.occurrence === 3 ? 8 : 0)
+    : target.occurrence === 1
+      ? 12
+      : target.occurrence === 2
+        ? 2
+        : 0;
   const suitBonus = target.suit !== "joker" && target.suit !== state.trumpSuit ? 18 : 0;
   const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
   const jokerPenalty = target.suit === "joker" ? 14 : 0;
   const bankerOwnCopyBonus = bankerTargetCopies > 0 ? 8 : 0;
   const returnBonus = Math.min(bankerReturnCards, 3) * 7;
-  const supportPenalty = bankerSupportCards.length === 0 ? 18 : 0;
+  const supportPenalty = supportCount === 0 ? 18 : 0;
   const overtakenPenalty = getVisiblePossibleHigherRankCopiesOutsideBanker(target, banker) > 0 ? 96 : 0;
   const buriedPenalty = buriedCopies * 22;
-  const voidSetupBonus = target.suit !== "joker" && bankerTargetCopies > 0 && bankerSupportCards.length <= 1
+  const voidSetupBonus = target.suit !== "joker" && bankerTargetCopies > 0 && supportCount <= 1
     ? 24
-    : target.suit !== "joker" && bankerSupportCards.length === 0
+    : target.suit !== "joker" && supportCount === 0
       ? 14
       : 0;
-  const returnRouteBonus = target.suit !== "joker" && bankerSupportCards.length <= 1
+  const returnRouteBonus = target.suit !== "joker" && supportCount <= 1
     ? Math.min(bankerReturnCards, 3) * 5
     : 0;
-  return rankBonus + occurrenceBonus + suitBonus + bankerOwnCopyBonus + returnBonus + voidSetupBonus + returnRouteBonus - trumpPenalty - jokerPenalty - buriedPenalty - supportPenalty - overtakenPenalty;
+  const shortSuitBonus = isSideSuitTarget
+    ? (supportCount === 1 ? (hasStructuredReturnRoute ? 22 : 10) : supportCount === 2 ? 14 : 0)
+    : 0;
+  const lowSupportBonus = isSideSuitTarget
+    ? (zeroPointSupportCount === 1
+      ? (hasStructuredReturnRoute ? 8 : 0)
+      : zeroPointSupportCount >= 2
+        ? 4
+        : 0)
+    : 0;
+  const shortProbeSetupBonus = isSideSuitTarget
+    && target.rank === "A"
+    && bankerTargetCopies === 0
+    && supportCount > 0
+    && supportCount <= 2
+    && zeroPointSupportCount > 0
+    && hasHonorProbeCard
+    ? 18
+    : 0;
+  const clutterPenalty = isSideSuitTarget ? Math.max(0, supportCount - 2) * 16 : 0;
+  const ownLongSuitPenalty = isSideSuitTarget && bankerTargetCopies > 0 && supportCount >= 4
+    ? 10 + Math.max(0, supportCount - 4) * 6
+    : 0;
+  const total = rankBonus
+    + occurrenceBonus
+    + suitBonus
+    + bankerOwnCopyBonus
+    + returnBonus
+    + voidSetupBonus
+    + returnRouteBonus
+    + shortSuitBonus
+    + lowSupportBonus
+    + shortProbeSetupBonus
+    - trumpPenalty
+    - jokerPenalty
+    - buriedPenalty
+    - supportPenalty
+    - overtakenPenalty
+    - clutterPenalty
+    - ownLongSuitPenalty;
+
+  return {
+    total,
+    targetPower,
+    bankerTargetCopies,
+    bankerReturnCards,
+    zeroPointSupportCount,
+    supportCount,
+    suitCount,
+    rankBonus,
+    occurrenceBonus,
+    suitBonus,
+    trumpPenalty,
+    jokerPenalty,
+    bankerOwnCopyBonus,
+    returnBonus,
+    supportPenalty,
+    overtakenPenalty,
+    buriedPenalty,
+    voidSetupBonus,
+    returnRouteBonus,
+    shortSuitBonus,
+    lowSupportBonus,
+    shortProbeSetupBonus,
+    clutterPenalty,
+    ownLongSuitPenalty,
+  };
+}
+
+// 为朋友目标牌候选项计算综合分数。
+function scoreFriendTargetCandidate(target, banker, meta = {}) {
+  return buildIntermediateFriendTargetScoreBreakdown(target, banker, meta).total;
+}
+
+/**
+ * 作用：
+ * 构造中级 / 高级叫朋友候选列表，供自动选择和日志导出共用。
+ *
+ * 为什么这样写：
+ * 用户希望直接从结果日志里看出“为什么选了这张朋友牌、别的候选差在哪”；
+ * 因此这里把叫朋友候选也整理成和出牌 / 亮主相似的可导出结构，
+ * 同时让中级 / 高级都复用同一套“短门叫朋友”评分。
+ *
+ * 输入：
+ * @param {object|null} banker - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 已按分值排序的叫朋友候选列表。
+ *
+ * 注意：
+ * - 当前高级暂时复用中级叫朋友逻辑。
+ * - 每个候选都会带上短门 / 回手 / 长门惩罚等解释字段，方便问题局复盘。
+ */
+function buildIntermediateFriendTargetCandidateEntries(banker) {
+  if (!banker) return [];
+
+  for (const ranks of getFriendAutoRankGroups()) {
+    const candidates = collectFriendTargetCandidates(banker, ranks, scoreFriendTargetCandidate);
+    if (candidates.length === 0) continue;
+
+    return candidates
+      .map((candidate) => {
+        const breakdown = buildIntermediateFriendTargetScoreBreakdown(candidate.target, banker, {
+          buriedCopies: getKnownBuriedTargetCopies(candidate.target),
+        });
+        const friendTarget = buildFriendTarget(candidate.target);
+        const tags = [
+          candidate.target.suit === state.trumpSuit ? "主牌" : candidate.target.suit === "joker" ? "王" : "副牌",
+          breakdown.supportCount <= 2 && candidate.target.suit !== "joker" ? `短门 ${breakdown.suitCount}` : `同门 ${breakdown.suitCount}`,
+          breakdown.bankerTargetCopies > 0 ? `自持 ${breakdown.bankerTargetCopies}` : "首张",
+        ];
+        if (breakdown.zeroPointSupportCount > 0 && candidate.target.suit !== "joker") {
+          tags.push(`零分回手 ${breakdown.zeroPointSupportCount}`);
+        }
+        if (breakdown.shortProbeSetupBonus > 0) {
+          tags.push("高张定门 + 小牌找友");
+        }
+        if (breakdown.clutterPenalty > 0) {
+          tags.push(`长门惩罚 ${breakdown.clutterPenalty}`);
+        }
+        return {
+          target: friendTarget,
+          ownerId: candidate.ownerId,
+          label: friendTarget.label,
+          cards: [],
+          source: breakdown.shortSuitBonus > 0 || breakdown.shortProbeSetupBonus > 0 ? "short-suit-friend" : "heuristic",
+          tags,
+          score: breakdown.total,
+          heuristicScore: breakdown.total,
+          rolloutScore: null,
+          rolloutFutureDelta: null,
+          rolloutDepth: 0,
+          rolloutTriggerFlags: [
+            `同门 ${breakdown.suitCount} 张`,
+            `非目标 ${breakdown.supportCount} 张`,
+            `回手 ${breakdown.bankerReturnCards} 张`,
+            `长门罚 ${breakdown.clutterPenalty}`,
+          ],
+          breakdown,
+        };
+      })
+      .sort((left, right) => right.score - left.score);
+  }
+
+  return [];
+}
+
+/**
+ * 作用：
+ * 构造 beginner “短门找朋友”调试候选列表。
+ *
+ * 为什么这样写：
+ * beginner 已有一条显式的“副牌 A + 单张回手”规则；
+ * 这里把该规则对应的短门计划也做成候选列表，方便在日志里直接看到它到底优先了哪门。
+ *
+ * 输入：
+ * @param {object|null} banker - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 已按 beginner 短门规则排序的候选列表。
+ *
+ * 注意：
+ * - 这里只覆盖 beginner 显式短门计划；若没有可用副牌 `A`，调用方需回退到旧 heuristic。
+ * - 候选分值只用于本地排序和日志展示，不参与其他难度。
+ */
+function buildBeginnerShortSuitFriendCandidateEntries(banker) {
+  if (!banker) return [];
+
+  return collectBeginnerShortSuitFriendCandidates(banker, { countKnownBuriedCopies: true })
+    .map((plan) => {
+      const friendTarget = buildFriendTarget({
+        suit: plan.suit,
+        rank: "A",
+        occurrence: plan.occurrence,
+      });
+      const score = 280
+        + (plan.singleReturnReady ? 28 : 0)
+        - plan.totalCount * 18
+        - plan.extraCount * 10
+        - Math.min(plan.returnCardStrength, 220) * 0.02;
+      return {
+        target: friendTarget,
+        ownerId: null,
+        label: friendTarget.label,
+        cards: [],
+        source: "short-suit-plan",
+        tags: [
+          `短门 ${plan.totalCount}`,
+          plan.singleReturnReady ? "单张回手" : "保留回手",
+          `${getOccurrenceLabel(plan.occurrence)} A`,
+        ],
+        score,
+        heuristicScore: score,
+        rolloutScore: null,
+        rolloutFutureDelta: null,
+        rolloutDepth: 0,
+        rolloutTriggerFlags: [
+          `同门 ${plan.totalCount} 张`,
+          `非 A ${plan.nonTargetCards.length} 张`,
+          `回手 ${plan.returnCard ? shortCardLabel(plan.returnCard) : "无"}`,
+        ],
+        breakdown: {
+          suit: plan.suit,
+          totalCount: plan.totalCount,
+          nonTargetCount: plan.nonTargetCards.length,
+          singleReturnReady: plan.singleReturnReady,
+          returnCard: plan.returnCard ? shortCardLabel(plan.returnCard) : null,
+        },
+      };
+    })
+    .sort((left, right) => right.score - left.score);
+}
+
+/**
+ * 作用：
+ * 为当前打家生成“叫朋友”自动决策与调试候选。
+ *
+ * 为什么这样写：
+ * 叫朋友阶段现在既要真正给 AI 自动选朋友牌，
+ * 也要把同一批候选完整写入结果日志；统一通过一条决策构造链，
+ * 才能保证“自动选择”和“日志解释”完全对应。
+ *
+ * 输入：
+ * @param {number} [playerId=state.bankerId] - 需要自动叫朋友的打家玩家 ID。
+ * @param {"beginner"|"intermediate"|"advanced"} [difficulty=state.aiDifficulty] - 需要使用的 AI 难度。
+ *
+ * 输出：
+ * @returns {{target: object, ownerId: (number|null), candidateEntries: Array<object>, selectedEntry: object}} 返回最终选择和候选列表。
+ *
+ * 注意：
+ * - 当前高级暂时复用中级候选构造逻辑。
+ * - 没有合法候选时会回退到统一兜底方案，并生成一条可导出的 fallback 记录。
+ */
+function buildAiFriendTargetDecision(playerId = state.bankerId, difficulty = state.aiDifficulty) {
+  const banker = getPlayer(playerId);
+  if (!banker) {
+    const fallback = getFriendTargetFallback();
+    const fallbackEntry = {
+      target: fallback.target,
+      ownerId: fallback.ownerId,
+      label: fallback.target.label,
+      cards: [],
+      source: "fallback",
+      tags: ["默认兜底"],
+      score: 0,
+      heuristicScore: 0,
+      rolloutScore: null,
+      rolloutFutureDelta: null,
+      rolloutDepth: 0,
+      rolloutTriggerFlags: ["无可用候选，使用固定兜底"],
+      breakdown: null,
+    };
+    return {
+      target: fallback.target,
+      ownerId: fallback.ownerId,
+      candidateEntries: [fallbackEntry],
+      selectedEntry: fallbackEntry,
+    };
+  }
+
+  if (difficulty === "beginner") {
+    const shortSuitEntries = buildBeginnerShortSuitFriendCandidateEntries(banker);
+    if (shortSuitEntries.length > 0) {
+      return {
+        target: shortSuitEntries[0].target,
+        ownerId: shortSuitEntries[0].ownerId,
+        candidateEntries: shortSuitEntries,
+        selectedEntry: shortSuitEntries[0],
+      };
+    }
+    for (const ranks of getFriendAutoRankGroups()) {
+      const candidates = collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate)
+        .map((candidate) => {
+          const friendTarget = buildFriendTarget(candidate.target);
+          return {
+            target: friendTarget,
+            ownerId: candidate.ownerId,
+            label: friendTarget.label,
+            cards: [],
+            source: "heuristic",
+            tags: [
+              candidate.target.suit === state.trumpSuit ? "主牌" : candidate.target.suit === "joker" ? "王" : "副牌",
+              candidate.target.occurrence > 1 ? `${getOccurrenceLabel(candidate.target.occurrence)} ${candidate.target.rank}` : "首张",
+            ],
+            score: candidate.score,
+            heuristicScore: candidate.score,
+            rolloutScore: null,
+            rolloutFutureDelta: null,
+            rolloutDepth: 0,
+            rolloutTriggerFlags: [
+              `同门 ${banker.hand.filter((card) => card.suit === candidate.target.suit).length} 张`,
+              `分值 ${Math.round(candidate.score * 100) / 100}`,
+            ],
+            breakdown: null,
+          };
+        })
+        .sort((left, right) => right.score - left.score);
+      if (candidates.length > 0) {
+        return {
+          target: candidates[0].target,
+          ownerId: candidates[0].ownerId,
+          candidateEntries: candidates,
+          selectedEntry: candidates[0],
+        };
+      }
+    }
+  }
+
+  const candidateEntries = buildIntermediateFriendTargetCandidateEntries(banker);
+  if (candidateEntries.length > 0) {
+    return {
+      target: candidateEntries[0].target,
+      ownerId: candidateEntries[0].ownerId,
+      candidateEntries,
+      selectedEntry: candidateEntries[0],
+    };
+  }
+
+  const fallback = getFriendTargetFallback();
+  const fallbackEntry = {
+    target: fallback.target,
+    ownerId: fallback.ownerId,
+    label: fallback.target.label,
+    cards: [],
+    source: "fallback",
+    tags: ["默认兜底"],
+    score: 0,
+    heuristicScore: 0,
+    rolloutScore: null,
+    rolloutFutureDelta: null,
+    rolloutDepth: 0,
+    rolloutTriggerFlags: ["无可用候选，使用固定兜底"],
+    breakdown: null,
+  };
+  return {
+    target: fallback.target,
+    ownerId: fallback.ownerId,
+    candidateEntries: [fallbackEntry],
+    selectedEntry: fallbackEntry,
+  };
+}
+
+// 选择新手难度下的朋友目标牌。
+function chooseBeginnerFriendTarget() {
+  const decision = buildAiFriendTargetDecision(state.bankerId, "beginner");
+  return {
+    target: decision.target,
+    ownerId: decision.ownerId,
+  };
+}
+
+// 选择中级难度下的朋友目标牌。
+function chooseIntermediateFriendTarget() {
+  const decision = buildAiFriendTargetDecision(state.bankerId, state.aiDifficulty);
+  return {
+    target: decision.target,
+    ownerId: decision.ownerId,
+  };
+}
+
+// 选择朋友目标牌。
+function chooseFriendTarget() {
+  return state.aiDifficulty === "beginner"
+    ? chooseBeginnerFriendTarget()
+    : chooseIntermediateFriendTarget();
 }
 
 // 构建朋友目标牌。
@@ -1292,7 +1653,15 @@ function startFriendRetargetWindow(seconds = FRIEND_RETARGET_WINDOW_SECONDS) {
 function startCallingFriendPhase() {
   clearTimers();
   const banker = getPlayer(state.bankerId);
-  const defaults = getDefaultFriendSelection();
+  const autoFriendDecision = banker && !banker.isHuman
+    ? buildAiFriendTargetDecision(banker.id, state.aiDifficulty)
+    : null;
+  const defaultTarget = autoFriendDecision?.target || getDefaultFriendSelection();
+  const defaults = {
+    occurrence: defaultTarget.occurrence || 1,
+    suit: defaultTarget.suit,
+    rank: defaultTarget.rank,
+  };
   state.selectedFriendOccurrence = defaults.occurrence;
   state.selectedFriendSuit = defaults.suit;
   state.selectedFriendRank = defaults.rank;
@@ -1307,6 +1676,7 @@ function startCallingFriendPhase() {
     return;
   }
 
+  recordFriendDecisionSnapshot(banker.id, autoFriendDecision);
   state.aiTimer = window.setTimeout(() => {
     confirmFriendTargetSelection(defaults);
   }, getAiPaceDelay("callingFriendDelay"));
@@ -2445,6 +2815,31 @@ function areSetupCandidateCardsEqual(cardsA, cardsB) {
 
 /**
  * 作用：
+ * 把任意阶段的 AI 调试快照写入共享历史。
+ *
+ * 为什么这样写：
+ * 亮主 / 反主、扣底、叫朋友和正式出牌现在都要复用同一套结果日志导出；
+ * 单独收口这层提交逻辑后，各阶段只需要关心“快照长什么样”，不用重复维护历史写入细节。
+ *
+ * 输入：
+ * @param {object|null} snapshot - 当前阶段准备写入的 AI 调试快照。
+ *
+ * 输出：
+ * @returns {void} 只更新共享状态中的最近一条与历史列表，不返回额外结果。
+ *
+ * 注意：
+ * - 只在 debug 面板开启时真正写入，避免普通对局持续堆日志。
+ * - 历史长度继续固定裁到最近 120 条，保持结果导出可控。
+ */
+function commitAiDecisionSnapshot(snapshot) {
+  if (!snapshot || !snapshot.playerId || !isAiDecisionDebugEnabled()) return;
+  state.aiDecisionHistorySeq = snapshot.historyId || ((state.aiDecisionHistorySeq || 0) + 1);
+  state.lastAiDecision = snapshot;
+  state.aiDecisionHistory = [...(state.aiDecisionHistory || []), snapshot].slice(-120);
+}
+
+/**
+ * 作用：
  * 把亮主 / 反主候选项记录进现有 AI debug 历史。
  *
  * 为什么这样写：
@@ -2487,6 +2882,7 @@ function recordSetupDecisionSnapshot(playerId, mode, candidateEntries, selectedE
       breakdown: cloneSetupDebugValue(selected?.breakdown || null),
     },
     candidateEntries: candidateEntries.slice(0, 5).map((entry) => ({
+      label: entry.label || null,
       cards: cloneSetupDebugValue(entry.cards || []),
       source: entry.source || null,
       tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
@@ -2511,6 +2907,7 @@ function recordSetupDecisionSnapshot(playerId, mode, candidateEntries, selectedE
     selectedSource: selected?.source || null,
     selectedTags: Array.isArray(selected?.tags) ? [...selected.tags] : [mode === "counter" ? "选择不反" : "继续等牌"],
     selectedScore: typeof selected?.score === "number" ? selected.score : null,
+    selectedLabel: selected?.label || null,
     selectedCards: cloneSetupDebugValue(selected?.cards || []),
     selectedBreakdown: cloneSetupDebugValue(selected?.breakdown || null),
     debugStats: {
@@ -2520,9 +2917,168 @@ function recordSetupDecisionSnapshot(playerId, mode, candidateEntries, selectedE
     },
     decisionTimeMs: 0,
   };
-  state.aiDecisionHistorySeq = snapshot.historyId;
-  state.lastAiDecision = snapshot;
-  state.aiDecisionHistory = [...(state.aiDecisionHistory || []), snapshot].slice(-120);
+  commitAiDecisionSnapshot(snapshot);
+}
+
+/**
+ * 作用：
+ * 把 AI 的叫朋友候选和最终选择记录进 debug 历史。
+ *
+ * 为什么这样写：
+ * 这次问题局最关键的缺口就是结果日志里看不到“叫朋友为什么选了这张”；
+ * 因此需要把叫朋友阶段也整理成与亮主 / 出牌同一口径的快照，方便直接导出前 3 个候选对比。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备叫朋友的打家玩家 ID。
+ * @param {{candidateEntries?: Array<object>, selectedEntry?: object}} decision - 叫朋友决策与候选摘要。
+ *
+ * 输出：
+ * @returns {void} 直接把叫朋友快照写入共享调试历史。
+ *
+ * 注意：
+ * - 只记录 AI 自动叫朋友，不覆盖人类手动选择。
+ * - `selectedLabel` 直接使用“第一张 / 第二张 ...”文案，避免日志里丢失张次信息。
+ */
+function recordFriendDecisionSnapshot(playerId, decision) {
+  if (!isAiDecisionDebugEnabled() || !playerId || !decision?.selectedEntry) return;
+  const candidateEntries = Array.isArray(decision.candidateEntries) ? decision.candidateEntries : [];
+  const selected = decision.selectedEntry;
+  const objective = {
+    primary: "call_friend",
+    secondary: selected.source === "short-suit-plan" || selected.source === "short-suit-friend"
+      ? "short_suit_return"
+      : "rank_priority",
+  };
+  const snapshot = {
+    historyId: (state.aiDecisionHistorySeq || 0) + 1,
+    recordedAtTrickNumber: state.trickNumber || null,
+    recordedAtTurnId: playerId,
+    playerId,
+    mode: "call_friend",
+    objective,
+    evaluation: {
+      total: typeof selected.score === "number" ? selected.score : null,
+      objective,
+      breakdown: cloneSetupDebugValue(selected.breakdown || null),
+    },
+    candidateEntries: candidateEntries.slice(0, 5).map((entry) => ({
+      label: entry.label || null,
+      cards: cloneSetupDebugValue(entry.cards || []),
+      source: entry.source || null,
+      tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
+      score: typeof entry.score === "number" ? entry.score : null,
+      heuristicScore: typeof entry.heuristicScore === "number" ? entry.heuristicScore : null,
+      rolloutScore: null,
+      rolloutFutureDelta: null,
+      rolloutDepth: 0,
+      rolloutReachedOwnTurn: false,
+      rolloutTriggerFlags: Array.isArray(entry.rolloutTriggerFlags) ? [...entry.rolloutTriggerFlags] : [],
+      rolloutEvaluation: {
+        total: entry.score,
+        objective,
+        breakdown: cloneSetupDebugValue(entry.breakdown || null),
+      },
+      rolloutFutureEvaluation: null,
+    })),
+    filteredCandidateEntries: [],
+    selectedSource: selected.source || null,
+    selectedTags: Array.isArray(selected.tags) ? [...selected.tags] : [],
+    selectedScore: typeof selected.score === "number" ? selected.score : null,
+    selectedLabel: selected.label || null,
+    selectedCards: cloneSetupDebugValue(selected.cards || []),
+    selectedBreakdown: cloneSetupDebugValue(selected.breakdown || null),
+    debugStats: {
+      candidateCount: candidateEntries.length,
+      maxRolloutDepth: 0,
+      extendedRolloutCount: 0,
+    },
+    decisionTimeMs: 0,
+  };
+  commitAiDecisionSnapshot(snapshot);
+}
+
+/**
+ * 作用：
+ * 把 AI 自动扣底结果记录进 debug 历史。
+ *
+ * 为什么这样写：
+ * 结果日志过去只看得到亮主和出牌，看不到 AI 到底埋了哪 7 张底；
+ * 补上这条快照后，至少能在问题局里把“扣底是否已为找朋友 / 保底路线服务”直接导出来。
+ *
+ * 输入：
+ * @param {number} playerId - 当前自动扣底的打家玩家 ID。
+ * @param {Array<object>} cards - 当前准备扣下的 7 张底牌。
+ *
+ * 输出：
+ * @returns {void} 直接把扣底快照写入共享调试历史。
+ *
+ * 注意：
+ * - 当前只导出最终扣底结果，不额外枚举多个备选 7 张组合。
+ * - 分值使用“底牌原始分越低越好”的简单口径，主要服务日志可读性。
+ */
+function recordBuryDecisionSnapshot(playerId, cards) {
+  if (!isAiDecisionDebugEnabled() || !playerId || !Array.isArray(cards) || cards.length === 0) return;
+  const pointTotal = getCardsPointTotal(cards);
+  const objective = {
+    primary: "bury_bottom",
+    secondary: state.aiDifficulty === "beginner" ? "short_suit_reserve" : "point_limit",
+  };
+  const score = -pointTotal;
+  const snapshot = {
+    historyId: (state.aiDecisionHistorySeq || 0) + 1,
+    recordedAtTrickNumber: state.trickNumber || null,
+    recordedAtTurnId: playerId,
+    playerId,
+    mode: "bury",
+    objective,
+    evaluation: {
+      total: score,
+      objective,
+      breakdown: {
+        pointTotal,
+        cardCount: cards.length,
+      },
+    },
+    candidateEntries: [{
+      label: null,
+      cards: cloneSetupDebugValue(cards),
+      source: "heuristic",
+      tags: [`底牌分 ${pointTotal}`],
+      score,
+      heuristicScore: score,
+      rolloutScore: null,
+      rolloutFutureDelta: null,
+      rolloutDepth: 0,
+      rolloutReachedOwnTurn: false,
+      rolloutTriggerFlags: [`总分 ${pointTotal}`, `数量 ${cards.length}`],
+      rolloutEvaluation: {
+        total: score,
+        objective,
+        breakdown: {
+          pointTotal,
+          cardCount: cards.length,
+        },
+      },
+      rolloutFutureEvaluation: null,
+    }],
+    filteredCandidateEntries: [],
+    selectedSource: "heuristic",
+    selectedTags: [`底牌分 ${pointTotal}`],
+    selectedScore: score,
+    selectedLabel: null,
+    selectedCards: cloneSetupDebugValue(cards),
+    selectedBreakdown: {
+      pointTotal,
+      cardCount: cards.length,
+    },
+    debugStats: {
+      candidateCount: 1,
+      maxRolloutDepth: 0,
+      extendedRolloutCount: 0,
+    },
+    decisionTimeMs: 0,
+  };
+  commitAiDecisionSnapshot(snapshot);
 }
 
 /**
@@ -3017,8 +3573,9 @@ function startBuryingPhase() {
 
   if (banker.isHuman) return;
 
+  const buryCards = getBuryHintForPlayer(banker.id);
+  recordBuryDecisionSnapshot(banker.id, buryCards);
   state.aiTimer = window.setTimeout(() => {
-    const buryCards = getBuryHintForPlayer(banker.id);
     completeBurying(banker.id, buryCards.map((card) => card.id));
   }, getAiPaceDelay("buryDelay"));
 }
@@ -3656,8 +4213,7 @@ function didHumanSideWin(outcome) {
 
 // 获取等级变化量。
 function getLevelDelta(before, after) {
-  const order = [...NEGATIVE_LEVELS, ...RANKS];
-  return order.indexOf(after) - order.indexOf(before);
+  return LEVEL_ORDER.indexOf(after) - LEVEL_ORDER.indexOf(before);
 }
 
 /**
@@ -4049,23 +4605,76 @@ function formatAiDecisionLogNumber(value) {
   return String(Math.round(value * 100) / 100);
 }
 
+/**
+ * 作用：
+ * 把 AI 决策快照里的 mode 转成结果日志可读标签。
+ *
+ * 为什么这样写：
+ * 旧版导出把除了 `follow` 之外的所有阶段都统称成“首发”，
+ * 导致亮主 / 反主 / 扣底 / 叫朋友在结果日志里很难区分；
+ * 这里集中映射后，所有阶段都能用统一口径导出。
+ *
+ * 输入：
+ * @param {string} mode - 当前快照记录的 mode。
+ *
+ * 输出：
+ * @returns {string} 适合结果日志展示的中文阶段标签。
+ *
+ * 注意：
+ * - 未识别的 mode 仍回退到“首发”，避免旧快照导出失败。
+ * - 这里只负责展示文案，不改变底层 mode 枚举。
+ */
+function getAiDecisionModeLabel(mode) {
+  if (mode === "follow") return "跟牌";
+  if (mode === "declare") return "亮主";
+  if (mode === "counter") return "反主";
+  if (mode === "call_friend") return "叫朋友";
+  if (mode === "bury") return "扣底";
+  return "首发";
+}
+
+/**
+ * 作用：
+ * 为结果日志导出格式化单条 AI 决策里的“选择 / 候选”展示文本。
+ *
+ * 为什么这样写：
+ * 出牌阶段可以直接显示牌组，但叫朋友需要保留“第一张 / 第二张”这类张次信息；
+ * 因此这里优先读取显式 label，再回退到牌面列表，避免不同阶段混成同一种输出。
+ *
+ * 输入：
+ * @param {{label?: string, cards?: Array<object>}} entry - 当前待展示的决策或候选条目。
+ *
+ * 输出：
+ * @returns {string} 适合结果日志直接展示的选择文本。
+ *
+ * 注意：
+ * - 没有 label 且没有牌面时返回 `无`。
+ * - 这里只处理展示，不负责生成 label。
+ */
+function formatAiDecisionChoiceLabel(entry) {
+  if (entry?.label) return entry.label;
+  const cards = Array.isArray(entry?.cards) && entry.cards.length > 0
+    ? entry.cards.map(shortCardLabel).join("、")
+    : "无";
+  return cards;
+}
+
 function formatAiDecisionExportEntry(entry, index) {
   if (!entry) return `${index + 1}. （空记录）`;
   const playerName = getPlayer(entry.playerId)?.name || `玩家${entry.playerId || "?"}`;
-  const modeLabel = entry.mode === "follow" ? "跟牌" : "首发";
+  const modeLabel = getAiDecisionModeLabel(entry.mode);
   const trickLabel = entry.recordedAtTrickNumber ? `第 ${entry.recordedAtTrickNumber} 轮` : "轮次未知";
   const turnLabel = entry.recordedAtTurnId ? `行动位 玩家${entry.recordedAtTurnId}` : "行动位未知";
   const primary = entry.objective?.primary || "--";
   const secondary = entry.objective?.secondary || "--";
-  const selectedCards = Array.isArray(entry.selectedCards) && entry.selectedCards.length > 0
-    ? entry.selectedCards.map(shortCardLabel).join("、")
-    : "无";
+  const selectedCards = formatAiDecisionChoiceLabel({
+    label: entry.selectedLabel,
+    cards: entry.selectedCards,
+  });
   const stats = entry.debugStats || {};
   const topCandidates = Array.isArray(entry.candidateEntries)
     ? entry.candidateEntries.slice(0, 3).map((candidate, candidateIndex) => {
-      const cards = Array.isArray(candidate.cards) && candidate.cards.length > 0
-        ? candidate.cards.map(shortCardLabel).join("、")
-        : "无";
+      const cards = formatAiDecisionChoiceLabel(candidate);
       const flags = Array.isArray(candidate.rolloutTriggerFlags) && candidate.rolloutTriggerFlags.length > 0
         ? candidate.rolloutTriggerFlags.join(" / ")
         : "无";

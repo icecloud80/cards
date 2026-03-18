@@ -69,10 +69,14 @@ function getFollowStructureScoreForState(sourceState, combo) {
  * - 该函数会原地使用 `sort`，调用方如果需要保留原数组，应先传入副本。
  * - 排序规则保持与旧逻辑尽量一致，避免产品行为突变。
  */
-function rankEmergencyLegalSelectionsForState(sourceState, combos) {
+function rankEmergencyLegalSelectionsForState(sourceState, playerId, combos) {
+  const handBefore = getSimulationPlayer(sourceState, playerId)?.hand || [];
   return combos.sort((a, b) => {
     const structureDiff = getFollowStructureScoreForState(sourceState, b) - getFollowStructureScoreForState(sourceState, a);
     if (structureDiff !== 0) return structureDiff;
+    const sameSuitPreserveDiff = scoreSameSuitSingleStructurePreservationFromHand(b, handBefore, sourceState?.leadSpec)
+      - scoreSameSuitSingleStructurePreservationFromHand(a, handBefore, sourceState?.leadSpec);
+    if (sameSuitPreserveDiff !== 0) return sameSuitPreserveDiff;
     const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0)
       - b.reduce((sum, card) => sum + scoreValue(card), 0);
     if (scoreDiff !== 0) return scoreDiff;
@@ -81,7 +85,7 @@ function rankEmergencyLegalSelectionsForState(sourceState, combos) {
 }
 
 function rankEmergencyLegalSelections(playerId, combos) {
-  return rankEmergencyLegalSelectionsForState(state, combos);
+  return rankEmergencyLegalSelectionsForState(state, playerId, combos);
 }
 
 /**
@@ -126,7 +130,7 @@ function findEmergencyLegalSelectionForState(sourceState, playerId) {
   const validCombos = enumerateCombinations(hand, targetCount)
     .filter((combo) => validateFollowSelectionForState(sourceState, playerId, combo).ok);
   if (validCombos.length === 0) return [];
-  return rankEmergencyLegalSelectionsForState(sourceState, validCombos)[0];
+  return rankEmergencyLegalSelectionsForState(sourceState, playerId, validCombos)[0];
 }
 
 function findEmergencyLegalSelection(playerId) {
@@ -194,9 +198,13 @@ function findLegalSelectionBySearchForState(sourceState, playerId) {
   if (!getSimulationPlayer(sourceState, playerId) || !sourceState?.currentTrick?.length) return [];
   const validCombos = getLegalSelectionsForState(sourceState, playerId);
   if (validCombos.length === 0) return [];
+  const handBefore = getSimulationPlayer(sourceState, playerId)?.hand || [];
   return validCombos.sort((a, b) => {
     const structureDiff = getFollowStructureScoreForState(sourceState, b) - getFollowStructureScoreForState(sourceState, a);
     if (structureDiff !== 0) return structureDiff;
+    const sameSuitPreserveDiff = scoreSameSuitSingleStructurePreservationFromHand(b, handBefore, sourceState?.leadSpec)
+      - scoreSameSuitSingleStructurePreservationFromHand(a, handBefore, sourceState?.leadSpec);
+    if (sameSuitPreserveDiff !== 0) return sameSuitPreserveDiff;
     const scoreDiff = a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;

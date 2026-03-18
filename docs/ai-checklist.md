@@ -119,11 +119,20 @@
   - 当前工作区也已补 `unresolvedProbeVetoPenalty`：
     lead 侧会对“未站队且无回手保障的高成本试探”做更硬 veto；
     follow 侧只做中等降权，避免把必要接手和合法亮友路线误杀。
+  - 2026-03-18 又继续补了“连续试探历史”：
+    `probeRisk` 与 `unresolvedProbeVetoPenalty` 现在会额外读取当前玩家已经公开打掉过多少 `A / 王 / 高主 / 带分牌`；
+    朋友仍未站队时，连续高成本 probe 会比“第一次试探”吃到更重的统一惩罚。
   - 使用这套新口径补跑的 `20` 局 mixed（seed=`mid-ai-next-step`）结果为：
     `20/20` 完局、`friend failed = 0`、平均 AI 决策耗时 `237.46 ms`；
     但未站队阶段仍有 `turn_access_risk = 15`、`point_run_risk = 9`，且 `dangerous_point_lead = 3` 仍未归零，
     说明本轮更偏“观测与 veto 骨架已立住”，后续还需要继续压行为权重，而不是把这一项直接视作完成。
   - 同时新增“高张定门再递牌”保护：朋友已站队、全桌公开仍在跟某门、且自己同时握有该门 `A` 与后续小牌时，中级会把这手 `A` 视作正向协同候选，而不是和危险带分领牌混写。
+  - `叫朋友` 阶段这次也补上了专项收口：
+    中级 / 高级已把“短门第一张 `A` 更容易找朋友、也更容易回手”显式接进候选评分；
+    同时结果日志里的 AI 决策记录已继续补到 `扣底 / 叫朋友` 两个阶段，方便把问题局完整导出。
+  - `bottomRelease` 现已正式进入 `evaluateState(...)`：
+    它会在残局同侧控牌时，评估“当前玩家是否已经把王张 / 高主这类可让给同侧的资源让出来”，
+    并被 `protect_bottom / grade_bottom` 明确加权；`controlExit` 也会继续参考这项压力，避免 resolved-friend 阶段继续高张硬控。
 - 验收：
   - `evaluateState` 输出可解释 breakdown
   - 至少能解释这 3 类局面：
@@ -160,9 +169,11 @@
 - `check-ai-intermediate-search.js` 已新增“控制型目标下危险带分领牌会被 rollout 二次否决”的专项回归。
 - `check-ai-intermediate-search.js` 现也已新增：
   - 未站队高张试探被 `unresolvedProbeVetoPenalty` 压住；
+  - 未站队重复高张试探会因历史公开消耗而继续加重 veto；
   - 直接亮友与 `turn_access_hold` 明确成立时，不会被 probe veto 误杀；
   - `grade_bottom` 显式优先时，试探约束不会压掉保级牌扣底路线；
   - `probeRisk` breakdown 能区分“保留资源的健康试探”和“已过热的未站队试探”。
+  - `bottomRelease / controlExit` 能识别“残局同侧控牌时，高主已释放”和“仍攥着王张硬控”的差异。
 - 失先手连续跑分、固定 seed 异常候选摘要仍待补到更专项的搜索/整局回归里。
 - 验收：
   - 复盘过的问题都能被至少一条单测或回归覆盖。

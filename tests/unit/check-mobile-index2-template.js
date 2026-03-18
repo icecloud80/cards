@@ -55,8 +55,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 button\.action-btn \{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/,
-    "index2 应把底部操作按钮压短，避免继续顶住手牌区",
+    /body\.mobile-index2 button\.action-btn \{[\s\S]*height:\s*34px;[\s\S]*min-height:\s*34px;[\s\S]*padding:\s*6px\s+4px;/,
+    "index2 的底部操作按钮应保留更舒服的上下内边距，避免按钮触控区显得过窄",
   );
   assert.match(
     html,
@@ -65,8 +65,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*36px\s*!important;[\s\S]*min-height:\s*36px\s*!important;/,
-    "index2 的普通底部按钮态应固定收口到贴近按钮的 36px 高度",
+    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*40px\s*!important;[\s\S]*min-height:\s*40px\s*!important;/,
+    "index2 的普通底部按钮态应略微抬高到 40px，给按钮上下 padding 留出呼吸空间",
   );
   assert.match(
     html,

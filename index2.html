@@ -3695,14 +3695,14 @@
         align-self: end;
       }
 
-      /* 普通按钮态固定收在 36px 高；只有 setup-choice-mode 真正展开候选区时才放开。 */
+      /* 普通按钮态略微抬高到 40px，高度仍受控，但按钮上下需要留出更舒服的触控呼吸感。 */
       body.mobile-index2 .center-panel:not(.setup-choice-mode) {
-        height: 36px !important;
-        min-height: 36px !important;
+        height: 40px !important;
+        min-height: 40px !important;
       }
 
       body.mobile-index2 .center-panel.setup-choice-mode {
-        min-height: 40px !important;
+        min-height: 44px !important;
         padding-top: 4px;
         padding-bottom: 2px;
       }
@@ -3722,9 +3722,9 @@
       }
 
       body.mobile-index2 button.action-btn {
-        height: 30px;
-        min-height: 30px;
-        padding: 4px 4px;
+        height: 34px;
+        min-height: 34px;
+        padding: 6px 4px;
         font-size: 10px;
       }
 

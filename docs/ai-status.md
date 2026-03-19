@@ -75,9 +75,12 @@
   `短门 A` 不再只走“持有第一张就叫第二张 / 持有前两张就叫第三张”的单线规则，
   而是会把同门 `第一张 / 第二张 / 第三张 A` 以及“无自持 A 的短门第一张”一起纳入比较，
   只根据同门长度、零分 / 小牌支撑、回手口和已知埋底做排序，不做任何开局模拟。
+- beginner 的王张找友边界这轮也重新收紧了：
+  当前不会再因为“副牌过脏”就把 `大王 / 小王` 混进常规叫朋友候选；
+  这条能力重新只保留给更高难度，避免 fixed-seed 样本退回到 `第三张大王` 这类晚亮友、甚至直接找友失败的路线。
 - 对应固定 seed 回归也已补齐：
   `check-beginner-friend-target-window.js` 现在会锁住 `ZSO1hGI883r` 里的 `game-01 / game-04 / game-12` 三条历史样本，
-  分别要求继续命中 `第三张黑桃 A / 第一张黑桃 A / 第二张方块 A`，并保持打家赢局。
+  当前分别要求继续命中 `第二张黑桃 A / 第一张黑桃 A / 第一张红桃 A`，确保 beginner 不会再回退到王张找友。
 - 对应单测已补齐：
   `check-ai-intermediate-foundation.js` 现在会检查 `bottomRelease`，
   `check-ai-intermediate-search.js` 现在会检查“重复 probe 历史加重 veto”“已站队后高资源 hard-control 会吃 cooling penalty”和“释放高主后 `controlExit` / `bottomRelease` 变好”。
@@ -105,6 +108,8 @@
 - 针对用户给出的固定种子 `ZSO1hGI883r`，当前初级全托管批跑已能稳定 `20 / 20` 完局，不再出现旧版 `game-11` 的 `发牌阶段未推进`；在此基础上，最新这版纯“短门 A 多候选”又把打家胜率从旧汇总的 `4 / 20` 提升到 `6 / 20`，对应产物见 [artifacts/headless-regression/zso1hgi883r-beginner-20-short-suit-a-v2/summary.json](../artifacts/headless-regression/zso1hgi883r-beginner-20-short-suit-a-v2/summary.json)。
 - 这次 `6 / 20` 的净提升主要来自 `game-01`、`game-04` 两局由负转胜，以及 `game-02 / 06 / 13 / 14 / 15 / 16` 这几局闲家分显著下降；
   但 `game-03`、`game-10` 仍有局部回退，说明 beginner 叫朋友的纯 heuristic 还有继续细化的空间。
+- 另一个会话一度把 beginner 放宽到王张找友后，同种子批跑退回到打家 `4 / 20`，且 `friend failed` 从 `1` 局升到 `3` 局；
+  当前已把 beginner 重新收紧回“副牌高张优先”，最新产物 [artifacts/headless-regression/zso1hgi883r-beginner-20-tighten-joker-fallback/summary.json](../artifacts/headless-regression/zso1hgi883r-beginner-20-tighten-joker-fallback/summary.json) 为打家 `5 / 20`、`friend failed = 1`，说明这次收口至少把最明显的王张回退压回去了。
 
 需要明确保留的边界：
 

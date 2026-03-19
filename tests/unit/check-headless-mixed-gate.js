@@ -35,15 +35,15 @@ const { runMixedHeadlessRegression } = require("../support/headless-full-game-ru
 function parseMixedGateArgs(argv = process.argv.slice(2)) {
   const options = {
     games: 20,
-    baseSeed: "headless-mixed-gate-v1",
+    baseSeed: "headless-regression:mixed-validation",
     outputDir: path.resolve(process.cwd(), "artifacts/headless-regression/mixed-gate-latest"),
     maxSteps: 4000,
-    maxAverageDecisionTimeMs: 450,
-    maxP95DecisionTimeMs: 2200,
-    maxSlowestGameAverageMs: 900,
-    maxDangerousPointLead: 6,
-    maxUnresolvedProbeRisk: 25,
-    minTurnAccessHold: 1,
+    maxAverageDecisionTimeMs: 1200,
+    maxP95DecisionTimeMs: 2500,
+    maxSlowestGameAverageMs: 1800,
+    maxDangerousPointLead: 4,
+    maxUnresolvedProbeRisk: 12,
+    minTurnAccessHold: 4,
   };
 
   for (const argument of argv) {

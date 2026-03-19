@@ -87,6 +87,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-follow-rollout-budget.js"),
   },
   {
+    name: "AI lead rollout budget regression",
+    file: path.join(__dirname, "check-ai-lead-rollout-budget.js"),
+  },
+  {
     name: "Trump tractor auto-select performance regression",
     file: path.join(__dirname, "check-trump-tractor-hint-performance.js"),
   },

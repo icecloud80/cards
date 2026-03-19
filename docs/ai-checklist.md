@@ -223,14 +223,25 @@
   - 跟牌热路径已补上正式预算保护：
     最重的 `5` 张复杂跟牌样本会直接退回 heuristic shortlist，不再继续 rollout；
     对应 `check-ai-follow-rollout-budget.js` 已长期守门。
+  - 首发热路径也已补上正式预算保护：
+    当复杂首发出现 `10+` 候选时，会先缩成 heuristic shortlist，再只让少量代表候选进入 rollout；
+    对应 `check-ai-lead-rollout-budget.js` 已固定住“`12` 手候选压到 `6` 手 shortlist、只跑 `3` 手 rollout”的样本。
   - headless 摘要现已同时记录：
     `turn_access_risk / point_run_risk / turn_access_hold / dangerous_point_lead / unresolved_probe_risk / revealed_friend_control_shift`，
     并保留 `friend=unrevealed` 下的拆分计数、候选过滤统计和 fixed-seed 样本。
+  - headless 现在也会正式输出第二阶段性能看板：
+    包括 `P50 / P90 / P95`、`slowestGames`、`slowestDecisions` 与 `lead / follow` 分模式耗时分布。
   - `turn_access_hold` 现已成为正式摘要指标：
-    最新无 UI 回归为 `selected turn_access_hold = 15`，mixed 验证为 `turn_access_hold = 16`，
+    最新无 UI 回归为 `selected turn_access_hold = 19`，mixed 验证为 `turn_access_hold = 7`，
     可以直接复盘“赢轮后下一拍仍有牌权优势”的正向样本。
+  - 最新无 UI 全游戏回归 `P95` 已降到 `1222.68 ms`；
+    mixed 验证当前为平均 AI 决策耗时 `787.78 ms`、`P95 = 1533.91 ms`，
+    说明首发预算保护已经把上一轮几十秒级的复杂首发尖峰明显压下来了。
   - 真实浏览器 UI smoke 已在 PC / mobile 两端通过：
     都能在 `瞬` 档开启托管后完整打到结算，不再只停留在 headless 守门。
+  - dedicated mixed 长门禁脚本也已补齐：
+    `npm run test:headless:mixed-gate` 现可直接产出 `20` 局 mixed summary / analysis；
+    当前已用 `2` 局 smoke 校验通过，正式 `20` 局建议单独执行，不塞进日常快速回归。
 - 验收：
   - 可从 debug 数据看出 AI 为什么选这手
   - 可从 debug 数据看出 AI 为什么没有选某类看似激进的候选
@@ -238,8 +249,8 @@
 
 ## 推荐执行顺序
 
-1. 继续做 mixed `20` 局门槛与后续调权重，避免在小样本 smoke 上过早宣布风险线收平。
-2. 再按热点继续做第二阶段性能收口，例如克隆/评估缓存与更大样本时的耗时看板。
+1. 用 `npm run test:headless:mixed-gate` 持续执行 mixed `20` 局长门禁，先把大样本风险线固定下来。
+2. 再按长门禁暴露出的 `slowestGames / slowestDecisions` 热点，继续做克隆/评估缓存这类第二阶段性能收口。
 3. 之后再考虑是否需要新增更细的 fixed-seed AI 数据集抽样，而不是先扩张新的 heuristic 面。
 
 ## 后续专项维护建议

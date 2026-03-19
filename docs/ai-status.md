@@ -25,6 +25,9 @@
 - 当前最准确的工程判断已经变成：
   `里程碑 3 / 3.5 / 4 的基线都已完成`，
   下一步该转去更大样本 mixed 守门与第二阶段性能收口，而不是继续补骨架。
+- 这轮又补上了一条新的性能止血线：
+  复杂 `lead` 现在也和 `follow` 一样，会先做 heuristic shortlist，再按预算决定 rollout；
+  对应固定样本已从旧版 `12` 手候选全量 depth-2 rollout，收口到 `6` 手 shortlist、`3` 手 rollout。
 - 当前工作区已补一条新的收口线：`evaluateState(...)` 现已新增 `controlExit` breakdown，并接入 `resolved friend + clear_trump / keep_control` 的 objective 权重与危险带分领牌 veto，用来专门处理“朋友已站队后控牌过热”的问题。
 - 当前工作区也已补上“未站队阶段高张试探预算”的统一入口：
   `evaluateState(...)` 新增 `probeRisk` breakdown，
@@ -84,12 +87,19 @@
 - 快速单测 `52 / 52` 通过，说明目前共享层、声明阶段托管收口与 AI 专项回归处于稳定状态。
 - 最新无 UI 全游戏回归 `3 / 3` 完局、`0` 告警，且 `selected turn_access_risk = 10`、`selected point_run_risk = 3`、`dangerous_point_lead = 1`，见 [artifacts/headless-regression/latest/analysis.md](../artifacts/headless-regression/latest/analysis.md)。
 - 最新 mixed 验证 `2 / 2` 完局、`0` 告警，当前样本里 `turn_access_risk = 2`、`point_run_risk = 2`、`dangerous_point_lead = 2`、`unresolved_probe_risk = 0`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
+- 最新 headless 性能看板也已写进产物：
+  无 UI 全游戏当前平均 AI 决策耗时 `276.16 ms`、`P95 = 1222.68 ms`；
+  mixed 验证当前平均 AI 决策耗时 `787.78 ms`、`P95 = 1533.91 ms`，
+  并会同步记录 `slowestGames / slowestDecisions` 供 fixed-seed 复跑。
 - `3.5` 这轮最后补上的门禁也已经通过：
   `pointRunRisk` 样本必须带 `point_run_risk` 风险标记，
   固定 seed 产物里的 `summary / analysis / events / topSignalGames / samples` 也必须都能回溯到同一条 `baseSeed`，避免异常样本只能“看见”却无法复跑。
 - `4` 这轮也补齐了最后一条摘要指标：
   headless 现在会正式统计 `turn_access_hold`，也就是“赢轮后下一拍仍有牌权优势”的正向样本；
-  最新无 UI 回归里该指标为 `15`，mixed 验证里为 `16`。
+  最新无 UI 回归里该指标为 `19`，mixed 验证里为 `7`。
+- 大样本 mixed 长门禁脚本也已补齐：
+  [tests/unit/check-headless-mixed-gate.js](../tests/unit/check-headless-mixed-gate.js) 与 `npm run test:headless:mixed-gate`
+  现已作为 dedicated 长门禁入口存在，并已用 `2` 局 smoke 验证通过。
 - 真实浏览器 UI smoke 也已经实际跑通：
   PC / mobile 两端都能在 `瞬` 档开启托管后完整结算，不再只是保留脚本入口但没人验证。
 - 针对用户给出的固定种子 `ZSO1hGI883r`，当前初级全托管批跑已能稳定 `20 / 20` 完局，不再出现旧版 `game-11` 的 `发牌阶段未推进`；在此基础上，最新这版纯“短门 A 多候选”又把打家胜率从旧汇总的 `4 / 20` 提升到 `6 / 20`，对应产物见 [artifacts/headless-regression/zso1hgi883r-beginner-20-short-suit-a-v2/summary.json](../artifacts/headless-regression/zso1hgi883r-beginner-20-short-suit-a-v2/summary.json)。
@@ -386,7 +396,7 @@
 ### 仍然缺口最大的部分
 
 - 中级的“候选与状态彻底解耦”。
-- mixed `20` 局与更大样本门槛。
+- mixed `20` 局的正式长跑执行与持续维护。
 - 第二阶段性能收口，例如克隆/评估缓存与更细的耗时看板。
 - 高级的 belief / sampled worlds 还完全没有开始。
 - 候选与状态彻底解耦仍是重要架构缺口，但当前最直接影响实战体感的问题，已经转为残局 `牌权续控`、失先手代价和朋友已站队后的策略切换是否足够完整。
@@ -409,9 +419,9 @@
 
 建议重点：
 
-- 跑 mixed `20` 局与更大样本门槛，确认 `dangerous_point_lead / point_run_risk / turn_access_hold` 不回升。
+- 持续执行 mixed `20` 局长门禁，确认 `dangerous_point_lead / point_run_risk / turn_access_hold` 不回升。
 - 继续盯 `friend=revealed` 下的 `keep_control / clear_trump / protect_bottom` 场景，但重点转成“在更大样本里是否回升”。
-- 再按热点补第二阶段性能收口，例如克隆/评估缓存与更细的耗时观测。
+- 再按 `slowestGames / slowestDecisions` 暴露出的热点补第二阶段性能收口，例如克隆/评估缓存与更细的耗时观测。
 - 把更多“先判断再直接 return”的 legacy 规则改成评分修正项。
 - 继续把甩牌风险从候选层标签推进成 `evaluateState` 可解释 breakdown 的正式组成部分。
 - 把“保扣底时是否该提前卸王 / 卸高主”从启发式垫牌推进成正式评分项。

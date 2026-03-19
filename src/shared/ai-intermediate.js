@@ -2343,6 +2343,194 @@ function scoreIntermediateRiskyPointLeadVetoPenalty(entry, objective = null) {
   return Math.max(0, penalty);
 }
 
+/**
+ * 作用：
+ * 为中级 / 高级 AI 的首发 rollout 评分返回一个可控的候选预算。
+ *
+ * 为什么这样写：
+ * mixed 长样本里最慢的尖峰不是跟牌，而是“未站队或控牌期的复杂首发”：
+ * 候选虽然只有十来手，但如果每一手都继续跑 depth-2 rollout，
+ * 单次首发决策仍可能拖到几十秒。这里把首发也补成和跟牌一致的预算保护，
+ * 先把最坏路径砍掉，再保留少量最关键分支做前瞻。
+ *
+ * 输入：
+ * @param {Array<object>} candidateEntries - 已通过合法性过滤的首发候选条目。
+ *
+ * 输出：
+ * @returns {number} 当前局面允许进入 rollout 评分的最大候选数；返回 `0` 表示本轮只走 heuristic shortlist。
+ *
+ * 注意：
+ * - 低复杂度首发尽量不收紧，避免平白损失决策质量。
+ * - 这里限制的是 rollout 数量，不影响候选合法性和基础 heuristic 排序。
+ */
+function getIntermediateLeadRolloutBudget(candidateEntries) {
+  if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return 0;
+
+  const candidateCount = candidateEntries.length;
+  const maxComboSize = candidateEntries.reduce(
+    (max, entry) => Math.max(max, Array.isArray(entry?.cards) ? entry.cards.length : 0),
+    0
+  );
+
+  if (candidateCount <= 6 && maxComboSize <= 2) {
+    return candidateCount;
+  }
+  if (maxComboSize >= 5 || candidateCount >= 18) {
+    return Math.min(candidateCount, 2);
+  }
+  if (maxComboSize >= 4 || candidateCount >= 12) {
+    return Math.min(candidateCount, 3);
+  }
+  if (maxComboSize >= 3 || candidateCount >= 8) {
+    return Math.min(candidateCount, 4);
+  }
+  return candidateCount;
+}
+
+/**
+ * 作用：
+ * 为复杂首发场景返回一个纯 heuristic shortlist 容量。
+ *
+ * 为什么这样写：
+ * 只收紧 rollout 预算还不够，如果继续把十几手首发全留到最终排序里，
+ * 调试快照和排序成本仍会膨胀。这里给首发也补一层 shortlist 上限，
+ * 让复杂首发改成“少量候选精排”，而不是继续全量展开。
+ *
+ * 输入：
+ * @param {Array<object>} candidateEntries - 已过滤的首发候选条目。
+ *
+ * 输出：
+ * @returns {number} 当前局面允许保留的 heuristic shortlist 数量。
+ *
+ * 注意：
+ * - shortlist 上限可以大于 rollout 预算。
+ * - 这里的上限只服务复杂首发，不影响简单局面的全量评分。
+ */
+function getIntermediateLeadShortlistLimit(candidateEntries) {
+  if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return 0;
+
+  const candidateCount = candidateEntries.length;
+  const maxComboSize = candidateEntries.reduce(
+    (max, entry) => Math.max(max, Array.isArray(entry?.cards) ? entry.cards.length : 0),
+    0
+  );
+
+  if (candidateCount <= 6 && maxComboSize <= 2) {
+    return candidateCount;
+  }
+  if (maxComboSize >= 5 || candidateCount >= 18) {
+    return Math.min(candidateCount, 4);
+  }
+  if (maxComboSize >= 4 || candidateCount >= 12) {
+    return Math.min(candidateCount, 6);
+  }
+  if (maxComboSize >= 3 || candidateCount >= 8) {
+    return Math.min(candidateCount, 8);
+  }
+  return candidateCount;
+}
+
+/**
+ * 作用：
+ * 在首发评分前，先用便宜的 heuristic 把高价值候选缩成 rollout shortlist。
+ *
+ * 为什么这样写：
+ * 首发的真实热点不是“候选完全爆炸”，而是十来手都值得看时每手都跑完整 rollout。
+ * 这里优先保留：
+ * 1. beginner 基线；
+ * 2. heuristic 最高项；
+ * 3. 安全续控候选；
+ * 4. 低分非主探路；
+ * 5. 关键主控候选；
+ * 这样既能明显缩短复杂首发耗时，也尽量不丢掉最关键的分支类型。
+ *
+ * 输入：
+ * @param {number} playerId - 当前决策玩家 ID。
+ * @param {Array<object>} candidateEntries - 已过滤的首发候选条目。
+ * @param {Array<object>} beginnerChoice - 初级提示链给出的基线动作。
+ *
+ * 输出：
+ * @returns {Array<object>} 返回已经带上 `heuristicScore` 的首发 shortlist。
+ *
+ * 注意：
+ * - 这里只做 shortlist，不直接决定最终出牌。
+ * - `beginnerChoice` 需要尽量保留，避免把明显安全的保底首发裁掉。
+ */
+function selectIntermediateLeadRolloutEntries(playerId, candidateEntries, beginnerChoice) {
+  if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return [];
+
+  const annotatedEntries = candidateEntries
+    .map((entry) => {
+      const heuristicScore = scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice, entry);
+      return {
+        ...entry,
+        heuristicScore,
+      };
+    })
+    .sort((a, b) => {
+      const scoreDiff = (b.heuristicScore || 0) - (a.heuristicScore || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return classifyPlay(a.cards).power - classifyPlay(b.cards).power;
+    });
+
+  const shortlistLimit = getIntermediateLeadShortlistLimit(annotatedEntries);
+  if (shortlistLimit >= annotatedEntries.length) {
+    return annotatedEntries;
+  }
+
+  const selectedEntries = [];
+  const selectedKeys = new Set();
+  const beginnerKey = Array.isArray(beginnerChoice) && beginnerChoice.length > 0
+    ? getComboKey(beginnerChoice)
+    : "";
+
+  /**
+   * 作用：
+   * 把一手首发 shortlist 候选稳定加入结果集并去重。
+   *
+   * 为什么这样写：
+   * shortlist 需要同时保留“安全基线、最佳启发式、不同分支类型”的代表项；
+   * 用统一 helper 去重，能避免同一手牌被重复塞进结果里，打乱后续预算。
+   *
+   * 输入：
+   * @param {?object} entry - 待加入 shortlist 的候选条目。
+   *
+   * 输出：
+   * @returns {void} 只更新本地 shortlist，不返回额外结果。
+   *
+   * 注意：
+   * - 空条目必须直接忽略。
+   * - 达到 shortlist 上限后必须停止追加。
+   */
+  function addSelectedEntry(entry) {
+    if (!entry || selectedEntries.length >= shortlistLimit) return;
+    const comboKey = getComboKey(entry.cards);
+    if (selectedKeys.has(comboKey)) return;
+    selectedKeys.add(comboKey);
+    selectedEntries.push(entry);
+  }
+
+  addSelectedEntry(annotatedEntries.find((entry) => getComboKey(entry.cards) === beginnerKey) || null);
+  addSelectedEntry(annotatedEntries[0] || null);
+  addSelectedEntry(annotatedEntries.find((entry) => isSafeEndgameLeadCandidate(entry)) || null);
+  addSelectedEntry(annotatedEntries.find((entry) => (
+    entry.cards.length > 0
+    && effectiveSuit(entry.cards[0]) !== "trump"
+    && getComboPointValue(entry.cards) === 0
+  )) || null);
+  addSelectedEntry(annotatedEntries.find((entry) => (
+    entry.cards.length > 0
+    && effectiveSuit(entry.cards[0]) === "trump"
+  )) || null);
+
+  for (const entry of annotatedEntries) {
+    addSelectedEntry(entry);
+    if (selectedEntries.length >= shortlistLimit) break;
+  }
+
+  return selectedEntries;
+}
+
 function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginnerChoice, baselineEvaluation = null) {
   if (!Array.isArray(candidateEntries) || candidateEntries.length === 0) return [];
   const baseEvaluation = baselineEvaluation || evaluateState(
@@ -2350,9 +2538,38 @@ function buildScoredIntermediateLeadEntries(playerId, candidateEntries, beginner
     playerId,
     getIntermediateObjective(playerId, "lead", cloneSimulationState(state))
   );
-  return candidateEntries
-    .map((entry) => {
-      const heuristicScore = scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice, entry);
+  const rolloutEntries = selectIntermediateLeadRolloutEntries(playerId, candidateEntries, beginnerChoice);
+  const rolloutBudget = getIntermediateLeadRolloutBudget(rolloutEntries);
+  return rolloutEntries
+    .map((entry, index) => {
+      const heuristicScore = typeof entry.heuristicScore === "number"
+        ? entry.heuristicScore
+        : scoreIntermediateLeadCandidate(playerId, entry.cards, beginnerChoice, entry);
+      if (index >= rolloutBudget) {
+        return {
+          ...entry,
+          heuristicScore,
+          rolloutScore: 0,
+          rolloutDelta: 0,
+          rolloutCompleted: false,
+          rolloutWinnerId: null,
+          rolloutPoints: 0,
+          rolloutNextMode: null,
+          rolloutTrace: [],
+          rolloutDepth: 0,
+          rolloutFutureDelta: 0,
+          rolloutReachedOwnTurn: false,
+          rolloutFutureTrace: [],
+          rolloutTriggerFlags: ["rollout_skipped_by_budget"],
+          rolloutEvaluation: summarizeEvaluationForDebug(baseEvaluation),
+          rolloutFutureEvaluation: null,
+          structureControlPenalty: 0,
+          riskyPointLeadVetoPenalty: 0,
+          unresolvedProbeVetoPenalty: 0,
+          resolvedFriendControlCoolingPenalty: 0,
+          score: heuristicScore,
+        };
+      }
       const rollout = getIntermediateRolloutSummary(playerId, entry.cards, baseEvaluation, "lead");
       const rolloutEntry = {
         ...entry,

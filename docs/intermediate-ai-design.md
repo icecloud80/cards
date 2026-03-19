@@ -72,6 +72,10 @@
 
 - `lead` 表示当前玩家首发。
 - `follow` 表示当前玩家跟牌。
+- 对 `lead` 里的复杂首发，当前实现也已经补上“先 heuristic shortlist，再决定是否 rollout”的预算保护：
+  - 当首发候选已经涨到 `10+` 手时，不再默认每手都跑 depth-2 rollout。
+  - 会先保留 beginner 基线、heuristic 最优、安全续控、低分探路和关键主控这些代表分支。
+  - 固定性能样本现已从 `12` 手全量 rollout 收口到 `6` 手 shortlist、`3` 手 rollout。
 - 对 `follow` 里的复杂多张跟牌，当前实现已经补上“先 heuristic shortlist，再决定是否 rollout”的预算保护：
   - 常规单张 / 小规模候选仍可走完整 rollout。
   - 当候选已经很多、且单手跟牌达到 `4-5` 张时，会先保留少量高价值候选。

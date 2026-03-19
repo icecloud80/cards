@@ -279,7 +279,13 @@
 - `里程碑 4` 的基线也已在当前工作区完成：
   headless 现已正式统计 `turn_access_hold`，用来表示“赢轮后下一拍仍有牌权优势”的正向样本；
   `check-ai-follow-rollout-budget.js` 已长期守住复杂跟牌 rollout 预算；
+  `check-ai-lead-rollout-budget.js` 也已补上复杂首发的 rollout 预算保护；
   真实浏览器 UI smoke 也已实际跑通 PC / mobile 在 `瞬` 档托管下的整局结算。
+- headless 汇总这轮又补上了第二阶段性能看板：
+  当前会正式输出 `P50 / P90 / P95`、`slowestGames`、`slowestDecisions` 与 `lead / follow` 分模式耗时。
+- 这意味着“更大样本 mixed 守门”已经不只是规划：
+  dedicated 长门禁脚本 `npm run test:headless:mixed-gate` 已经存在，并已用 `2` 局 smoke 验证通过；
+  下一步是持续执行 `20` 局而不是继续补脚手架。
 - 因此，当前路线图的下一步重点已经不是“继续补 M4 骨架”，而是拿这套基线去跑更大样本 mixed 与第二阶段性能优化。
 
 ### 基于 2026-03-16 代码性能审查的新增优先项
@@ -295,6 +301,8 @@
   若 `follow` 侧的试探判定开始把 mixed 单步耗时明显拉高，就要优先继续收紧快筛范围，而不是无上限增加结构差分。
 - 2026-03-17 已补第一条运行时止血线：
   对 `follow` 模式里的复杂多张跟牌，不能再默认把 shortlist 里的所有候选都送去 rollout；当前实现已改为“先 heuristic shortlist，再按预算决定是否 rollout”，最重的 `5` 张复杂跟牌样本允许直接跳过 rollout。
+- 2026-03-19 又补第二条运行时止血线：
+  对 `lead` 模式里“候选十来手、且每手都会继续 depth-2 rollout”的复杂首发，当前也已改为“先 heuristic shortlist，再按预算决定 rollout”，固定样本现已从 `12` 手全量 rollout 收口到 `6` 手 shortlist、`3` 手 rollout。
 - 因此，`AI 性能硬化` 现在应被视为中级路线图的正式主线之一，而不是单纯的工程清理。
 
 本轮审查识别出的 4 类主要热点：

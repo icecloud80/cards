@@ -742,8 +742,8 @@ function buildFriendSearchRouteProfile(banker, target) {
       return pattern.type === "tractor" || pattern.type === "train";
     })
     .length;
-  const pointCount = getComboPointValue(suitCards);
-  const searchPointCount = getComboPointValue(searchCards);
+  const pointCount = suitCards.reduce((sum, card) => sum + scoreValue(card), 0);
+  const searchPointCount = searchCards.reduce((sum, card) => sum + scoreValue(card), 0);
   return {
     suitCards,
     suitCount: suitCards.length,
@@ -794,7 +794,10 @@ function shouldPreferJokerFriendFallback(banker) {
     .filter((profile) => !!profile && profile.suitCount > 0)
     .filter((profile) => {
       const hasRoute = profile.searchCount > 0 || profile.targetCopies > 0 || profile.bridgeCount > 0;
-      const overloaded = profile.heavyStructureCount > 0 || profile.pairCount >= 2 || profile.searchPointCount >= 10 || profile.suitCount >= 5;
+      const overloaded = profile.heavyStructureCount > 0
+        || profile.pairCount >= 2
+        || (profile.pairCount >= 1 && profile.pointCount >= 10)
+        || profile.pointCount >= 20;
       return hasRoute && !overloaded;
     })
     .length;

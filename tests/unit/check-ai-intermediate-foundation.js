@@ -249,6 +249,12 @@ function runIntermediateFoundationSuite(context) {
     assert(filteredThrowResult.entries[0].tags.includes("throw_risky"), "filterCandidateEntriesForState: should tag unresolved throw candidates as throw_risky");
     const throwRiskAssessment = assessThrowCandidateForState(throwGuardState, 3, [...throwGuardState.players[2].hand]);
     assert(throwRiskAssessment && throwRiskAssessment.level === "risky", "assessThrowCandidateForState: unresolved higher singles should mark throw as risky");
+    const riskyThrowEvaluation = evaluateState(
+      throwGuardState,
+      3,
+      getIntermediateObjective(3, "lead", throwGuardState)
+    );
+    assert(typeof riskyThrowEvaluation.breakdown.throwRisk === "number", "evaluateState: should expose throw-risk breakdown");
 
     resetCommonState();
     state.currentTurnId = 3;
@@ -498,6 +504,15 @@ function runIntermediateFoundationSuite(context) {
     const safeThrowEntry = createCandidateEntry(safeThrowCombo, "manual", ["throw", "hearts"]);
     const safeThrowResult = filterCandidateEntriesForState(throwSafeState, 3, "lead", [safeThrowEntry]);
     assert(safeThrowResult.entries[0].tags.includes("throw_safe"), "filterCandidateEntriesForState: publicly safe throw should carry throw_safe tag");
+    const safeThrowEvaluation = evaluateState(
+      throwSafeState,
+      3,
+      getIntermediateObjective(3, "lead", throwSafeState)
+    );
+    assert(
+      safeThrowEvaluation.breakdown.throwRisk > riskyThrowEvaluation.breakdown.throwRisk,
+      "evaluateState: publicly safe throw state should score better throwRisk than unresolved risky throw state"
+    );
 
     resetCommonState();
     state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false };
@@ -532,6 +547,7 @@ function runIntermediateFoundationSuite(context) {
     assert(typeof evaluation.breakdown.structure === "number", "evaluateState: should expose structure breakdown");
     assert(typeof evaluation.breakdown.allySupport === "number", "evaluateState: should expose ally-support breakdown");
     assert(typeof evaluation.breakdown.tempo === "number", "evaluateState: should expose tempo breakdown");
+    assert(typeof evaluation.breakdown.throwRisk === "number", "evaluateState: should expose throw-risk breakdown");
     assert(typeof evaluation.breakdown.friendBelief === "number", "evaluateState: should expose friend-belief breakdown");
     assert(typeof evaluation.breakdown.friendRisk === "number", "evaluateState: should expose friend-risk breakdown");
     assert(typeof evaluation.breakdown.bottomRisk === "number", "evaluateState: should expose bottom-risk breakdown");

@@ -21,8 +21,8 @@
 
 - `中级仍然是当前最值得投入的一档`，因为它已经具备完整的候选、模拟、评估和 objective 骨架，但仍有明显的残局续控收口空间。
 - `高级` 依旧不是路线图定义里的“会读牌”阶段，而是“完整记牌 + 复用中级搜索框架”的过渡档。
-- `危险带分领牌` 与 `point_run_risk` 都出现了继续下降：这轮全桌 smoke 里，`dangerous_point_lead` 从上一轮观察到的 `4` 次降到 `2` 次，`point_run_risk` 从 `13` 次降到 `9` 次，说明“控制型高风险领牌二次否决”方向有效；但 mixed 小样本里仍有 `1` 次危险带分领牌，说明这条线还没有收官。
-- 当前最准确的工程判断不是“AI 还不够聪明”，而是“中级搜索框架已经站住，接下来应该继续做评估函数第二版和 legacy 规则下沉”。
+- `危险带分领牌` 的 headless 统计口径这轮也收紧了：现在只统计“heuristic 命中后又被 rollout / veto 确认”的样本。按这条新口径，最新全桌 smoke 里 `dangerous_point_lead = 1`、`point_run_risk = 3`，mixed 小样本里 `dangerous_point_lead = 2`、`point_run_risk = 2`，说明剩下的更像真实残留风险，而不是统计误报。
+- 当前最准确的工程判断不再是“继续补 M3 骨架”，而是“里程碑 3 与 3.5 都已完成，下一步该转去 `里程碑 4` 的性能保护和更大样本 mixed 守门”。
 - 当前工作区已补一条新的收口线：`evaluateState(...)` 现已新增 `controlExit` breakdown，并接入 `resolved friend + clear_trump / keep_control` 的 objective 权重与危险带分领牌 veto，用来专门处理“朋友已站队后控牌过热”的问题。
 - 当前工作区也已补上“未站队阶段高张试探预算”的统一入口：
   `evaluateState(...)` 新增 `probeRisk` breakdown，
@@ -33,11 +33,15 @@
   以及 `turn_access_risk / point_run_risk` 在 `friend=unrevealed` 阶段各自命中了多少次。
 - 最新一轮 `20` 局 mixed 批跑（seed=`mid-ai-next-step`）已经完成：
   `20/20` 完局、`friend failed = 0`、平均 AI 决策耗时 `237.46 ms`；
-  但当前仍有 `dangerous_point_lead = 3`、未站队阶段 `turn_access_risk = 15`、未站队阶段 `point_run_risk = 9`，
-  说明这轮实现已经把“未站队风险”变成可观测、可专项压的正式口径，但还没有达到路线图里“明显下降后再固化门禁”的收口状态。
+  当时仍有 `dangerous_point_lead = 3`、未站队阶段 `turn_access_risk = 15`、未站队阶段 `point_run_risk = 9`，
+  说明那一轮实现已经把“未站队风险”变成可观测、可专项压的正式口径；当前 smoke 已继续下降，但长期门禁仍要靠 `里程碑 3.5` 去固化。
 
 2026-03-18 的当前工作区追加收口：
 
+- `发牌结束时的托管补亮收口` 现在也回到了共享状态机里：
+  当玩家1已经切成托管而不是人类时，若最后一拍后仍存在补亮方案，共享层会直接按托管逻辑补亮或继续翻底，
+  不会再把状态留在 `dealing + awaitingHumanDeclaration` 这种只适合真实人类点击的窗口。
+  对应历史失败样本 `ZSO1hGI883r:beginner:game-11` 已新增 `check-managed-final-declaration.js` 专项回归。
 - `朋友未站队阶段的连续高张试探` 现在又加了一层“历史公开消耗”约束：
   `probeRisk` 与 `unresolvedProbeVetoPenalty` 不再只看这一手本身，还会读取当前玩家已经公开打掉过多少 `A / 王 / 高主 / 带分牌`；
   朋友仍未站队时，连续重复这类高成本试探会被更重地下压。
@@ -51,18 +55,30 @@
 - `保扣底时的王张释放 / 高主释放` 已正式进入统一评估：
   `evaluateState(...)` 新增 `bottomRelease` breakdown，
   `protect_bottom / grade_bottom` 目标也已同步对它加权，不再只靠 `chooseAiBottomPrepDiscard(...)` 这类局部 heuristic。
+- `甩牌安全度 / 暴露风险` 也已正式进入统一评估：
+  `evaluateState(...)` 新增 `throwRisk` breakdown，
+  只按当前玩家自己的手牌与公开信息评估“当前局面下是否存在健康甩牌窗口”，
+  `getIntermediateObjective(...)` 也已同步给 `lead / pressure_void / keep_control / protect_bottom / grade_bottom` 这些目标加了基础权重。
 - `延迟站队时的同门结构保护` 也已补进共享跟牌链：
   当打家首轮先出朋友牌、朋友选择先压住不站队时，
   `chooseAiSupportBeforeReveal(...)`、共享跟单张排序和搜索兜底都会显式比较“是否拆掉同门对子 / 拖拉机 / 火车”，避免再出现 `8899 + 5` 却去跟 `8` 的走法。
+- `固定 opening replay` 驱动的 beginner 首发补强也已落地：
+  针对 `ZSO1hGI883r + QX27...Np4rS` 这类“打家明明握有 `AA + 跟手牌` 却先拆单张试探，亮友后又立刻切回低主清控”的样本，
+  共享首发层现在已补上 `强结构促亮友` 和 `副牌控制链延续` 两条窄窗口 heuristic。
+  对应专项回归已经固定在 `check-ai-beginner-opening-replay.js`，当前至少能把这条样本从旧版的闲家 `230` 分压到 `170` 分以内。
 - 对应单测已补齐：
   `check-ai-intermediate-foundation.js` 现在会检查 `bottomRelease`，
   `check-ai-intermediate-search.js` 现在会检查“重复 probe 历史加重 veto”“已站队后高资源 hard-control 会吃 cooling penalty”和“释放高主后 `controlExit` / `bottomRelease` 变好”。
 
 这次额外复核使用的现时证据：
 
-- 快速单测 `36 / 36` 通过，说明目前共享层与 AI 专项回归处于稳定状态。
-- 最新无 UI 全游戏回归 `3 / 3` 完局、`0` 告警，且 `selected turn_access_risk = 9`、`selected point_run_risk = 4`，见 [artifacts/headless-regression/latest/analysis.md](../artifacts/headless-regression/latest/analysis.md)。
-- 最新 mixed 验证 `2 / 2` 完局、`0` 告警，当前样本里 `turn_access_risk = 2`、`point_run_risk = 2`、`dangerous_point_lead = 3`、`unresolved_probe_risk = 0`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
+- 快速单测 `52 / 52` 通过，说明目前共享层、声明阶段托管收口与 AI 专项回归处于稳定状态。
+- 最新无 UI 全游戏回归 `3 / 3` 完局、`0` 告警，且 `selected turn_access_risk = 10`、`selected point_run_risk = 3`、`dangerous_point_lead = 1`，见 [artifacts/headless-regression/latest/analysis.md](../artifacts/headless-regression/latest/analysis.md)。
+- 最新 mixed 验证 `2 / 2` 完局、`0` 告警，当前样本里 `turn_access_risk = 2`、`point_run_risk = 2`、`dangerous_point_lead = 2`、`unresolved_probe_risk = 0`，见 [artifacts/headless-regression/latest/mixed-validation/analysis.md](../artifacts/headless-regression/latest/mixed-validation/analysis.md)。
+- `3.5` 这轮最后补上的门禁也已经通过：
+  `pointRunRisk` 样本必须带 `point_run_risk` 风险标记，
+  固定 seed 产物里的 `summary / analysis / events / topSignalGames / samples` 也必须都能回溯到同一条 `baseSeed`，避免异常样本只能“看见”却无法复跑。
+- 针对用户给出的固定种子 `ZSO1hGI883r`，当前初级全托管批跑已能稳定 `20 / 20` 完局，不再出现旧版 `game-11` 的 `发牌阶段未推进`；对应汇总见 [artifacts/headless-regression/zso1hgi883r-beginner-20-after-dealing-fix/summary.json](../artifacts/headless-regression/zso1hgi883r-beginner-20-after-dealing-fix/summary.json)。
 
 需要明确保留的边界：
 
@@ -72,6 +88,7 @@
 ## 一句话结论
 
 - `初级`：已经稳定，基本符合当前产品定义，短期不是主战场。
+- 但这不代表初级不再需要 fixed replay 级别的补洞；像这次 `ZSO1hGI883r` 这种“先拆强结构、再过早低主清控”的样本，仍然适合用非常窄的 replay 驱动 heuristic 去修，而不是放任它长期保留成体验型输法。
 - `中级`：已经从“纯启发式”进入“启发式 + 短前瞻搜索”的第一阶段，属于当前最关键、也最接近收益兑现的位置。
 - `高级`：目前仍然是“完整记牌版的中级”，还没有进入路线图里定义的 belief / 多世界模拟阶段。
 - 之前暴露出来的“甩牌透视”红线已经修正：AI 决策层不再直接读取对手暗手判断甩牌成败，而是改成基于公开信息和记牌能力做风险评估。
@@ -301,7 +318,9 @@
 - 路线图要求“现有零散 if 规则逐步退化成评分修正器”，但当前 `chooseIntermediatePlay` 前后仍保留不少直接短路规则，例如强制站队、support-before-reveal 等，这说明框架虽已成型，legacy 规则还没彻底下沉，见 [ai-roadmap.md](ai-roadmap.md#L86) 和 [src/shared/ai-intermediate.js](../src/shared/ai-intermediate.js#L816)。
 - `Friend Belief Lite` 目前还是第一版，只能处理“明显更像朋友 / 明显更像闲家”的局面，还没有真正形成跨座位的连续概率分布。
 - 调试信息已经有了，但性能保护还没形成明确的上限控制和专项性能回归；清单里这一项仍是 `待开始`，见 [ai-checklist.md](ai-checklist.md#L146)。
-- 甩牌风险评估的第一版已经接进首发候选和评分，但它还不等于完整的“评估函数第二版”；像 `turnAccess`、失去先手后的连续跑分潜力、残局安全起手值这些更核心的 `牌权续控` 项还没接完。
+- `throwRisk` 现在已经正式进入 `evaluateState(...)` breakdown，
+  因此“甩牌风险是否正式评分化”这条不再是 `评估函数第二版` 的缺口；
+  当前更实际的缺口已经转成“剩余高风险样本能否被专项回归稳定钉住”和“性能上限是否足够稳”。
 
 和路线图对比：
 
@@ -351,33 +370,32 @@
 ### 仍然缺口最大的部分
 
 - 中级的“候选与状态彻底解耦”。
-- 中级的“评估函数第二版”和更多 legacy 规则下沉。
+- `里程碑 4` 的性能保护。
 - 搜索的性能上限、触发边界和 debug 可视化收口。
 - 高级的 belief / sampled worlds 还完全没有开始。
 - 候选与状态彻底解耦仍是重要架构缺口，但当前最直接影响实战体感的问题，已经转为残局 `牌权续控`、失先手代价和朋友已站队后的策略切换是否足够完整。
 
 ## 下一步最值得做的提升
 
-### 第一优先级：继续做“评估函数第二版”
+### 第一优先级：继续做 `里程碑 4` 的性能与调试保护
 
 这是现在最该继续推进的一步。
 
 原因：
 
-- 当前中级已经能看到“本轮结束”和“下次自己行动前”，里程碑 1 的残局 `牌权续控` 触发已经补齐。
-- 现在更直接影响实战体感的，不再是“看不看得到两步”，而是“看到了之后会不会把失先手代价、朋友已站队后的策略切换和危险带分领牌惩罚算进去”。
+- 当前中级已经能看到“本轮结束”和“下次自己行动前”，`turnAccess / controlRisk / pointRunRisk / safeLead / controlExit / probeRisk / throwRisk / bottomRelease` 也都已经进了统一评分，`3.5` 需要的 fixed-seed / fixed-sample 复盘门禁也已补齐。
+- 现在更直接影响实战体感的，不再是“有没有专项回归”，而是“这些能力在更大样本和真实页面里会不会被性能成本拖慢，或让调试数据失真”。
 
 建议的具体目标：
 
-- 现在中级已经有 rollout，没有更好的评分器，前瞻价值就会被打折。
-- 当前 `tempo / friendRisk / bottomRisk` 已经有第一版，`throw risk` 也已经开始接入，这说明第二版不是从零开始，而是可以顺着现有 breakdown 往前推。
+- 现在中级已经有 rollout、完整 breakdown 和固定 seed 复盘门禁，最应该做的是把这些能力放到更大样本 mixed 与真实性能守门里验证，而不是继续盲加新分项。
+- 当前 `dangerous_point_lead / point_run_risk` 的 headless 统计都已经收紧成“可复盘样本”口径，说明后续做性能与大样本门槛时，数字会更有参考价值。
 
 建议重点：
 
-- 明确补 `turnAccess / 回手能力 / 牌权续控`。
-- 补“危险带分领牌”惩罚，尤其是高分牌或高分主对试探性争轮但一旦失手会同时送分和失先手的场景。
-- 补“朋友已站队后的策略切换”，把目标从找朋友推进切到队友协同、清主、牌权续控和保底安全。
-- 补“朋友未站队时谁更像朋友”的轻量概率态，替代纯硬门槛身份判断。
+- 给 `follow` 多候选 rollout、headless mixed `20` 局和真实页面 smoke 补性能上限与守门。
+- 继续盯 `friend=revealed` 下的 `keep_control / clear_trump / protect_bottom` 场景，但重点转成“在更大样本里是否回升”。
+- 再补一轮 mixed `20` 局门槛，确认这条线在大样本下也没有回升。
 - 把更多“先判断再直接 return”的 legacy 规则改成评分修正项。
 - 继续把甩牌风险从候选层标签推进成 `evaluateState` 可解释 breakdown 的正式组成部分。
 - 把“保扣底时是否该提前卸王 / 卸高主”从启发式垫牌推进成正式评分项。

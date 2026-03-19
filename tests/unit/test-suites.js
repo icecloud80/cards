@@ -31,6 +31,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-human-declaration-options.js"),
   },
   {
+    name: "Managed final declaration regression",
+    file: path.join(__dirname, "check-managed-final-declaration.js"),
+  },
+  {
     name: "AI friend strategy regression",
     file: path.join(__dirname, "check-ai-friend-strategy.js"),
   },

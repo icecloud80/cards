@@ -90,7 +90,7 @@
 
 ## 里程碑 3. 评估函数第二版
 
-- 状态：`进行中`
+- 状态：`已完成`
 - 目标：把“回手能力 / 牌权续控 / 末局保底 / 误打 1 打 4 风险”纳入统一评估。
 - 交付：
   - 新增 `tempo` / `turnAccess` 类评分项，对应文档术语 `牌权续控`
@@ -105,9 +105,12 @@
   - 新增 `Friend Belief Lite`：未站队阶段持续维护“谁更像朋友”的轻量概率分，用于替代当前纯门槛式身份判断。
   - 新增“保扣底时的王张释放 / 高主释放”评分项，避免这类决策只停留在垫牌 heuristic。
 - 当前结果：
-  - `throw risk` 已经开始接入首发评分，但还没有沉到 `evaluateState` 的正式 breakdown。
-  - `turnAccess / 失先手代价 / 残局安全起手值` 仍是这一里程碑的主要未完成部分，也就是文档里的 `牌权续控 / 失先手代价 / 残局安全起手值`。
-  - `朋友已站队后的控制型切换` 已能在 headless 对局里稳定出现，但仍有一部分来自入口短路规则，尚未完全评分化。
+  - `throwRisk` 已正式进入 `evaluateState(...)`：
+    评估器现在会按当前玩家自己的手牌与公开信息，识别“当前是否存在公开可解释的健康甩牌窗口”，并把 safe / guarded / risky 甩牌折成正式 breakdown。
+  - `turnAccess / controlRisk / pointRunRisk / safeLead / controlExit / probeRisk / bottomRelease / friendBelief` 都已进入统一 breakdown 与 objective 权重；
+    这一里程碑要求的“牌权续控 / 失先手代价 / 残局保底 / 找朋友轻量概率态 / 甩牌安全度”骨架现已全部落地。
+  - `朋友已站队后的控制型切换` 已不再只停留在入口短路或局部 heuristic：
+    `controlExit`、`resolvedFriendControlCoolingPenalty` 与危险带分领牌二次 veto 已形成成套评分链。
   - 当前工作区已补 `controlExit` breakdown：
     朋友已站队后，评估器会额外区分“当前控牌是否还能安全续控 / 是否适合顺势把牌权交给同侧”，并把这项分值接入 `clear_trump / keep_control` 的目标权重与危险带分领牌 veto。
   - 当前工作区已补 `probeRisk` breakdown：
@@ -124,8 +127,8 @@
     朋友仍未站队时，连续高成本 probe 会比“第一次试探”吃到更重的统一惩罚。
   - 使用这套新口径补跑的 `20` 局 mixed（seed=`mid-ai-next-step`）结果为：
     `20/20` 完局、`friend failed = 0`、平均 AI 决策耗时 `237.46 ms`；
-    但未站队阶段仍有 `turn_access_risk = 15`、`point_run_risk = 9`，且 `dangerous_point_lead = 3` 仍未归零，
-    说明本轮更偏“观测与 veto 骨架已立住”，后续还需要继续压行为权重，而不是把这一项直接视作完成。
+    当时未站队阶段仍有 `turn_access_risk = 15`、`point_run_risk = 9`，且 `dangerous_point_lead = 3` 尚未归零，
+    说明那一轮更偏“观测与 veto 骨架已立住”；当前 M3 虽已收口，但后续行为调权重与 fixed-seed 守门仍继续放在 `里程碑 3.5`。
   - 同时新增“高张定门再递牌”保护：朋友已站队、全桌公开仍在跟某门、且自己同时握有该门 `A` 与后续小牌时，中级会把这手 `A` 视作正向协同候选，而不是和危险带分领牌混写。
   - `叫朋友` 阶段这次也补上了专项收口：
     中级 / 高级已把“短门第一张 `A` 更容易找朋友、也更容易回手”显式接进候选评分；
@@ -138,6 +141,9 @@
     若 rollout 已经说明“继续自己攥高资源控牌”会让 `controlExit / turnAccess / pointRunRisk / safeLead` 转差，
     就会直接把继续烧 `王 / 高主 / 高张` 的候选往下压。
     同时保留“高张定门再递牌”和 `public-info-only` 回牌的窄例外，避免把已有协同窗口误杀成 hidden-void 推断。
+  - 最新 headless smoke `3 / 3` 完局、`0` 告警，`dangerous_point_lead` 已降到 `1`；
+    mixed `2 / 2` 完局、`0` 告警，`turn_access_risk = 2`、`point_run_risk = 2`、`dangerous_point_lead = 2`。
+    同时 `dangerous_point_lead` 的 headless 汇总已改成“heuristic 命中 + rollout / veto 确认”后才计数，当前剩余样本更接近真实残留风险，后续继续放到 `里程碑 3.5` 收口。
 - 验收：
   - `evaluateState` 输出可解释 breakdown
   - 至少能解释这 3 类局面：
@@ -157,7 +163,7 @@
 
 ## 里程碑 3.5. 对局复盘专项场景回归
 
-- 状态：`进行中`
+- 状态：`已完成`
 - 目标：把这类“看起来赢了但 AI 决策有明显漏洞”的日志复盘，沉淀成可重复跑的专项样本。
 - 交付：
   - 新增“残局甩牌失败保护”专项用例。
@@ -171,8 +177,8 @@
 - 当前结果：
   - `check-ai-intermediate-foundation.js` 已覆盖“AI 不得透视甩牌成败”和“公开信息下的甩牌安全边界”。
   - `Friend Belief Lite` 的基础场景已补进 `check-ai-intermediate-foundation.js`。
-- `check-ai-intermediate-search.js` 已新增“控制型目标下危险带分领牌会被 rollout 二次否决”的专项回归。
-- `check-ai-intermediate-search.js` 现也已新增：
+  - `check-ai-intermediate-search.js` 已新增“控制型目标下危险带分领牌会被 rollout 二次否决”的专项回归。
+  - `check-ai-intermediate-search.js` 现也已新增：
   - 未站队高张试探被 `unresolvedProbeVetoPenalty` 压住；
   - 未站队重复高张试探会因历史公开消耗而继续加重 veto；
   - 朋友已站队后继续用高资源 hard-control，会被 `resolvedFriendControlCoolingPenalty` 压住；
@@ -180,7 +186,13 @@
   - `grade_bottom` 显式优先时，试探约束不会压掉保级牌扣底路线；
   - `probeRisk` breakdown 能区分“保留资源的健康试探”和“已过热的未站队试探”。
   - `bottomRelease / controlExit` 能识别“残局同侧控牌时，高主已释放”和“仍攥着王张硬控”的差异。
-- 失先手连续跑分、固定 seed 异常候选摘要仍待补到更专项的搜索/整局回归里。
+  - `check-headless-full-game.js` 现已额外校验：
+    `dangerousPointLead` 样本必须带有 `selectedRiskyPointLeadVetoPenalty` 或 rollout 风险 flags，
+    不再允许只有 heuristic 提醒、但未被确认的样本混进摘要。
+  - `check-headless-full-game.js` 这轮又补了两条 `3.5` 收口门禁：
+    `pointRunRisk` 样本必须稳定保留 `point_run_risk` 风险标记；
+    `summary / analysis / events / topSignalGames / samples` 里的 seed 口径必须都能回溯到固定 `baseSeed`，确保异常样本可直接复跑。
+  - 目前 `残局甩牌失败保护 / 不透视甩牌成败 / 甩牌扩展边界 / 失先手连续跑分 / 未站队方向误判 / 后程卸王卸高主 / 固定 seed 异常样本复盘` 都已至少落到一条单测或 headless 回归门禁。
 - 验收：
   - 复盘过的问题都能被至少一条单测或回归覆盖。
   - 回归失败时能直接看到是哪类问题回退，而不是只有“本局输了”。
@@ -210,9 +222,9 @@
 
 ## 推荐执行顺序
 
-1. 继续推进 `里程碑 3`，优先把 `Friend Belief Lite`、`甩牌风险正式评分化`、`保扣底时的王张释放` 一起沉到统一评估里。
-2. 同步扩展 `里程碑 3.5`，把甩牌风险、牌权续控和朋友已站队后的策略切换都补成专项回归，而不只停留在基础回归里。
-3. 最后做 `里程碑 4` 的性能和调试保护，给后续继续调权重留足空间。
+1. 继续推进 `里程碑 4`，把性能上限、候选审计和真实页面 smoke 守门补齐。
+2. 再继续做 mixed `20` 局门槛与后续调权重，避免在小样本 smoke 上过早宣布风险线收平。
+3. 之后再考虑是否需要新增更细的 fixed-seed AI 数据集抽样，而不是先扩张新的 heuristic 面。
 
 ## 后续专项维护建议
 

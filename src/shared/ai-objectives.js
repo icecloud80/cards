@@ -37,6 +37,8 @@ function buildIntermediateObjectiveWeights(baseWeights, primary, secondary) {
  * 一路把高张硬控推到过热。
  * 同时，“保扣底时王张 / 高主释放”也要进正式评分，因此 `protect_bottom / grade_bottom`
  * 现在会额外抬高 `bottomRelease`，让评估器看懂“我是不是已经把该让给同侧的资源让出来了”。
+ * 另外，`throwRisk` 这轮也已经正式进入 breakdown：
+ * 目标层需要给它基础权重，这样“安全甩牌窗口”和“危险暴露甩牌”才能真正参与总分。
  * 同时，未站队阶段也要把“高张试探预算”沉到统一权重里，
  * 避免 `find_friend` 继续把高张试探误当成廉价收益。
  *
@@ -109,6 +111,7 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
     structure: 1.15,
     control: 1.0,
     points: defenderSide ? 0.8 : 1.0,
+    throwRisk: mode === "lead" ? 0.35 : 0.05,
     friend: unresolvedFriend ? 1.15 : resolvedFriend ? 0.1 : 0.45,
     friendBelief: unresolvedFriend ? 0.75 : 0.05,
     probeRisk: unresolvedFriend ? 0.95 : 0.05,
@@ -159,6 +162,8 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "keep_control" || secondary === "clear_trump") weights.controlRisk += 0.15;
   if (primary === "keep_control" || primary === "clear_trump") weights.pointRunRisk += 0.3;
   if (secondary === "keep_control" || secondary === "clear_trump") weights.pointRunRisk += 0.15;
+  if (primary === "keep_control" || primary === "clear_trump") weights.throwRisk += 0.15;
+  if (secondary === "keep_control" || secondary === "clear_trump") weights.throwRisk += 0.08;
   if (resolvedFriend) weights.allySupport += 0.25;
   if (resolvedFriend && (primary === "keep_control" || primary === "clear_trump")) weights.allySupport += 0.35;
   if (resolvedFriend && (secondary === "keep_control" || secondary === "clear_trump")) weights.allySupport += 0.15;
@@ -172,12 +177,16 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "protect_bottom") weights.turnAccess += 0.1;
   if (primary === "protect_bottom") weights.pointRunRisk += 0.25;
   if (secondary === "protect_bottom") weights.pointRunRisk += 0.1;
+  if (primary === "protect_bottom") weights.throwRisk += 0.12;
+  if (secondary === "protect_bottom") weights.throwRisk += 0.06;
   if (primary === "grade_bottom") weights.turnAccess += 0.45;
   if (secondary === "grade_bottom") weights.turnAccess += 0.2;
   if (primary === "grade_bottom") weights.controlRisk += 0.35;
   if (secondary === "grade_bottom") weights.controlRisk += 0.15;
   if (primary === "grade_bottom") weights.pointRunRisk += 0.3;
   if (secondary === "grade_bottom") weights.pointRunRisk += 0.15;
+  if (primary === "grade_bottom") weights.throwRisk += 0.12;
+  if (secondary === "grade_bottom") weights.throwRisk += 0.06;
   if (primary === "grade_bottom") weights.bottomRelease += 0.3;
   if (secondary === "grade_bottom") weights.bottomRelease += 0.15;
   if (primary === "grade_bottom") weights.bottomRisk += 0.35;
@@ -186,6 +195,8 @@ function getIntermediateObjective(playerId, mode = "lead", simState = state) {
   if (secondary === "grade_bottom") weights.safeLead += 0.1;
   if (primary === "grade_bottom") weights.voidPressure += 0.2;
   if (secondary === "grade_bottom") weights.voidPressure += 0.1;
+  if (primary === "pressure_void") weights.throwRisk += 0.18;
+  if (secondary === "pressure_void") weights.throwRisk += 0.08;
   if (unresolvedFriendBeliefLean >= 16) {
     weights.friend += 0.2;
     weights.turnAccess += 0.1;

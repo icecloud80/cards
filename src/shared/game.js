@@ -880,6 +880,177 @@ function getBeginnerShortSuitFriendPlan(banker, options = {}) {
   return collectBeginnerShortSuitFriendCandidates(banker, options)[0] || null;
 }
 
+/**
+ * 作用：
+ * 为初级 AI 构造“叫朋友后前几轮”的轻量模拟状态。
+ *
+ * 为什么这样写：
+ * 固定回放里，初级叫朋友的成败往往在前几轮就已经决定：
+ * 有的目标会立刻亮友并续住牌权，有的目标则会在开局连续送节奏。
+ * 这里把“埋底完成、准备首发”的状态拷成一份浅模拟底稿，
+ * 让候选比较能够直接围绕真实开局路径，而不是只看静态门长。
+ *
+ * 输入：
+ * @param {object} target - 当前待评估的朋友牌定义。
+ *
+ * 输出：
+ * @returns {object|null} 可直接送入模拟 helper 的状态副本；缺少模拟能力时返回 `null`。
+ *
+ * 注意：
+ * - 这里只服务叫朋友评估，不会改真实 `state`。
+ * - 模拟态会强制回到首轮首手，避免把埋底阶段残留状态带进回放。
+ */
+function buildBeginnerFriendTargetOpeningSimulationState(target) {
+  if (!target || typeof cloneSimulationState !== "function") return null;
+
+  const simState = cloneSimulationState(state);
+  simState.friendTarget = {
+    ...buildFriendTarget(target),
+    occurrence: target.occurrence ?? 1,
+    matchesSeen: 0,
+    failed: false,
+    revealed: false,
+    revealedBy: null,
+    revealedTrickNumber: null,
+  };
+  simState.hiddenFriendId = null;
+  simState.phase = "playing";
+  simState.gameOver = false;
+  simState.currentTurnId = state.bankerId;
+  simState.leaderId = state.bankerId;
+  simState.trickNumber = 1;
+  simState.currentTrick = [];
+  simState.currentTrickBeatCount = 0;
+  simState.leadSpec = null;
+  simState.lastTrick = null;
+  simState.defenderPoints = 0;
+  simState.playHistory = [];
+  return simState;
+}
+
+/**
+ * 作用：
+ * 用“延伸到终局的轻量回放”估算初级叫朋友候选的兑现质量。
+ *
+ * 为什么这样写：
+ * 旧版初级把“短门 A”当成硬规则，导致它不会比较：
+ * 1. 同一门是该叫第二张还是第三张；
+ * 2. 是继续押最短门，还是改叫另一门更快亮友的 `A`。
+ * 这些差异虽然主要在前几轮暴露，但最终值不值往往要看整局输赢。
+ * 这里沿用当前 deterministic 托管链，把每个副牌 `A` 候选继续推到终局，
+ * 再用“最终胜负 + 闲家得分 + 亮友进度”给候选排优先级。
+ *
+ * 输入：
+ * @param {object} target - 当前待评估的朋友牌定义。
+ * @param {object|null} banker - 当前打家对象。
+ *
+ * 输出：
+ * @returns {{
+ *   score: number,
+ *   completedTricks: number,
+ *   defenderPoints: number,
+ *   matchesSeen: number,
+ *   revealed: boolean,
+ *   revealedTrickNumber: (number|null),
+ *   remainingBeforeReveal: number,
+ *   evaluationTotal: number
+ * }} 返回浅回放总分与关键开局摘要。
+ *
+ * 注意：
+ * - 模拟基础设施缺失时返回保守零分，避免正式局内报错。
+ * - 当前只比较有限个副牌 `A` 候选；若未来候选集明显膨胀，需要重新评估算力成本。
+ */
+function scoreBeginnerFriendTargetOpeningRollout(target, banker) {
+  const emptyResult = {
+    score: 0,
+    completedTricks: 0,
+    defenderPoints: 0,
+    matchesSeen: 0,
+    revealed: false,
+    revealedTrickNumber: null,
+    remainingBeforeReveal: target?.occurrence || 1,
+    evaluationTotal: 0,
+    winner: null,
+  };
+  if (!target || !banker) return emptyResult;
+  if (typeof simulateTrickToEnd !== "function" || typeof withSimulationState !== "function") {
+    return emptyResult;
+  }
+
+  let simState = buildBeginnerFriendTargetOpeningSimulationState(target);
+  if (!simState) return emptyResult;
+
+  const maxSimulationTricks = 40;
+  let completedTricks = 0;
+  while (
+    simState.phase === "playing"
+    && !simState.gameOver
+    && completedTricks < maxSimulationTricks
+  ) {
+    const rollout = simulateTrickToEnd(simState);
+    if (!rollout.completed) break;
+    simState = rollout.resultState;
+    completedTricks += 1;
+  }
+
+  const matchesSeen = simState.friendTarget?.matchesSeen || 0;
+  const revealed = !!simState.friendTarget?.revealed;
+  const revealedTrickNumber = Number.isInteger(simState.friendTarget?.revealedTrickNumber)
+    ? simState.friendTarget.revealedTrickNumber
+    : null;
+  const remainingBeforeReveal = Math.max(0, (simState.friendTarget?.occurrence || 1) - matchesSeen);
+  const evaluationTotal = (
+    typeof evaluateState === "function" && typeof getIntermediateObjective === "function"
+      ? evaluateState(simState, banker.id, getIntermediateObjective(banker.id, "lead", simState)).total || 0
+      : 0
+  );
+  const outcome = (
+    typeof getBottomResultSummary === "function" && typeof getOutcome === "function"
+      ? withSimulationState(simState, () => {
+        const bottomResult = getBottomResultSummary();
+        return getOutcome(state.defenderPoints, {
+          bottomPenalty: bottomResult?.penalty || null,
+        });
+      })
+      : null
+  );
+  let score = evaluationTotal;
+
+  if (outcome?.winner === "banker") {
+    score += 1000;
+  } else if (outcome?.winner === "defender") {
+    score -= 1000;
+  }
+  score -= (simState.defenderPoints || 0) * 4;
+  score += matchesSeen * 12;
+  if (revealed) {
+    score += 42;
+    score -= Math.max(0, (revealedTrickNumber || completedTricks) - 1) * 4;
+  } else if (simState.friendTarget?.failed) {
+    score -= 56;
+  } else {
+    score -= remainingBeforeReveal * 18;
+  }
+  if (simState.currentTurnId === banker.id && simState.phase === "playing") {
+    score += 6;
+  }
+  if (simState.lastTrick?.winnerId === banker.id) {
+    score += 8;
+  }
+
+  return {
+    score,
+    completedTricks,
+    defenderPoints: simState.defenderPoints || 0,
+    matchesSeen,
+    revealed,
+    revealedTrickNumber,
+    remainingBeforeReveal,
+    evaluationTotal,
+    winner: outcome?.winner || null,
+  };
+}
+
 // 取出指定朋友花色对应的牌。
 function getCardsForFriendSuit(cards, suit) {
   return cards.filter((card) => (suit === "joker" ? card.suit === "joker" : card.suit === suit));
@@ -1262,6 +1433,88 @@ function buildIntermediateFriendTargetCandidateEntries(banker) {
 
 /**
  * 作用：
+ * 为初级 AI 构造“副牌 A 多候选 + 开局浅回放”的叫朋友列表。
+ *
+ * 为什么这样写：
+ * 旧版初级一旦命中“短门 A”规则，就会沿着单条固定计划直接选牌，
+ * 因而看不到“同门第二张 / 第三张 A”以及“另一门首张 A”在真实开局里的差异。
+ * 这里把所有可行副牌 `A` 都列成候选，再用浅回放估算开局收益，
+ * 让初级至少能比较“哪张朋友牌更容易早点亮友、少送分、保住牌权”。
+ *
+ * 输入：
+ * @param {object|null} banker - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 已按浅回放得分排序的候选列表。
+ *
+ * 注意：
+ * - 当前只覆盖副牌 `A`；若这一层没有候选，调用方仍需回退到旧 heuristic。
+ * - `score` 以浅回放分为主，`heuristicScore` 只作同分解释与兜底排序。
+ */
+function buildBeginnerOpeningRolloutFriendCandidateEntries(banker) {
+  if (!banker) return [];
+
+  return collectFriendTargetCandidates(banker, ["A"], scoreBeginnerFriendTargetCandidate)
+    .filter((candidate) => isBeginnerSideAceSuit(candidate.target.suit))
+    .map((candidate) => {
+      const target = candidate.target;
+      const friendTarget = buildFriendTarget(target);
+      const ownCopies = banker.hand.filter((card) => card.suit === target.suit && card.rank === target.rank).length;
+      const suitCount = banker.hand.filter((card) => !isTrump(card) && card.suit === target.suit).length;
+      const rollout = scoreBeginnerFriendTargetOpeningRollout(target, banker);
+      return {
+        target: friendTarget,
+        ownerId: candidate.ownerId,
+        label: friendTarget.label,
+        cards: [],
+        source: "opening-rollout",
+        tags: [
+          "副牌",
+          ownCopies > 0 ? `自持 ${ownCopies}` : "首张",
+          `${getOccurrenceLabel(target.occurrence)} A`,
+          rollout.winner === "banker" ? "终局赢" : rollout.winner === "defender" ? "终局输" : "终局未决",
+          rollout.revealed
+            ? `开局亮友 T${rollout.revealedTrickNumber || rollout.completedTricks}`
+            : `未亮差 ${rollout.remainingBeforeReveal}`,
+        ],
+        score: rollout.score,
+        heuristicScore: candidate.score,
+        rolloutScore: rollout.score,
+        rolloutFutureDelta: null,
+        rolloutDepth: rollout.completedTricks,
+        rolloutTriggerFlags: [
+          `同门 ${suitCount} 张`,
+          `开局闲家分 ${rollout.defenderPoints}`,
+          `开局命中 ${rollout.matchesSeen} 张`,
+          rollout.revealed ? "revealed_in_opening" : `need_${rollout.remainingBeforeReveal}_copy`,
+        ],
+        breakdown: {
+          suit: target.suit,
+          occurrence: target.occurrence,
+          ownCopies,
+          suitCount,
+          defenderPoints: rollout.defenderPoints,
+          matchesSeen: rollout.matchesSeen,
+          revealed: rollout.revealed,
+          revealedTrickNumber: rollout.revealedTrickNumber,
+          winner: rollout.winner,
+          openingScore: rollout.score,
+          heuristicScore: candidate.score,
+          evaluationTotal: rollout.evaluationTotal,
+        },
+      };
+    })
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      if ((right.heuristicScore || 0) !== (left.heuristicScore || 0)) {
+        return (right.heuristicScore || 0) - (left.heuristicScore || 0);
+      }
+      return left.label.localeCompare(right.label, "zh-Hans-CN");
+    });
+}
+
+/**
+ * 作用：
  * 构造 beginner “短门找朋友”调试候选列表。
  *
  * 为什么这样写：
@@ -1374,6 +1627,15 @@ function buildAiFriendTargetDecision(playerId = state.bankerId, difficulty = sta
   }
 
   if (difficulty === "beginner") {
+    const rolloutEntries = buildBeginnerOpeningRolloutFriendCandidateEntries(banker);
+    if (rolloutEntries.length > 0) {
+      return {
+        target: rolloutEntries[0].target,
+        ownerId: rolloutEntries[0].ownerId,
+        candidateEntries: rolloutEntries,
+        selectedEntry: rolloutEntries[0],
+      };
+    }
     const shortSuitEntries = buildBeginnerShortSuitFriendCandidateEntries(banker);
     if (shortSuitEntries.length > 0) {
       return {
@@ -1880,29 +2142,30 @@ function finishDealingPhase() {
   if (state.phase !== "dealing") return;
 
   if (!state.declaration) {
-    const humanDeclaration = getBestDeclarationForPlayer(1);
-    if (humanDeclaration && !state.awaitingHumanDeclaration) {
-      startAwaitingHumanDeclaration();
+    if (resolveFinalPlayerOneDeclarationWindow()) {
       return;
     }
-    state.awaitingHumanDeclaration = false;
-    const firstDealPlayerId = state.nextFirstDealPlayerId || 1;
-    const bottomDeclaration = resolveBottomDeclarationForPlayer(firstDealPlayerId);
-    state.declaration = bottomDeclaration;
-    state.bottomRevealCount = bottomDeclaration.revealCount || 0;
-    state.trumpSuit = bottomDeclaration.suit;
-    state.bankerId = firstDealPlayerId;
-    state.levelRank = getPlayerLevelRank(firstDealPlayerId);
-    if (bottomDeclaration.suit === "notrump") {
-      state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到${bottomDeclaration.revealCard ? describeCard(bottomDeclaration.revealCard) : TEXT.cards.bigJoker}，本局定为无主，王和级牌都算主，${getPlayer(firstDealPlayerId).name}做打家。`;
-    } else if (bottomDeclaration.revealCard?.rank === state.levelRank) {
-      state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到级牌${describeCard(bottomDeclaration.revealCard)}，定${SUIT_LABEL[bottomDeclaration.suit]}为主，${getPlayer(firstDealPlayerId).name}做打家。`;
+    if (state.declaration) {
+      state.bottomRevealCount = 0;
     } else {
-      state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌未翻到级牌，按最大首见牌${describeCard(bottomDeclaration.revealCard)}定${SUIT_LABEL[bottomDeclaration.suit]}为主，${getPlayer(firstDealPlayerId).name}做打家。`;
+      const firstDealPlayerId = state.nextFirstDealPlayerId || 1;
+      const bottomDeclaration = resolveBottomDeclarationForPlayer(firstDealPlayerId);
+      state.declaration = bottomDeclaration;
+      state.bottomRevealCount = bottomDeclaration.revealCount || 0;
+      state.trumpSuit = bottomDeclaration.suit;
+      state.bankerId = firstDealPlayerId;
+      state.levelRank = getPlayerLevelRank(firstDealPlayerId);
+      if (bottomDeclaration.suit === "notrump") {
+        state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到${bottomDeclaration.revealCard ? describeCard(bottomDeclaration.revealCard) : TEXT.cards.bigJoker}，本局定为无主，王和级牌都算主，${getPlayer(firstDealPlayerId).name}做打家。`;
+      } else if (bottomDeclaration.revealCard?.rank === state.levelRank) {
+        state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌翻到级牌${describeCard(bottomDeclaration.revealCard)}，定${SUIT_LABEL[bottomDeclaration.suit]}为主，${getPlayer(firstDealPlayerId).name}做打家。`;
+      } else {
+        state.bottomRevealMessage = `无人亮主，由先抓牌的${getPlayer(firstDealPlayerId).name}翻底定主。底牌未翻到级牌，按最大首见牌${describeCard(bottomDeclaration.revealCard)}定${SUIT_LABEL[bottomDeclaration.suit]}为主，${getPlayer(firstDealPlayerId).name}做打家。`;
+      }
+      appendLog(state.bottomRevealMessage);
+      startBottomRevealPhase();
+      return;
     }
-    appendLog(state.bottomRevealMessage);
-    startBottomRevealPhase();
-    return;
   }
 
   state.bottomRevealCount = 0;
@@ -1916,6 +2179,51 @@ function finishDealingPhase() {
   appendLog(TEXT.log.counterPhaseIntro);
   render();
   startCounterTurn();
+}
+
+/**
+ * 作用：
+ * 在发牌结束且当前还没人亮主时，统一处理玩家1最后一次补亮机会。
+ *
+ * 为什么这样写：
+ * 正式对局里，玩家1若仍是人类，需要进入 15 秒补亮窗口；
+ * 但若玩家1已经切成托管 AI，就不应该再先进入“等待人类补亮”的状态。
+ * 把这段收口单独抽出来后，浏览器运行态与 headless 回归都能复用同一条判断，
+ * 避免只在某个入口里额外打补丁。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前 `state` 和玩家1信息。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前已经切入“等待人类补亮”窗口，应立即结束本次发牌收口；
+ * 否则返回 `false`，由调用方继续走“自动补亮后进反主”或“无人亮主后翻底定主”流程。
+ *
+ * 注意：
+ * - 只负责“发牌刚结束、尚无人亮主”的补亮收口，不处理最后反主阶段。
+ * - 当补亮等待已经超时再次回到这里时，必须清掉 `awaitingHumanDeclaration`，让流程继续翻底。
+ */
+function resolveFinalPlayerOneDeclarationWindow() {
+  const playerOne = getPlayer(1);
+  const finalDeclaration = getBestDeclarationForPlayer(1);
+  if (!finalDeclaration) {
+    state.awaitingHumanDeclaration = false;
+    return false;
+  }
+
+  if (state.awaitingHumanDeclaration) {
+    state.awaitingHumanDeclaration = false;
+    return false;
+  }
+
+  if (playerOne?.isHuman !== false) {
+    startAwaitingHumanDeclaration();
+    return true;
+  }
+
+  if (canOverrideDeclaration(finalDeclaration)) {
+    declareTrump(1, finalDeclaration, "auto");
+  }
+  return false;
 }
 
 // 切换到等待玩家手动叫主的状态。

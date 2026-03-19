@@ -213,7 +213,9 @@
 - 同难度全桌 smoke 回归 `3 / 3` 完局、`0` 告警，说明当前状态机和托管流程仍能稳定闭环。
 - mobile 顶部托管现已对齐 shared 三态生命周期：`关闭 / 本局托管 / 跨局托管` 只改变玩家是否由 AI 接管与是否跨局保留，不改变 AI 决策强度与规则边界。
 - 当前全桌 smoke 样本里，`point_run_risk` 已选动作从上一轮观察到的 `13` 次降到 `9` 次，`dangerous_point_lead` 也从 `4` 次降到 `2` 次，说明“先压危险带分领牌”的方向没有走偏。
-- mixed 验证 `2 / 2` 完局、`0` 告警，但当前小样本仍有 `turn_access_risk = 2`、`point_run_risk = 3`、`dangerous_point_lead = 1`，而且样本仍集中在 `friend revealed` 后的 `keep_control / pressure_void / clear_trump` 目标下，说明“朋友已站队后的控牌降温”和“失先手代价正式评分化”依然是未完成主线。
+- mixed 验证 `2 / 2` 完局、`0` 告警，最新小样本当前为 `turn_access_risk = 2`、`point_run_risk = 2`、`dangerous_point_lead = 2`；
+  而且 `dangerous_point_lead` 已改成只统计“heuristic 命中后又被 rollout / veto 确认”的样本，
+  说明剩余问题更集中在 `friend revealed` 后的 `keep_control / pressure_void / clear_trump / protect_bottom` 行为收口，而不是统计噪音。
 - 当前工作区还额外补了一条“高张定门再递牌”的收口：朋友已站队后，如果打家已经没有明显主控资源，中级和初级都会允许先用副牌 `A` 定门，再把同门小牌留给后续递牌；但如果同伴已经公开绝这门，就会直接回退成低张递牌，不再继续打信号。
 - 当前工作区已开始把第 3 步正式下沉到统一评分：
   `evaluateState(...)` 新增了 `controlExit` breakdown，用来识别“朋友已站队后，这份控制是否还能安全续控，或是否已经适合顺势交给同侧”。
@@ -230,8 +232,8 @@
   后续 mixed `20` 局就能直接判断“第 2 步有没有压住未站队阶段风险”，而不再只能看总量。
 - 用这套新口径补跑的 `20` 局 mixed（seed=`mid-ai-next-step`）已经验证：
   `20/20` 完局、`friend failed = 0`、平均 AI 决策耗时 `237.46 ms`；
-  但当前仍有 `dangerous_point_lead = 3`、未站队阶段 `turn_access_risk = 15`、未站队阶段 `point_run_risk = 9`。
-  这说明“第 2 步的观测与 veto 基础设施”已经落地，但行为层还没有收平，后续仍应继续围绕同一条主线调权重，而不是提前切去别的路线。
+  当时仍有 `dangerous_point_lead = 3`、未站队阶段 `turn_access_risk = 15`、未站队阶段 `point_run_risk = 9`。
+  这说明“第 2 步的观测与 veto 基础设施”已经落地，但行为层还没有收平；当前虽然 smoke 已继续下降到更低水平，这条线依然应该沿着同一主线继续压样本，而不是提前切去别的路线。
 
 ### 当前工作区追加收口（2026-03-18）
 
@@ -251,14 +253,22 @@
   `evaluateState(...)` 新增了 `bottomRelease`，
   专门衡量残局同侧控牌时，当前玩家是否已经把可让给同侧的高主资源让出来；
   `protect_bottom / grade_bottom` 目标也已同步给这项分值加权，不再只靠 `chooseAiBottomPrepDiscard(...)` 的局部跟牌启发。
+- `甩牌安全度 / 甩牌暴露风险` 也已正式进入统一评估：
+  `evaluateState(...)` 新增了 `throwRisk` breakdown，
+  按当前玩家自己的手牌与公开信息判断“当前是否存在公开可解释的健康甩牌窗口”，
+  `getIntermediateObjective(...)` 也已同步给 lead / `pressure_void` / `keep_control` / `protect_bottom` / `grade_bottom` 这些目标加上基础权重。
 - 对应专项回归已同步补齐：
   `check-ai-intermediate-foundation.js` 新增 `bottomRelease` 基础断言，
   `check-ai-intermediate-search.js` 新增“重复 probe 历史会加重 veto”“已站队后高资源 hard-control 会被 cooling penalty 压住”和“高主释放会抬高 `controlExit` / `bottomRelease`”几条回归。
+  本轮又补了 `throwRisk` 基础断言，以及 headless 上“危险带分领牌必须由 rollout / veto 确认后才计数”“`pointRunRisk` 样本必须保留风险标记”“固定 seed 产物必须可回溯复跑”三条门禁校验。
 
 这里要特别注意：
 
-- 当前工作区最新 mixed 仍只是一组 `2` 局的 smoke，不足以替代上面的 `20` 局混编门槛；最新重跑结果虽然把 `turn_access_risk` 压到 `2`、`point_run_risk` 压到 `2`、`unresolved_probe_risk` 压到 `0`，但 `dangerous_point_lead` 仍有 `3` 次，说明这条风险线还没有真正收平。
+- 当前工作区最新 mixed 仍只是一组 `2` 局的 smoke，不足以替代上面的 `20` 局混编门槛；最新重跑结果把 `turn_access_risk` 压到 `2`、`point_run_risk` 压到 `2`、`unresolved_probe_risk` 压到 `0`、`dangerous_point_lead` 压到 `2`，且 `dangerous_point_lead` 已改成只统计“heuristic 命中后又被 rollout / veto 确认”的样本。
 - 因此，这轮最新校验只用于确认“优先级没有变”，而不是推翻 `2026-03-15` 那组长期开发顺序。
+- 以当前代码状态看，`里程碑 3.5` 已可视为完成：
+  复盘过的问题都已经至少对应到一条基础单测、搜索专项回归或固定 seed headless 门禁；
+  下一步优先级自然切到 `里程碑 4` 的性能与调试保护。
 
 ### 基于 2026-03-16 代码性能审查的新增优先项
 

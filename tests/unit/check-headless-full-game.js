@@ -1,3 +1,5 @@
+const fs = require("fs");
+
 const {
   parseHeadlessRegressionArgs,
   runHeadlessRegression,
@@ -31,6 +33,7 @@ function validateHeadlessDecisionSignals(summary) {
   const signalKeys = [
     "turnAccessRisk",
     "pointRunRisk",
+    "turnAccessHold",
     "dangerousPointLead",
     "unresolvedProbeRisk",
     "revealedFriendControlShift",
@@ -45,6 +48,9 @@ function validateHeadlessDecisionSignals(summary) {
   }
   if (typeof overallSignals.selectedByFriendState?.pointRunRisk?.unrevealed !== "number") {
     throw new Error("headless 回归摘要缺少 overall decisionSignals.selectedByFriendState.pointRunRisk.unrevealed");
+  }
+  if (typeof overallSignals.selectedByFriendState?.turnAccessHold?.unrevealed !== "number") {
+    throw new Error("headless 回归摘要缺少 overall decisionSignals.selectedByFriendState.turnAccessHold.unrevealed");
   }
 
   if (typeof overallSignals.candidateAudit?.turnAccessRiskCandidates !== "number") {
@@ -78,6 +84,171 @@ function validateHeadlessDecisionSignals(summary) {
     }
     if (typeof detail.decisionSignals.selectedByFriendState?.pointRunRisk?.unrevealed !== "number") {
       throw new Error(`headless 回归摘要缺少 ${difficulty} decisionSignals.selectedByFriendState.pointRunRisk.unrevealed`);
+    }
+    if (typeof detail.decisionSignals.selectedByFriendState?.turnAccessHold?.unrevealed !== "number") {
+      throw new Error(`headless 回归摘要缺少 ${difficulty} decisionSignals.selectedByFriendState.turnAccessHold.unrevealed`);
+    }
+  }
+}
+
+/**
+ * 作用：
+ * 校验 `dangerousPointLead` 样本已经按“确认后的真实风险”口径落盘。
+ *
+ * 为什么这样写：
+ * 这轮回归把 `dangerous_point_lead` 从“只要 heuristic 命中就计数”
+ * 收紧成了“需要 rollout / veto 再确认”的口径，
+ * 如果样本里重新混入只有提示、没有确认的首发，summary 数字会悄悄虚高。
+ *
+ * 输入：
+ * @param {object[]} samples - `dangerousPointLead` 的样本数组。
+ * @param {string} label - 当前正在校验的摘要标签。
+ *
+ * 输出：
+ * @returns {void} 校验失败时直接抛错。
+ *
+ * 注意：
+ * - 允许样本为空；空样本表示这一轮没有确认过的危险带分领牌。
+ * - 这里不要求样本一定来自 `riskyPointLeadVetoPenalty`，也允许由 rollout 风险 flags 单独确认。
+ */
+function validateConfirmedDangerousPointLeadSamples(samples, label) {
+  for (const sample of Array.isArray(samples) ? samples : []) {
+    const flags = Array.isArray(sample.selectedRolloutTriggerFlags)
+      ? sample.selectedRolloutTriggerFlags
+      : [];
+    const riskyVetoPenalty = sample.selectedRiskyPointLeadVetoPenalty || 0;
+    const keepsAccess = flags.includes("turn_access_hold");
+    const confirmedByFlags = (
+      flags.includes("turn_access_risk")
+      || flags.includes("point_run_risk")
+      || flags.includes("no_safe_next_lead")
+    ) && !keepsAccess;
+    if (riskyVetoPenalty <= 0 && !confirmedByFlags) {
+      throw new Error(`${label} dangerousPointLead 样本仍包含未确认风险的 heuristic 命中`);
+    }
+  }
+}
+
+/**
+ * 作用：
+ * 校验 `pointRunRisk` 样本已经稳定保留了“连续跑分风险”的确认标记。
+ *
+ * 为什么这样写：
+ * 里程碑 3.5 还剩一条关键线是“失先手导致对手连续跑分”的专项复盘。
+ * 如果 summary 里的 `pointRunRisk` 样本没有稳定保留风险 flags，
+ * 后续看到某个 seed 命中也无法判断它到底是不是这类问题。
+ *
+ * 输入：
+ * @param {object[]} samples - `pointRunRisk` 的样本数组。
+ * @param {string} label - 当前正在校验的摘要标签。
+ *
+ * 输出：
+ * @returns {void} 校验失败时直接抛错。
+ *
+ * 注意：
+ * - 允许样本为空；空样本表示这一轮没有采到连续跑分风险。
+ * - 这里只要求样本口径稳定，不要求某一轮必定命中该信号。
+ */
+function validatePointRunRiskSamples(samples, label) {
+  for (const sample of Array.isArray(samples) ? samples : []) {
+    const flags = Array.isArray(sample.selectedRolloutTriggerFlags)
+      ? sample.selectedRolloutTriggerFlags
+      : [];
+    if (!flags.includes("point_run_risk")) {
+      throw new Error(`${label} pointRunRisk 样本缺少 point_run_risk 风险标记`);
+    }
+  }
+}
+
+/**
+ * 作用：
+ * 校验 `turnAccessHold` 样本已经稳定保留了“下一拍仍可续控”的确认标记。
+ *
+ * 为什么这样写：
+ * 里程碑 4 要把“赢轮后下一拍是否仍有牌权优势”沉成正式摘要指标。
+ * 如果样本没有稳定保留 `turn_access_hold`，
+ * 后续看到这类正向样本时就无法判断它到底是不是“健康续控”窗口。
+ *
+ * 输入：
+ * @param {object[]} samples - `turnAccessHold` 的样本数组。
+ * @param {string} label - 当前正在校验的摘要标签。
+ *
+ * 输出：
+ * @returns {void} 校验失败时直接抛错。
+ *
+ * 注意：
+ * - 允许样本为空；空样本表示这一轮没有采到明确续控优势。
+ * - 这里同样只锁口径稳定性，不要求某一轮必须命中。
+ */
+function validateTurnAccessHoldSamples(samples, label) {
+  for (const sample of Array.isArray(samples) ? samples : []) {
+    const flags = Array.isArray(sample.selectedRolloutTriggerFlags)
+      ? sample.selectedRolloutTriggerFlags
+      : [];
+    if (!flags.includes("turn_access_hold")) {
+      throw new Error(`${label} turnAccessHold 样本缺少 turn_access_hold 续控标记`);
+    }
+  }
+}
+
+/**
+ * 作用：
+ * 校验固定 seed 的 headless 产物已经具备“可复盘、可复跑”的稳定标识。
+ *
+ * 为什么这样写：
+ * 里程碑 3.5 的最后一项不是单纯写出文件，而是要保证异常样本能被 seed 直接复跑。
+ * 这里把 `summary / analysis / events / topSignalGames / samples` 的 seed 口径一起锁住，
+ * 防止后续重构时产物还在，但已经失去复盘定位价值。
+ *
+ * 输入：
+ * @param {object} result - `runHeadlessRegression(...)` 或 `runMixedHeadlessRegression(...)` 的返回值。
+ * @param {string} expectedBaseSeed - 预期的基础 seed。
+ * @param {string} label - 当前正在校验的批次标签。
+ *
+ * 输出：
+ * @returns {void} 校验失败时直接抛错。
+ *
+ * 注意：
+ * - 这里只校验“稳定可复盘”必需的字段，不要求样本数量固定。
+ * - `topSignalGames` 和样本可能为空；非空时必须都能追溯回本轮 base seed。
+ */
+function validateFixedSeedRegressionArtifacts(result, expectedBaseSeed, label) {
+  const summary = result?.summary;
+  const files = result?.files || {};
+  if (!summary || summary.baseSeed !== expectedBaseSeed) {
+    throw new Error(`${label} headless 摘要缺少固定 baseSeed=${expectedBaseSeed}`);
+  }
+  if (!files.summaryFile || !fs.existsSync(files.summaryFile)) {
+    throw new Error(`${label} headless 缺少 summary.json 产物`);
+  }
+  if (!files.analysisFile || !fs.existsSync(files.analysisFile)) {
+    throw new Error(`${label} headless 缺少 analysis.md 产物`);
+  }
+  if (!files.eventsFile || !fs.existsSync(files.eventsFile)) {
+    throw new Error(`${label} headless 缺少 events.ndjson 产物`);
+  }
+  if (!files.gamesFile || !fs.existsSync(files.gamesFile)) {
+    throw new Error(`${label} headless 缺少 games.ndjson 产物`);
+  }
+
+  const analysisText = fs.readFileSync(files.analysisFile, "utf8");
+  if (!analysisText.includes(expectedBaseSeed)) {
+    throw new Error(`${label} analysis.md 未记录固定 baseSeed`);
+  }
+
+  const overallSignals = summary.decisionSignals || {};
+  for (const entry of overallSignals.topSignalGames || []) {
+    if (typeof entry.seed !== "string" || !entry.seed.startsWith(`${expectedBaseSeed}:`)) {
+      throw new Error(`${label} topSignalGames 包含无法回溯到固定 baseSeed 的 seed`);
+    }
+  }
+
+  const sampleGroups = overallSignals.samples || {};
+  for (const samples of Object.values(sampleGroups)) {
+    for (const sample of Array.isArray(samples) ? samples : []) {
+      if (typeof sample.seed !== "string" || !sample.seed.startsWith(`${expectedBaseSeed}:`)) {
+        throw new Error(`${label} 决策信号样本包含无法回溯到固定 baseSeed 的 seed`);
+      }
     }
   }
 }
@@ -151,6 +322,33 @@ function main() {
   const options = parseHeadlessRegressionArgs();
   const result = runHeadlessRegression(options);
   validateHeadlessDecisionSignals(result.summary);
+  validateFixedSeedRegressionArtifacts(result, options.baseSeed, "overall");
+  validatePointRunRiskSamples(
+    result.summary.decisionSignals?.samples?.pointRunRisk,
+    "overall"
+  );
+  validateTurnAccessHoldSamples(
+    result.summary.decisionSignals?.samples?.turnAccessHold,
+    "overall"
+  );
+  validateConfirmedDangerousPointLeadSamples(
+    result.summary.decisionSignals?.samples?.dangerousPointLead,
+    "overall"
+  );
+  for (const difficulty of result.summary.difficulties || []) {
+    validatePointRunRiskSamples(
+      result.summary.byDifficulty?.[difficulty]?.decisionSignals?.samples?.pointRunRisk,
+      difficulty
+    );
+    validateTurnAccessHoldSamples(
+      result.summary.byDifficulty?.[difficulty]?.decisionSignals?.samples?.turnAccessHold,
+      difficulty
+    );
+    validateConfirmedDangerousPointLeadSamples(
+      result.summary.byDifficulty?.[difficulty]?.decisionSignals?.samples?.dangerousPointLead,
+      difficulty
+    );
+  }
   const mixedResult = runMixedHeadlessRegression({
     games: 2,
     baseSeed: `${options.baseSeed}:mixed-validation`,
@@ -158,6 +356,19 @@ function main() {
     maxSteps: options.maxSteps,
   });
   validateHeadlessDecisionSignals(mixedResult.summary);
+  validateFixedSeedRegressionArtifacts(mixedResult, `${options.baseSeed}:mixed-validation`, "mixed-overall");
+  validatePointRunRiskSamples(
+    mixedResult.summary.decisionSignals?.samples?.pointRunRisk,
+    "mixed-overall"
+  );
+  validateTurnAccessHoldSamples(
+    mixedResult.summary.decisionSignals?.samples?.turnAccessHold,
+    "mixed-overall"
+  );
+  validateConfirmedDangerousPointLeadSamples(
+    mixedResult.summary.decisionSignals?.samples?.dangerousPointLead,
+    "mixed-overall"
+  );
   validateMixedHeadlessSummary(mixedResult);
 
   console.log("Headless full-game regression passed:");
@@ -167,6 +378,7 @@ function main() {
   console.log(`- average tricks: ${result.summary.totals.averageTricks}`);
   console.log(`- selected turn_access_risk: ${result.summary.decisionSignals.selectedSignals.turnAccessRisk}`);
   console.log(`- selected point_run_risk: ${result.summary.decisionSignals.selectedSignals.pointRunRisk}`);
+  console.log(`- selected turn_access_hold: ${result.summary.decisionSignals.selectedSignals.turnAccessHold}`);
   console.log(`- summary: ${result.files.summaryFile}`);
   console.log(`- analysis: ${result.files.analysisFile}`);
   console.log("Headless mixed-lineup validation passed:");

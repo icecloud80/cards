@@ -1258,6 +1258,133 @@ function getSimulationBottomRiskScore(simState, playerId) {
 
 /**
  * 作用：
+ * 枚举当前玩家在首发态下“整门甩出”的公开可评估候选。
+ *
+ * 为什么这样写：
+ * 里程碑 3 要把 `throwRisk` 从候选标签推进成正式 breakdown，
+ * 评估器就需要在“不重做整套 live 候选枚举”的前提下，
+ * 识别当前手牌里是否存在一门能直接形成甩牌的结构。
+ * 这里仅按当前玩家自己的手牌、并按有效花色整门分桶，保持口径公开可解释。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要检查甩牌机会的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<Array<object>>} 返回可直接拿去做甩牌公开评估的整门候选列表。
+ *
+ * 注意：
+ * - 这里只在首发态使用；跟牌阶段不存在主动甩牌机会。
+ * - 只保留“整门本身就是 throw 结构”的候选，避免在评估器里偷偷重做完整候选枚举。
+ */
+function getSimulationThrowCandidateBuckets(simState, playerId) {
+  if (!simState || (Array.isArray(simState.currentTrick) && simState.currentTrick.length > 0)) return [];
+  const player = getSimulationPlayer(simState, playerId);
+  if (!player || !Array.isArray(player.hand) || player.hand.length < 2) return [];
+
+  const buckets = new Map();
+  for (const card of player.hand) {
+    const suit = effectiveSuit(card);
+    if (!buckets.has(suit)) {
+      buckets.set(suit, []);
+    }
+    buckets.get(suit).push(card);
+  }
+
+  const candidates = [];
+  for (const cards of buckets.values()) {
+    if (!Array.isArray(cards) || cards.length < 2) continue;
+    const candidate = sortHand(cards);
+    const pattern = classifyPlay(candidate);
+    if (!pattern?.ok || pattern.type !== "throw" || !Array.isArray(pattern.components) || pattern.components.length < 2) {
+      continue;
+    }
+    candidates.push(candidate);
+  }
+  return candidates;
+}
+
+/**
+ * 作用：
+ * 把单个公开甩牌评估结果折算成 `evaluateState(...)` 可直接使用的分值。
+ *
+ * 为什么这样写：
+ * `assessThrowCandidateForState(...)` 返回的是面向候选排序的风险画像，
+ * 但统一评估器需要的是“这个局面当前是否具备健康甩牌窗口”的标量分。
+ * 这里把安全甩牌折成正收益，把 guarded / risky 甩牌折成负收益，
+ * 让 breakdown 能同时解释“敢甩”和“不该甩”。
+ *
+ * 输入：
+ * @param {object|null} throwAssessment - 公开信息下的甩牌风险评估结果。
+ * @param {Array<object>} cards - 触发该评估的整门甩牌候选。
+ *
+ * 输出：
+ * @returns {number} 返回甩牌分值；越高表示当前局面越适合主动甩牌。
+ *
+ * 注意：
+ * - 分值不追求绝对精确，重点是让安全甩牌与高风险甩牌可稳定分层。
+ * - 这里只使用候选本身暴露的结构/分值，不读取任何额外暗手信息。
+ */
+function scoreSimulationThrowAssessment(throwAssessment, cards) {
+  if (!throwAssessment || !Array.isArray(cards) || cards.length === 0) return 0;
+  const pointExposure = cards.reduce((sum, card) => sum + scoreValue(card), 0);
+  const trumpExposure = cards.filter((card) => effectiveSuit(card) === "trump").length;
+  const componentCount = Array.isArray(throwAssessment.componentRisks) ? throwAssessment.componentRisks.length : 0;
+
+  if (throwAssessment.safe) {
+    return Math.min(18, 6 + cards.length * 0.7 + componentCount * 3 - pointExposure * 0.08);
+  }
+
+  let penalty = 10;
+  penalty += Math.min(throwAssessment.scorePenalty || 0, 120) * 0.12;
+  penalty += (throwAssessment.riskyComponentCount || 0) * 6;
+  penalty += (throwAssessment.unresolvedThreatCount || 0) * 4;
+  penalty += trumpExposure * 3;
+  penalty += pointExposure * 0.25;
+  if (throwAssessment.level === "risky") penalty += 8;
+  if (throwAssessment.level === "guarded") penalty += 3;
+  return -Math.min(42, penalty);
+}
+
+/**
+ * 作用：
+ * 评估当前局面里“主动甩牌”在公开信息口径下是否健康。
+ *
+ * 为什么这样写：
+ * 里程碑 3 的目标不是让评估器替代候选层，而是让它能读懂：
+ * “这条线留下的是安全甩牌窗口，还是只剩一堆高暴露的危险甩牌”。
+ * 因此这里取当前局面下最有代表性的整门甩牌机会，作为 `throwRisk` breakdown。
+ *
+ * 输入：
+ * @param {object|null} simState - 当前模拟或真实牌局状态。
+ * @param {number} playerId - 需要评估甩牌窗口的玩家 ID。
+ *
+ * 输出：
+ * @returns {number} 返回甩牌安全分；越高表示越存在公开可解释的健康甩牌机会。
+ *
+ * 注意：
+ * - 这里只评估当前玩家自己的甩牌窗口，不替代具体候选评分。
+ * - 若当前没有整门甩牌候选，则返回 0，表示“此局面不靠甩牌吃价值”。
+ */
+function getSimulationThrowRiskScore(simState, playerId) {
+  if (!simState || !PLAYER_ORDER.includes(playerId)) return 0;
+  const throwCandidates = getSimulationThrowCandidateBuckets(simState, playerId);
+  if (throwCandidates.length === 0) return 0;
+
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const cards of throwCandidates) {
+    const throwAssessment = assessThrowCandidateForState(simState, playerId, cards);
+    const score = scoreSimulationThrowAssessment(throwAssessment, cards);
+    if (score > bestScore) {
+      bestScore = score;
+    }
+  }
+
+  return Number.isFinite(bestScore) ? bestScore : 0;
+}
+
+/**
+ * 作用：
  * 评估当前局面下“失先手后对手继续连拿分墩”的风险。
  *
  * 为什么这样写：
@@ -1341,6 +1468,7 @@ function evaluateState(simState, playerId, objective = getIntermediateObjective(
     structure: getSimulationStructureScore(simState, playerId),
     control: getSimulationControlScore(simState, playerId),
     points: getSimulationPointsScore(simState, playerId),
+    throwRisk: getSimulationThrowRiskScore(simState, playerId),
     friend: getSimulationFriendScore(simState, playerId),
     friendBelief: getSimulationFriendBeliefScore(simState, playerId),
     probeRisk: getSimulationProbeRiskScore(simState, playerId),

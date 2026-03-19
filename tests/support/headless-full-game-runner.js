@@ -438,6 +438,9 @@ function summarizeAiDecision(decision) {
     selectedDangerousPointLeadPenalty: typeof decision.selectedDangerousPointLeadPenalty === "number"
       ? decision.selectedDangerousPointLeadPenalty
       : null,
+    selectedRiskyPointLeadVetoPenalty: typeof decision.selectedRiskyPointLeadVetoPenalty === "number"
+      ? decision.selectedRiskyPointLeadVetoPenalty
+      : null,
     selectedStructureControlPenalty: typeof decision.selectedStructureControlPenalty === "number"
       ? decision.selectedStructureControlPenalty
       : null,
@@ -498,7 +501,7 @@ function enableHeadlessAiDecisionDebug(context) {
  * 构造一份用于 headless 批量复盘的空决策信号汇总桶。
  *
  * 为什么这样写：
- * 里程碑 3.5 需要把“牌权续控风险、连续跑分风险、危险带分领牌、朋友已站队策略切换”
+ * 里程碑 4 需要把“牌权续控风险、连续跑分风险、赢轮后下一拍仍有牌权优势、危险带分领牌、朋友已站队策略切换”
  * 统一沉淀到同一份摘要结构里，先定义稳定骨架，后续加信号时才不会反复改 JSON 形状。
  *
  * 输入：
@@ -517,6 +520,7 @@ function buildEmptyDecisionSignalSummary() {
     selectedSignals: {
       turnAccessRisk: 0,
       pointRunRisk: 0,
+      turnAccessHold: 0,
       dangerousPointLead: 0,
       unresolvedProbeRisk: 0,
       revealedFriendControlShift: 0,
@@ -524,6 +528,7 @@ function buildEmptyDecisionSignalSummary() {
     selectedByFriendState: {
       turnAccessRisk: { unrevealed: 0, revealed: 0, failed: 0, not_called: 0 },
       pointRunRisk: { unrevealed: 0, revealed: 0, failed: 0, not_called: 0 },
+      turnAccessHold: { unrevealed: 0, revealed: 0, failed: 0, not_called: 0 },
     },
     candidateAudit: {
       turnAccessRiskCandidates: 0,
@@ -534,6 +539,7 @@ function buildEmptyDecisionSignalSummary() {
     samples: {
       turnAccessRisk: [],
       pointRunRisk: [],
+      turnAccessHold: [],
       dangerousPointLead: [],
       unresolvedProbeRisk: [],
       revealedFriendControlShift: [],
@@ -671,6 +677,7 @@ function buildDecisionSignalSample(game, event, signal) {
     objectivePrimary: decision.objective?.primary || null,
     objectiveSecondary: decision.objective?.secondary || null,
     selectedDangerousPointLeadPenalty: decision.selectedDangerousPointLeadPenalty || 0,
+    selectedRiskyPointLeadVetoPenalty: decision.selectedRiskyPointLeadVetoPenalty || 0,
     selectedRolloutTriggerFlags: Array.isArray(decision.selectedRolloutTriggerFlags)
       ? [...decision.selectedRolloutTriggerFlags]
       : [],
@@ -696,6 +703,46 @@ function buildDecisionSignalSample(game, event, signal) {
  * - 这里只统计 `play` 事件，因为这些信号都依附于实际出牌决策。
  * - `revealedFriendControlShift` 记的是策略切换信号，不等同于“错误”。
  */
+
+/**
+ * 作用：
+ * 判断一条“带分领牌”是否已经被当前搜索链确认成真正高风险样本。
+ *
+ * 为什么这样写：
+ * 之前 headless 只要看到 `selectedDangerousPointLeadPenalty > 0` 就计数，
+ * 这会把“启发式提醒过要小心、但 rollout 最终证明还能安全续控”的样本也算进去。
+ * 里程碑 3 收口需要更接近真实风险，因此这里改成“heuristic 命中 + rollout / veto 再确认”。
+ *
+ * 输入：
+ * @param {object|null} event - 当前 `play` 事件。
+ *
+ * 输出：
+ * @returns {boolean} 若该事件属于已确认的危险带分领牌，则返回 `true`。
+ *
+ * 注意：
+ * - 必须是首发事件；跟牌阶段不计入这条信号。
+ * - `turn_access_hold` 会抵消单纯 heuristic 命中的误报，除非已被二次 veto 直接否掉。
+ */
+function isConfirmedDangerousPointLeadDecision(event) {
+  const decision = event?.decision || null;
+  if (!decision || event?.mode !== "lead") return false;
+
+  const dangerousPenalty = decision.selectedDangerousPointLeadPenalty || 0;
+  if (dangerousPenalty <= 0) return false;
+
+  const riskyVetoPenalty = decision.selectedRiskyPointLeadVetoPenalty || 0;
+  if (riskyVetoPenalty > 0) return true;
+
+  const flags = Array.isArray(decision.selectedRolloutTriggerFlags)
+    ? decision.selectedRolloutTriggerFlags
+    : [];
+  const keepsAccess = flags.includes("turn_access_hold");
+  const confirmedRisk = flags.includes("turn_access_risk")
+    || flags.includes("point_run_risk")
+    || flags.includes("no_safe_next_lead");
+  return confirmedRisk && !keepsAccess;
+}
+
 function summarizeDecisionSignalsForGames(games) {
   const summary = buildEmptyDecisionSignalSummary();
 
@@ -739,7 +786,14 @@ function summarizeDecisionSignalsForGames(games) {
         pushDecisionSignalSample(summary.samples.pointRunRisk, buildDecisionSignalSample(game, event, "point_run_risk"));
       }
 
-      if ((decision.selectedDangerousPointLeadPenalty || 0) > 0 && event.mode === "lead") {
+      if (selectedFlags.includes("turn_access_hold")) {
+        summary.selectedSignals.turnAccessHold += 1;
+        summary.selectedByFriendState.turnAccessHold[normalizedFriendState] += 1;
+        gameSignalCount += 1;
+        pushDecisionSignalSample(summary.samples.turnAccessHold, buildDecisionSignalSample(game, event, "turn_access_hold"));
+      }
+
+      if (isConfirmedDangerousPointLeadDecision(event)) {
         summary.selectedSignals.dangerousPointLead += 1;
         gameSignalCount += 1;
         pushDecisionSignalSample(
@@ -1535,11 +1589,13 @@ function buildAnalysisMarkdown(summary) {
   lines.push("");
   lines.push(`- 触发 turn_access_risk 的已选动作：${overallSignals.selectedSignals.turnAccessRisk}`);
   lines.push(`- 触发 point_run_risk 的已选动作：${overallSignals.selectedSignals.pointRunRisk}`);
+  lines.push(`- 赢轮后下一拍仍有牌权优势：${overallSignals.selectedSignals.turnAccessHold}`);
   lines.push(`- 仍被选中的危险带分领牌：${overallSignals.selectedSignals.dangerousPointLead}`);
   lines.push(`- 触发 unresolved_probe_risk 的已选动作：${overallSignals.selectedSignals.unresolvedProbeRisk}`);
   lines.push(`- 朋友已站队后的控制型策略切换：${overallSignals.selectedSignals.revealedFriendControlShift}`);
   lines.push(`- 未站队阶段触发 turn_access_risk：${overallSignals.selectedByFriendState.turnAccessRisk.unrevealed}`);
   lines.push(`- 未站队阶段触发 point_run_risk：${overallSignals.selectedByFriendState.pointRunRisk.unrevealed}`);
+  lines.push(`- 未站队阶段仍保有牌权优势：${overallSignals.selectedByFriendState.turnAccessHold.unrevealed}`);
   lines.push(`- 候选池内 turn_access_risk 总数：${overallSignals.candidateAudit.turnAccessRiskCandidates}`);
   lines.push(`- 候选池内 point_run_risk 总数：${overallSignals.candidateAudit.pointRunRiskCandidates}`);
   lines.push(`- 被过滤候选总数：${overallSignals.candidateAudit.filteredCandidates}`);
@@ -1561,11 +1617,13 @@ function buildAnalysisMarkdown(summary) {
     lines.push(`- 闲家方胜局：${detail.winnerBreakdown.defender}`);
     lines.push(`- 已选 turn_access_risk：${detail.decisionSignals.selectedSignals.turnAccessRisk}`);
     lines.push(`- 已选 point_run_risk：${detail.decisionSignals.selectedSignals.pointRunRisk}`);
+    lines.push(`- 已选 turn_access_hold：${detail.decisionSignals.selectedSignals.turnAccessHold}`);
     lines.push(`- 已选危险带分领牌：${detail.decisionSignals.selectedSignals.dangerousPointLead}`);
     lines.push(`- 已选 unresolved_probe_risk：${detail.decisionSignals.selectedSignals.unresolvedProbeRisk}`);
     lines.push(`- 朋友站队后控制型切换：${detail.decisionSignals.selectedSignals.revealedFriendControlShift}`);
     lines.push(`- 未站队 turn_access_risk：${detail.decisionSignals.selectedByFriendState.turnAccessRisk.unrevealed}`);
     lines.push(`- 未站队 point_run_risk：${detail.decisionSignals.selectedByFriendState.pointRunRisk.unrevealed}`);
+    lines.push(`- 未站队 turn_access_hold：${detail.decisionSignals.selectedByFriendState.turnAccessHold.unrevealed}`);
     lines.push("");
   }
 
@@ -1612,6 +1670,7 @@ function buildAnalysisMarkdown(summary) {
   if (
     overallSignals.samples.turnAccessRisk.length === 0
     && overallSignals.samples.pointRunRisk.length === 0
+    && overallSignals.samples.turnAccessHold.length === 0
     && overallSignals.samples.dangerousPointLead.length === 0
     && overallSignals.samples.unresolvedProbeRisk.length === 0
     && overallSignals.samples.revealedFriendControlShift.length === 0
@@ -1621,6 +1680,7 @@ function buildAnalysisMarkdown(summary) {
     const sampleSections = [
       ["turn_access_risk", overallSignals.samples.turnAccessRisk],
       ["point_run_risk", overallSignals.samples.pointRunRisk],
+      ["turn_access_hold", overallSignals.samples.turnAccessHold],
       ["dangerous_point_lead", overallSignals.samples.dangerousPointLead],
       ["unresolved_probe_risk", overallSignals.samples.unresolvedProbeRisk],
       ["revealed_friend_control_shift", overallSignals.samples.revealedFriendControlShift],

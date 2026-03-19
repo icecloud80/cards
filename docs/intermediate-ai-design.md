@@ -232,6 +232,7 @@
 - `structure`：手牌结构是否完整，例如对子、拖拉机、火车、推土机是否保留得更好。
 - `control`：主牌控制力是否更强。
 - `points`：当前分数收益是否更好。
+- `throwRisk`：当前局面下是否存在公开可解释的健康甩牌窗口，还是只剩高暴露的危险甩牌。
 - `friend`：朋友目标推进是否更顺。
 - `friendBelief`：当前玩家是否更像朋友。
 - `probeRisk`：朋友未站队时，这份找朋友试探是否已经过热，是否为了试探花掉了过多高张 / 主控 / 带分资源。
@@ -240,7 +241,6 @@
 - `gradeBottom`：当前局面对“级牌扣底路线”是否更友好。
 - `bottomRelease`：残局同侧控牌时，当前玩家是否已经把可让给同侧的王张 / 高主资源让出来。
 - `voidPressure`：当前局面对断门施压是否有利。
-- `handoff`：当前局面对把牌权递给同侧是否有利。
 - `tempo`：当前节奏是否在我方。
 - `turnAccess`：我方是否还能继续掌握下一手牌权。
 - `controlExit`：朋友已站队后，当前控牌是否属于“还能安全续控，或可顺势交给同侧”的健康状态。
@@ -665,6 +665,9 @@
 - 性能稳定。
 - 调试友好。
 - 容易逐步把零散 heuristic 下沉成统一评分。
+- 现在也更容易做 fixed-seed 复盘：
+  headless 摘要里的 `turn_access_risk / point_run_risk / dangerous_point_lead / unresolved_probe_risk`
+  样本都会保留稳定 seed 和目标信息，异常局面可以直接按 seed 回放。
 
 当前仍保留的局限：
 

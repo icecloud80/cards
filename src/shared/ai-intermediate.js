@@ -3024,6 +3024,8 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
   }
   const invitationTakeoverChoice = chooseIntermediateInvitationTakeover(playerId, candidates, currentWinningPlay);
   if (invitationTakeoverChoice.length > 0) return invitationTakeoverChoice;
+  const pairFollowTriplePreserveDiscard = chooseAiPairFollowTriplePreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (pairFollowTriplePreserveDiscard.length > 0) return pairFollowTriplePreserveDiscard;
   const highPairPreserveDiscard = chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay);
   if (highPairPreserveDiscard.length > 0) return highPairPreserveDiscard;
   const handoffReceiveChoice = chooseIntermediateHandoffReceive(playerId, candidates, currentWinningPlay);
@@ -3144,6 +3146,11 @@ function chooseAiFollowPlay(playerId, candidates) {
 
   if (!shouldDelayReveal && revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
+  }
+
+  const pairFollowTriplePreserveDiscard = chooseAiPairFollowTriplePreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (pairFollowTriplePreserveDiscard.length > 0) {
+    return pairFollowTriplePreserveDiscard;
   }
 
   const highPairPreserveDiscard = chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay);

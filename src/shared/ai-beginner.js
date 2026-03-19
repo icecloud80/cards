@@ -81,6 +81,11 @@ function chooseAiFollowPlay(playerId, candidates) {
     return revealChoice;
   }
 
+  const pairFollowTriplePreserveDiscard = chooseAiPairFollowTriplePreserveDiscard(playerId, candidates, currentWinningPlay);
+  if (pairFollowTriplePreserveDiscard.length > 0) {
+    return pairFollowTriplePreserveDiscard;
+  }
+
   const highPairPreserveDiscard = chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPlay);
   if (highPairPreserveDiscard.length > 0) {
     return highPairPreserveDiscard;

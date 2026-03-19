@@ -156,6 +156,10 @@
   当打家先出朋友牌、朋友决定先压住不亮身份时，旧逻辑会只按“先丢零分牌”挑支持牌，导致像 `8899 + 5` 这种手牌错误跟出 `8`；
   当前实现已改成先比较同门结构损耗，再看分值与牌力，beginner / intermediate / advanced 都会优先保住同门现成结构。
 - 对应回归同样补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
+- 修复了一个会让 `别人出对` 场景里 beginner / intermediate 机械拆刻子的共享跟牌短路缺口：
+  当自己同门正好是 `刻子 + 两张杂牌` 时，旧排序会因为“拆成对子还能压住当前”而直接打出 `KK`，即便规则并不要求把这组三张硬拆成对；
+  当前实现已改成优先用两张同门杂牌合法跟牌，显式保住这组刻子，避免把后续可续控的三张结构白白拆掉。
+- 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - `级牌扣底` 路线现在已经从“beginner 专属 heuristic”扩成 `beginner + intermediate` 共用能力：
   `beginner` 继续保留轻量画像、吊主和延迟站队；
   `intermediate` 则新增了 `grade_bottom` objective，并把“保王 / 保级牌结构 / 特殊级升权”正式接进评分器与 rollout 扩展。

@@ -1290,6 +1290,53 @@ function runFriendStrategySuite(context) {
       state.leaderId = 3;
     }
 
+    /**
+     * 作用：
+     * 搭建“别人出对时，自己有同门刻子和杂牌，不应为了跟对去拆刻子”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户明确要求把这条 beginner heuristic 锁死：
+     * 当同门里已经是“刻子 + 两张杂牌”时，AI 完全可以用两张杂牌合法跟牌，
+     * 不应因为“拆成对子还能压住当前”就优先拆掉刻子。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接改写共享 state，供后续读取合法候选和提示。
+     *
+     * 注意：
+     * - 这里只保护“正好三张”的同门刻子，避免把四张真对子资源混进断言。
+     * - 场景里让前位已经用更大的对子暂时领先，确保旧逻辑真的会诱发“拆刻子去抢这一手”。
+     */
+    function setupPairFollowTriplePreserveScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.friendTarget = null;
+      state.playHistory = [];
+      state.players = [
+        basePlayer(1, [makeCard("pair-triple-p1-h-9-1", "hearts", "9"), makeCard("pair-triple-p1-h-9-2", "hearts", "9")], true),
+        basePlayer(2, [makeCard("pair-triple-p2-h-10-1", "hearts", "10"), makeCard("pair-triple-p2-h-10-2", "hearts", "10")]),
+        basePlayer(3, [
+          makeCard("pair-triple-p3-h-k-1", "hearts", "K"),
+          makeCard("pair-triple-p3-h-k-2", "hearts", "K"),
+          makeCard("pair-triple-p3-h-k-3", "hearts", "K"),
+          makeCard("pair-triple-p3-h-3", "hearts", "3"),
+          makeCard("pair-triple-p3-h-4", "hearts", "4"),
+        ]),
+        basePlayer(4, [makeCard("pair-triple-p4-s-8", "spades", "8")]),
+        basePlayer(5, [makeCard("pair-triple-p5-d-7", "diamonds", "7")]),
+      ];
+      state.currentTurnId = 3;
+      state.leaderId = 1;
+      state.currentTrick = [
+        { playerId: 1, cards: [makeCard("pair-triple-lead-h-9-1", "hearts", "9"), makeCard("pair-triple-lead-h-9-2", "hearts", "9")] },
+        { playerId: 2, cards: [makeCard("pair-triple-beat-h-10-1", "hearts", "10"), makeCard("pair-triple-beat-h-10-2", "hearts", "10")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    }
+
     // 搭建避免给庄家将吃机会的测试场景。
     function setupAvoidBankerRuffLeadScenario(difficulty) {
       resetCommonState();
@@ -1826,6 +1873,34 @@ function runFriendStrategySuite(context) {
       assert(hint.length >= 1, difficulty + ": anti-ruff scenario should choose a legal lead");
       assert(!(hint.every((card) => card.suit === "hearts")), difficulty + ": should avoid re-leading banker void suit without cover");
       results.push(difficulty + " avoid-banker-ruff lead ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupPairFollowTriplePreserveScenario(difficulty);
+      const protectedPairFromTriple = [
+        state.players[2].hand.find((card) => card.id === "pair-triple-p3-h-k-1"),
+        state.players[2].hand.find((card) => card.id === "pair-triple-p3-h-k-2"),
+      ];
+      const preferredLooseFollow = [
+        state.players[2].hand.find((card) => card.id === "pair-triple-p3-h-3"),
+        state.players[2].hand.find((card) => card.id === "pair-triple-p3-h-4"),
+      ];
+      const legalPairFollowChoices = getLegalSelectionsForPlayer(3);
+      assert(
+        legalPairFollowChoices.some((combo) => getComboKey(combo) === getComboKey(protectedPairFromTriple)),
+        difficulty + ": pair-follow triple-preserve scenario should include the split-triple pair as a legal baseline candidate"
+      );
+      assert(
+        legalPairFollowChoices.some((combo) => getComboKey(combo) === getComboKey(preferredLooseFollow)),
+        difficulty + ": pair-follow triple-preserve scenario should include the loose same-suit follow as a legal alternative"
+      );
+      const pairFollowChoice = getLegalHintForPlayer(3);
+      assert(pairFollowChoice.length === 2, difficulty + ": pair-follow triple-preserve scenario should choose two cards");
+      assert(
+        getComboKey(pairFollowChoice) === getComboKey(preferredLooseFollow),
+        difficulty + ": should keep the exact triple intact instead of splitting it to follow pair"
+      );
+      results.push(difficulty + " pair-follow preserves exact triple ok");
     }
 
     setupAllowCoverRuffLeadScenario("beginner");

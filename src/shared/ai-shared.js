@@ -2083,6 +2083,100 @@ function chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPla
   })[0];
 }
 
+/**
+ * 作用：
+ * 在“别人出对、自己这门有刻子且还有别的杂牌可跟”时，优先保住这组刻子，不为了抢这一手机械拆刻子。
+ *
+ * 为什么这样写：
+ * 规则层已经明确“三张刻子不用强拆成对”，但旧的跟牌排序仍会因为“成对跟牌 + 可能压住当前”
+ * 给拆刻子方案过高权重，导致像 `KKK + 3 + 4` 这种牌被错误打成 `KK`。
+ * 这里补一条和“保大对先贴牌”同级的显式短路，把这类人类新手也会避免的拆刻子行为直接收住。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<Array<object>>} candidates - 当前所有合法候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次的领先出牌。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“保刻子不拆对”窗口时返回推荐跟牌，否则返回空数组。
+ *
+ * 注意：
+ * - 只处理“首家出对子、自己仍能按首门跟牌”的场景。
+ * - 这里只保护“正好三张”的同门刻子；四张及以上仍要按规则把真对子资源算进去。
+ */
+function chooseAiPairFollowTriplePreserveDiscard(playerId, candidates, currentWinningPlay = null) {
+  if (!Array.isArray(candidates) || candidates.length === 0 || !state.leadSpec || state.leadSpec.type !== "pair") return [];
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return [];
+
+  const leadSuit = state.leadSpec.suit;
+  const sameSuitCards = player.hand.filter((card) => effectiveSuit(card) === leadSuit);
+  if (sameSuitCards.length <= state.leadSpec.count) return [];
+
+  const sameSuitCountByKey = new Map();
+  for (const card of sameSuitCards) {
+    const key = `${card.suit}-${card.rank}`;
+    sameSuitCountByKey.set(key, (sameSuitCountByKey.get(key) || 0) + 1);
+  }
+
+  const protectedTripleKeys = new Set(
+    [...sameSuitCountByKey.entries()]
+      .filter(([, count]) => count === 3)
+      .map(([key]) => key)
+  );
+  if (protectedTripleKeys.size === 0) return [];
+
+  function doesComboBreakProtectedTriple(combo) {
+    if (!Array.isArray(combo) || combo.length !== state.leadSpec.count) return false;
+    if (!combo.every((card) => effectiveSuit(card) === leadSuit)) return false;
+
+    const usedByKey = new Map();
+    for (const card of combo) {
+      const key = `${card.suit}-${card.rank}`;
+      usedByKey.set(key, (usedByKey.get(key) || 0) + 1);
+    }
+
+    return [...protectedTripleKeys].some((key) => (usedByKey.get(key) || 0) >= 2);
+  }
+
+  const safeSameSuitChoices = candidates.filter((combo) =>
+    Array.isArray(combo)
+    && combo.length === state.leadSpec.count
+    && combo.every((card) => effectiveSuit(card) === leadSuit)
+    && !doesComboBreakProtectedTriple(combo)
+  );
+  const riskySameSuitChoices = candidates.filter((combo) => doesComboBreakProtectedTriple(combo));
+  if (riskySameSuitChoices.length === 0 || safeSameSuitChoices.length === 0) return [];
+
+  const winningPlay = currentWinningPlay || getCurrentWinningPlay();
+  const allyWinning = winningPlay ? areAiSameSide(playerId, winningPlay.playerId) : false;
+  const safeBeatingChoices = winningPlay
+    ? safeSameSuitChoices.filter((combo) => wouldAiComboBeatCurrent(playerId, combo, winningPlay))
+    : [];
+  const safeNonBeatingChoices = winningPlay
+    ? safeSameSuitChoices.filter((combo) => !wouldAiComboBeatCurrent(playerId, combo, winningPlay))
+    : safeSameSuitChoices;
+
+  let choicePool = safeSameSuitChoices;
+  if (!allyWinning && safeBeatingChoices.length > 0) {
+    choicePool = safeBeatingChoices;
+  } else if (safeNonBeatingChoices.length > 0) {
+    choicePool = safeNonBeatingChoices;
+  }
+
+  return choicePool.sort((a, b) => {
+    const structureDiff = getFollowStructureScore(b) - getFollowStructureScore(a);
+    if (structureDiff !== 0) return structureDiff;
+    const pointDiff = allyWinning
+      ? getComboPointValue(b) - getComboPointValue(a)
+      : getComboPointValue(a) - getComboPointValue(b);
+    if (pointDiff !== 0) return pointDiff;
+    const powerDiff = classifyPlay(a).power - classifyPlay(b).power;
+    if (powerDiff !== 0) return powerDiff;
+    return a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
+  })[0] || [];
+}
+
 function isMemorableHighCard(card) {
   return !!card && (isTrump(card) || ["10", "J", "Q", "K", "A", "BJ", "RJ"].includes(card.rank));
 }

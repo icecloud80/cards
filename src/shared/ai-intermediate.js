@@ -1152,12 +1152,13 @@ function scoreIntermediateUnresolvedProbeVetoPenalty(playerId, entry, mode = "le
 
 /**
  * 作用：
- * 为“打家早期先走掉延迟型朋友牌前置副本”的动作提供中级评分加成。
+ * 为“打家早期按目标高张 / 过桥高张 / 找朋友小牌节奏推进”的动作提供中级评分加成。
  *
  * 为什么这样写：
- * 当打家叫的是第二张或第三张 `A`，且自己手里已经持有前面的 `A` 时，
- * 如果前几轮不尽快把这张 `A` 走掉，就容易在中途丢失牌权后被别人抢先亮掉同张，
- * 让整局长时间处于近似 `1 打 4` 的失衡状态。
+ * 用户把“怎么找朋友”补成了更完整的节奏：
+ * 普通级偏向 `A -> K -> 找朋友小牌`，
+ * 持有两张目标高张时偏向 `AA/KK -> 找朋友小牌`，
+ * `A` 级则改成 `K -> Q -> 找朋友小牌`。
  * 这条经验应显式进中级评分，而不是只停留在 beginner 入口的直觉规则里。
  *
  * 输入：
@@ -1169,31 +1170,57 @@ function scoreIntermediateUnresolvedProbeVetoPenalty(playerId, entry, mode = "le
  * @returns {number} 返回应加到候选分上的正向奖励；越高表示越应优先做亮友前置清理。
  *
  * 注意：
- * - 当前先只对单张 `A` 生效，避免把一般高张都一律提前打掉。
- * - 这里只奖励“前几轮、打家首发、且目标仍属于第二/第三张”的准备动作。
+ * - 当前只覆盖共享 call-friend 评分已支持的 `A / K` 路线。
+ * - 这里只奖励“前几轮、打家首发、且目标仍未亮出”的准备动作。
  */
 function scoreIntermediateFriendSetupLead(playerId, combo, handBefore) {
-  if (playerId !== state.bankerId || !Array.isArray(combo) || combo.length !== 1 || !Array.isArray(handBefore)) return 0;
+  if (playerId !== state.bankerId || !Array.isArray(combo) || combo.length === 0 || !Array.isArray(handBefore)) return 0;
   if (!state.friendTarget || isFriendTeamResolved()) return 0;
-  if (state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") return 0;
+  if (state.friendTarget.suit === "joker" || !["A", "K"].includes(state.friendTarget.rank)) return 0;
   if ((state.trickNumber || 1) > 4) return 0;
 
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
-  if (neededOccurrence <= 1 || currentSeen >= neededOccurrence - 1) return 0;
+  if (currentSeen >= neededOccurrence) return 0;
 
-  const targetCard = combo[0];
-  if (targetCard.suit !== state.friendTarget.suit || targetCard.rank !== state.friendTarget.rank) return 0;
+  const setupProfile = buildFriendSearchRouteProfile({ hand: handBefore }, state.friendTarget);
+  if (!setupProfile) return 0;
 
-  const targetCopiesInHand = handBefore.filter(
-    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
-  ).length;
-  if (targetCopiesInHand <= 0) return 0;
+  const isTargetLead = combo.every((card) =>
+    card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  const isBridgeLead = combo.length === 1
+    && setupProfile.bridgeRank
+    && combo[0].suit === state.friendTarget.suit
+    && combo[0].rank === setupProfile.bridgeRank;
+  const isSearchLead = combo.length === 1
+    && !!setupProfile.searchCard
+    && combo[0].id === setupProfile.searchCard.id;
+  if (!isTargetLead && !isBridgeLead && !isSearchLead) return 0;
 
-  let bonus = 88;
+  let bonus = 0;
+  if (isTargetLead) {
+    if (combo.length >= 2 && currentSeen <= neededOccurrence - 2) {
+      bonus += 104;
+    } else if (combo.length === 1 && currentSeen < neededOccurrence - 1) {
+      bonus += 92;
+    } else {
+      bonus += 18;
+    }
+  }
+  if (isBridgeLead) {
+    const bridgeWindow = setupProfile.targetCopies === 0 || currentSeen >= neededOccurrence - 1;
+    if (!bridgeWindow || !setupProfile.searchCard) return 0;
+    bonus += state.friendTarget.rank === "K" ? 82 : 72;
+  }
+  if (isSearchLead) {
+    const searchWindow = setupProfile.targetCopies === 0 && setupProfile.bridgeCount === 0;
+    if (!searchWindow) return 0;
+    bonus += 66;
+  }
   if ((state.trickNumber || 1) <= 2) bonus += 16;
-  if (targetCopiesInHand >= 2) bonus += 10;
-  if (effectiveSuit(targetCard) !== "trump") bonus += 8;
+  if (state.friendTarget.rank === "K" && getCurrentLevelRank() === "A") bonus += 10;
+  if (combo.length === 1 && effectiveSuit(combo[0]) !== "trump") bonus += 8;
   return bonus;
 }
 

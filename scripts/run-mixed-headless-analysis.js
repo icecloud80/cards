@@ -85,8 +85,12 @@ function main() {
   console.log(`- completion rate: ${result.summary.totals.completionRate}%`);
   console.log(`- average steps: ${result.summary.totals.averageSteps}`);
   console.log(`- average tricks: ${result.summary.totals.averageTricks}`);
+  console.log(`- average decision time: ${result.summary.totals.averageDecisionTimeMs} ms`);
+  console.log(`- decision time p95: ${result.summary.performance.p95DecisionTimeMs} ms`);
+  console.log(`- slowest game average: ${result.summary.performance.slowestGames[0]?.averageDecisionTimeMs || 0} ms`);
   console.log(`- banker wins: ${result.summary.winnerBreakdown.banker}`);
   console.log(`- defender wins: ${result.summary.winnerBreakdown.defender}`);
+  console.log(`- turn_access_hold: ${result.summary.decisionSignals.selectedSignals.turnAccessHold}`);
   console.log(
     `- lineups: ${result.summary.lineupBreakdown.map((entry) => `${entry.label}=${entry.count}`).join(", ")}`
   );

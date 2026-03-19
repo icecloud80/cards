@@ -535,7 +535,25 @@ function runFriendStrategySuite(context) {
       ];
     }
 
-    // 搭建“叫第二张 A 且已形成单张回手，应先走回手牌”的测试场景。
+    /**
+     * 作用：
+     * 搭建“叫第二张 A 且已整理成 A + 找朋友牌 时，应先走 A”的测试场景。
+     *
+     * 为什么这样写：
+     * 本轮用户重新明确了叫朋友常规节奏：
+     * 如果这门里已经保成 A + 找朋友牌，应先兑现 A 稳住牌权，
+     * 再用找朋友牌去把朋友叫出来，而不是先把找朋友牌摸掉。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入 playing 状态。
+     *
+     * 注意：
+     * - 这里故意不给 K，只验证最基础的 A -> 找朋友牌 节奏。
+     * - 朋友目标仍是“第二张红桃 A”。
+     */
     function setupBankerFriendSetupLeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
@@ -560,6 +578,217 @@ function runFriendStrategySuite(context) {
       ];
       setFriendTarget({ suit: "hearts", rank: "A", occurrence: 2 });
       state.friendTarget.matchesSeen = 0;
+    }
+
+    /**
+     * 作用：
+     * 搭建“已经先出过 A 后，应继续出 K 再找朋友”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户补充的常规节奏不是只会 A -> 小牌，
+     * 而是当手里还有过桥高张时，应继续走 A -> K -> 找朋友牌。
+     * 这里直接把 matchesSeen 置到 1，模拟打家前面已经先兑现过自己的那张 A。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入 playing 状态。
+     *
+     * 注意：
+     * - 当前目标仍是“第二张红桃 A”。
+     * - 手牌里只留 K + 3，验证第二拍会优先走 K 而不是直接摸 3。
+     */
+    function setupBankerFriendBridgeLeadScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.phase = "playing";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trickNumber = 2;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [makeCard("p1-s-7-bridge", "spades", "7")], true),
+        basePlayer(2, [makeCard("p2-d-8-bridge", "diamonds", "8")]),
+        basePlayer(3, [makeCard("p3-s-9-bridge", "spades", "9")]),
+        basePlayer(4, [makeCard("p4-c-6-bridge", "clubs", "6")]),
+        basePlayer(5, [
+          makeCard("banker-h-k-bridge", "hearts", "K"),
+          makeCard("banker-h-3-bridge", "hearts", "3"),
+          makeCard("banker-c-k-1-bridge", "clubs", "K"),
+          makeCard("banker-c-k-2-bridge", "clubs", "K"),
+          makeCard("banker-s-j-bridge", "spades", "J"),
+        ]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 2 });
+      state.friendTarget.matchesSeen = 1;
+    }
+
+    /**
+     * 作用：
+     * 搭建“打家手里有两张 A 时，应先出对 A 再找朋友”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户明确补充：
+     * 如果手里有两张 A，就应改叫第三张 A，并先出对 A 再用小牌找朋友。
+     * 这里验证 shared heuristic 会优先出 AA，而不是拆成单张试探。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入 playing 状态。
+     *
+     * 注意：
+     * - 目标牌是“第三张红桃 A”。
+     * - 红桃 4 是后续找朋友牌，当前这手不应先走它。
+     */
+    function setupBankerDoubleAceForceRevealScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.phase = "playing";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trickNumber = 1;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [makeCard("p1-s-7-aa", "spades", "7")], true),
+        basePlayer(2, [makeCard("p2-d-8-aa", "diamonds", "8")]),
+        basePlayer(3, [makeCard("p3-s-9-aa", "spades", "9")]),
+        basePlayer(4, [makeCard("p4-c-6-aa", "clubs", "6")]),
+        basePlayer(5, [
+          makeCard("banker-h-a-1-aa", "hearts", "A"),
+          makeCard("banker-h-a-2-aa", "hearts", "A"),
+          makeCard("banker-h-4-aa", "hearts", "4"),
+          makeCard("banker-c-k-1-aa", "clubs", "K"),
+          makeCard("banker-s-j-aa", "spades", "J"),
+        ]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 3 });
+      state.friendTarget.matchesSeen = 0;
+    }
+
+    /**
+     * 作用：
+     * 搭建“A 级时不应再叫 A，而应改走第一张 K 的测试场景。
+     *
+     * 为什么这样写：
+     * 用户补充：
+     * A 级时 A 已经转成级牌主，不应该再把副牌 A 当朋友牌；
+     * 此时副牌最大应改为 K，如果自己没有 K 但有 Q + 小牌，则应先出 Q 再找朋友。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入 callingFriend 状态。
+     *
+     * 注意：
+     * - 这里故意不给打家方块 K，验证它会改叫“第一张方块 K”。
+     * - 方块 Q + 5 是预期的过桥高张与找朋友牌结构。
+     */
+    function setupALevelKingFriendCallScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.phase = "callingFriend";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trumpSuit = "clubs";
+      state.levelRank = "A";
+      state.playerLevels = { 1: "A", 2: "A", 3: "A", 4: "A", 5: "A" };
+      state.players = [
+        basePlayer(1, [makeCard("p1-c-6-a-level", "clubs", "6")], true),
+        basePlayer(2, [makeCard("p2-h-8-a-level", "hearts", "8")]),
+        basePlayer(3, [makeCard("p3-d-k-a-level", "diamonds", "K")]),
+        basePlayer(4, [makeCard("p4-s-5-a-level", "spades", "5")]),
+        basePlayer(5, [
+          makeCard("b-d-q-a-level", "diamonds", "Q"),
+          makeCard("b-d-5-a-level", "diamonds", "5"),
+          makeCard("b-s-q-a-level", "spades", "Q"),
+          makeCard("b-s-j-a-level", "spades", "J"),
+          makeCard("b-h-9-a-level", "hearts", "9"),
+          makeCard("b-h-7-a-level", "hearts", "7"),
+          makeCard("b-c-k-a-level", "clubs", "K"),
+        ]),
+      ];
+    }
+
+    /**
+     * 作用：
+     * 搭建“A 级第一张 K 路线下，应先出 Q 再找朋友”的测试场景。
+     *
+     * 为什么这样写：
+     * 这条场景直接复用上面的叫朋友结构，但切到出牌阶段，
+     * 验证 AI 会先走方块 Q，而不是直接摸方块 5。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入 playing 状态。
+     *
+     * 注意：
+     * - 朋友牌固定为“第一张方块 K”。
+     * - 这里只验证 Q -> 找朋友牌 的第二高张节奏。
+     */
+    function setupALevelKingBridgeLeadScenario(difficulty) {
+      setupALevelKingFriendCallScenario(difficulty);
+      state.phase = "playing";
+      setFriendTarget({ suit: "diamonds", rank: "K", occurrence: 1 });
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trickNumber = 1;
+    }
+
+    /**
+     * 作用：
+     * 搭建“副牌都过脏时，应改叫第一张大王”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户补充：
+     * 如果每一门副牌都有拖拉机、刻子或太多分，不应再硬拆副牌找朋友；
+     * 这时更合理的兜底是改叫第一张大王。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入 callingFriend 状态。
+     *
+     * 注意：
+     * - 打家自己不持有大王，验证的是“第一张大王”而不是“第二张大王”。
+     * - 三门副牌都故意做成高分 / 成对结构，避免干净短门压过 joker fallback。
+     */
+    function setupJokerFriendFallbackScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.phase = "callingFriend";
+      state.bankerId = 5;
+      state.currentTurnId = 5;
+      state.leaderId = 5;
+      state.trumpSuit = "clubs";
+      state.players = [
+        basePlayer(1, [makeCard("p1-c-6-joker-fallback", "clubs", "6")], true),
+        basePlayer(2, [makeCard("p2-h-8-joker-fallback", "hearts", "8")]),
+        basePlayer(3, [makeCard("p3-d-9-joker-fallback", "diamonds", "9")]),
+        basePlayer(4, [makeCard("p4-s-5-joker-fallback", "spades", "5")]),
+        basePlayer(5, [
+          makeCard("b-s-10a-joker-fallback", "spades", "10"),
+          makeCard("b-s-10b-joker-fallback", "spades", "10"),
+          makeCard("b-s-j-joker-fallback", "spades", "J"),
+          makeCard("b-s-5-joker-fallback", "spades", "5"),
+          makeCard("b-h-k1-joker-fallback", "hearts", "K"),
+          makeCard("b-h-k2-joker-fallback", "hearts", "K"),
+          makeCard("b-h-10-joker-fallback", "hearts", "10"),
+          makeCard("b-d-a1-joker-fallback", "diamonds", "A"),
+          makeCard("b-d-a2-joker-fallback", "diamonds", "A"),
+          makeCard("b-d-10-joker-fallback", "diamonds", "10"),
+          makeCard("b-c-7-joker-fallback", "clubs", "7"),
+        ]),
+      ];
     }
 
     function setupAvoidKingWhileAceAliveScenario(difficulty) {
@@ -1304,8 +1533,24 @@ function runFriendStrategySuite(context) {
       setupBankerFriendSetupLeadScenario(difficulty);
       const hint = chooseAiLeadPlay(5);
       assert(hint.length === 1, difficulty + ": banker friend-setup scenario should choose a single heuristic lead");
-      assert(hint[0].suit === "hearts" && hint[0].rank === "3", difficulty + ": banker should lead the single friend-suit return card before cashing held hearts A");
-      results.push(difficulty + " banker friend-setup lead ok");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "A", difficulty + ": banker should cash the held hearts A before using the friend-search card");
+      results.push(difficulty + " banker friend-setup A-first ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupBankerFriendBridgeLeadScenario(difficulty);
+      const hint = chooseAiLeadPlay(5);
+      assert(hint.length === 1, difficulty + ": banker friend-bridge scenario should choose a single heuristic lead");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "K", difficulty + ": banker should continue with the bridge K before using the friend-search card");
+      results.push(difficulty + " banker friend-bridge lead ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupBankerDoubleAceForceRevealScenario(difficulty);
+      const hint = chooseAiLeadPlay(5);
+      assert(hint.length === 2, difficulty + ": double-A force reveal scenario should choose a pair lead");
+      assert(hint.every((card) => card.suit === "hearts" && card.rank === "A"), difficulty + ": banker should lead pair A before searching for friend");
+      results.push(difficulty + " banker double-A force reveal ok");
     }
 
     setupRevealTakeoverScenario("beginner");
@@ -1350,6 +1595,31 @@ function runFriendStrategySuite(context) {
       assert(friendDecision.selectedEntry.target.occurrence === 1, difficulty + ": should call the first diamonds A instead of the second spades A");
       assert(friendDecision.selectedEntry.source === "short-suit-friend", difficulty + ": short-suit route should be tagged as short-suit-friend");
       results.push(difficulty + " short-suit friend call ok -> " + friendDecision.selectedEntry.label);
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupALevelKingFriendCallScenario(difficulty);
+      const friendDecision = buildAiFriendTargetDecision(5, difficulty);
+      assert(friendDecision.selectedEntry.target.suit === "diamonds", difficulty + ": A-level should prefer the short diamonds K route");
+      assert(friendDecision.selectedEntry.target.rank === "K", difficulty + ": A-level should not call A after A becomes level trump");
+      assert(friendDecision.selectedEntry.target.occurrence === 1, difficulty + ": without self-held K, A-level should call the first outside K");
+      results.push(difficulty + " A-level king friend call ok -> " + friendDecision.selectedEntry.label);
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupALevelKingBridgeLeadScenario(difficulty);
+      const hint = chooseAiLeadPlay(5);
+      assert(hint.length === 1, difficulty + ": A-level king bridge scenario should choose a single heuristic lead");
+      assert(hint[0].suit === "diamonds" && hint[0].rank === "Q", difficulty + ": A-level should lead Q before using the friend-search card on a first-K route");
+      results.push(difficulty + " A-level king bridge lead ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupJokerFriendFallbackScenario(difficulty);
+      const friendDecision = buildAiFriendTargetDecision(5, difficulty);
+      assert(friendDecision.selectedEntry.target.suit === "joker", difficulty + ": when every side suit is overloaded, should fall back to joker");
+      assert(friendDecision.selectedEntry.target.rank === "RJ", difficulty + ": joker fallback should prefer the first red joker");
+      results.push(difficulty + " joker friend fallback ok -> " + friendDecision.selectedEntry.label);
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {

@@ -22,24 +22,43 @@ const assert = require("node:assert/strict");
  * - `buildTopStatusCardHtml` 必须优先走 `buildCardNode`，拿不到 suit/rank 时才允许回退到 `img`。
  */
 function main() {
-  const html = fs.readFileSync(path.join(__dirname, "../../index2.html"), "utf8");
+  const index2Html = fs.readFileSync(path.join(__dirname, "../../index2.html"), "utf8");
+  const appHtml = fs.readFileSync(path.join(__dirname, "../../index-app.html"), "utf8");
 
   assert.match(
-    html,
+    index2Html,
     /body\.mobile-index2 \.mobile-state-card \.card-face-sprite\s*\{[\s\S]*width:\s*100%\s*!important;[\s\S]*height:\s*100%\s*!important;[\s\S]*margin:\s*0\s*!important;/,
     "手游顶部状态牌的小卡位应把 sprite 直接铺满，不再继承手牌区的缩小留白"
   );
 
   assert.match(
-    html,
+    appHtml,
+    /body\.mobile-app-shell \.mobile-state-card \.card-face-sprite\s*\{[\s\S]*width:\s*100%\s*!important;[\s\S]*height:\s*100%\s*!important;[\s\S]*margin:\s*0\s*!important;/,
+    "App 壳顶部状态牌的小卡位也应把 sprite 直接铺满，避免和 index2 的牌面口径再分叉"
+  );
+
+  assert.match(
+    index2Html,
     /function buildTopStatusCardHtml\(card, altText\)\s*\{[\s\S]*if \(card\.suit && card\.rank && typeof buildCardNode === "function"\) \{[\s\S]*buildCardNode\(card, "friend-card"\)\.outerHTML;/,
     "buildTopStatusCardHtml 应优先复用 buildCardNode，保持顶部状态牌和当前牌面主题一致"
   );
 
   assert.match(
-    html,
+    index2Html,
     /buildTopStatusCardHtml\(\s*\{\s*suit:\s*suitKey,\s*rank:\s*rankMatch\[1\],\s*img:\s*getCardImage\(suitKey, rankMatch\[1\]\)\s*\}/,
     "手游顶部主牌状态在花色主场景下应补齐 suit/rank，避免退回成单张 img 渲染"
+  );
+
+  assert.doesNotMatch(
+    index2Html,
+    /body\.mobile-index2 \.mobile-state\.clickable \.mobile-state-card \{[\s\S]*box-shadow:\s*inset 0 0 0 1px rgba\(216,\s*92,\s*76,\s*0\.22\);/,
+    "index2 顶部主牌和朋友牌在可点击态下也不应再包橘色描边"
+  );
+
+  assert.doesNotMatch(
+    appHtml,
+    /body\.mobile-app-shell \.mobile-state\.clickable \.mobile-state-card \{[\s\S]*box-shadow:\s*inset 0 0 0 1px rgba\(216,\s*92,\s*76,\s*0\.22\);/,
+    "App 壳顶部主牌和朋友牌在可点击态下也不应再包橘色描边"
   );
 }
 

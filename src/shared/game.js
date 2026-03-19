@@ -640,20 +640,21 @@ function applyDebugOpeningCodeReplay(openingCodeInput, replaySeedInput = "") {
 
 // 返回自动叫朋友时优先考虑的点数顺序。
 function getFriendAutoRankPriority() {
-  return getPlayerLevelRank(state.bankerId) === "A" ? ["K", "A"] : ["A", "K"];
+  return getPlayerLevelRank(state.bankerId) === "A" ? ["K"] : ["A", "K"];
 }
 
 // 返回自动叫朋友使用的点数组合。
 function getFriendAutoRankGroups() {
-  return [getFriendAutoRankPriority()];
+  return [getFriendAutoRankPriority(), ["RJ", "BJ"]];
 }
 
 // 返回叫朋友目标牌的兜底方案。
 function getFriendTargetFallback() {
+  const defaultRank = getPlayerLevelRank(state.bankerId) === "A" ? "K" : "A";
   return {
     target: buildFriendTarget({
       suit: "hearts",
-      rank: "A",
+      rank: defaultRank,
       occurrence: 1,
     }),
     ownerId: 2,
@@ -666,12 +667,154 @@ function getKnownBuriedTargetCopies(target) {
   return state.bottomCards.filter((card) => card.suit === target.suit && card.rank === target.rank).length;
 }
 
+/**
+ * 作用：
+ * 返回当前朋友牌在同门里可用的“过桥高张”点数。
+ *
+ * 为什么这样写：
+ * 用户补充的找朋友路线本质上是：
+ * 普通级优先围绕 `A -> K -> 找朋友牌`，
+ * `A` 级时则改成 `K -> Q -> 找朋友牌`。
+ * 这里把“目标牌下方一档、但朋友通常不该立刻压住的过桥牌”单独抽成 helper，
+ * 让叫朋友评分和打家首发都能共享同一口径。
+ *
+ * 输入：
+ * @param {string} rank - 当前待寻找的朋友牌点数。
+ *
+ * 输出：
+ * @returns {string|null} 返回可作为过桥高张的点数；没有对应点数时返回 `null`。
+ *
+ * 注意：
+ * - 当前只覆盖用户明确要求的 `A -> K` 与 `K -> Q` 两档。
+ * - 这里只是找朋友 heuristic，不影响规则合法性。
+ */
+function getFriendSearchBridgeRank(rank) {
+  if (rank === "A") return "K";
+  if (rank === "K") return "Q";
+  return null;
+}
+
+/**
+ * 作用：
+ * 为指定朋友牌候选构造一份“短门 + 过桥高张 + 找朋友小牌”的画像。
+ *
+ * 为什么这样写：
+ * 这轮新增 heuristic 不只是看“是否有目标大牌”，
+ * 还要看这一门能不能被整理成：
+ * `目标高张 / 过桥高张 / 找朋友小牌`
+ * 这样的可执行节奏。
+ * 把这些信息统一收口后，初级和中级的叫朋友评分、以及打家后续首发节奏都可以直接复用。
+ *
+ * 输入：
+ * @param {object|null} banker - 当前打家对象。
+ * @param {object|null} target - 当前待评估的朋友牌定义。
+ *
+ * 输出：
+ * @returns {object|null} 返回同门画像；无效输入时返回 `null`。
+ *
+ * 注意：
+ * - 同门牌一律按 `effectiveSuit(card) === target.suit` 统计，避免把 `A` 级时已转主的 `A` 误算进副牌 `K` 路线。
+ * - `searchCard` 会优先挑小零分牌；若没有，再回退到最低成本的分牌或普通牌。
+ */
+function buildFriendSearchRouteProfile(banker, target) {
+  if (!banker || !target || target.suit === "joker") return null;
+
+  const suitCards = banker.hand
+    .filter((card) => target.suit === state.trumpSuit ? card.suit === target.suit : effectiveSuit(card) === target.suit)
+    .sort((left, right) => cardStrength(left) - cardStrength(right));
+  const bridgeRank = getFriendSearchBridgeRank(target.rank);
+  const targetCards = suitCards.filter((card) => card.rank === target.rank);
+  const bridgeCards = bridgeRank
+    ? suitCards.filter((card) => card.rank === bridgeRank)
+    : [];
+  const searchCards = suitCards.filter((card) =>
+    card.rank !== target.rank && (!bridgeRank || card.rank !== bridgeRank)
+  );
+  const searchCard = searchCards.find((card) => ["2", "3", "4", "5"].includes(card.rank))
+    || searchCards.find((card) => scoreValue(card) === 0)
+    || searchCards[0]
+    || null;
+  const pairCount = findPairs(suitCards).length;
+  const tripleCount = findTriples(suitCards).length;
+  const serialPairStructureCount = findSerialTuples(suitCards, 2)
+    .filter((combo) => {
+      const pattern = classifyPlay(combo);
+      return pattern.type === "tractor" || pattern.type === "train";
+    })
+    .length;
+  const pointCount = getComboPointValue(suitCards);
+  const searchPointCount = getComboPointValue(searchCards);
+  return {
+    suitCards,
+    suitCount: suitCards.length,
+    targetCards,
+    targetCopies: targetCards.length,
+    bridgeRank,
+    bridgeCards,
+    bridgeCount: bridgeCards.length,
+    searchCards,
+    searchCount: searchCards.length,
+    searchCard,
+    zeroSearchCount: searchCards.filter((card) => scoreValue(card) === 0).length,
+    smallSearchCount: searchCards.filter((card) => ["2", "3", "4", "5", "6", "7", "8", "9"].includes(card.rank)).length,
+    pointCount,
+    searchPointCount,
+    pairCount,
+    tripleCount,
+    serialPairStructureCount,
+    heavyStructureCount: tripleCount + serialPairStructureCount,
+  };
+}
+
+/**
+ * 作用：
+ * 判断当前打家是否已经没有干净的副牌找朋友路线，应改看王张 fallback。
+ *
+ * 为什么这样写：
+ * 用户特别指出：
+ * 如果每一门副牌都带着拖拉机、刻子或太多分，继续硬在副牌里找朋友往往会把好牌型拆烂；
+ * 这时更像人类的默认打法，是改叫第一张大王，再通过吊主让朋友上手。
+ *
+ * 输入：
+ * @param {object|null} banker - 当前打家对象。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前更适合走王找朋友 fallback。
+ *
+ * 注意：
+ * - 这里只判断“副牌路线是否普遍过脏”，不保证王找朋友一定最优。
+ * - 空门不算干净路线，必须真的有一门可执行的副牌节奏，才会压住 joker fallback。
+ */
+function shouldPreferJokerFriendFallback(banker) {
+  if (!banker) return false;
+  const primaryRank = getFriendAutoRankPriority()[0] || "A";
+  const cleanSideSuitCount = SUITS
+    .filter((suit) => suit !== state.trumpSuit)
+    .map((suit) => buildFriendSearchRouteProfile(banker, { suit, rank: primaryRank, occurrence: 1 }))
+    .filter((profile) => !!profile && profile.suitCount > 0)
+    .filter((profile) => {
+      const hasRoute = profile.searchCount > 0 || profile.targetCopies > 0 || profile.bridgeCount > 0;
+      const overloaded = profile.heavyStructureCount > 0 || profile.pairCount >= 2 || profile.searchPointCount >= 10 || profile.suitCount >= 5;
+      return hasRoute && !overloaded;
+    })
+    .length;
+  return cleanSideSuitCount === 0;
+}
+
 // 统计按当前可见信息，目标牌更大一级的同花色牌还可能剩在外面的张数。
 function getVisiblePossibleHigherRankCopiesOutsideBanker(target, banker = getPlayer(state.bankerId)) {
   if (!target || target.suit === "joker" || !banker) return 0;
   const rankIndex = RANKS.indexOf(target.rank);
   if (rankIndex < 0 || rankIndex >= RANKS.length - 1) return 0;
-  const higherRanks = RANKS.slice(rankIndex + 1);
+  const higherRanks = RANKS.slice(rankIndex + 1).filter((rank) => {
+    const virtualCard = {
+      suit: target.suit,
+      rank,
+      deckIndex: 0,
+      id: `friend-higher-${target.suit}-${rank}`,
+    };
+    return effectiveSuit(virtualCard) === target.suit;
+  });
   return higherRanks.reduce((sum, rank) => {
     const ownCopies = banker.hand.filter((card) => card.suit === target.suit && card.rank === rank).length;
     const buriedCopies = getKnownBuriedTargetCopies({ suit: target.suit, rank });
@@ -701,6 +844,7 @@ function collectFriendTargetCandidates(banker, ranks, scoreFn) {
     }
 
     for (const suit of suitPriority) {
+      if (rank === getPlayerLevelRank(state.bankerId)) continue;
       const bankerCopies = banker.hand.filter((card) => card.suit === suit && card.rank === rank).length;
       const buriedCopies = getKnownBuriedTargetCopies({ suit, rank });
       const maxOccurrence = Math.min(3, 3 - buriedCopies);
@@ -731,10 +875,18 @@ function pickBestFriendTargetFromCandidates(targetCandidates) {
 
 // 为新手难度的朋友目标牌候选项计算分数。
 function scoreBeginnerFriendTargetCandidate(target, banker, meta = {}) {
-  const bankerSuitCards = banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
+  const bankerSuitCards = banker.hand.filter((card) =>
+    target.suit === "joker"
+      ? card.suit === "joker"
+      : target.suit === state.trumpSuit
+        ? card.suit === target.suit
+        : effectiveSuit(card) === target.suit
+  );
   const bankerTargetCopies = bankerSuitCards.filter((card) => card.rank === target.rank).length;
   const bankerSupportCards = bankerSuitCards.filter((card) => card.rank !== target.rank);
   const buriedCopies = meta.buriedCopies || 0;
+  const routeProfile = target.suit !== "joker" ? buildFriendSearchRouteProfile(banker, target) : null;
+  const preferJokerFallback = shouldPreferJokerFriendFallback(banker);
   const rankBonus = {
     A: 60,
     K: 48,
@@ -747,11 +899,42 @@ function scoreBeginnerFriendTargetCandidate(target, banker, meta = {}) {
   const occurrenceBonus = target.occurrence === bankerTargetCopies + 1 ? 12 : target.occurrence === 2 ? 6 : 3;
   const suitBonus = target.suit !== "joker" && target.suit !== state.trumpSuit ? 14 : 0;
   const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
-  const jokerPenalty = target.suit === "joker" ? 8 : 0;
+  const jokerPenalty = target.suit === "joker" && !preferJokerFallback ? 8 : 0;
   const buriedPenalty = buriedCopies * 18;
   const higherRankRiskPenalty = getVisiblePossibleHigherRankCopiesOutsideBanker(target, banker) > 0 ? 24 : 0;
   const supportPenalty = bankerSupportCards.length === 0 ? 12 : bankerSupportCards.length >= 4 ? 8 : 0;
-  return rankBonus + occurrenceBonus + suitBonus - trumpPenalty - jokerPenalty - buriedPenalty - higherRankRiskPenalty - supportPenalty;
+  let routeBonus = 0;
+  let structurePenalty = 0;
+  let pointPenalty = 0;
+  if (routeProfile) {
+    if (routeProfile.targetCopies >= 2 && routeProfile.searchCard) {
+      routeBonus += 42;
+    } else if (routeProfile.targetCopies >= 1 && routeProfile.bridgeCount > 0 && routeProfile.searchCard) {
+      routeBonus += 36;
+    } else if (routeProfile.targetCopies >= 1 && routeProfile.searchCard) {
+      routeBonus += 24;
+    } else if (routeProfile.targetCopies === 0 && routeProfile.bridgeCount > 0 && routeProfile.searchCard) {
+      routeBonus += 18;
+    }
+    if (routeProfile.searchCard && scoreValue(routeProfile.searchCard) === 0) routeBonus += 10;
+    structurePenalty += routeProfile.heavyStructureCount * 22 + Math.max(0, routeProfile.pairCount - 1) * 8;
+    pointPenalty += routeProfile.searchPointCount * 3;
+  }
+  const jokerFallbackBonus = target.suit === "joker" && preferJokerFallback
+    ? (target.rank === "RJ" ? 88 : 56)
+    : 0;
+  return rankBonus
+    + occurrenceBonus
+    + suitBonus
+    + routeBonus
+    + jokerFallbackBonus
+    - trumpPenalty
+    - jokerPenalty
+    - buriedPenalty
+    - higherRankRiskPenalty
+    - supportPenalty
+    - structurePenalty
+    - pointPenalty;
 }
 
 /**
@@ -882,13 +1065,14 @@ function getBeginnerShortSuitFriendPlan(banker, options = {}) {
 
 /**
  * 作用：
- * 为初级 AI 的“短门 A”候选计算一份纯 heuristic 评分拆解。
+ * 为初级 AI 的“短门目标高张”候选计算一份纯 heuristic 评分拆解。
  *
  * 为什么这样写：
- * 用户明确要求初级 AI 不做开局模拟，因此这里继续坚持“短门 A”主思路，
+ * 用户明确要求初级 AI 不做开局模拟，因此这里继续坚持“短门高张”主思路，
  * 只把旧规则补成可比较的多候选：
- * 1. 同一短门允许比较第二张 / 第三张 `A`；
- * 2. 没有自持 `A` 的短门，也允许作为“首张 A”候选进入比较；
+ * 1. 普通级默认比较 `A` 路线，`A` 级则改比较 `K` 路线；
+ * 2. 同一短门允许比较第二张 / 第三张目标高张；
+ * 3. 没有自持目标高张的短门，也允许作为“首张”候选进入比较；
  * 3. 分值只看当前明手与底牌已知信息，不窥视未来出牌。
  *
  * 输入：
@@ -916,7 +1100,7 @@ function getBeginnerShortSuitFriendPlan(banker, options = {}) {
  * }} 返回总分与关键启发式拆解。
  *
  * 注意：
- * - 这里只服务初级副牌 `A` 候选，不负责主牌 / 王张找友。
+ * - 这里只服务初级副牌目标高张候选，不负责主牌 / 王张找友。
  * - 若完全没有同门手牌，这里会返回极低分，交给上层自然淘汰。
  */
 function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta = {}) {
@@ -933,31 +1117,42 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
       minSuitCount: 0,
       shortSuitBonus: 0,
       supportRouteBonus: 0,
+      routePlanBonus: 0,
       occurrenceShapeBonus: 0,
       ownCopyAdjustment: 0,
       longSuitPenalty: 0,
+      structurePenalty: 0,
+      pointPenalty: 0,
+      bridgeCount: 0,
       returnCard: null,
     };
   }
 
-  const suitCards = banker.hand
-    .filter((card) => !isTrump(card) && card.suit === target.suit)
+  const routeProfile = buildFriendSearchRouteProfile(banker, target);
+  const suitCards = routeProfile?.suitCards || banker.hand
+    .filter((card) => effectiveSuit(card) === target.suit)
     .sort((left, right) => cardStrength(left) - cardStrength(right));
   const nonTargetCards = suitCards.filter((card) => card.rank !== target.rank);
-  const ownCopies = suitCards.filter((card) => card.rank === target.rank).length;
+  const ownCopies = routeProfile?.targetCopies || suitCards.filter((card) => card.rank === target.rank).length;
   const buriedCopies = typeof meta.buriedCopies === "number" ? meta.buriedCopies : getKnownBuriedTargetCopies(target);
   const zeroPointSupportCount = nonTargetCards.filter((card) => scoreValue(card) === 0).length;
   const smallSupportCount = nonTargetCards.filter((card) => ["2", "3", "4", "5", "6", "7", "8", "9"].includes(card.rank)).length;
   const highHonorSupportCount = nonTargetCards.filter((card) => ["K", "Q", "J"].includes(card.rank)).length;
-  const returnCard = nonTargetCards.find((card) => ["2", "3", "4", "5"].includes(card.rank))
+  const returnCard = routeProfile?.searchCard
+    || nonTargetCards.find((card) => ["2", "3", "4", "5"].includes(card.rank))
     || nonTargetCards.find((card) => scoreValue(card) === 0)
     || nonTargetCards[0]
     || null;
-  const minSuitCount = SUITS
-    .filter((suit) => isBeginnerSideAceSuit(suit))
-    .map((suit) => banker.hand.filter((card) => !isTrump(card) && card.suit === suit).length)
+  const candidateSideSuits = SUITS
+    .filter((suit) => suit !== state.trumpSuit)
+    .map((suit) => banker.hand.filter((card) => effectiveSuit(card) === suit).length)
     .filter((count) => count > 0)
-    .sort((left, right) => left - right)[0] || suitCards.length;
+    .sort((left, right) => left - right);
+  const minSuitCount = SUITS
+    .filter((suit) => suit !== state.trumpSuit)
+    .length > 0
+    ? (candidateSideSuits[0] || suitCards.length)
+    : suitCards.length;
   const suitCount = suitCards.length;
   const supportCount = nonTargetCards.length;
 
@@ -976,17 +1171,28 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
   }
   supportRouteBonus -= Math.max(0, supportCount - 1) * 6;
 
+  let routePlanBonus = 0;
+  if (ownCopies >= 2 && returnCard) {
+    routePlanBonus += 56;
+  } else if (ownCopies >= 1 && (routeProfile?.bridgeCount || 0) > 0 && returnCard) {
+    routePlanBonus += 44;
+  } else if (ownCopies >= 1 && returnCard) {
+    routePlanBonus += 30;
+  } else if (ownCopies === 0 && (routeProfile?.bridgeCount || 0) > 0 && returnCard) {
+    routePlanBonus += 40;
+  }
+  if (target.rank === "K" && getPlayerLevelRank(state.bankerId) === "A" && (routeProfile?.bridgeCount || 0) > 0) {
+    routePlanBonus += 24;
+  }
+  if ((routeProfile?.bridgeCount || 0) > 0 && target.occurrence === 1) {
+    routePlanBonus += 8;
+  }
+
   let occurrenceShapeBonus = 0;
   if (ownCopies === 1 && target.occurrence === 3) {
-    occurrenceShapeBonus += supportCount <= 1
-      ? -4
-      : suitCount <= 4
-        ? 26
-        : suitCount <= 5
-          ? 12
-          : -10;
+    occurrenceShapeBonus += supportCount >= 3 && suitCount >= 4 ? 10 : -12;
   } else if (ownCopies === 1 && target.occurrence === 2) {
-    occurrenceShapeBonus += suitCount >= 6 ? 16 : 4;
+    occurrenceShapeBonus += (routeProfile?.bridgeCount || 0) > 0 ? 16 : suitCount >= 6 ? 16 : 4;
   }
 
   let ownCopyAdjustment = 0;
@@ -996,6 +1202,9 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
     if (supportCount >= 5 && smallSupportCount <= 1) ownCopyAdjustment -= 28;
     if (smallSupportCount >= 3) {
       ownCopyAdjustment += target.occurrence === 1 ? 20 : target.occurrence === 2 ? 4 : -4;
+    }
+    if ((routeProfile?.bridgeCount || 0) > 0 && returnCard) {
+      ownCopyAdjustment += target.occurrence === 1 ? 18 : target.occurrence === 2 ? 6 : -6;
     }
   } else if (ownCopies === 1) {
     ownCopyAdjustment += 12;
@@ -1010,9 +1219,21 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
   if (ownCopies >= 2 && suitCount >= 6) {
     longSuitPenalty += 14;
   }
+  const structurePenalty = routeProfile
+    ? routeProfile.heavyStructureCount * 24 + Math.max(0, routeProfile.pairCount - 1) * 8
+    : 0;
+  const pointPenalty = routeProfile ? Math.max(0, routeProfile.searchPointCount - 5) * 4 : 0;
 
   return {
-    total: 220 + shortSuitBonus + supportRouteBonus + occurrenceShapeBonus + ownCopyAdjustment - longSuitPenalty,
+    total: 220
+      + shortSuitBonus
+      + supportRouteBonus
+      + routePlanBonus
+      + occurrenceShapeBonus
+      + ownCopyAdjustment
+      - longSuitPenalty
+      - structurePenalty
+      - pointPenalty,
     ownCopies,
     suitCount,
     supportCount,
@@ -1023,9 +1244,13 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
     minSuitCount,
     shortSuitBonus,
     supportRouteBonus,
+    routePlanBonus,
     occurrenceShapeBonus,
     ownCopyAdjustment,
     longSuitPenalty,
+    structurePenalty,
+    pointPenalty,
+    bridgeCount: routeProfile?.bridgeCount || 0,
     returnCard: returnCard ? shortCardLabel(returnCard) : null,
   };
 }
@@ -1211,9 +1436,11 @@ function getFriendPickerRecommendation() {
  * - 这条拆解只补“短门叫朋友”覆盖，不取代原有 rank / 自持 / 被压风险判断。
  */
 function buildIntermediateFriendTargetScoreBreakdown(target, banker, meta = {}) {
+  const routeProfile = target.suit !== "joker" ? buildFriendSearchRouteProfile(banker, target) : null;
   const bankerSuitCards = Array.isArray(meta.bankerSuitCards)
     ? meta.bankerSuitCards
-    : banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : card.suit === target.suit));
+    : routeProfile?.suitCards
+      || banker.hand.filter((card) => (target.suit === "joker" ? card.suit === "joker" : effectiveSuit(card) === target.suit));
   const bankerTargetCopies = typeof meta.bankerTargetCopies === "number"
     ? meta.bankerTargetCopies
     : bankerSuitCards.filter((card) => card.rank === target.rank).length;
@@ -1231,6 +1458,7 @@ function buildIntermediateFriendTargetScoreBreakdown(target, banker, meta = {}) 
   const isSideSuitTarget = target.suit !== "joker" && target.suit !== state.trumpSuit;
   const hasHonorProbeCard = bankerSupportCards.some((card) => ["10", "J", "Q", "K"].includes(card.rank));
   const hasStructuredReturnRoute = bankerTargetCopies > 0 || supportCount > 1 || hasHonorProbeCard;
+  const preferJokerFallback = shouldPreferJokerFriendFallback(banker);
   const rankBonus = {
     A: 60,
     K: 48,
@@ -1249,7 +1477,7 @@ function buildIntermediateFriendTargetScoreBreakdown(target, banker, meta = {}) 
         : 0;
   const suitBonus = target.suit !== "joker" && target.suit !== state.trumpSuit ? 18 : 0;
   const trumpPenalty = target.suit === state.trumpSuit ? 10 : 0;
-  const jokerPenalty = target.suit === "joker" ? 14 : 0;
+  const jokerPenalty = target.suit === "joker" && !preferJokerFallback ? 14 : 0;
   const bankerOwnCopyBonus = bankerTargetCopies > 0 ? 8 : 0;
   const returnBonus = Math.min(bankerReturnCards, 3) * 7;
   const supportPenalty = supportCount === 0 ? 18 : 0;
@@ -1282,10 +1510,42 @@ function buildIntermediateFriendTargetScoreBreakdown(target, banker, meta = {}) 
     && hasHonorProbeCard
     ? 18
     : 0;
+  const aLevelSideKingBonus = isSideSuitTarget
+    && target.rank === "K"
+    && getPlayerLevelRank(state.bankerId) === "A"
+    ? 18
+    : 0;
+  let routePlanBonus = 0;
+  if (routeProfile) {
+    if (routeProfile.targetCopies >= 2 && routeProfile.searchCard) {
+      routePlanBonus += 58;
+    } else if (routeProfile.targetCopies >= 1 && routeProfile.bridgeCount > 0 && routeProfile.searchCard) {
+      routePlanBonus += 46;
+    } else if (routeProfile.targetCopies >= 1 && routeProfile.searchCard) {
+      routePlanBonus += 28;
+    } else if (routeProfile.targetCopies === 0 && routeProfile.bridgeCount > 0 && routeProfile.searchCard) {
+      routePlanBonus += 42;
+    }
+    if (routeProfile.searchCard && scoreValue(routeProfile.searchCard) === 0) routePlanBonus += 10;
+    if (routeProfile.bridgeCount > 0 && target.occurrence === 1) routePlanBonus += 8;
+    if (routeProfile.searchCard && ["2", "3", "4", "5"].includes(routeProfile.searchCard.rank)) {
+      routePlanBonus += 18;
+    } else if (routeProfile.searchCard && ["10", "J", "Q", "K", "A"].includes(routeProfile.searchCard.rank)) {
+      routePlanBonus -= 14;
+    }
+  }
+  const jokerFallbackBonus = target.suit === "joker" && preferJokerFallback
+    ? (target.rank === "RJ" ? 132 : 92)
+    : 0;
+  const jokerFallbackPressurePenalty = preferJokerFallback && target.suit !== "joker" ? 28 : 0;
   const clutterPenalty = isSideSuitTarget ? Math.max(0, supportCount - 2) * 16 : 0;
   const ownLongSuitPenalty = isSideSuitTarget && bankerTargetCopies > 0 && supportCount >= 4
     ? 10 + Math.max(0, supportCount - 4) * 6
     : 0;
+  const structurePenalty = routeProfile
+    ? routeProfile.heavyStructureCount * 26 + Math.max(0, routeProfile.pairCount - 1) * 10
+    : 0;
+  const pointPenalty = routeProfile ? Math.max(0, routeProfile.searchPointCount - 5) * 4 : 0;
   const total = rankBonus
     + occurrenceBonus
     + suitBonus
@@ -1296,13 +1556,19 @@ function buildIntermediateFriendTargetScoreBreakdown(target, banker, meta = {}) 
     + shortSuitBonus
     + lowSupportBonus
     + shortProbeSetupBonus
+    + aLevelSideKingBonus
+    + routePlanBonus
+    + jokerFallbackBonus
     - trumpPenalty
     - jokerPenalty
     - buriedPenalty
     - supportPenalty
     - overtakenPenalty
     - clutterPenalty
-    - ownLongSuitPenalty;
+    - ownLongSuitPenalty
+    - structurePenalty
+    - pointPenalty
+    - jokerFallbackPressurePenalty;
 
   return {
     total,
@@ -1327,8 +1593,15 @@ function buildIntermediateFriendTargetScoreBreakdown(target, banker, meta = {}) 
     shortSuitBonus,
     lowSupportBonus,
     shortProbeSetupBonus,
+    aLevelSideKingBonus,
+    routePlanBonus,
+    jokerFallbackBonus,
+    jokerFallbackPressurePenalty,
     clutterPenalty,
     ownLongSuitPenalty,
+    structurePenalty,
+    pointPenalty,
+    bridgeCount: routeProfile?.bridgeCount || 0,
   };
 }
 
@@ -1358,66 +1631,70 @@ function scoreFriendTargetCandidate(target, banker, meta = {}) {
  */
 function buildIntermediateFriendTargetCandidateEntries(banker) {
   if (!banker) return [];
+  const candidates = getFriendAutoRankGroups()
+    .flatMap((ranks) => collectFriendTargetCandidates(banker, ranks, scoreFriendTargetCandidate));
+  if (candidates.length === 0) return [];
 
-  for (const ranks of getFriendAutoRankGroups()) {
-    const candidates = collectFriendTargetCandidates(banker, ranks, scoreFriendTargetCandidate);
-    if (candidates.length === 0) continue;
-
-    return candidates
-      .map((candidate) => {
-        const breakdown = buildIntermediateFriendTargetScoreBreakdown(candidate.target, banker, {
-          buriedCopies: getKnownBuriedTargetCopies(candidate.target),
-        });
-        const friendTarget = buildFriendTarget(candidate.target);
-        const tags = [
-          candidate.target.suit === state.trumpSuit ? "主牌" : candidate.target.suit === "joker" ? "王" : "副牌",
-          breakdown.supportCount <= 2 && candidate.target.suit !== "joker" ? `短门 ${breakdown.suitCount}` : `同门 ${breakdown.suitCount}`,
-          breakdown.bankerTargetCopies > 0 ? `自持 ${breakdown.bankerTargetCopies}` : "首张",
-        ];
-        if (breakdown.zeroPointSupportCount > 0 && candidate.target.suit !== "joker") {
-          tags.push(`零分回手 ${breakdown.zeroPointSupportCount}`);
-        }
-        if (breakdown.shortProbeSetupBonus > 0) {
-          tags.push("高张定门 + 小牌找友");
-        }
-        if (breakdown.clutterPenalty > 0) {
-          tags.push(`长门惩罚 ${breakdown.clutterPenalty}`);
-        }
-        return {
-          target: friendTarget,
-          ownerId: candidate.ownerId,
-          label: friendTarget.label,
-          cards: [],
-          source: breakdown.shortSuitBonus > 0 || breakdown.shortProbeSetupBonus > 0 ? "short-suit-friend" : "heuristic",
-          tags,
-          score: breakdown.total,
-          heuristicScore: breakdown.total,
-          rolloutScore: null,
-          rolloutFutureDelta: null,
-          rolloutDepth: 0,
-          rolloutTriggerFlags: [
-            `同门 ${breakdown.suitCount} 张`,
-            `非目标 ${breakdown.supportCount} 张`,
-            `回手 ${breakdown.bankerReturnCards} 张`,
-            `长门罚 ${breakdown.clutterPenalty}`,
-          ],
-          breakdown,
-        };
-      })
-      .sort((left, right) => right.score - left.score);
-  }
-
-  return [];
+  return candidates
+    .map((candidate) => {
+      const breakdown = buildIntermediateFriendTargetScoreBreakdown(candidate.target, banker, {
+        buriedCopies: getKnownBuriedTargetCopies(candidate.target),
+      });
+      const friendTarget = buildFriendTarget(candidate.target);
+      const tags = [
+        candidate.target.suit === state.trumpSuit ? "主牌" : candidate.target.suit === "joker" ? "王" : "副牌",
+        breakdown.supportCount <= 2 && candidate.target.suit !== "joker" ? `短门 ${breakdown.suitCount}` : `同门 ${breakdown.suitCount}`,
+        breakdown.bankerTargetCopies > 0 ? `自持 ${breakdown.bankerTargetCopies}` : "首张",
+      ];
+      if (breakdown.bridgeCount > 0 && candidate.target.suit !== "joker") {
+        tags.push(`过桥 ${breakdown.bridgeCount}`);
+      }
+      if (breakdown.zeroPointSupportCount > 0 && candidate.target.suit !== "joker") {
+        tags.push(`零分回手 ${breakdown.zeroPointSupportCount}`);
+      }
+      if (breakdown.shortProbeSetupBonus > 0 || breakdown.routePlanBonus > 0) {
+        tags.push("高张定门 + 找友节奏");
+      }
+      if (breakdown.jokerFallbackBonus > 0) {
+        tags.push("副牌过脏改叫王");
+      }
+      if (breakdown.clutterPenalty > 0) {
+        tags.push(`长门惩罚 ${breakdown.clutterPenalty}`);
+      }
+      return {
+        target: friendTarget,
+        ownerId: candidate.ownerId,
+        label: friendTarget.label,
+        cards: [],
+        source: breakdown.shortSuitBonus > 0 || breakdown.shortProbeSetupBonus > 0 || breakdown.routePlanBonus > 0 || breakdown.jokerFallbackBonus > 0
+          ? "short-suit-friend"
+          : "heuristic",
+        tags,
+        score: breakdown.total,
+        heuristicScore: breakdown.total,
+        rolloutScore: null,
+        rolloutFutureDelta: null,
+        rolloutDepth: 0,
+        rolloutTriggerFlags: [
+          `同门 ${breakdown.suitCount} 张`,
+          `非目标 ${breakdown.supportCount} 张`,
+          `回手 ${breakdown.bankerReturnCards} 张`,
+          `长门罚 ${breakdown.clutterPenalty}`,
+        ],
+        breakdown,
+      };
+    })
+    .sort((left, right) => right.score - left.score);
 }
 
 /**
  * 作用：
- * 为初级 AI 构造“短门 A 多候选”叫朋友列表。
+ * 为初级 AI 构造“短门目标高张多候选”叫朋友列表。
  *
  * 为什么这样写：
  * 旧版初级一旦命中“短门 A”规则，就会沿着单条固定计划直接选牌，
- * 因而看不到“同门第二张 / 第三张 A”以及“另一门首张 A”之间的张次差异。
- * 这里仍坚持“短门 A”主思路，但会把所有可行副牌 `A` 列成候选，
+ * 因而看不到“同门第二张 / 第三张目标高张”以及“另一门首张目标高张”之间的张次差异。
+ * 这里仍坚持“短门高张”主思路，但会把所有可行副牌目标高张列成候选，
  * 再按当前明手结构、回手小牌和张次形状做纯 heuristic 排序。
  *
  * 输入：
@@ -1427,18 +1704,19 @@ function buildIntermediateFriendTargetCandidateEntries(banker) {
  * @returns {Array<object>} 已按纯 heuristic 得分排序的候选列表。
  *
  * 注意：
- * - 当前只覆盖副牌 `A`；若这一层没有候选，调用方仍需回退到旧 heuristic。
+ * - 普通级覆盖副牌 `A`，`A` 级则自动切到副牌 `K`。
  * - 不做任何模拟或未来搜索，保证初级 AI 只基于当前可见牌型判断。
  */
 function buildBeginnerExpandedShortSuitFriendCandidateEntries(banker) {
   if (!banker) return [];
+  const primaryRank = getFriendAutoRankPriority()[0] || "A";
 
   return collectFriendTargetCandidates(
     banker,
-    ["A"],
+    [primaryRank],
     (target, activeBanker, meta) => buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, activeBanker, meta).total,
   )
-    .filter((candidate) => isBeginnerSideAceSuit(candidate.target.suit))
+    .filter((candidate) => candidate.target.suit !== state.trumpSuit && candidate.target.suit !== "joker")
     .map((candidate) => {
       const target = candidate.target;
       const friendTarget = buildFriendTarget(target);
@@ -1454,8 +1732,9 @@ function buildBeginnerExpandedShortSuitFriendCandidateEntries(banker) {
         tags: [
           `短门 ${breakdown.suitCount}`,
           breakdown.ownCopies > 0 ? `自持 ${breakdown.ownCopies}` : "首张",
-          `${getOccurrenceLabel(target.occurrence)} A`,
+          `${getOccurrenceLabel(target.occurrence)} ${target.rank}`,
           breakdown.smallSupportCount >= 2 ? `小牌 ${breakdown.smallSupportCount}` : `支撑 ${breakdown.supportCount}`,
+          breakdown.bridgeCount > 0 ? `过桥 ${breakdown.bridgeCount}` : "直接找友",
           breakdown.returnCard ? `回手 ${breakdown.returnCard}` : "无回手",
         ],
         score: breakdown.total,
@@ -1592,59 +1871,62 @@ function buildAiFriendTargetDecision(playerId = state.bankerId, difficulty = sta
   }
 
   if (difficulty === "beginner") {
-    const expandedShortSuitEntries = buildBeginnerExpandedShortSuitFriendCandidateEntries(banker);
-    if (expandedShortSuitEntries.length > 0) {
-      return {
-        target: expandedShortSuitEntries[0].target,
-        ownerId: expandedShortSuitEntries[0].ownerId,
-        candidateEntries: expandedShortSuitEntries,
-        selectedEntry: expandedShortSuitEntries[0],
-      };
-    }
-    const shortSuitEntries = buildBeginnerShortSuitFriendCandidateEntries(banker);
-    if (shortSuitEntries.length > 0) {
-      return {
-        target: shortSuitEntries[0].target,
-        ownerId: shortSuitEntries[0].ownerId,
-        candidateEntries: shortSuitEntries,
-        selectedEntry: shortSuitEntries[0],
-      };
-    }
-    for (const ranks of getFriendAutoRankGroups()) {
-      const candidates = collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate)
-        .map((candidate) => {
-          const friendTarget = buildFriendTarget(candidate.target);
-          return {
-            target: friendTarget,
-            ownerId: candidate.ownerId,
-            label: friendTarget.label,
-            cards: [],
-            source: "heuristic",
-            tags: [
-              candidate.target.suit === state.trumpSuit ? "主牌" : candidate.target.suit === "joker" ? "王" : "副牌",
-              candidate.target.occurrence > 1 ? `${getOccurrenceLabel(candidate.target.occurrence)} ${candidate.target.rank}` : "首张",
-            ],
-            score: candidate.score,
-            heuristicScore: candidate.score,
-            rolloutScore: null,
-            rolloutFutureDelta: null,
-            rolloutDepth: 0,
-            rolloutTriggerFlags: [
-              `同门 ${banker.hand.filter((card) => card.suit === candidate.target.suit).length} 张`,
-              `分值 ${Math.round(candidate.score * 100) / 100}`,
-            ],
-            breakdown: null,
-          };
-        })
-        .sort((left, right) => right.score - left.score);
-      if (candidates.length > 0) {
+    const preferJokerFallback = shouldPreferJokerFriendFallback(banker);
+    if (!preferJokerFallback) {
+      const expandedShortSuitEntries = buildBeginnerExpandedShortSuitFriendCandidateEntries(banker);
+      if (expandedShortSuitEntries.length > 0) {
         return {
-          target: candidates[0].target,
-          ownerId: candidates[0].ownerId,
-          candidateEntries: candidates,
-          selectedEntry: candidates[0],
+          target: expandedShortSuitEntries[0].target,
+          ownerId: expandedShortSuitEntries[0].ownerId,
+          candidateEntries: expandedShortSuitEntries,
+          selectedEntry: expandedShortSuitEntries[0],
         };
       }
+      const shortSuitEntries = buildBeginnerShortSuitFriendCandidateEntries(banker);
+      if (shortSuitEntries.length > 0) {
+        return {
+          target: shortSuitEntries[0].target,
+          ownerId: shortSuitEntries[0].ownerId,
+          candidateEntries: shortSuitEntries,
+          selectedEntry: shortSuitEntries[0],
+        };
+      }
+    }
+    const candidates = getFriendAutoRankGroups()
+      .flatMap((ranks) => collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate))
+      .map((candidate) => {
+        const friendTarget = buildFriendTarget(candidate.target);
+        return {
+          target: friendTarget,
+          ownerId: candidate.ownerId,
+          label: friendTarget.label,
+          cards: [],
+          source: candidate.target.suit === "joker" && preferJokerFallback ? "short-suit-friend" : "heuristic",
+          tags: [
+            candidate.target.suit === state.trumpSuit ? "主牌" : candidate.target.suit === "joker" ? "王" : "副牌",
+            candidate.target.occurrence > 1 ? `${getOccurrenceLabel(candidate.target.occurrence)} ${candidate.target.rank}` : "首张",
+            candidate.target.suit === "joker" && preferJokerFallback ? "副牌过脏改叫王" : "基础启发式",
+          ],
+          score: candidate.score,
+          heuristicScore: candidate.score,
+          rolloutScore: null,
+          rolloutFutureDelta: null,
+          rolloutDepth: 0,
+          rolloutTriggerFlags: [
+            `同门 ${banker.hand.filter((card) => card.suit === candidate.target.suit).length} 张`,
+            `分值 ${Math.round(candidate.score * 100) / 100}`,
+          ],
+          breakdown: null,
+        };
+      })
+      .sort((left, right) => right.score - left.score);
+    if (candidates.length > 0) {
+      return {
+        target: candidates[0].target,
+        ownerId: candidates[0].ownerId,
+        candidateEntries: candidates,
+        selectedEntry: candidates[0],
+      };
     }
   }
 

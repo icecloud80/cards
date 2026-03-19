@@ -1439,29 +1439,27 @@ function chooseAiNoTrumpBankerPowerLead(playerId, player) {
  * @returns {Array<object>} 若命中“单张回手”条件则返回该单张，否则返回空数组。
  *
  * 注意：
- * - 这里只处理副牌 `A` 线，不覆盖王找朋友或其它高张找朋友。
- * - 只有当同门非目标牌恰好剩 `1` 张时才触发，避免把整门牌都无脑先手甩空。
+ * - 当前只覆盖共享 heuristic 已显式支持的 `A / K` 找朋友路线。
+ * - 只有当同门真正还留着“找朋友小牌”时才会返回，避免把过桥高张误当成找朋友牌。
  */
 function chooseAiBankerFriendReturnLead(player) {
-  if (!player || !state.friendTarget || state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") {
+  if (!player || !state.friendTarget || state.friendTarget.suit === "joker") {
     return [];
   }
-  const friendSuitCards = player.hand
-    .filter((card) => card.suit === state.friendTarget.suit && !isTrump(card))
-    .sort((left, right) => cardStrength(left) - cardStrength(right));
-  const nonTargetCards = friendSuitCards.filter((card) => card.rank !== state.friendTarget.rank);
-  return nonTargetCards.length === 1 ? [nonTargetCards[0]] : [];
+  const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
+  if (!routeProfile || !routeProfile.searchCard) return [];
+  return [routeProfile.searchCard];
 }
 
 /**
  * 作用：
- * 在“叫第二张 / 第三张 A”时，为打家选择一手更像人类的强结构找朋友首发。
+ * 在“叫第二张 / 第三张目标高张”时，为打家选择一手更像人类的强结构找朋友首发。
  *
  * 为什么这样写：
- * 旧逻辑在没有形成“单张回手口”时，会直接把手里的朋友牌 `A` 拆成单张试探；
- * 像 `AA + K/10/小牌` 这种明显更适合用对子强压、尽快把朋友逼出来的局面，
+ * 旧逻辑在没有形成“单张回手口”时，会直接把手里的朋友牌高张拆成单张试探；
+ * 像 `AA + 小牌`、或 `KK + 小牌` 这种明显更适合用对子强压、尽快把朋友逼出来的局面，
  * 反而会被过早拆掉节奏。这里补一条更靠前的“强结构促亮友”规则，
- * 让打家在持有两张及以上目标 `A` 时，优先用同门强结构去加速亮友。
+ * 让打家在持有两张及以上目标高张时，优先用同门强结构去加速亮友。
  *
  * 输入：
  * @param {object|null} player - 当前打家对象。
@@ -1470,24 +1468,20 @@ function chooseAiBankerFriendReturnLead(player) {
  * @returns {Array<object>} 命中“强结构促亮友”窗口时返回建议首发，否则返回空数组。
  *
  * 注意：
- * - 当前只覆盖副牌 `A` 找朋友，不扩到王找朋友或其它点数。
+ * - 当前只覆盖共享 heuristic 已显式支持的 `A / K` 找朋友，不扩到王找朋友或其它点数。
  * - 必须保留至少 1 张同门非目标牌，避免把整门一次性打空后反而失去后续控制线。
  */
 function chooseAiBankerFriendForceRevealLead(player) {
-  if (!player || !state.friendTarget || state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") {
+  if (!player || !state.friendTarget || state.friendTarget.suit === "joker") {
     return [];
   }
 
-  const friendSuitCards = player.hand
-    .filter((card) => card.suit === state.friendTarget.suit && !isTrump(card))
-    .sort((left, right) => cardStrength(left) - cardStrength(right));
-  const targetCopies = friendSuitCards.filter((card) => card.rank === state.friendTarget.rank);
-  const nonTargetCards = friendSuitCards.filter((card) => card.rank !== state.friendTarget.rank);
-  if (targetCopies.length < 2 || nonTargetCards.length === 0) {
+  const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
+  if (!routeProfile || routeProfile.targetCopies < 2 || !routeProfile.searchCard) {
     return [];
   }
 
-  const forceRevealLead = chooseStrongLeadFromCards(targetCopies);
+  const forceRevealLead = chooseStrongLeadFromCards(routeProfile.targetCards);
   if (forceRevealLead.length < 2) {
     return [];
   }
@@ -1499,13 +1493,82 @@ function chooseAiBankerFriendForceRevealLead(player) {
 
 /**
  * 作用：
- * 为打家提供“短门单张回手优先，其次才兑现前置副本”的早期首发启发。
+ * 在找朋友前置阶段，为打家选择“先打目标高张”的首发。
  *
  * 为什么这样写：
- * 当打家叫的是第二张或第三张 `A` 时，短门的关键不是“手里还剩多少高张”，
- * 而是能不能尽快把这一门做成可回手、可毙牌的空门。
- * 因此这里先尝试把唯一的同门单牌回手走掉；如果没有这种单张回手口，
- * 再回退到旧规则，优先兑现自己手里的前置 `A`。
+ * 用户补充的常规套路里，若自己手里已经握有目标高张，
+ * 普通级通常应先走 `A`，`A` 级则先走 `K`，再通过过桥高张或找朋友小牌去续节奏。
+ * 这里把“仍需先清自己的目标高张副本”单独抽出来，避免和后续 `K / Q` 过桥、找朋友小牌混在一起。
+ *
+ * 输入：
+ * @param {object|null} player - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若当前应先走目标高张，则返回该首发，否则返回空数组。
+ *
+ * 注意：
+ * - 只在朋友仍未亮、且离目标张次还差至少 1 张时触发。
+ * - 若手里已有两张同目标牌，会交给 `chooseAiBankerFriendForceRevealLead` 先走对子。
+ */
+function chooseAiBankerFriendTargetLead(player) {
+  if (!player || !state.friendTarget || state.friendTarget.suit === "joker") return [];
+  const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
+  if (!routeProfile || routeProfile.targetCopies <= 0) return [];
+
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  if (currentSeen >= neededOccurrence - 1) return [];
+
+  return [routeProfile.targetCards[0]];
+}
+
+/**
+ * 作用：
+ * 在找朋友前置阶段，为打家选择“过桥高张”首发。
+ *
+ * 为什么这样写：
+ * 用户给出的常规节奏里，`A/K` 或 `K/Q` 中的第二档高张承担的是“先稳一拍、朋友暂时不该压住”的作用。
+ * 例如：
+ * `第二张 A` 线路里先走自己手里的 `A`，随后可以再走 `K`；
+ * `A` 级 `第一张 K` 线路里，如果自己没有 `K` 但有 `Q`，则应先走 `Q` 再找朋友。
+ * 这条 helper 专门负责这一步。
+ *
+ * 输入：
+ * @param {object|null} player - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若当前应先走过桥高张，则返回该首发，否则返回空数组。
+ *
+ * 注意：
+ * - 若自己仍持有且尚未先手走掉目标高张，会优先让位给 `chooseAiBankerFriendTargetLead`。
+ * - 这里默认只走一手过桥高张，不主动拆对子去多拍试探。
+ */
+function chooseAiBankerFriendBridgeLead(player) {
+  if (!player || !state.friendTarget || state.friendTarget.suit === "joker") return [];
+  const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
+  if (!routeProfile || routeProfile.bridgeCount <= 0 || !routeProfile.searchCard) return [];
+
+  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  if (currentSeen >= neededOccurrence) return [];
+
+  const shouldUseBridge = routeProfile.targetCopies === 0
+    || currentSeen >= neededOccurrence - 1;
+  if (!shouldUseBridge) return [];
+
+  return [routeProfile.bridgeCards[0]];
+}
+
+/**
+ * 作用：
+ * 为打家提供“目标高张 / 过桥高张 / 找朋友小牌”节奏化的早期首发启发。
+ *
+ * 为什么这样写：
+ * 用户把“怎么找朋友”补充成了更完整的节奏：
+ * 普通级优先做成 `A -> K -> 找朋友小牌`，
+ * 持有两张 `A` 时优先 `AA -> 找朋友小牌`，
+ * `A` 级则改成 `K -> Q -> 找朋友小牌`。
+ * 这里把这条节奏直接沉到打家首发 heuristic 里，避免 AI 只会“见目标牌就摸一下”。
  *
  * 输入：
  * @param {number} playerId - 当前准备首发的玩家 ID。
@@ -1515,33 +1578,34 @@ function chooseAiBankerFriendForceRevealLead(player) {
  * @returns {Array<object>} 若命中该启发式则返回建议首发，否则返回空数组。
  *
  * 注意：
- * - 当前先只对 `A` 生效，避免把 `K/Q` 之类不够稳的高张也一律套进来。
+ * - 当前只覆盖共享 call-friend 评分已支持的 `A / K` 路线。
  * - 只在出牌早期、且当前确实是打家首发时触发，避免中后盘无脑清空目标门。
  */
 function chooseAiBankerFriendSetupLead(playerId, player) {
   if (!player || playerId !== state.bankerId || !state.friendTarget || isFriendTeamResolved()) return [];
   if (state.currentTrick.length !== 0 || state.currentTurnId !== playerId) return [];
-  if (state.friendTarget.suit === "joker" || state.friendTarget.rank !== "A") return [];
+  if (state.friendTarget.suit === "joker" || !["A", "K"].includes(state.friendTarget.rank)) return [];
   if ((state.trickNumber || 1) > 4) return [];
   if (shouldAiDeferNoTrumpFriendProbe(playerId, player)) return [];
   if (shouldAiUseBankerSoloFallback(playerId)) return [];
 
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
-  if (neededOccurrence <= 1 || currentSeen >= neededOccurrence - 1) return [];
-
-  const returnLead = chooseAiBankerFriendReturnLead(player);
-  if (returnLead.length > 0) return returnLead;
+  if (currentSeen >= neededOccurrence) return [];
 
   const forceRevealLead = chooseAiBankerFriendForceRevealLead(player);
   if (forceRevealLead.length > 0) return forceRevealLead;
 
-  const targetCopies = player.hand.filter(
-    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
-  );
-  if (targetCopies.length <= 0) return [];
+  const targetLead = chooseAiBankerFriendTargetLead(player);
+  if (targetLead.length > 0) return targetLead;
 
-  return [targetCopies.sort((left, right) => cardStrength(left) - cardStrength(right))[0]];
+  const bridgeLead = chooseAiBankerFriendBridgeLead(player);
+  if (bridgeLead.length > 0) return bridgeLead;
+
+  const returnLead = chooseAiBankerFriendReturnLead(player);
+  if (returnLead.length > 0) return returnLead;
+
+  return [];
 }
 
 /**

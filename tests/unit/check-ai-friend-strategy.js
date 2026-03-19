@@ -815,12 +815,14 @@ function runFriendStrategySuite(context) {
 
     /**
      * 作用：
-     * 搭建“中级 / 高级应覆盖初级短门叫朋友思路”的测试场景。
+     * 搭建“短门 K 加小牌应压过长门 A”的测试场景。
      *
      * 为什么这样写：
-     * 用户提供的问题局说明，旧版中级更容易把“长门第二张 A”误判成好目标，
-     * 却忽略“短门第一张 A 更容易用 K + 小牌找朋友，后续也更容易回手”的路线；
-     * 这里专门验证中级 / 高级会显式把这条短门线抬起来。
+     * 用户这轮把 beginner 的常规找朋友路线进一步收口成：
+     * 尽量把某门整理成 “A / K + 找友小牌” 的可执行短门。
+     * 因此这里不只验证中级 / 高级，也要锁住 beginner：
+     * 当一门是“长门第二张 A”，另一门是“短门第一张 A 且自带 K + 小牌过桥”时，
+     * 三个难度都应把后者视为更像人类常规打法的路线。
      *
      * 输入：
      * @param {string} difficulty - 需要验证的 AI 难度。
@@ -829,10 +831,10 @@ function runFriendStrategySuite(context) {
      * @returns {void} 直接写入 callingFriend 状态。
      *
      * 注意：
-     * - 黑桃故意做成 "A + 多张跟张" 的长门，旧逻辑更容易误选它。
-     * - 方片只有 "K + 5" 两张，预期会改成叫 "第一张方片 A"。
+     * - 黑桃故意做成 “A + 多张跟张” 的长门，旧逻辑更容易误选它。
+     * - 方片只有 “K + 5” 两张，预期会改成叫“第一张方片 A”。
      */
-    function setupIntermediateShortSuitFriendCallScenario(difficulty) {
+    function setupShortSuitFriendCallScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
       state.phase = "callingFriend";
@@ -1587,13 +1589,13 @@ function runFriendStrategySuite(context) {
     assert(!(intermediateAvoidKingWhileAceAlive.suit === "hearts" && intermediateAvoidKingWhileAceAlive.rank === "K"), "intermediate: should not call hearts K while hearts A is still outside banker");
     results.push("intermediate avoid-K-with-live-A ok -> " + intermediateAvoidKingWhileAceAlive.suit + "-" + intermediateAvoidKingWhileAceAlive.rank);
 
-    for (const difficulty of ["intermediate", "advanced"]) {
-      setupIntermediateShortSuitFriendCallScenario(difficulty);
+    for (const difficulty of ["beginner", "intermediate", "advanced"]) {
+      setupShortSuitFriendCallScenario(difficulty);
       const friendDecision = buildAiFriendTargetDecision(5, difficulty);
       assert(friendDecision.selectedEntry.target.suit === "diamonds", difficulty + ": should prefer the short diamonds route over long spades A");
       assert(friendDecision.selectedEntry.target.rank === "A", difficulty + ": short-suit cover should still keep A as the target rank");
       assert(friendDecision.selectedEntry.target.occurrence === 1, difficulty + ": should call the first diamonds A instead of the second spades A");
-      assert(friendDecision.selectedEntry.source === "short-suit-friend", difficulty + ": short-suit route should be tagged as short-suit-friend");
+      assert(["short-suit-window", "short-suit-friend"].includes(friendDecision.selectedEntry.source), difficulty + ": short-suit route should stay on the explicit short-suit heuristic chain");
       results.push(difficulty + " short-suit friend call ok -> " + friendDecision.selectedEntry.label);
     }
 
@@ -1624,8 +1626,9 @@ function runFriendStrategySuite(context) {
 
     setupJokerFriendFallbackScenario("beginner");
     const beginnerJokerFallbackDecision = buildAiFriendTargetDecision(5, "beginner");
-    assert(beginnerJokerFallbackDecision.selectedEntry.target.suit !== "joker", "beginner: overloaded side suits should still avoid joker friend fallback");
-    results.push("beginner joker fallback tightened -> " + beginnerJokerFallbackDecision.selectedEntry.label);
+    assert(beginnerJokerFallbackDecision.selectedEntry.target.suit === "joker", "beginner: fully overloaded side suits should allow the strict joker fallback");
+    assert(beginnerJokerFallbackDecision.selectedEntry.target.rank === "RJ", "beginner: strict joker fallback should still prefer the first red joker");
+    results.push("beginner strict joker fallback ok -> " + beginnerJokerFallbackDecision.selectedEntry.label);
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupReturnToBankerScenario(difficulty);

@@ -133,6 +133,9 @@
   - `叫朋友` 阶段这次也补上了专项收口：
     中级 / 高级已把“短门第一张 `A` 更容易找朋友、也更容易回手”显式接进候选评分；
     同时结果日志里的 AI 决策记录已继续补到 `扣底 / 叫朋友` 两个阶段，方便把问题局完整导出。
+  - beginner 的叫朋友 fixed-seed 门禁这次也补齐了一条独立回归：
+    `check-beginner-friend-target-window.js` 会固定验证 `ZSO1hGI883r` 里的 `game-01 / game-04 / game-12` 三条种子，
+    确保“纯短门 A、多候选但不模拟”的策略不会再退回旧版单线叫友。
   - `bottomRelease` 现已正式进入 `evaluateState(...)`：
     它会在残局同侧控牌时，评估“当前玩家是否已经把王张 / 高主这类可让给同侧的资源让出来”，
     并被 `protect_bottom / grade_bottom` 明确加权；`controlExit` 也会继续参考这项压力，避免 resolved-friend 阶段继续高张硬控。
@@ -204,7 +207,7 @@
 
 ## 里程碑 4. 调试与性能保护
 
-- 状态：`待开始`
+- 状态：`已完成基线`
 - 目标：让调参与回归可视、可控。
 - 交付：
   - 记录候选来源、rollout depth、future delta、触发原因
@@ -215,6 +218,19 @@
   - 记录 `turn_access_risk / point_run_risk` 在 `friend=unrevealed` 阶段的拆分计数，以及 `unresolved_probe_risk` 命中样本
   - 为残局模式单独设置扩展深度和候选上限，避免普通局面也被高成本搜索拖慢
   - 为大改动提交流程补一条真实浏览器 UI smoke，确认 PC / mobile 在 `瞬` 档托管下都能完整结算，避免共享层改动只过了 headless 却卡在真实页面流程
+- 当前结果：
+  - 调试快照已稳定记录：候选来源、`rolloutDepth`、`futureDelta`、触发 flags、过滤数量和过滤原因分布。
+  - 跟牌热路径已补上正式预算保护：
+    最重的 `5` 张复杂跟牌样本会直接退回 heuristic shortlist，不再继续 rollout；
+    对应 `check-ai-follow-rollout-budget.js` 已长期守门。
+  - headless 摘要现已同时记录：
+    `turn_access_risk / point_run_risk / turn_access_hold / dangerous_point_lead / unresolved_probe_risk / revealed_friend_control_shift`，
+    并保留 `friend=unrevealed` 下的拆分计数、候选过滤统计和 fixed-seed 样本。
+  - `turn_access_hold` 现已成为正式摘要指标：
+    最新无 UI 回归为 `selected turn_access_hold = 15`，mixed 验证为 `turn_access_hold = 16`，
+    可以直接复盘“赢轮后下一拍仍有牌权优势”的正向样本。
+  - 真实浏览器 UI smoke 已在 PC / mobile 两端通过：
+    都能在 `瞬` 档开启托管后完整打到结算，不再只停留在 headless 守门。
 - 验收：
   - 可从 debug 数据看出 AI 为什么选这手
   - 可从 debug 数据看出 AI 为什么没有选某类看似激进的候选
@@ -222,8 +238,8 @@
 
 ## 推荐执行顺序
 
-1. 继续推进 `里程碑 4`，把性能上限、候选审计和真实页面 smoke 守门补齐。
-2. 再继续做 mixed `20` 局门槛与后续调权重，避免在小样本 smoke 上过早宣布风险线收平。
+1. 继续做 mixed `20` 局门槛与后续调权重，避免在小样本 smoke 上过早宣布风险线收平。
+2. 再按热点继续做第二阶段性能收口，例如克隆/评估缓存与更大样本时的耗时看板。
 3. 之后再考虑是否需要新增更细的 fixed-seed AI 数据集抽样，而不是先扩张新的 heuristic 面。
 
 ## 后续专项维护建议

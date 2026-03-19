@@ -314,6 +314,8 @@
 - 控制计算量。
 - 保持行为稳定。
 - 让调试信息可读。
+- 让 headless 能稳定复盘：
+  候选来源、过滤原因、`turn_access_risk / point_run_risk / turn_access_hold` 这类信号都能直接落到摘要里。
 
 ## 7. 短前瞻 rollout
 

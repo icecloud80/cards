@@ -882,172 +882,151 @@ function getBeginnerShortSuitFriendPlan(banker, options = {}) {
 
 /**
  * 作用：
- * 为初级 AI 构造“叫朋友后前几轮”的轻量模拟状态。
+ * 为初级 AI 的“短门 A”候选计算一份纯 heuristic 评分拆解。
  *
  * 为什么这样写：
- * 固定回放里，初级叫朋友的成败往往在前几轮就已经决定：
- * 有的目标会立刻亮友并续住牌权，有的目标则会在开局连续送节奏。
- * 这里把“埋底完成、准备首发”的状态拷成一份浅模拟底稿，
- * 让候选比较能够直接围绕真实开局路径，而不是只看静态门长。
- *
- * 输入：
- * @param {object} target - 当前待评估的朋友牌定义。
- *
- * 输出：
- * @returns {object|null} 可直接送入模拟 helper 的状态副本；缺少模拟能力时返回 `null`。
- *
- * 注意：
- * - 这里只服务叫朋友评估，不会改真实 `state`。
- * - 模拟态会强制回到首轮首手，避免把埋底阶段残留状态带进回放。
- */
-function buildBeginnerFriendTargetOpeningSimulationState(target) {
-  if (!target || typeof cloneSimulationState !== "function") return null;
-
-  const simState = cloneSimulationState(state);
-  simState.friendTarget = {
-    ...buildFriendTarget(target),
-    occurrence: target.occurrence ?? 1,
-    matchesSeen: 0,
-    failed: false,
-    revealed: false,
-    revealedBy: null,
-    revealedTrickNumber: null,
-  };
-  simState.hiddenFriendId = null;
-  simState.phase = "playing";
-  simState.gameOver = false;
-  simState.currentTurnId = state.bankerId;
-  simState.leaderId = state.bankerId;
-  simState.trickNumber = 1;
-  simState.currentTrick = [];
-  simState.currentTrickBeatCount = 0;
-  simState.leadSpec = null;
-  simState.lastTrick = null;
-  simState.defenderPoints = 0;
-  simState.playHistory = [];
-  return simState;
-}
-
-/**
- * 作用：
- * 用“延伸到终局的轻量回放”估算初级叫朋友候选的兑现质量。
- *
- * 为什么这样写：
- * 旧版初级把“短门 A”当成硬规则，导致它不会比较：
- * 1. 同一门是该叫第二张还是第三张；
- * 2. 是继续押最短门，还是改叫另一门更快亮友的 `A`。
- * 这些差异虽然主要在前几轮暴露，但最终值不值往往要看整局输赢。
- * 这里沿用当前 deterministic 托管链，把每个副牌 `A` 候选继续推到终局，
- * 再用“最终胜负 + 闲家得分 + 亮友进度”给候选排优先级。
+ * 用户明确要求初级 AI 不做开局模拟，因此这里继续坚持“短门 A”主思路，
+ * 只把旧规则补成可比较的多候选：
+ * 1. 同一短门允许比较第二张 / 第三张 `A`；
+ * 2. 没有自持 `A` 的短门，也允许作为“首张 A”候选进入比较；
+ * 3. 分值只看当前明手与底牌已知信息，不窥视未来出牌。
  *
  * 输入：
  * @param {object} target - 当前待评估的朋友牌定义。
  * @param {object|null} banker - 当前打家对象。
+ * @param {{buriedCopies?: number}} [meta={}] - 已预先统计好的底牌同牌张数。
  *
  * 输出：
  * @returns {{
- *   score: number,
- *   completedTricks: number,
- *   defenderPoints: number,
- *   matchesSeen: number,
- *   revealed: boolean,
- *   revealedTrickNumber: (number|null),
- *   remainingBeforeReveal: number,
- *   evaluationTotal: number
- * }} 返回浅回放总分与关键开局摘要。
+ *   total: number,
+ *   ownCopies: number,
+ *   suitCount: number,
+ *   supportCount: number,
+ *   zeroPointSupportCount: number,
+ *   smallSupportCount: number,
+ *   highHonorSupportCount: number,
+ *   buriedCopies: number,
+ *   minSuitCount: number,
+ *   shortSuitBonus: number,
+ *   supportRouteBonus: number,
+ *   occurrenceShapeBonus: number,
+ *   ownCopyAdjustment: number,
+ *   longSuitPenalty: number,
+ *   returnCard: (string|null)
+ * }} 返回总分与关键启发式拆解。
  *
  * 注意：
- * - 模拟基础设施缺失时返回保守零分，避免正式局内报错。
- * - 当前只比较有限个副牌 `A` 候选；若未来候选集明显膨胀，需要重新评估算力成本。
+ * - 这里只服务初级副牌 `A` 候选，不负责主牌 / 王张找友。
+ * - 若完全没有同门手牌，这里会返回极低分，交给上层自然淘汰。
  */
-function scoreBeginnerFriendTargetOpeningRollout(target, banker) {
-  const emptyResult = {
-    score: 0,
-    completedTricks: 0,
-    defenderPoints: 0,
-    matchesSeen: 0,
-    revealed: false,
-    revealedTrickNumber: null,
-    remainingBeforeReveal: target?.occurrence || 1,
-    evaluationTotal: 0,
-    winner: null,
-  };
-  if (!target || !banker) return emptyResult;
-  if (typeof simulateTrickToEnd !== "function" || typeof withSimulationState !== "function") {
-    return emptyResult;
+function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta = {}) {
+  if (!target || !banker) {
+    return {
+      total: Number.NEGATIVE_INFINITY,
+      ownCopies: 0,
+      suitCount: 0,
+      supportCount: 0,
+      zeroPointSupportCount: 0,
+      smallSupportCount: 0,
+      highHonorSupportCount: 0,
+      buriedCopies: 0,
+      minSuitCount: 0,
+      shortSuitBonus: 0,
+      supportRouteBonus: 0,
+      occurrenceShapeBonus: 0,
+      ownCopyAdjustment: 0,
+      longSuitPenalty: 0,
+      returnCard: null,
+    };
   }
 
-  let simState = buildBeginnerFriendTargetOpeningSimulationState(target);
-  if (!simState) return emptyResult;
+  const suitCards = banker.hand
+    .filter((card) => !isTrump(card) && card.suit === target.suit)
+    .sort((left, right) => cardStrength(left) - cardStrength(right));
+  const nonTargetCards = suitCards.filter((card) => card.rank !== target.rank);
+  const ownCopies = suitCards.filter((card) => card.rank === target.rank).length;
+  const buriedCopies = typeof meta.buriedCopies === "number" ? meta.buriedCopies : getKnownBuriedTargetCopies(target);
+  const zeroPointSupportCount = nonTargetCards.filter((card) => scoreValue(card) === 0).length;
+  const smallSupportCount = nonTargetCards.filter((card) => ["2", "3", "4", "5", "6", "7", "8", "9"].includes(card.rank)).length;
+  const highHonorSupportCount = nonTargetCards.filter((card) => ["K", "Q", "J"].includes(card.rank)).length;
+  const returnCard = nonTargetCards.find((card) => ["2", "3", "4", "5"].includes(card.rank))
+    || nonTargetCards.find((card) => scoreValue(card) === 0)
+    || nonTargetCards[0]
+    || null;
+  const minSuitCount = SUITS
+    .filter((suit) => isBeginnerSideAceSuit(suit))
+    .map((suit) => banker.hand.filter((card) => !isTrump(card) && card.suit === suit).length)
+    .filter((count) => count > 0)
+    .sort((left, right) => left - right)[0] || suitCards.length;
+  const suitCount = suitCards.length;
+  const supportCount = nonTargetCards.length;
 
-  const maxSimulationTricks = 40;
-  let completedTricks = 0;
-  while (
-    simState.phase === "playing"
-    && !simState.gameOver
-    && completedTricks < maxSimulationTricks
-  ) {
-    const rollout = simulateTrickToEnd(simState);
-    if (!rollout.completed) break;
-    simState = rollout.resultState;
-    completedTricks += 1;
+  let shortSuitBonus = 0;
+  if (suitCount <= minSuitCount + 1) shortSuitBonus += 18;
+  else if (suitCount <= minSuitCount + 2) shortSuitBonus += 8;
+  shortSuitBonus -= suitCount * 10;
+
+  let supportRouteBonus = smallSupportCount * 14 + zeroPointSupportCount * 4 - highHonorSupportCount * 6;
+  if (returnCard) {
+    supportRouteBonus += ["2", "3", "4", "5"].includes(returnCard.rank)
+      ? 14
+      : scoreValue(returnCard) === 0
+        ? 8
+        : 2;
+  }
+  supportRouteBonus -= Math.max(0, supportCount - 1) * 6;
+
+  let occurrenceShapeBonus = 0;
+  if (ownCopies === 1 && target.occurrence === 3) {
+    occurrenceShapeBonus += supportCount <= 1
+      ? -4
+      : suitCount <= 4
+        ? 26
+        : suitCount <= 5
+          ? 12
+          : -10;
+  } else if (ownCopies === 1 && target.occurrence === 2) {
+    occurrenceShapeBonus += suitCount >= 6 ? 16 : 4;
   }
 
-  const matchesSeen = simState.friendTarget?.matchesSeen || 0;
-  const revealed = !!simState.friendTarget?.revealed;
-  const revealedTrickNumber = Number.isInteger(simState.friendTarget?.revealedTrickNumber)
-    ? simState.friendTarget.revealedTrickNumber
-    : null;
-  const remainingBeforeReveal = Math.max(0, (simState.friendTarget?.occurrence || 1) - matchesSeen);
-  const evaluationTotal = (
-    typeof evaluateState === "function" && typeof getIntermediateObjective === "function"
-      ? evaluateState(simState, banker.id, getIntermediateObjective(banker.id, "lead", simState)).total || 0
-      : 0
-  );
-  const outcome = (
-    typeof getBottomResultSummary === "function" && typeof getOutcome === "function"
-      ? withSimulationState(simState, () => {
-        const bottomResult = getBottomResultSummary();
-        return getOutcome(state.defenderPoints, {
-          bottomPenalty: bottomResult?.penalty || null,
-        });
-      })
-      : null
-  );
-  let score = evaluationTotal;
+  let ownCopyAdjustment = 0;
+  if (ownCopies === 0) {
+    ownCopyAdjustment += supportCount >= 2 ? 10 : 0;
+    ownCopyAdjustment -= Math.max(0, 2 - smallSupportCount) * 12;
+    if (supportCount >= 5 && smallSupportCount <= 1) ownCopyAdjustment -= 28;
+    if (smallSupportCount >= 3) {
+      ownCopyAdjustment += target.occurrence === 1 ? 20 : target.occurrence === 2 ? 4 : -4;
+    }
+  } else if (ownCopies === 1) {
+    ownCopyAdjustment += 12;
+  } else if (ownCopies >= 2) {
+    ownCopyAdjustment -= 18 + Math.max(0, supportCount - 2) * 4;
+  }
 
-  if (outcome?.winner === "banker") {
-    score += 1000;
-  } else if (outcome?.winner === "defender") {
-    score -= 1000;
+  let longSuitPenalty = buriedCopies * 12;
+  if (ownCopies === 0 && suitCount >= 6) {
+    longSuitPenalty += 28 + Math.max(0, suitCount - 6) * 8;
   }
-  score -= (simState.defenderPoints || 0) * 4;
-  score += matchesSeen * 12;
-  if (revealed) {
-    score += 42;
-    score -= Math.max(0, (revealedTrickNumber || completedTricks) - 1) * 4;
-  } else if (simState.friendTarget?.failed) {
-    score -= 56;
-  } else {
-    score -= remainingBeforeReveal * 18;
-  }
-  if (simState.currentTurnId === banker.id && simState.phase === "playing") {
-    score += 6;
-  }
-  if (simState.lastTrick?.winnerId === banker.id) {
-    score += 8;
+  if (ownCopies >= 2 && suitCount >= 6) {
+    longSuitPenalty += 14;
   }
 
   return {
-    score,
-    completedTricks,
-    defenderPoints: simState.defenderPoints || 0,
-    matchesSeen,
-    revealed,
-    revealedTrickNumber,
-    remainingBeforeReveal,
-    evaluationTotal,
-    winner: outcome?.winner || null,
+    total: 220 + shortSuitBonus + supportRouteBonus + occurrenceShapeBonus + ownCopyAdjustment - longSuitPenalty,
+    ownCopies,
+    suitCount,
+    supportCount,
+    zeroPointSupportCount,
+    smallSupportCount,
+    highHonorSupportCount,
+    buriedCopies,
+    minSuitCount,
+    shortSuitBonus,
+    supportRouteBonus,
+    occurrenceShapeBonus,
+    ownCopyAdjustment,
+    longSuitPenalty,
+    returnCard: returnCard ? shortCardLabel(returnCard) : null,
   };
 }
 
@@ -1433,82 +1412,68 @@ function buildIntermediateFriendTargetCandidateEntries(banker) {
 
 /**
  * 作用：
- * 为初级 AI 构造“副牌 A 多候选 + 开局浅回放”的叫朋友列表。
+ * 为初级 AI 构造“短门 A 多候选”叫朋友列表。
  *
  * 为什么这样写：
  * 旧版初级一旦命中“短门 A”规则，就会沿着单条固定计划直接选牌，
- * 因而看不到“同门第二张 / 第三张 A”以及“另一门首张 A”在真实开局里的差异。
- * 这里把所有可行副牌 `A` 都列成候选，再用浅回放估算开局收益，
- * 让初级至少能比较“哪张朋友牌更容易早点亮友、少送分、保住牌权”。
+ * 因而看不到“同门第二张 / 第三张 A”以及“另一门首张 A”之间的张次差异。
+ * 这里仍坚持“短门 A”主思路，但会把所有可行副牌 `A` 列成候选，
+ * 再按当前明手结构、回手小牌和张次形状做纯 heuristic 排序。
  *
  * 输入：
  * @param {object|null} banker - 当前打家对象。
  *
  * 输出：
- * @returns {Array<object>} 已按浅回放得分排序的候选列表。
+ * @returns {Array<object>} 已按纯 heuristic 得分排序的候选列表。
  *
  * 注意：
  * - 当前只覆盖副牌 `A`；若这一层没有候选，调用方仍需回退到旧 heuristic。
- * - `score` 以浅回放分为主，`heuristicScore` 只作同分解释与兜底排序。
+ * - 不做任何模拟或未来搜索，保证初级 AI 只基于当前可见牌型判断。
  */
-function buildBeginnerOpeningRolloutFriendCandidateEntries(banker) {
+function buildBeginnerExpandedShortSuitFriendCandidateEntries(banker) {
   if (!banker) return [];
 
-  return collectFriendTargetCandidates(banker, ["A"], scoreBeginnerFriendTargetCandidate)
+  return collectFriendTargetCandidates(
+    banker,
+    ["A"],
+    (target, activeBanker, meta) => buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, activeBanker, meta).total,
+  )
     .filter((candidate) => isBeginnerSideAceSuit(candidate.target.suit))
     .map((candidate) => {
       const target = candidate.target;
       const friendTarget = buildFriendTarget(target);
-      const ownCopies = banker.hand.filter((card) => card.suit === target.suit && card.rank === target.rank).length;
-      const suitCount = banker.hand.filter((card) => !isTrump(card) && card.suit === target.suit).length;
-      const rollout = scoreBeginnerFriendTargetOpeningRollout(target, banker);
+      const breakdown = buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, {
+        buriedCopies: getKnownBuriedTargetCopies(target),
+      });
       return {
         target: friendTarget,
         ownerId: candidate.ownerId,
         label: friendTarget.label,
         cards: [],
-        source: "opening-rollout",
+        source: "short-suit-window",
         tags: [
-          "副牌",
-          ownCopies > 0 ? `自持 ${ownCopies}` : "首张",
+          `短门 ${breakdown.suitCount}`,
+          breakdown.ownCopies > 0 ? `自持 ${breakdown.ownCopies}` : "首张",
           `${getOccurrenceLabel(target.occurrence)} A`,
-          rollout.winner === "banker" ? "终局赢" : rollout.winner === "defender" ? "终局输" : "终局未决",
-          rollout.revealed
-            ? `开局亮友 T${rollout.revealedTrickNumber || rollout.completedTricks}`
-            : `未亮差 ${rollout.remainingBeforeReveal}`,
+          breakdown.smallSupportCount >= 2 ? `小牌 ${breakdown.smallSupportCount}` : `支撑 ${breakdown.supportCount}`,
+          breakdown.returnCard ? `回手 ${breakdown.returnCard}` : "无回手",
         ],
-        score: rollout.score,
-        heuristicScore: candidate.score,
-        rolloutScore: rollout.score,
+        score: breakdown.total,
+        heuristicScore: breakdown.total,
+        rolloutScore: null,
         rolloutFutureDelta: null,
-        rolloutDepth: rollout.completedTricks,
+        rolloutDepth: 0,
         rolloutTriggerFlags: [
-          `同门 ${suitCount} 张`,
-          `开局闲家分 ${rollout.defenderPoints}`,
-          `开局命中 ${rollout.matchesSeen} 张`,
-          rollout.revealed ? "revealed_in_opening" : `need_${rollout.remainingBeforeReveal}_copy`,
+          `同门 ${breakdown.suitCount} 张`,
+          `零分支撑 ${breakdown.zeroPointSupportCount}`,
+          `小牌支撑 ${breakdown.smallSupportCount}`,
+          `高张支撑 ${breakdown.highHonorSupportCount}`,
         ],
-        breakdown: {
-          suit: target.suit,
-          occurrence: target.occurrence,
-          ownCopies,
-          suitCount,
-          defenderPoints: rollout.defenderPoints,
-          matchesSeen: rollout.matchesSeen,
-          revealed: rollout.revealed,
-          revealedTrickNumber: rollout.revealedTrickNumber,
-          winner: rollout.winner,
-          openingScore: rollout.score,
-          heuristicScore: candidate.score,
-          evaluationTotal: rollout.evaluationTotal,
-        },
+        breakdown,
       };
     })
     .sort((left, right) => {
       if (right.score !== left.score) return right.score - left.score;
-      if ((right.heuristicScore || 0) !== (left.heuristicScore || 0)) {
-        return (right.heuristicScore || 0) - (left.heuristicScore || 0);
-      }
       return left.label.localeCompare(right.label, "zh-Hans-CN");
     });
 }
@@ -1627,13 +1592,13 @@ function buildAiFriendTargetDecision(playerId = state.bankerId, difficulty = sta
   }
 
   if (difficulty === "beginner") {
-    const rolloutEntries = buildBeginnerOpeningRolloutFriendCandidateEntries(banker);
-    if (rolloutEntries.length > 0) {
+    const expandedShortSuitEntries = buildBeginnerExpandedShortSuitFriendCandidateEntries(banker);
+    if (expandedShortSuitEntries.length > 0) {
       return {
-        target: rolloutEntries[0].target,
-        ownerId: rolloutEntries[0].ownerId,
-        candidateEntries: rolloutEntries,
-        selectedEntry: rolloutEntries[0],
+        target: expandedShortSuitEntries[0].target,
+        ownerId: expandedShortSuitEntries[0].ownerId,
+        candidateEntries: expandedShortSuitEntries,
+        selectedEntry: expandedShortSuitEntries[0],
       };
     }
     const shortSuitEntries = buildBeginnerShortSuitFriendCandidateEntries(banker);

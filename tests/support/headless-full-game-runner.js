@@ -8,6 +8,7 @@ const DEFAULT_MIXED_TOTAL_GAMES = 20;
 const DEFAULT_MIXED_DIFFICULTY = "mixed";
 const HEADLESS_PLAYER_IDS = [1, 2, 3, 4, 5];
 const DECISION_SIGNAL_SAMPLE_LIMIT = 5;
+const PERFORMANCE_SAMPLE_LIMIT = 5;
 const CONTROL_SHIFT_OBJECTIVES = new Set(["clear_trump", "keep_control", "pressure_void"]);
 
 /**
@@ -687,6 +688,360 @@ function buildDecisionSignalSample(game, event, signal) {
 
 /**
  * 作用：
+ * 将回归里的浮点指标统一收敛到两位小数。
+ *
+ * 为什么这样写：
+ * headless 回归会把耗时、平均值和分位数长期写进产物；
+ * 如果每次都带完整浮点尾数，summary 和 analysis 会频繁出现无意义 diff。
+ *
+ * 输入：
+ * @param {number} value - 待收敛的原始数值。
+ *
+ * 输出：
+ * @returns {number} 保留两位小数后的稳定结果；非法值统一回落到 `0`。
+ *
+ * 注意：
+ * - 这里只处理回归展示数值，不要拿去做正式玩法判定。
+ * - `NaN / Infinity / undefined` 都会安全回落，避免写盘异常。
+ */
+function roundRegressionMetric(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * 作用：
+ * 为耗时分布统计准备一份稳定的空指标结构。
+ *
+ * 为什么这样写：
+ * mixed 长样本和小样本都需要把“平均 / 峰值 / 分位数”写成同一套 JSON 形状，
+ * 这样分析报告和门禁脚本才能共享读取逻辑。
+ *
+ * 输入：
+ * @param {void} - 无额外输入。
+ *
+ * 输出：
+ * @returns {{
+ *   decisionCount: number,
+ *   averageDecisionTimeMs: number,
+ *   maxDecisionTimeMs: number,
+ *   p50DecisionTimeMs: number,
+ *   p90DecisionTimeMs: number,
+ *   p95DecisionTimeMs: number
+ * }} 一份空的耗时统计对象。
+ *
+ * 注意：
+ * - 默认值全部为 `0`，便于调用方直接展开到 summary。
+ * - 不要在这里追加样本数组，样本榜单由专门的性能汇总结构管理。
+ */
+function buildEmptyDecisionTimeMetrics() {
+  return {
+    decisionCount: 0,
+    averageDecisionTimeMs: 0,
+    maxDecisionTimeMs: 0,
+    p50DecisionTimeMs: 0,
+    p90DecisionTimeMs: 0,
+    p95DecisionTimeMs: 0,
+  };
+}
+
+/**
+ * 作用：
+ * 根据一组决策耗时计算平均值、峰值与关键分位数。
+ *
+ * 为什么这样写：
+ * 第二阶段性能收口最需要的是“别只看平均值”；
+ * 把 `P50 / P90 / P95` 也放进产物后，才能区分“整体变慢”还是“尖峰回升”。
+ *
+ * 输入：
+ * @param {number[]} values - 已采集到的决策耗时列表。
+ *
+ * 输出：
+ * @returns {{
+ *   decisionCount: number,
+ *   averageDecisionTimeMs: number,
+ *   maxDecisionTimeMs: number,
+ *   p50DecisionTimeMs: number,
+ *   p90DecisionTimeMs: number,
+ *   p95DecisionTimeMs: number
+ * }} 稳定收敛后的耗时统计对象。
+ *
+ * 注意：
+ * - 输入会先做有限数过滤和升序拷贝，不会污染原数组。
+ * - 空数组时直接返回全 `0`，避免调用方再写额外分支。
+ */
+function summarizeDecisionTimeMetrics(values) {
+  const sortedValues = (Array.isArray(values) ? values : [])
+    .filter((value) => typeof value === "number" && Number.isFinite(value) && value >= 0)
+    .sort((left, right) => left - right);
+  if (sortedValues.length === 0) {
+    return buildEmptyDecisionTimeMetrics();
+  }
+
+  const readPercentile = (ratio) => {
+    const index = Math.min(
+      sortedValues.length - 1,
+      Math.max(0, Math.floor((sortedValues.length - 1) * ratio))
+    );
+    return roundRegressionMetric(sortedValues[index]);
+  };
+
+  const total = sortedValues.reduce((sum, value) => sum + value, 0);
+  return {
+    decisionCount: sortedValues.length,
+    averageDecisionTimeMs: roundRegressionMetric(total / sortedValues.length),
+    maxDecisionTimeMs: roundRegressionMetric(sortedValues[sortedValues.length - 1]),
+    p50DecisionTimeMs: readPercentile(0.5),
+    p90DecisionTimeMs: readPercentile(0.9),
+    p95DecisionTimeMs: readPercentile(0.95),
+  };
+}
+
+/**
+ * 作用：
+ * 构造 headless 长样本性能看板的空骨架。
+ *
+ * 为什么这样写：
+ * mixed `20` 局门禁除了看风险信号，也要稳定记录“最慢局 / 最慢单手 / lead-follow 分布”，
+ * 先固定结构后，测试与分析报告就不需要随着字段增减来回改。
+ *
+ * 输入：
+ * @param {void} - 无额外输入。
+ *
+ * 输出：
+ * @returns {{
+ *   decisionCount: number,
+ *   averageDecisionTimeMs: number,
+ *   maxDecisionTimeMs: number,
+ *   p50DecisionTimeMs: number,
+ *   p90DecisionTimeMs: number,
+ *   p95DecisionTimeMs: number,
+ *   byMode: Record<string, object>,
+ *   slowestGames: object[],
+ *   slowestDecisions: object[]
+ * }} 一份空的性能摘要结构。
+ *
+ * 注意：
+ * - `byMode` 目前只保留 `lead / follow` 两类正式出牌模式。
+ * - 榜单数组默认为空，后续只保留少量最高价值样本。
+ */
+function buildEmptyPerformanceSummary() {
+  return {
+    ...buildEmptyDecisionTimeMetrics(),
+    byMode: {
+      lead: buildEmptyDecisionTimeMetrics(),
+      follow: buildEmptyDecisionTimeMetrics(),
+    },
+    slowestGames: [],
+    slowestDecisions: [],
+  };
+}
+
+/**
+ * 作用：
+ * 维护一个按指定性能指标降序截断的固定样本榜单。
+ *
+ * 为什么这样写：
+ * mixed 长样本里最有价值的不是“全部原始耗时”，而是最慢的少量局和少量决策；
+ * 统一做降序截断后，summary 既能复盘热点，又不会被海量样本撑爆。
+ *
+ * 输入：
+ * @param {object[]} entries - 当前榜单数组。
+ * @param {object} candidate - 待纳入榜单的候选样本。
+ * @param {string} primaryKey - 主要排序字段。
+ * @param {string|null} [secondaryKey=null] - 同分时使用的次级排序字段。
+ *
+ * 输出：
+ * @returns {void} 原地更新榜单。
+ *
+ * 注意：
+ * - 只有 `primaryKey` 为正数值的样本才会进入榜单。
+ * - 榜单长度固定为 `PERFORMANCE_SAMPLE_LIMIT`，避免产物体积失控。
+ */
+function pushTopPerformanceEntry(entries, candidate, primaryKey, secondaryKey = null) {
+  if (!Array.isArray(entries) || !candidate) {
+    return;
+  }
+  const primaryValue = candidate[primaryKey];
+  if (typeof primaryValue !== "number" || !Number.isFinite(primaryValue) || primaryValue <= 0) {
+    return;
+  }
+
+  entries.push(candidate);
+  entries.sort((left, right) => {
+    const primaryDiff = (right[primaryKey] || 0) - (left[primaryKey] || 0);
+    if (primaryDiff !== 0) {
+      return primaryDiff;
+    }
+    if (secondaryKey) {
+      return (right[secondaryKey] || 0) - (left[secondaryKey] || 0);
+    }
+    return 0;
+  });
+  if (entries.length > PERFORMANCE_SAMPLE_LIMIT) {
+    entries.length = PERFORMANCE_SAMPLE_LIMIT;
+  }
+}
+
+/**
+ * 作用：
+ * 从单次 `play` 事件里抽取一条适合落盘的慢决策样本。
+ *
+ * 为什么这样写：
+ * 性能门禁真正需要复跑的不是“平均值”，而是能直接定位到 seed / step / objective 的最慢单手。
+ * 这里把最关键的复盘上下文裁成轻量样本，便于分析和回放。
+ *
+ * 输入：
+ * @param {object} game - 当前单局回归结果。
+ * @param {object} event - 当前 `play` 事件。
+ *
+ * 输出：
+ * @returns {object|null} 慢决策样本；若事件不带有效耗时则返回 `null`。
+ *
+ * 注意：
+ * - 这里只记录 headless 回归可复现所需字段，不携带完整候选明细。
+ * - `playerDifficulty` 会优先从事件取值，缺失时再回退到单局映射。
+ */
+function buildSlowDecisionPerformanceSample(game, event) {
+  const decisionTimeMs = event?.decision?.decisionTimeMs;
+  if (typeof decisionTimeMs !== "number" || !Number.isFinite(decisionTimeMs) || decisionTimeMs <= 0) {
+    return null;
+  }
+  return {
+    seed: game.summary.seed,
+    difficulty: game.summary.difficulty,
+    gameIndex: game.summary.gameIndex,
+    step: event.step,
+    trickNumber: event.trickNumber,
+    playerId: event.playerId,
+    playerDifficulty: event.playerDifficulty || game.summary.playerDifficulties?.[event.playerId] || null,
+    mode: event.mode,
+    source: event.source || event.decision?.selectedSource || null,
+    friendState: event.friendState || "not_called",
+    decisionTimeMs: roundRegressionMetric(decisionTimeMs),
+    objectivePrimary: event.decision?.objective?.primary || null,
+    objectiveSecondary: event.decision?.objective?.secondary || null,
+    selectedRolloutTriggerFlags: Array.isArray(event.decision?.selectedRolloutTriggerFlags)
+      ? [...event.decision.selectedRolloutTriggerFlags]
+      : [],
+  };
+}
+
+/**
+ * 作用：
+ * 从单局汇总里抽取一条适合落盘的慢局样本。
+ *
+ * 为什么这样写：
+ * 当 mixed `20` 局回归整体通过时，开发者最先想看的通常是“哪一局最慢、慢在什么阵容和朋友阶段”；
+ * 这里提前把这些关键信息压成摘要，能明显减少再翻 games/event 文件的成本。
+ *
+ * 输入：
+ * @param {object} game - 当前单局回归结果。
+ *
+ * 输出：
+ * @returns {object|null} 慢局样本；若该局没有有效决策耗时则返回 `null`。
+ *
+ * 注意：
+ * - 排序主键使用“单局平均决策耗时”，这样更能反映持续性卡顿。
+ * - `maxDecisionTimeMs` 作为同分辅助信息保留，便于区分平均慢还是尖峰慢。
+ */
+function buildSlowGamePerformanceSample(game) {
+  const averageDecisionTimeMs = game?.summary?.averageDecisionTimeMs;
+  if (typeof averageDecisionTimeMs !== "number" || !Number.isFinite(averageDecisionTimeMs) || averageDecisionTimeMs <= 0) {
+    return null;
+  }
+  return {
+    seed: game.summary.seed,
+    difficulty: game.summary.difficulty,
+    gameIndex: game.summary.gameIndex,
+    lineupLabel: game.summary.lineupLabel || game.summary.difficulty || null,
+    friendState: game.summary.friendState || "not_called",
+    decisionCount: game.summary.decisionCount || 0,
+    averageDecisionTimeMs: roundRegressionMetric(averageDecisionTimeMs),
+    maxDecisionTimeMs: roundRegressionMetric(game.summary.maxDecisionTimeMs || 0),
+    steps: game.summary.steps || 0,
+    tricks: game.summary.totalTricks || 0,
+  };
+}
+
+/**
+ * 作用：
+ * 为一批已完成对局汇总“耗时分布 + 最慢样本”性能看板。
+ *
+ * 为什么这样写：
+ * 里程碑 4 基线完成后，下一步最缺的是“大样本 mixed 能不能稳住热路径”的守门信息。
+ * 这里把总体分位数、lead/follow 分布和最慢局/最慢决策一起沉进产物，方便长期追踪。
+ *
+ * 输入：
+ * @param {object[]} games - 已完成的单局回归结果列表。
+ *
+ * 输出：
+ * @returns {{
+ *   decisionCount: number,
+ *   averageDecisionTimeMs: number,
+ *   maxDecisionTimeMs: number,
+ *   p50DecisionTimeMs: number,
+ *   p90DecisionTimeMs: number,
+ *   p95DecisionTimeMs: number,
+ *   byMode: Record<string, object>,
+ *   slowestGames: object[],
+ *   slowestDecisions: object[]
+ * }} 聚合后的性能摘要。
+ *
+ * 注意：
+ * - 这里只统计带 `decisionTimeMs` 的 `play` 事件。
+ * - mixed 当前主要只有中级 AI 会产出正式调试决策，后续若初级也补进来，这里无需改结构。
+ */
+function summarizePerformanceForGames(games) {
+  const performance = buildEmptyPerformanceSummary();
+  const overallDecisionTimes = [];
+  const decisionTimesByMode = {
+    lead: [],
+    follow: [],
+  };
+
+  for (const game of Array.isArray(games) ? games : []) {
+    pushTopPerformanceEntry(
+      performance.slowestGames,
+      buildSlowGamePerformanceSample(game),
+      "averageDecisionTimeMs",
+      "maxDecisionTimeMs"
+    );
+
+    for (const event of Array.isArray(game.events) ? game.events : []) {
+      const decisionTimeMs = event?.decision?.decisionTimeMs;
+      if (event?.type !== "play" || typeof decisionTimeMs !== "number" || !Number.isFinite(decisionTimeMs) || decisionTimeMs <= 0) {
+        continue;
+      }
+
+      overallDecisionTimes.push(decisionTimeMs);
+      if (event.mode === "lead" || event.mode === "follow") {
+        decisionTimesByMode[event.mode].push(decisionTimeMs);
+      }
+      pushTopPerformanceEntry(
+        performance.slowestDecisions,
+        buildSlowDecisionPerformanceSample(game, event),
+        "decisionTimeMs"
+      );
+    }
+  }
+
+  const overallMetrics = summarizeDecisionTimeMetrics(overallDecisionTimes);
+  return {
+    ...overallMetrics,
+    byMode: {
+      lead: summarizeDecisionTimeMetrics(decisionTimesByMode.lead),
+      follow: summarizeDecisionTimeMetrics(decisionTimesByMode.follow),
+    },
+    slowestGames: performance.slowestGames,
+    slowestDecisions: performance.slowestDecisions,
+  };
+}
+
+/**
+ * 作用：
  * 汇总一组已完成对局中的决策信号与候选审计数据。
  *
  * 为什么这样写：
@@ -1169,6 +1524,7 @@ function runSingleHeadlessGame(options) {
   let playCount = 0;
   let decisionCount = 0;
   let decisionTimeTotalMs = 0;
+  let maxDecisionTimeMs = 0;
   let maxPendingTimers = timers.getPendingCount();
 
   pushEvent(events, steps, "game_initialized", {
@@ -1301,6 +1657,7 @@ function runSingleHeadlessGame(options) {
       if (choice.decision?.decisionTimeMs != null) {
         decisionCount += 1;
         decisionTimeTotalMs += choice.decision.decisionTimeMs;
+        maxDecisionTimeMs = Math.max(maxDecisionTimeMs, choice.decision.decisionTimeMs);
       }
 
       pushEvent(events, steps, "play", {
@@ -1371,7 +1728,8 @@ function runSingleHeadlessGame(options) {
     warnings: [...capture.warnings],
     errors: [...capture.errors],
     decisionCount,
-    averageDecisionTimeMs: decisionCount > 0 ? Math.round((decisionTimeTotalMs / decisionCount) * 100) / 100 : 0,
+    averageDecisionTimeMs: decisionCount > 0 ? roundRegressionMetric(decisionTimeTotalMs / decisionCount) : 0,
+    maxDecisionTimeMs: roundRegressionMetric(maxDecisionTimeMs),
   };
 
   pushEvent(events, steps, "game_finished", {
@@ -1503,6 +1861,7 @@ function summarizeRegressionBatch(games, options) {
       return accumulator;
     }, { revealed: 0, failed: 0, unrevealed: 0, not_called: 0 }),
     decisionSignals: summarizeDecisionSignalsForGames(completedGames),
+    performance: summarizePerformanceForGames(completedGames),
     byDifficulty,
     topWarnings: [...warningCounts.entries()]
       .sort((left, right) => right[1] - left[1])
@@ -1536,6 +1895,7 @@ function summarizeRegressionBatch(games, options) {
  */
 function buildAnalysisMarkdown(summary) {
   const overallSignals = summary.decisionSignals || buildEmptyDecisionSignalSummary();
+  const performance = summary.performance || buildEmptyPerformanceSummary();
   const lines = [
     "# 无 UI 全游戏回归分析",
     "",
@@ -1555,6 +1915,10 @@ function buildAnalysisMarkdown(summary) {
     `- 平均日志条数：${summary.totals.averageLogs}`,
     `- 平均告警数：${summary.totals.averageWarnings}`,
     `- 平均 AI 决策耗时：${summary.totals.averageDecisionTimeMs} ms`,
+    `- AI 决策耗时 P50：${performance.p50DecisionTimeMs} ms`,
+    `- AI 决策耗时 P90：${performance.p90DecisionTimeMs} ms`,
+    `- AI 决策耗时 P95：${performance.p95DecisionTimeMs} ms`,
+    `- 最慢单手 AI 决策：${performance.maxDecisionTimeMs} ms`,
     "",
     "## 阵容分布",
     "",
@@ -1599,6 +1963,14 @@ function buildAnalysisMarkdown(summary) {
   lines.push(`- 候选池内 turn_access_risk 总数：${overallSignals.candidateAudit.turnAccessRiskCandidates}`);
   lines.push(`- 候选池内 point_run_risk 总数：${overallSignals.candidateAudit.pointRunRiskCandidates}`);
   lines.push(`- 被过滤候选总数：${overallSignals.candidateAudit.filteredCandidates}`);
+  lines.push("");
+  lines.push("## 性能看板");
+  lines.push("");
+  lines.push(`- lead 平均决策耗时：${performance.byMode.lead.averageDecisionTimeMs} ms`);
+  lines.push(`- lead P95 决策耗时：${performance.byMode.lead.p95DecisionTimeMs} ms`);
+  lines.push(`- follow 平均决策耗时：${performance.byMode.follow.averageDecisionTimeMs} ms`);
+  lines.push(`- follow P95 决策耗时：${performance.byMode.follow.p95DecisionTimeMs} ms`);
+  lines.push(`- 性能样本中的最慢单局平均耗时：${performance.slowestGames[0]?.averageDecisionTimeMs || 0} ms`);
   lines.push("");
   lines.push("## 各难度表现");
   lines.push("");
@@ -1661,6 +2033,37 @@ function buildAnalysisMarkdown(summary) {
       lines.push(
         `- [${game.difficulty}] ${game.seed} signalCount=${game.signalCount} auditCount=${game.auditCount} friend=${game.friendState}`
       );
+    }
+  }
+
+  lines.push("");
+  lines.push("## 性能热点");
+  lines.push("");
+  if (!performance.slowestGames.length && !performance.slowestDecisions.length) {
+    lines.push("- 本轮没有采到可排序的 AI 耗时样本。");
+  } else {
+    if (performance.slowestGames.length) {
+      lines.push("### 最慢单局");
+      lines.push("");
+      for (const game of performance.slowestGames) {
+        lines.push(
+          `- [${game.difficulty}] ${game.seed} avg=${game.averageDecisionTimeMs}ms max=${game.maxDecisionTimeMs}ms `
+          + `decisions=${game.decisionCount} friend=${game.friendState} lineup=${game.lineupLabel || "uniform"}`
+        );
+      }
+      lines.push("");
+    }
+    if (performance.slowestDecisions.length) {
+      lines.push("### 最慢单手");
+      lines.push("");
+      for (const sample of performance.slowestDecisions) {
+        lines.push(
+          `- [${sample.difficulty}] ${sample.seed} step=${sample.step} player=${sample.playerId} `
+          + `mode=${sample.mode} time=${sample.decisionTimeMs}ms friend=${sample.friendState} `
+          + `objective=${sample.objectivePrimary || "none"}/${sample.objectiveSecondary || "none"}`
+        );
+      }
+      lines.push("");
     }
   }
 

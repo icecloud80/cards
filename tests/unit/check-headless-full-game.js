@@ -193,6 +193,96 @@ function validateTurnAccessHoldSamples(samples, label) {
 
 /**
  * 作用：
+ * 校验 headless 摘要已经稳定输出第二阶段性能看板结构。
+ *
+ * 为什么这样写：
+ * 这轮不只是补 mixed 长样本，还要把“平均值之外的尖峰耗时”一起写进产物。
+ * 如果 `performance` 结构漂移，后续 mixed 门禁和性能复盘都会直接失效。
+ *
+ * 输入：
+ * @param {object} summary - 当前批次的 headless 聚合摘要。
+ * @param {string} label - 当前正在校验的摘要标签。
+ *
+ * 输出：
+ * @returns {void} 校验失败时直接抛错。
+ *
+ * 注意：
+ * - 这里只锁结构、类型和排序，不强行要求某一轮一定出现慢样本。
+ * - `slowestGames / slowestDecisions` 允许为空，但非空时必须按耗时降序排列。
+ */
+function validateHeadlessPerformanceSummary(summary, label) {
+  const performance = summary?.performance;
+  if (!performance) {
+    throw new Error(`${label} headless 回归摘要缺少 performance 结构`);
+  }
+
+  const numericKeys = [
+    "decisionCount",
+    "averageDecisionTimeMs",
+    "maxDecisionTimeMs",
+    "p50DecisionTimeMs",
+    "p90DecisionTimeMs",
+    "p95DecisionTimeMs",
+  ];
+  for (const key of numericKeys) {
+    if (typeof performance[key] !== "number") {
+      throw new Error(`${label} performance.${key} 不是数字`);
+    }
+  }
+
+  for (const mode of ["lead", "follow"]) {
+    const modeSummary = performance.byMode?.[mode];
+    if (!modeSummary) {
+      throw new Error(`${label} performance.byMode.${mode} 缺失`);
+    }
+    for (const key of numericKeys) {
+      if (typeof modeSummary[key] !== "number") {
+        throw new Error(`${label} performance.byMode.${mode}.${key} 不是数字`);
+      }
+    }
+  }
+
+  if (!Array.isArray(performance.slowestGames)) {
+    throw new Error(`${label} performance.slowestGames 不是数组`);
+  }
+  if (!Array.isArray(performance.slowestDecisions)) {
+    throw new Error(`${label} performance.slowestDecisions 不是数组`);
+  }
+
+  let previousSlowGameTime = Number.POSITIVE_INFINITY;
+  for (const game of performance.slowestGames) {
+    if (typeof game.seed !== "string" || game.seed.length === 0) {
+      throw new Error(`${label} performance.slowestGames 存在缺少 seed 的样本`);
+    }
+    if (typeof game.averageDecisionTimeMs !== "number" || game.averageDecisionTimeMs <= 0) {
+      throw new Error(`${label} performance.slowestGames 存在非法 averageDecisionTimeMs`);
+    }
+    if (game.averageDecisionTimeMs > previousSlowGameTime) {
+      throw new Error(`${label} performance.slowestGames 未按平均耗时降序排列`);
+    }
+    previousSlowGameTime = game.averageDecisionTimeMs;
+  }
+
+  let previousSlowDecisionTime = Number.POSITIVE_INFINITY;
+  for (const sample of performance.slowestDecisions) {
+    if (typeof sample.seed !== "string" || sample.seed.length === 0) {
+      throw new Error(`${label} performance.slowestDecisions 存在缺少 seed 的样本`);
+    }
+    if (typeof sample.decisionTimeMs !== "number" || sample.decisionTimeMs <= 0) {
+      throw new Error(`${label} performance.slowestDecisions 存在非法 decisionTimeMs`);
+    }
+    if (!Array.isArray(sample.selectedRolloutTriggerFlags)) {
+      throw new Error(`${label} performance.slowestDecisions 缺少 selectedRolloutTriggerFlags`);
+    }
+    if (sample.decisionTimeMs > previousSlowDecisionTime) {
+      throw new Error(`${label} performance.slowestDecisions 未按决策耗时降序排列`);
+    }
+    previousSlowDecisionTime = sample.decisionTimeMs;
+  }
+}
+
+/**
+ * 作用：
  * 校验固定 seed 的 headless 产物已经具备“可复盘、可复跑”的稳定标识。
  *
  * 为什么这样写：
@@ -249,6 +339,17 @@ function validateFixedSeedRegressionArtifacts(result, expectedBaseSeed, label) {
       if (typeof sample.seed !== "string" || !sample.seed.startsWith(`${expectedBaseSeed}:`)) {
         throw new Error(`${label} 决策信号样本包含无法回溯到固定 baseSeed 的 seed`);
       }
+    }
+  }
+
+  for (const game of summary.performance?.slowestGames || []) {
+    if (typeof game.seed !== "string" || !game.seed.startsWith(`${expectedBaseSeed}:`)) {
+      throw new Error(`${label} slowestGames 包含无法回溯到固定 baseSeed 的 seed`);
+    }
+  }
+  for (const sample of summary.performance?.slowestDecisions || []) {
+    if (typeof sample.seed !== "string" || !sample.seed.startsWith(`${expectedBaseSeed}:`)) {
+      throw new Error(`${label} slowestDecisions 包含无法回溯到固定 baseSeed 的 seed`);
     }
   }
 }
@@ -322,6 +423,7 @@ function main() {
   const options = parseHeadlessRegressionArgs();
   const result = runHeadlessRegression(options);
   validateHeadlessDecisionSignals(result.summary);
+  validateHeadlessPerformanceSummary(result.summary, "overall");
   validateFixedSeedRegressionArtifacts(result, options.baseSeed, "overall");
   validatePointRunRiskSamples(
     result.summary.decisionSignals?.samples?.pointRunRisk,
@@ -356,6 +458,7 @@ function main() {
     maxSteps: options.maxSteps,
   });
   validateHeadlessDecisionSignals(mixedResult.summary);
+  validateHeadlessPerformanceSummary(mixedResult.summary, "mixed-overall");
   validateFixedSeedRegressionArtifacts(mixedResult, `${options.baseSeed}:mixed-validation`, "mixed-overall");
   validatePointRunRiskSamples(
     mixedResult.summary.decisionSignals?.samples?.pointRunRisk,
@@ -379,6 +482,7 @@ function main() {
   console.log(`- selected turn_access_risk: ${result.summary.decisionSignals.selectedSignals.turnAccessRisk}`);
   console.log(`- selected point_run_risk: ${result.summary.decisionSignals.selectedSignals.pointRunRisk}`);
   console.log(`- selected turn_access_hold: ${result.summary.decisionSignals.selectedSignals.turnAccessHold}`);
+  console.log(`- decision time p95: ${result.summary.performance.p95DecisionTimeMs} ms`);
   console.log(`- summary: ${result.files.summaryFile}`);
   console.log(`- analysis: ${result.files.analysisFile}`);
   console.log("Headless mixed-lineup validation passed:");

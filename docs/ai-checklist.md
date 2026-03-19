@@ -136,6 +136,9 @@
   - beginner 的叫朋友 fixed-seed 门禁这次也补齐了一条独立回归：
     `check-beginner-friend-target-window.js` 会固定验证 `ZSO1hGI883r` 里的 `game-01 / game-04 / game-12` 三条种子，
     确保“纯短门 A、多候选但不模拟”的策略不会再退回旧版单线叫友。
+  - 合并另一会话的复盘后，beginner 的叫朋友门禁又补了两条更细边界：
+    `check-ai-friend-strategy.js` 现在同时固定“干净 `K + 小牌` 短门应压过长门 `A`”以及“只有所有副牌都真过脏时，才允许叫第一张大王”；
+    这样既能守住副牌 `A/K + 找友小牌` 常规，也能防止再退回宽泛王张找友。
   - `bottomRelease` 现已正式进入 `evaluateState(...)`：
     它会在残局同侧控牌时，评估“当前玩家是否已经把王张 / 高主这类可让给同侧的资源让出来”，
     并被 `protect_bottom / grade_bottom` 明确加权；`controlExit` 也会继续参考这项压力，避免 resolved-friend 阶段继续高张硬控。

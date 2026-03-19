@@ -39,6 +39,18 @@ function main() {
 
   assert.match(
     index2Html,
+    /body\.mobile-index2 \.mobile-state-card \.friend-card::after,[\s\S]*body\.mobile-index2 \.mobile-state-card \.played-card\.trump::after \{[\s\S]*display:\s*none;/,
+    "index2 顶部状态牌应显式关掉 friend-card 的全局描边伪元素"
+  );
+
+  assert.match(
+    appHtml,
+    /body\.mobile-app-shell \.mobile-state-card \.friend-card::after,[\s\S]*body\.mobile-app-shell \.mobile-state-card \.played-card\.trump::after \{[\s\S]*display:\s*none;/,
+    "App 壳顶部状态牌也应显式关掉 friend-card 的全局描边伪元素"
+  );
+
+  assert.match(
+    index2Html,
     /function buildTopStatusCardHtml\(card, altText\)\s*\{[\s\S]*if \(card\.suit && card\.rank && typeof buildCardNode === "function"\) \{[\s\S]*buildCardNode\(card, "friend-card"\)\.outerHTML;/,
     "buildTopStatusCardHtml 应优先复用 buildCardNode，保持顶部状态牌和当前牌面主题一致"
   );

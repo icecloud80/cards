@@ -1126,6 +1126,7 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
       longSuitPenalty: 0,
       shortSuitPriorityPenalty: 0,
       clutterPenalty: 0,
+      dirtySuitPenalty: 0,
       structurePenalty: 0,
       pointPenalty: 0,
       bridgeCount: 0,
@@ -1247,6 +1248,9 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
     longSuitPenalty += 14;
   }
   const clutterPenalty = clutterCount * 10;
+  const dirtySuitPenalty = routeProfile && ownCopies === 0
+    ? routeProfile.pairCount * 10 + (routeProfile.suitCount >= 3 ? Math.max(0, routeProfile.pointCount - 5) * 3 : 0)
+    : 0;
   const structurePenalty = routeProfile
     ? routeProfile.heavyStructureCount * 24 + Math.max(0, routeProfile.pairCount - 1) * 8
     : 0;
@@ -1262,6 +1266,7 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
       - longSuitPenalty
       - shortSuitPriorityPenalty
       - clutterPenalty
+      - dirtySuitPenalty
       - structurePenalty
       - pointPenalty,
     ownCopies,
@@ -1280,6 +1285,7 @@ function buildBeginnerExpandedShortSuitFriendScoreBreakdown(target, banker, meta
     longSuitPenalty,
     shortSuitPriorityPenalty,
     clutterPenalty,
+    dirtySuitPenalty,
     structurePenalty,
     pointPenalty,
     bridgeCount,

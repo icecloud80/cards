@@ -2727,6 +2727,12 @@
         display: block;
       }
 
+      /* 顶部状态牌只是缩略展示，不应继承手牌/朋友牌的全局金橘描边。 */
+      body.mobile-app-shell .mobile-state-card .friend-card::after,
+      body.mobile-app-shell .mobile-state-card .played-card.trump::after {
+        display: none;
+      }
+
       /* 顶部“主 / 朋”状态牌卡位比手牌更小，sprite 不能继续沿用手牌区的 90% 安全边。 */
       body.mobile-app-shell .mobile-state-card .card-face-sprite {
         width: 100% !important;

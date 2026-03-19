@@ -9,7 +9,7 @@ const REGRESSION_CASES = [
   },
   {
     seed: "ZSO1hGI883r:beginner:game-04",
-    expectedFriendTargetLabel: "第三张大王",
+    expectedFriendTargetLabel: "第一张黑桃 A",
   },
   {
     seed: "ZSO1hGI883r:beginner:game-12",
@@ -144,11 +144,9 @@ function getManagedFriendRecommendation(context) {
  * 用固定派生 seed 跑完一局全初级 AI 对局，并记录最终叫朋友结果。
  *
  * 为什么这样写：
- * 用户这轮把 beginner 的叫朋友思路补成了更完整的
- * `目标高张 / 过桥高张 / 找朋友牌`
- * 节奏；
- * 这里直接锁真实整局里最终确认的朋友牌标签，确保 setup -> 埋底 -> 叫朋友
- * 这一整条 beginner 链路在固定 seed 下保持稳定。
+ * 这轮用户明确要求“初级收紧王张找友”，
+ * 因此这里直接锁真实整局里最终确认的朋友牌标签，确保 setup -> 埋底 -> 叫朋友
+ * 这一整条 beginner 链路不会再轻易漂到 `大王 / 小王` 路线。
  *
  * 输入：
  * @param {{seed: string, expectedFriendTargetLabel: string}} regressionCase - 当前固定样本。
@@ -158,6 +156,7 @@ function getManagedFriendRecommendation(context) {
  *
  * 注意：
  * - 这条回归只锁“整局实际会叫哪张朋友牌”，不替代更细的出牌策略场景测试。
+ * - 当前重点是守住“不要回退到王张找友”，不是强行把这些样本都锁成打家赢。
  * - 胜负和闲家得分会继续打印在控制台里，便于人工复盘，但这里不再把它们绑成硬断言。
  */
 function runBeginnerFriendTargetWindowRegressionCase(regressionCase) {

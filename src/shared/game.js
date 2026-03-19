@@ -1874,29 +1874,28 @@ function buildAiFriendTargetDecision(playerId = state.bankerId, difficulty = sta
   }
 
   if (difficulty === "beginner") {
-    const preferJokerFallback = shouldPreferJokerFriendFallback(banker);
-    if (!preferJokerFallback) {
-      const expandedShortSuitEntries = buildBeginnerExpandedShortSuitFriendCandidateEntries(banker);
-      if (expandedShortSuitEntries.length > 0) {
-        return {
-          target: expandedShortSuitEntries[0].target,
-          ownerId: expandedShortSuitEntries[0].ownerId,
-          candidateEntries: expandedShortSuitEntries,
-          selectedEntry: expandedShortSuitEntries[0],
-        };
-      }
-      const shortSuitEntries = buildBeginnerShortSuitFriendCandidateEntries(banker);
-      if (shortSuitEntries.length > 0) {
-        return {
-          target: shortSuitEntries[0].target,
-          ownerId: shortSuitEntries[0].ownerId,
-          candidateEntries: shortSuitEntries,
-          selectedEntry: shortSuitEntries[0],
-        };
-      }
+    const expandedShortSuitEntries = buildBeginnerExpandedShortSuitFriendCandidateEntries(banker);
+    if (expandedShortSuitEntries.length > 0) {
+      return {
+        target: expandedShortSuitEntries[0].target,
+        ownerId: expandedShortSuitEntries[0].ownerId,
+        candidateEntries: expandedShortSuitEntries,
+        selectedEntry: expandedShortSuitEntries[0],
+      };
     }
-    const candidates = getFriendAutoRankGroups()
+    const shortSuitEntries = buildBeginnerShortSuitFriendCandidateEntries(banker);
+    if (shortSuitEntries.length > 0) {
+      return {
+        target: shortSuitEntries[0].target,
+        ownerId: shortSuitEntries[0].ownerId,
+        candidateEntries: shortSuitEntries,
+        selectedEntry: shortSuitEntries[0],
+      };
+    }
+    const beginnerRankGroups = [getFriendAutoRankPriority()];
+    const candidates = beginnerRankGroups
       .flatMap((ranks) => collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate))
+      .filter((candidate) => candidate.target.suit !== "joker")
       .map((candidate) => {
         const friendTarget = buildFriendTarget(candidate.target);
         return {
@@ -1904,11 +1903,11 @@ function buildAiFriendTargetDecision(playerId = state.bankerId, difficulty = sta
           ownerId: candidate.ownerId,
           label: friendTarget.label,
           cards: [],
-          source: candidate.target.suit === "joker" && preferJokerFallback ? "short-suit-friend" : "heuristic",
+          source: "heuristic",
           tags: [
-            candidate.target.suit === state.trumpSuit ? "主牌" : candidate.target.suit === "joker" ? "王" : "副牌",
+            candidate.target.suit === state.trumpSuit ? "主牌" : "副牌",
             candidate.target.occurrence > 1 ? `${getOccurrenceLabel(candidate.target.occurrence)} ${candidate.target.rank}` : "首张",
-            candidate.target.suit === "joker" && preferJokerFallback ? "副牌过脏改叫王" : "基础启发式",
+            "基础启发式",
           ],
           score: candidate.score,
           heuristicScore: candidate.score,

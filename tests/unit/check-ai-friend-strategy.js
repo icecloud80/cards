@@ -1614,13 +1614,18 @@ function runFriendStrategySuite(context) {
       results.push(difficulty + " A-level king bridge lead ok");
     }
 
-    for (const difficulty of ["beginner", "intermediate"]) {
+    for (const difficulty of ["intermediate"]) {
       setupJokerFriendFallbackScenario(difficulty);
       const friendDecision = buildAiFriendTargetDecision(5, difficulty);
       assert(friendDecision.selectedEntry.target.suit === "joker", difficulty + ": when every side suit is overloaded, should fall back to joker");
       assert(friendDecision.selectedEntry.target.rank === "RJ", difficulty + ": joker fallback should prefer the first red joker");
       results.push(difficulty + " joker friend fallback ok -> " + friendDecision.selectedEntry.label);
     }
+
+    setupJokerFriendFallbackScenario("beginner");
+    const beginnerJokerFallbackDecision = buildAiFriendTargetDecision(5, "beginner");
+    assert(beginnerJokerFallbackDecision.selectedEntry.target.suit !== "joker", "beginner: overloaded side suits should still avoid joker friend fallback");
+    results.push("beginner joker fallback tightened -> " + beginnerJokerFallbackDecision.selectedEntry.label);
 
     for (const difficulty of ["beginner", "intermediate"]) {
       setupReturnToBankerScenario(difficulty);

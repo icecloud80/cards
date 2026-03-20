@@ -558,6 +558,55 @@ function runIntermediateFoundationSuite(context) {
     assert(oversizedThrowEvaluation.breakdown.throwRisk === 0, "evaluateState: oversized throw buckets should not trigger expensive throwRisk scoring");
 
     resetCommonState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.trumpSuit = "spades";
+    state.levelRank = "2";
+    state.currentTrick = [];
+    state.leadSpec = null;
+    state.playHistory = [];
+    state.players = [
+      basePlayer(1, [
+        makeCard("final-throw-p1-c-9", "clubs", "9"),
+        makeCard("final-throw-p1-d-8", "diamonds", "8"),
+        makeCard("final-throw-p1-h-7", "hearts", "7"),
+      ], true),
+      basePlayer(2, [
+        makeCard("final-throw-p2-c-8", "clubs", "8"),
+        makeCard("final-throw-p2-d-7", "diamonds", "7"),
+        makeCard("final-throw-p2-h-6", "hearts", "6"),
+      ]),
+      basePlayer(3, [
+        makeCard("final-throw-p3-j-rj", "joker", "RJ"),
+        makeCard("final-throw-p3-s-2", "spades", "2"),
+        makeCard("final-throw-p3-h-2", "hearts", "2"),
+      ]),
+      basePlayer(4, [
+        makeCard("final-throw-p4-j-bj", "joker", "BJ"),
+        makeCard("final-throw-p4-s-9", "spades", "9"),
+        makeCard("final-throw-p4-h-8", "hearts", "8"),
+      ]),
+      basePlayer(5, [
+        makeCard("final-throw-p5-c-k", "clubs", "K"),
+        makeCard("final-throw-p5-d-q", "diamonds", "Q"),
+        makeCard("final-throw-p5-h-j", "hearts", "J"),
+      ]),
+    ];
+    const riskyFinalLead = getFinalTrickLegalLeadCards(3);
+    assert(getComboKey(riskyFinalLead) === getComboKey(state.players[2].hand), "getFinalTrickLegalLeadCards: setup should qualify as a legal whole-hand final lead");
+    const riskyFinalThrowAssessment = assessThrowCandidateForState(cloneSimulationState(state), 3, riskyFinalLead);
+    assert(riskyFinalThrowAssessment && riskyFinalThrowAssessment.level !== "safe", "assessThrowCandidateForState: setup whole-hand throw should remain publicly risky");
+    state.aiDifficulty = "intermediate";
+    const intermediateFinalThrowChoice = chooseIntermediateLeadPlay(3);
+    assert(getComboKey(intermediateFinalThrowChoice) === getComboKey(riskyFinalLead), "chooseIntermediateLeadPlay: intermediate should keep legacy whole-hand final lead shortcut");
+    state.aiDifficulty = "advanced";
+    const advancedFinalThrowChoice = chooseIntermediateLeadPlay(3);
+    assert(advancedFinalThrowChoice.length > 0, "chooseIntermediateLeadPlay: advanced should still return a legal fallback lead");
+    assert(getComboKey(advancedFinalThrowChoice) !== getComboKey(riskyFinalLead), "chooseIntermediateLeadPlay: advanced should not auto-commit a publicly risky whole-hand throw");
+    const advancedFinalThrowAssessment = assessThrowCandidateForState(cloneSimulationState(state), 3, advancedFinalThrowChoice);
+    assert(!advancedFinalThrowAssessment || advancedFinalThrowAssessment.level === "safe", "chooseIntermediateLeadPlay: advanced fallback should avoid returning a publicly risky throw");
+
+    resetCommonState();
     state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false };
     const objective = getIntermediateObjective(3, "lead", cloneSimulationState(state));
     assert(objective.primary === "find_friend", "getIntermediateObjective: unresolved friend should prioritize find_friend");

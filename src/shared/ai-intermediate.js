@@ -3153,9 +3153,45 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
   return bestEntry?.cards || [];
 }
 
+/**
+ * 作用：
+ * 返回中级 / 高级共享首发链里可直接沿用的残局整手首发捷径。
+ *
+ * 为什么这样写：
+ * 末手整手本身是合法牌型时，旧实现会直接整手打出，避免残局还要再跑完整首发评分。
+ * 但高级 AI 已经具备“基于公开信息评估甩牌风险”的能力；如果残局整手本身是甩牌，
+ * 就不能继续无条件走这条捷径，否则会把高级的记牌与甩牌风险判断整条旁路掉。
+ * 因此这里改成按难度分层：中级保留原有快捷行为，高级只有在公开信息口径下确认为安全甩牌时才直出。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ *
+ * 输出：
+ * @returns {Array<object>} 若允许直接沿用残局整手首发，则返回对应牌组；否则返回空数组。
+ *
+ * 注意：
+ * - 只对 `advanced` 生效；`intermediate` 必须保留现有能力边界，不能因为这次修复被动“升档”。
+ * - 非甩牌的合法残局整手首发仍可直接走捷径，不需要额外风险评估。
+ * - 风险判断只能走 `assessThrowCandidateForState(...)` 的公开信息口径，不能退回规则层透视暗手。
+ */
+function getDifficultyScopedFinalLead(playerId) {
+  const finalLead = getFinalTrickLegalLeadCards(playerId);
+  if (finalLead.length === 0) return [];
+  if (getAiDifficulty() !== "advanced") return finalLead;
+
+  const pattern = classifyPlay(finalLead);
+  if (!pattern?.ok || pattern.type !== "throw") return finalLead;
+
+  const throwAssessment = assessThrowCandidateForState(state, playerId, finalLead);
+  if (!throwAssessment || throwAssessment.safe) {
+    return finalLead;
+  }
+  return [];
+}
+
 // 选择中级 AI 的首发出牌。
 function chooseIntermediateLeadPlay(playerId) {
-  const finalLead = getFinalTrickLegalLeadCards(playerId);
+  const finalLead = getDifficultyScopedFinalLead(playerId);
   if (finalLead.length > 0) {
     return finalLead;
   }

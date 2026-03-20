@@ -283,6 +283,10 @@
   `evaluateState(...)` 新增了 `throwRisk` breakdown，
   按当前玩家自己的手牌与公开信息判断“当前是否存在公开可解释的健康甩牌窗口”，
   `getIntermediateObjective(...)` 也已同步给 lead / `pressure_void` / `keep_control` / `protect_bottom` / `grade_bottom` 这些目标加上基础权重。
+- 当前工作区又补了一条残局收口：
+  旧版 `getFinalTrickLegalLeadCards(...)` 会在“所有人剩余张数相同且整手本身是合法首发”时直接整手打出，
+  这会把高级 AI 已有的 `throwRisk / playHistory` 记忆链路旁路掉，导致固定种子复盘里出现“高级末手整手甩牌明知高风险仍直接甩”的失误。
+  现在这条捷径已按难度拆开：`intermediate` 保持旧能力边界不变，`advanced` 若残局整手是甩牌，则必须先通过公开信息口径的 `throwAssessment.safe`，否则回退到正常首发评分与 rollout。
 - 对应专项回归已同步补齐：
   `check-ai-intermediate-foundation.js` 新增 `bottomRelease` 基础断言，
   `check-ai-intermediate-search.js` 新增“重复 probe 历史会加重 veto”“已站队后高资源 hard-control 会被 cooling penalty 压住”和“高主释放会抬高 `controlExit` / `bottomRelease`”几条回归。

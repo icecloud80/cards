@@ -514,6 +514,49 @@ function runIntermediateFoundationSuite(context) {
       "evaluateState: publicly safe throw state should score better throwRisk than unresolved risky throw state"
     );
 
+    // 回归固定种子 ZSO1hGI883r:intermediate:game-10 暴露的超大整门甩牌评估卡死：
+    // throwRisk 现在应主动跳过这类病态大桶，而不是在统一评估里深挖整门威胁组合。
+    resetCommonState();
+    state.currentTurnId = 3;
+    state.leaderId = 3;
+    state.trumpSuit = "spades";
+    state.levelRank = "2";
+    state.players = [
+      basePlayer(1, [makeCard("throw-big-p1-c-9", "clubs", "9")], true),
+      basePlayer(2, [makeCard("throw-big-p2-d-9", "diamonds", "9")]),
+      basePlayer(3, [
+        makeCard("throw-big-p3-h-a-1", "hearts", "A"),
+        makeCard("throw-big-p3-h-a-2", "hearts", "A"),
+        makeCard("throw-big-p3-h-a-3", "hearts", "A"),
+        makeCard("throw-big-p3-h-j-1", "hearts", "J"),
+        makeCard("throw-big-p3-h-j-2", "hearts", "J"),
+        makeCard("throw-big-p3-h-j-3", "hearts", "J"),
+        makeCard("throw-big-p3-h-8-1", "hearts", "8"),
+        makeCard("throw-big-p3-h-8-2", "hearts", "8"),
+        makeCard("throw-big-p3-h-8-3", "hearts", "8"),
+        makeCard("throw-big-p3-h-5-1", "hearts", "5"),
+        makeCard("throw-big-p3-h-5-2", "hearts", "5"),
+        makeCard("throw-big-p3-h-3-1", "hearts", "3"),
+        makeCard("throw-big-p3-h-3-2", "hearts", "3"),
+      ]),
+      basePlayer(4, [makeCard("throw-big-p4-s-8", "spades", "8")]),
+      basePlayer(5, [makeCard("throw-big-p5-c-k", "clubs", "K")]),
+    ];
+    state.playHistory = [];
+    state.currentTrick = [];
+    state.leadSpec = null;
+    const oversizedThrowState = cloneSimulationState(state);
+    const oversizedThrowPattern = classifyPlay(oversizedThrowState.players[2].hand);
+    assert(oversizedThrowPattern.ok && oversizedThrowPattern.type === "throw", "throwRisk guard regression: setup hand should still be a legal throw");
+    const oversizedThrowBuckets = getSimulationThrowCandidateBuckets(oversizedThrowState, 3);
+    assert(oversizedThrowBuckets.length === 0, "getSimulationThrowCandidateBuckets: should skip oversized whole-suit throws in evaluateState guard path");
+    const oversizedThrowEvaluation = evaluateState(
+      oversizedThrowState,
+      3,
+      getIntermediateObjective(3, "lead", oversizedThrowState)
+    );
+    assert(oversizedThrowEvaluation.breakdown.throwRisk === 0, "evaluateState: oversized throw buckets should not trigger expensive throwRisk scoring");
+
     resetCommonState();
     state.friendTarget = { suit: "hearts", rank: "A", occurrence: 1, revealed: false, failed: false };
     const objective = getIntermediateObjective(3, "lead", cloneSimulationState(state));

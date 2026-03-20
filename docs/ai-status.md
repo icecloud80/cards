@@ -43,6 +43,12 @@
 
 2026-03-18 的当前工作区追加收口：
 
+- `ZSO1hGI883r:intermediate:game-10` 这条 fixed-seed 样本暴露出的“首拍统一评估卡死”也已定位并止血：
+  根因是 `evaluateState(...).throwRisk` 会把超大整门甩牌桶送进公开威胁深评估，
+  导致状态评分器在极端长主开局上把时间都耗在“整门甩牌还能被哪些理论组件反压”这条链路里。
+  当前实现已改成：`throwRisk` 只评估中等规模、可稳定公开解释的整门甩牌窗口；
+  对超大整门桶直接跳过，不再让统一评估器替一个病态大桶做深层威胁枚举。
+  这条保护只影响状态评分，不改变规则层甩牌合法性，也不改变 PC / mobile UI。
 - `发牌结束时的托管补亮收口` 现在也回到了共享状态机里：
   当玩家1已经切成托管而不是人类时，若最后一拍后仍存在补亮方案，共享层会直接按托管逻辑补亮或继续翻底，
   不会再把状态留在 `dealing + awaitingHumanDeclaration` 这种只适合真实人类点击的窗口。
@@ -158,7 +164,7 @@
 - 对应回归同样补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - 修复了一个会让 `别人出对` 场景里 beginner / intermediate 机械拆刻子的共享跟牌短路缺口：
   当自己同门正好是 `刻子 + 两张杂牌` 时，旧排序会因为“拆成对子还能压住当前”而直接打出 `KK`，即便规则并不要求把这组三张硬拆成对；
-  当前实现已改成优先用两张同门杂牌合法跟牌，显式保住这组刻子，避免把后续可续控的三张结构白白拆掉。
+  当前实现已改成默认优先用两张同门杂牌合法跟牌，显式保住这组刻子；但若拆成对子确实能抢回牌权、且拆完后还有别的后续牌可走，也会允许把这次拆牌当成一次有目的的主动抢权。
 - 对应回归已补到 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js)。
 - `级牌扣底` 路线现在已经从“beginner 专属 heuristic”扩成 `beginner + intermediate` 共用能力：
   `beginner` 继续保留轻量画像、吊主和延迟站队；
@@ -186,6 +192,10 @@
 - `危险带分领牌` 现在新增了一层 rollout 后的“控制型硬否决”：
   当 objective 已经切到 `clear_trump / keep_control / pressure_void / protect_bottom / grade_bottom` 一类控制目标，且候选本身已经被识别为高风险带分领牌，同时 rollout 又继续暴露 `turn_access_risk / point_run_risk`、下一拍不安全或未来收益不足时，这类候选会被二次明显降权，而不再只吃一层 heuristic 惩罚。
 - 对应回归已补到 [tests/unit/check-ai-intermediate-search.js](../tests/unit/check-ai-intermediate-search.js)。
+- 修复了一个会让中级 fixed-seed 回放 `ZSO1hGI883r:intermediate:game-10` 在首拍卡死的统一评估性能缺口：
+  当整门甩牌桶已经膨胀到超大规模时，旧版 `throwRisk` 仍会继续逐组件做公开威胁深评估；
+  当前已改成只保留中等规模的整门甩牌窗口给 `throwRisk`，超大整门桶直接跳过，不再让状态评分器承担病态组合爆炸。
+- 对应回归已补到 [tests/unit/check-ai-intermediate-foundation.js](../tests/unit/check-ai-intermediate-foundation.js)。
 - `朋友未站队阶段的高张试探预算` 现在也有了正式评分口径：
   `probeRisk` 会在未站队阶段评估“高张 / 主控 / 带分资源的消耗是否值得”，
   `unresolvedProbeVetoPenalty` 则会在首发与跟牌排序里，对没有 `turn_access_hold / 正向 futureDelta / 更强 friendBelief` 兜底的高成本试探追加 veto 或降权。

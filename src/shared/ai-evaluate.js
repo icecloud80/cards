@@ -1258,6 +1258,38 @@ function getSimulationBottomRiskScore(simState, playerId) {
 
 /**
  * 作用：
+ * 判断某个整门甩牌候选是否值得进入 `throwRisk` 的公开深评估。
+ *
+ * 为什么这样写：
+ * `throwRisk` 是统一评估器里的状态信号，不是完整候选搜索本身。
+ * 当整门候选已经膨胀成超大同花色桶时，继续逐组件枚举“理论上还能被哪些更大组件压住”，
+ * 会把评估成本推到远超状态打分应承担的范围，像固定种子 `ZSO1hGI883r:intermediate:game-10`
+ * 这种超长主牌开局就会在这里卡住。
+ * 因此这里显式跳过“张数过大 / 组件过多”的整门甩牌，把它视作“不适合靠 throwRisk 做稳定公开评估”的局面，
+ * 让真实候选排序继续留给首发 heuristic 与 rollout，而不是让状态评分器为一个病态大桶爆炸。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 当前整门甩牌候选。
+ * @param {object|null} pattern - 这组牌对应的 `classifyPlay(...)` 结果。
+ *
+ * 输出：
+ * @returns {boolean} 若该整门候选仍适合进入 `throwRisk` 深评估，则返回 `true`。
+ *
+ * 注意：
+ * - 这里只影响 `evaluateState(...).breakdown.throwRisk`，不改变真实出牌规则合法性。
+ * - 超大整门被跳过时，含义是“这不是一个适合用轻量公开评估稳定刻画的甩牌窗口”，而不是“规则上不能甩”。
+ */
+function shouldEvaluateSimulationThrowBucket(cards, pattern = null) {
+  if (!Array.isArray(cards) || cards.length === 0) return false;
+  if (cards.length > 12) return false;
+  if (!pattern) return true;
+  if (!pattern.ok || pattern.type !== "throw" || !Array.isArray(pattern.components)) return false;
+  if (pattern.components.length > 6) return false;
+  return true;
+}
+
+/**
+ * 作用：
  * 枚举当前玩家在首发态下“整门甩出”的公开可评估候选。
  *
  * 为什么这样写：
@@ -1276,6 +1308,7 @@ function getSimulationBottomRiskScore(simState, playerId) {
  * 注意：
  * - 这里只在首发态使用；跟牌阶段不存在主动甩牌机会。
  * - 只保留“整门本身就是 throw 结构”的候选，避免在评估器里偷偷重做完整候选枚举。
+ * - 超大整门候选会被显式跳过，避免状态评估器在病态甩牌桶上做指数级风控枚举。
  */
 function getSimulationThrowCandidateBuckets(simState, playerId) {
   if (!simState || (Array.isArray(simState.currentTrick) && simState.currentTrick.length > 0)) return [];
@@ -1295,10 +1328,12 @@ function getSimulationThrowCandidateBuckets(simState, playerId) {
   for (const cards of buckets.values()) {
     if (!Array.isArray(cards) || cards.length < 2) continue;
     const candidate = sortHand(cards);
+    if (!shouldEvaluateSimulationThrowBucket(candidate)) continue;
     const pattern = classifyPlay(candidate);
     if (!pattern?.ok || pattern.type !== "throw" || !Array.isArray(pattern.components) || pattern.components.length < 2) {
       continue;
     }
+    if (!shouldEvaluateSimulationThrowBucket(candidate, pattern)) continue;
     candidates.push(candidate);
   }
   return candidates;

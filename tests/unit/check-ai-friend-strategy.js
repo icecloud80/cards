@@ -1332,7 +1332,53 @@ function runFriendStrategySuite(context) {
       state.leaderId = 1;
       state.currentTrick = [
         { playerId: 1, cards: [makeCard("pair-triple-lead-h-9-1", "hearts", "9"), makeCard("pair-triple-lead-h-9-2", "hearts", "9")] },
-        { playerId: 2, cards: [makeCard("pair-triple-beat-h-10-1", "hearts", "10"), makeCard("pair-triple-beat-h-10-2", "hearts", "10")] },
+        { playerId: 2, cards: [makeCard("pair-triple-beat-h-a-1", "hearts", "A"), makeCard("pair-triple-beat-h-a-2", "hearts", "A")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    }
+
+    /**
+     * 作用：
+     * 搭建“拆刻子成对确实能抢回牌权，且拆完还有后续牌可出”的正向例外场景。
+     *
+     * 为什么这样写：
+     * 用户新增口径不是“永远不拆刻子”，而是“除非拆这手能大一手、拿到出牌权，而且后面还有牌可走”。
+     * 这条回归专门锁住这个很窄的例外，避免后续又把它和默认的“保刻子”规则混在一起。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接改写共享 state，供后续读取合法候选和提示。
+     *
+     * 注意：
+     * - 场景里保留同门两张杂牌，确保 AI 不是“被迫拆刻子”，而是在有别的合法跟牌时主动抢权。
+     * - 拆完后仍会留下至少一张非刻子牌，满足“拿到牌权后还有别的牌可出”的产品口径。
+     */
+    function setupPairFollowTripleTakeoverScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.friendTarget = null;
+      state.playHistory = [];
+      state.players = [
+        basePlayer(1, [makeCard("pair-takeover-p1-h-9-1", "hearts", "9"), makeCard("pair-takeover-p1-h-9-2", "hearts", "9")], true),
+        basePlayer(2, [makeCard("pair-takeover-p2-h-10-1", "hearts", "10"), makeCard("pair-takeover-p2-h-10-2", "hearts", "10")]),
+        basePlayer(3, [
+          makeCard("pair-takeover-p3-h-k-1", "hearts", "K"),
+          makeCard("pair-takeover-p3-h-k-2", "hearts", "K"),
+          makeCard("pair-takeover-p3-h-k-3", "hearts", "K"),
+          makeCard("pair-takeover-p3-h-3", "hearts", "3"),
+          makeCard("pair-takeover-p3-h-4", "hearts", "4"),
+        ]),
+        basePlayer(4, [makeCard("pair-takeover-p4-s-8", "spades", "8")]),
+        basePlayer(5, [makeCard("pair-takeover-p5-d-7", "diamonds", "7")]),
+      ];
+      state.currentTurnId = 3;
+      state.leaderId = 1;
+      state.currentTrick = [
+        { playerId: 1, cards: [makeCard("pair-takeover-lead-h-9-1", "hearts", "9"), makeCard("pair-takeover-lead-h-9-2", "hearts", "9")] },
+        { playerId: 2, cards: [makeCard("pair-takeover-beat-h-10-1", "hearts", "10"), makeCard("pair-takeover-beat-h-10-2", "hearts", "10")] },
       ];
       state.leadSpec = classifyPlay(state.currentTrick[0].cards);
     }
@@ -1901,6 +1947,21 @@ function runFriendStrategySuite(context) {
         difficulty + ": should keep the exact triple intact instead of splitting it to follow pair"
       );
       results.push(difficulty + " pair-follow preserves exact triple ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupPairFollowTripleTakeoverScenario(difficulty);
+      const protectedPairFromTriple = [
+        state.players[2].hand.find((card) => card.id === "pair-takeover-p3-h-k-1"),
+        state.players[2].hand.find((card) => card.id === "pair-takeover-p3-h-k-2"),
+      ];
+      const pairFollowChoice = getLegalHintForPlayer(3);
+      assert(pairFollowChoice.length === 2, difficulty + ": pair-follow takeover scenario should choose two cards");
+      assert(
+        getComboKey(pairFollowChoice) === getComboKey(protectedPairFromTriple),
+        difficulty + ": should split the exact triple into a pair when that pair can take the lead and still leaves follow-up cards"
+      );
+      results.push(difficulty + " pair-follow triple takeover ok");
     }
 
     setupAllowCoverRuffLeadScenario("beginner");

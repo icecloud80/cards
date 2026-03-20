@@ -2085,12 +2085,13 @@ function chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPla
 
 /**
  * 作用：
- * 在“别人出对、自己这门有刻子且还有别的杂牌可跟”时，优先保住这组刻子，不为了抢这一手机械拆刻子。
+ * 在“别人出对、自己这门有刻子且还有别的杂牌可跟”时，默认优先保住这组刻子，只在很窄的抢权窗口允许拆刻子成对。
  *
  * 为什么这样写：
  * 规则层已经明确“三张刻子不用强拆成对”，但旧的跟牌排序仍会因为“成对跟牌 + 可能压住当前”
  * 给拆刻子方案过高权重，导致像 `KKK + 3 + 4` 这种牌被错误打成 `KK`。
- * 这里补一条和“保大对先贴牌”同级的显式短路，把这类人类新手也会避免的拆刻子行为直接收住。
+ * 用户随后又补了一条例外：如果拆刻子成对确实能大住当前、把牌权抢回来，而且拆完后手里还留有别的后续牌可出，
+ * 那么这次拆牌是有目的的主动抢权，不应再被“默认不拆”机械拦住。
  *
  * 输入：
  * @param {number} playerId - 当前准备跟牌的玩家 ID。
@@ -2098,7 +2099,7 @@ function chooseAiHighPairPreserveDiscard(playerId, candidates, currentWinningPla
  * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前轮次的领先出牌。
  *
  * 输出：
- * @returns {Array<object>} 命中“保刻子不拆对”窗口时返回推荐跟牌，否则返回空数组。
+ * @returns {Array<object>} 命中“保刻子不拆对”或其窄例外时返回推荐跟牌，否则返回空数组。
  *
  * 注意：
  * - 只处理“首家出对子、自己仍能按首门跟牌”的场景。
@@ -2139,6 +2140,23 @@ function chooseAiPairFollowTriplePreserveDiscard(playerId, candidates, currentWi
     return [...protectedTripleKeys].some((key) => (usedByKey.get(key) || 0) >= 2);
   }
 
+  function hasFollowUpCardsAfterTripleSplit(combo) {
+    const handAfter = getHandAfterCombo(player.hand, combo);
+    if (!Array.isArray(handAfter) || handAfter.length === 0) return false;
+
+    const brokenTripleKeys = new Set();
+    const usedByKey = new Map();
+    for (const card of combo) {
+      const key = `${card.suit}-${card.rank}`;
+      usedByKey.set(key, (usedByKey.get(key) || 0) + 1);
+    }
+    for (const key of protectedTripleKeys) {
+      if ((usedByKey.get(key) || 0) >= 2) brokenTripleKeys.add(key);
+    }
+
+    return handAfter.some((card) => !brokenTripleKeys.has(`${card.suit}-${card.rank}`));
+  }
+
   const safeSameSuitChoices = candidates.filter((combo) =>
     Array.isArray(combo)
     && combo.length === state.leadSpec.count
@@ -2153,9 +2171,21 @@ function chooseAiPairFollowTriplePreserveDiscard(playerId, candidates, currentWi
   const safeBeatingChoices = winningPlay
     ? safeSameSuitChoices.filter((combo) => wouldAiComboBeatCurrent(playerId, combo, winningPlay))
     : [];
+  const riskyBeatingChoices = winningPlay
+    ? riskySameSuitChoices.filter((combo) => wouldAiComboBeatCurrent(playerId, combo, winningPlay))
+    : [];
   const safeNonBeatingChoices = winningPlay
     ? safeSameSuitChoices.filter((combo) => !wouldAiComboBeatCurrent(playerId, combo, winningPlay))
     : safeSameSuitChoices;
+  const aggressiveTakeoverChoices = riskyBeatingChoices.filter((combo) => hasFollowUpCardsAfterTripleSplit(combo));
+
+  if (!allyWinning && safeBeatingChoices.length === 0 && aggressiveTakeoverChoices.length > 0) {
+    return aggressiveTakeoverChoices.sort((a, b) => {
+      const powerDiff = classifyPlay(a).power - classifyPlay(b).power;
+      if (powerDiff !== 0) return powerDiff;
+      return a.reduce((sum, card) => sum + scoreValue(card), 0) - b.reduce((sum, card) => sum + scoreValue(card), 0);
+    })[0] || [];
+  }
 
   let choicePool = safeSameSuitChoices;
   if (!allyWinning && safeBeatingChoices.length > 0) {

@@ -2602,8 +2602,8 @@
           clamp(56px, 8.8svh, 64px)
           minmax(0, 1fr)
           /* App 手牌区要稳定容纳“主牌 + 四门副牌”共 5 行，避免无主时某一门花色被挤到同一行后失去左对齐。 */
-          clamp(268px, 31vh, 282px)
-          minmax(36px, max-content);
+          clamp(278px, calc(31vh + 10px), 292px)
+          minmax(41px, max-content);
         gap: 8px;
         overflow: hidden;
         align-content: stretch;
@@ -3706,14 +3706,14 @@
         align-self: end;
       }
 
-      /* 普通按钮态固定收在 36px 高；真正需要展开候选区时，再交给 setup-choice-mode 单独放开。 */
+      /* 普通按钮态重新和 index2 对齐；真正需要展开候选区时，再交给 setup-choice-mode 单独放开。 */
       body.mobile-app-shell .center-panel:not(.setup-choice-mode) {
-        height: 36px !important;
-        min-height: 36px !important;
+        height: 59px !important;
+        min-height: 59px !important;
       }
 
       body.mobile-app-shell .center-panel.setup-choice-mode {
-        min-height: 40px !important;
+        min-height: 39px !important;
         padding-top: 4px;
         padding-bottom: 2px;
       }

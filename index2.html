@@ -2603,8 +2603,8 @@
           clamp(80px, 10.6vh, 96px)
           clamp(86px, 11.1vh, 102px)
           /* index2 也需要稳定容纳“主牌 + 四门副牌”共 5 行，避免无主时红桃等分组被横向挤到右侧。 */
-          clamp(268px, 31vh, 282px)
-          minmax(36px, max-content);
+          clamp(278px, calc(31vh + 10px), 292px)
+          minmax(41px, max-content);
         gap: 6px;
         overflow: hidden;
         align-content: stretch;
@@ -3706,14 +3706,14 @@
 
       /* 普通出牌态单独放大到底部薄轨里的约 1.5 倍体量；亮主/反主态继续走紧凑版，避免把候选区挤出屏幕。 */
       body.mobile-index2 .center-panel:not(.setup-choice-mode) {
-        height: 54px !important;
-        min-height: 54px !important;
+        height: 59px !important;
+        min-height: 59px !important;
         padding-top: 8px;
         padding-bottom: 8px;
       }
 
       body.mobile-index2 .center-panel.setup-choice-mode {
-        min-height: 34px !important;
+        min-height: 39px !important;
         padding-top: 2px;
         padding-bottom: 1px;
       }

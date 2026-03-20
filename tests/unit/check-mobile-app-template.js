@@ -39,8 +39,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(268px,\s*31vh,\s*282px\)[\s\S]*minmax\(36px,\s*max-content\);/,
-    "App 专用页面应把桌面行高改成顶部固定、中部自适应、底部手牌固定、操作区固定",
+    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(278px,\s*calc\(31vh \+ 10px\),\s*292px\)[\s\S]*minmax\(41px,\s*max-content\);/,
+    "App 专用页面应继续保持和 index2 一致的手牌区高度，并把操作区轨道重新收口到相同口径",
   );
   assert.match(
     html,
@@ -99,8 +99,13 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*36px\s*!important;[\s\S]*min-height:\s*36px\s*!important;/,
-    "App 专用页面的普通底部按钮态应固定收口到贴近按钮的 36px 高度",
+    /body\.mobile-app-shell \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*59px\s*!important;[\s\S]*min-height:\s*59px\s*!important;/,
+    "App 专用页面的普通底部按钮态应重新和 index2 对齐到同一高度口径",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.center-panel\.setup-choice-mode \{[\s\S]*min-height:\s*39px\s*!important;[\s\S]*padding-top:\s*4px;[\s\S]*padding-bottom:\s*2px;/,
+    "App 专用页面的亮主/反主态也应重新和 index2 对齐，避免两端候选态高度再次分叉",
   );
   assert.match(
     html,

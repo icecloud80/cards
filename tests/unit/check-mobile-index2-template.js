@@ -30,8 +30,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(268px,\s*31vh,\s*282px\)[\s\S]*minmax\(36px,\s*max-content\);/,
-    "index2 应把手牌托盘抬高到可容纳五行分组，并把底部操作区改成按内容长的薄轨",
+    /body\.mobile-index2 \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(278px,\s*calc\(31vh \+ 10px\),\s*292px\)[\s\S]*minmax\(41px,\s*max-content\);/,
+    "index2 应把手牌托盘再抬高 10px，并把底部操作区轨道同步加高 5px",
   );
   assert.match(
     html,
@@ -75,13 +75,13 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*54px\s*!important;[\s\S]*min-height:\s*54px\s*!important;[\s\S]*padding-top:\s*8px;[\s\S]*padding-bottom:\s*8px;/,
-    "index2 的普通底部按钮态应单独放大到约 1.5 倍体量，给选择/出牌按钮留出更明显的上下留白",
+    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*59px\s*!important;[\s\S]*min-height:\s*59px\s*!important;[\s\S]*padding-top:\s*8px;[\s\S]*padding-bottom:\s*8px;/,
+    "index2 的普通底部按钮态应在原来的放大量级上再抬高 5px，给选择/出牌按钮留出更明显的上下留白",
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel\.setup-choice-mode \{[\s\S]*min-height:\s*34px\s*!important;[\s\S]*padding-top:\s*2px;[\s\S]*padding-bottom:\s*1px;/,
-    "index2 的亮主/反主态应继续保持紧凑，避免候选区被底部主按钮的放大规则挤出屏幕",
+    /body\.mobile-index2 \.center-panel\.setup-choice-mode \{[\s\S]*min-height:\s*39px\s*!important;[\s\S]*padding-top:\s*2px;[\s\S]*padding-bottom:\s*1px;/,
+    "index2 的亮主/反主态也应同步抬高 5px，避免只有普通按钮态更新而候选态仍显得偏矮",
   );
   assert.match(
     html,

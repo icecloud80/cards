@@ -1226,6 +1226,94 @@ function scoreIntermediateFriendSetupLead(playerId, combo, handBefore) {
 
 /**
  * 作用：
+ * 在无主且朋友未站队时，识别打家仍握有“短而硬”的主控储备，并把首发重新拉回控牌线。
+ *
+ * 为什么这样写：
+ * 复盘里出现过一种典型输法：
+ * 打家前几墩已经清掉了大部分主，看起来“主张数不多了”，
+ * 但手里其实还剩 `王 + 级牌对子` 这类足以再拿 1-2 手的短控储备。
+ * 旧版中级的 `trump clear` 计划更偏向 `4+` 张主的厚主局，
+ * 于是会把这种局面误判成“该转去副牌结构”，导致低副对子 / 低副单张过早送出牌权。
+ * 这里专门补一条窄评分：
+ * 无主、打家、朋友未站队、且自己仍握有短主硬控时，继续主控加分，低副试探降温。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {Array<object>} combo - 当前待评分的首发牌组。
+ * @param {Array<object>} handBefore - 出牌前完整手牌。
+ *
+ * 输出：
+ * @returns {number} 返回应加到候选总分上的修正值；正值鼓励继续主控，负值压低低副送手。
+ *
+ * 注意：
+ * - 只在无主、朋友未站队、且当前仍处于前中盘时启用，避免误伤残局保底切档。
+ * - 若这手本身已经命中正式的找朋友前置节奏，则直接放行，不和找朋友路线抢优先级。
+ * - 这里只使用己方手牌与公开状态，不读取任何暗手信息。
+ */
+function scoreIntermediateNoTrumpReserveControlLead(playerId, combo, handBefore) {
+  if (playerId !== state.bankerId || !Array.isArray(combo) || combo.length === 0 || !Array.isArray(handBefore)) {
+    return 0;
+  }
+  if (state.trumpSuit !== "notrump" || !state.friendTarget || isFriendTeamResolved()) return 0;
+  if (state.friendTarget.suit === "joker" || (state.trickNumber || 1) > 5) return 0;
+
+  const friendSetupBonus = scoreIntermediateFriendSetupLead(playerId, combo, handBefore);
+  if (friendSetupBonus > 0) return 0;
+
+  const comboContainsTarget = combo.some((card) =>
+    card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  if (comboContainsTarget) return 0;
+
+  const trumpCards = handBefore.filter((card) => effectiveSuit(card) === "trump");
+  if (trumpCards.length < 2) return 0;
+
+  const jokerCount = trumpCards.filter((card) => card.suit === "joker").length;
+  const trumpPairCount = findPairs(trumpCards).length;
+  const highTrumpCount = trumpCards.filter((card) => getPatternUnitPower(card, "trump") >= 15).length;
+  const reserveActive = jokerCount > 0 || trumpPairCount > 0 || highTrumpCount >= 2;
+  if (!reserveActive) return 0;
+
+  const pattern = classifyPlay(combo);
+  const comboIsTrump = combo.every((card) => effectiveSuit(card) === "trump");
+  const comboPoints = getComboPointValue(combo);
+  const averagePower = combo.reduce((sum, card) => {
+    const suit = effectiveSuit(card);
+    return sum + getPatternUnitPower(card, suit);
+  }, 0) / combo.length;
+
+  if (comboIsTrump) {
+    let bonus = 44;
+    if (pattern.type === "single") bonus += 16;
+    if (pattern.type === "pair") bonus += 36;
+    if (pattern.type === "triple") bonus += 42;
+    if (pattern.type === "tractor" || pattern.type === "train") bonus += 52;
+    if (pattern.type === "bulldozer") bonus += 60;
+    if (jokerCount > 0) bonus += 10;
+    if (trumpPairCount > 0) bonus += 8;
+    return bonus;
+  }
+
+  if (combo.every((card) => card.suit === state.friendTarget.suit)) return 0;
+
+  let penalty = 0;
+  if (pattern.type === "single") {
+    penalty += comboPoints === 0 && averagePower <= 10 ? 42 : 18;
+  } else if (pattern.type === "pair") {
+    penalty += 72;
+  } else if (pattern.type === "triple") {
+    penalty += 84;
+  } else if (pattern.type === "tractor" || pattern.type === "train" || pattern.type === "bulldozer") {
+    penalty += 96;
+  }
+  if (comboPoints > 0) penalty += 16;
+  if (jokerCount > 0) penalty += 10;
+  if (trumpPairCount > 0) penalty += 12;
+  return -penalty;
+}
+
+/**
+ * 作用：
  * 在朋友未站队且自己并不更像朋友时，避免中级随手把最低张递给“暂定同侧”。
  *
  * 为什么这样写：
@@ -1328,6 +1416,15 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candida
     score += 24;
   }
 
+  const noTrumpJokerFriendControlLead = chooseAiNoTrumpJokerFriendControlLead(playerId, player);
+  if (noTrumpJokerFriendControlLead.length > 0) {
+    if (getComboKey(noTrumpJokerFriendControlLead) === getComboKey(combo)) {
+      score += 220;
+    } else if (playerId === state.bankerId && state.currentTrick.length === 0) {
+      score -= 120;
+    }
+  }
+
   if (playerId === state.bankerId && state.friendTarget && !isFriendTeamResolved()) {
     const targetSuit = state.friendTarget.suit;
     const targetRank = state.friendTarget.rank;
@@ -1361,6 +1458,7 @@ function scoreIntermediateLeadCandidate(playerId, combo, beginnerChoice, candida
   score += scoreIntermediateTrumpClearLead(playerId, combo, handBefore);
   score += scoreIntermediateSidePatternSafety(playerId, combo, handBefore);
   score += scoreIntermediateFriendSetupLead(playerId, combo, handBefore);
+  score += scoreIntermediateNoTrumpReserveControlLead(playerId, combo, handBefore);
   const dangerousPointLeadPenalty = scoreIntermediateDangerousPointLeadPenalty(playerId, combo, handBefore);
   if (candidateEntry && typeof candidateEntry === "object") {
     candidateEntry.dangerousPointLeadPenalty = dangerousPointLeadPenalty;
@@ -3018,6 +3116,8 @@ function chooseIntermediatePlay(playerId, mode, liveCandidates = null) {
   const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
 
   if (supportChoice.length > 0) return supportChoice;
+  const resolvedRevealSupportChoice = chooseAiResolvedFriendRevealSupportFollow(playerId, candidates, currentWinningPlay);
+  if (resolvedRevealSupportChoice.length > 0) return resolvedRevealSupportChoice;
   if (!shouldDelayReveal && revealChoice.length > 0 && (revealBeats || currentWinningPlay?.playerId !== state.bankerId)
     && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {
     return revealChoice;
@@ -3073,6 +3173,8 @@ function chooseAiLeadPlay(playerId) {
   if (friendSetupLead.length > 0) return friendSetupLead;
   const revealedFriendControlLead = chooseAiBankerRevealedFriendControlLead(playerId, player);
   if (revealedFriendControlLead.length > 0) return revealedFriendControlLead;
+  const noTrumpJokerFriendControlLead = chooseAiNoTrumpJokerFriendControlLead(playerId, player);
+  if (noTrumpJokerFriendControlLead.length > 0) return noTrumpJokerFriendControlLead;
   const noTrumpPowerLead = chooseAiNoTrumpBankerPowerLead(playerId, player);
   if (noTrumpPowerLead.length > 0) return noTrumpPowerLead;
   const bankerSoloFallbackLead = chooseAiBankerSoloFallbackLead(playerId, player);
@@ -3142,6 +3244,11 @@ function chooseAiFollowPlay(playerId, candidates) {
 
   if (supportChoice.length > 0) {
     return supportChoice;
+  }
+
+  const resolvedRevealSupportChoice = chooseAiResolvedFriendRevealSupportFollow(playerId, candidates, currentWinningPlay);
+  if (resolvedRevealSupportChoice.length > 0) {
+    return resolvedRevealSupportChoice;
   }
 
   if (!shouldDelayReveal && revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {

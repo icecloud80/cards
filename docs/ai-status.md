@@ -33,6 +33,10 @@
   `evaluateState(...)` 新增 `probeRisk` breakdown，
   `buildScoredIntermediateLeadEntries(...)` / `buildScoredIntermediateFollowEntries(...)` 新增 `unresolvedProbeVetoPenalty`，
   用来收紧“为了找朋友而过早花掉 `A / 高主 / 王 / 带分牌`，却没有明确回手保障”的候选。
+- 当前工作区还补上了一条更窄的无主打家续控收口：
+  当朋友仍未站队、打家手里虽然只剩 `王 + 级牌对子` 这类短主硬控储备时，
+  中级 lead 评分不再把这类局面误判成“主控已经断档”而去领低副对子 / 低副单张，
+  而会继续明显偏向主控首发，避免把后续整段长门跑分口直接让给闲家。
 - headless 批量复盘现在除了总量外，还会额外记录：
   `selectedRolloutTriggerFlags` 里的 `unresolved_probe_risk`，
   以及 `turn_access_risk / point_run_risk` 在 `friend=unrevealed` 阶段各自命中了多少次。
@@ -82,6 +86,11 @@
   `shouldAiDeferNoTrumpFriendProbe(...)`、打家找朋友首发链，以及 beginner / intermediate 的旧式“先摸目标牌”兜底，现已统一按真实亮友次序判断；
   这类局面不再被错拦回“双王先清控”。对应固定 replay `ZSaiXo8zimf + 50y987...H9rFTr` 已回归通过，
   新增守门包括 `check-ai-beginner-third-ace-takeover-replay.js` 与 `check-ai-friend-strategy.js` 里的 `no-trump called-dead takeover`。
+- 2026-03-20 又补了一条“无主第三张大王先控自持双王”的窄窗口：
+  当打家叫的是第三张 `大王`、自己又已经握有前两张 `大王` 时，
+  共享首发链会先把这组 `大王` 当成确定控轮资源兑现，中级 / 高级的 lead 评分也会显式给这手 `双大王先控` 加权，
+  避免再被副牌刻子或散高张带偏。这里修的是出牌时机，不改找朋友规则；站队口径仍按当前公开外部张次处理。
+  对应守门已补到 `check-ai-friend-strategy.js` 里的 `no-trump third-joker control lead`。
 - beginner 的“叫朋友”这轮也已继续收口，但仍坚持纯 heuristic：
   `短门 A` 不再只走“持有第一张就叫第二张 / 持有前两张就叫第三张”的单线规则，
   而是会把同门 `第一张 / 第二张 / 第三张 A` 以及“无自持 A 的短门第一张”一起纳入比较，
@@ -202,6 +211,10 @@
   当整门甩牌桶已经膨胀到超大规模时，旧版 `throwRisk` 仍会继续逐组件做公开威胁深评估；
   当前已改成只保留中等规模的整门甩牌窗口给 `throwRisk`，超大整门桶直接跳过，不再让状态评分器承担病态组合爆炸。
 - 对应回归已补到 [tests/unit/check-ai-intermediate-foundation.js](../tests/unit/check-ai-intermediate-foundation.js)。
+- 修复了一个中级 AI 在无主未亮友阶段低估“短主硬控储备”的首发误判：
+  当打家前几墩已经清掉部分主、手里只剩 `王 + 级牌对子` 一类短主资源时，旧评分仍可能去领低副对子 / 低副单张，
+  把牌权直接让给闲家长门；当前已新增窄评分把这类局面重新拉回主控线，
+  并用 [tests/unit/check-ai-friend-strategy.js](../tests/unit/check-ai-friend-strategy.js) 的 `no-trump short-control reserve` 场景锁住。
 - `朋友未站队阶段的高张试探预算` 现在也有了正式评分口径：
   `probeRisk` 会在未站队阶段评估“高张 / 主控 / 带分资源的消耗是否值得”，
   `unresolvedProbeVetoPenalty` 则会在首发与跟牌排序里，对没有 `turn_access_hold / 正向 futureDelta / 更强 friendBelief` 兜底的高成本试探追加 veto 或降权。

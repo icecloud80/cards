@@ -274,6 +274,72 @@ function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   })[0];
 }
 
+/**
+ * 作用：
+ * 在同一墩里朋友刚完成站队后，避免后位继续跟出同一张朋友牌白白浪费。
+ *
+ * 为什么这样写：
+ * 真实复盘里出现过一个典型误判：
+ * 前位玩家已经用被叫到的 `A` 站队，且这张牌当前仍然最大；
+ * 后位玩家虽然手里也有同门同点数的 `A`，但同点数后出并不能赢墩，
+ * 继续跟出只会暴露并消耗高价值控制牌，既拿不到这一手，也换不到额外收益。
+ * 这里把这类“同墩 echo 朋友牌”的动作收成共享 shortcut，
+ * 让 beginner / intermediate / advanced 的跟牌入口都优先改为垫同门更低张。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<Array<object>>} candidates - 当前所有合法跟牌候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前桌面的领先出牌。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“避免浪费朋友牌”窗口时返回推荐跟牌，否则返回空数组。
+ *
+ * 注意：
+ * - 只处理“朋友刚在这一墩完成站队”的单张跟牌场景，不扩散到普通残局跟单张。
+ * - 只有当自己确实还持有更低的同门合法跟牌时才触发，避免误挡必须出唯一 target 的合法局面。
+ */
+function chooseAiResolvedFriendRevealSupportFollow(playerId, candidates, currentWinningPlay) {
+  if (!state.friendTarget?.revealed || state.friendTarget?.failed) return [];
+  if (!currentWinningPlay || currentWinningPlay.playerId !== state.friendTarget.revealedBy) return [];
+  if ((state.friendTarget.revealedTrickNumber || null) !== (state.trickNumber || 1)) return [];
+  if (!state.leadSpec || state.leadSpec.type !== "single") return [];
+  if (!Array.isArray(candidates) || candidates.length === 0) return [];
+
+  const winningCard = currentWinningPlay.cards?.[0] || null;
+  if (!winningCard || currentWinningPlay.cards.length !== 1) return [];
+  if (winningCard.suit !== state.friendTarget.suit || winningCard.rank !== state.friendTarget.rank) return [];
+
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return [];
+
+  const sameSuitNonBeatingChoices = candidates.filter((combo) =>
+    Array.isArray(combo)
+      && combo.length === 1
+      && effectiveSuit(combo[0]) === state.leadSpec.suit
+      && !wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay)
+  );
+  if (sameSuitNonBeatingChoices.length < 2) return [];
+
+  const echoFriendTargetChoice = sameSuitNonBeatingChoices.find((combo) =>
+    combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
+  );
+  if (!echoFriendTargetChoice) return [];
+
+  const lowerSameSuitChoices = sameSuitNonBeatingChoices.filter((combo) =>
+    !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
+  );
+  if (lowerSameSuitChoices.length === 0) return [];
+
+  return lowerSameSuitChoices.sort((a, b) => {
+    const preserveDiff = scoreSameSuitSingleStructurePreservationFromHand(b, player.hand)
+      - scoreSameSuitSingleStructurePreservationFromHand(a, player.hand);
+    if (preserveDiff !== 0) return preserveDiff;
+    const pointDiff = getComboPointValue(a) - getComboPointValue(b);
+    if (pointDiff !== 0) return pointDiff;
+    return cardStrength(a[0]) - cardStrength(b[0]);
+  })[0];
+}
+
 // 从一组牌中选出进攻性最强的首发。
 function chooseStrongLeadFromCards(cards) {
   if (cards.length === 0) return [];
@@ -1399,6 +1465,47 @@ function chooseAiBottomPrepDiscard(playerId, candidates, currentWinningPlay) {
     if (scoreDiff !== 0) return scoreDiff;
     return classifyPlay(a).power - classifyPlay(b).power;
   })[0];
+}
+
+/**
+ * 作用：
+ * 为“无主且叫后续王张找朋友”的打家提供先清自持目标王的首发。
+ *
+ * 为什么这样写：
+ * 用户给出的真实复盘里，打家叫的是“第三张大王”，而自己已经握有前两张大王。
+ * 这类局面里先出自己手里的目标王，既不会改变“外面那张王一出现就亮友”的规则事实，
+ * 又能先把最大控制权兑现出来；若仍先甩副牌小张，往往会白白送掉这段确定控轮窗口。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备首发的玩家 ID。
+ * @param {object|null} player - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中“先清自持目标王”窗口则返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 只在无主、未亮友、打家首发且朋友牌本身是王张时启用。
+ * - 当前仅覆盖“自己已持有前置王、外面只剩最后一张目标王”的窄窗口，不扩成普通王张乱清控。
+ */
+function chooseAiNoTrumpJokerFriendControlLead(playerId, player) {
+  if (!player || playerId !== state.bankerId || state.trumpSuit !== "notrump") return [];
+  if (!state.friendTarget || isFriendTeamResolved() || state.currentTrick.length !== 0) return [];
+  if (state.friendTarget.suit !== "joker") return [];
+
+  const targetCards = player.hand.filter(
+    (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
+  );
+  if (targetCards.length <= 0) return [];
+
+  const revealOccurrence = getFriendTargetRevealOccurrence();
+  const currentSeen = state.friendTarget.matchesSeen || 0;
+  const remainingBeforeReveal = revealOccurrence - currentSeen;
+  const expectedHeldPrefixCount = Math.max(0, (state.friendTarget.occurrence || 1) - revealOccurrence);
+  if (remainingBeforeReveal !== 1 || targetCards.length < expectedHeldPrefixCount || expectedHeldPrefixCount <= 0) {
+    return [];
+  }
+
+  return chooseStrongLeadFromCards(targetCards);
 }
 
 // 为无主庄家选择保留朋友牌后的强势首发。

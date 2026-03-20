@@ -8,6 +8,8 @@ function chooseAiLeadPlay(playerId) {
   if (friendSetupLead.length > 0) return friendSetupLead;
   const revealedFriendControlLead = chooseAiBankerRevealedFriendControlLead(playerId, player);
   if (revealedFriendControlLead.length > 0) return revealedFriendControlLead;
+  const noTrumpJokerFriendControlLead = chooseAiNoTrumpJokerFriendControlLead(playerId, player);
+  if (noTrumpJokerFriendControlLead.length > 0) return noTrumpJokerFriendControlLead;
   const noTrumpPowerLead = chooseAiNoTrumpBankerPowerLead(playerId, player);
   if (noTrumpPowerLead.length > 0) return noTrumpPowerLead;
   const bankerSoloFallbackLead = chooseAiBankerSoloFallbackLead(playerId, player);

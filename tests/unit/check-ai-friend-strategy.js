@@ -1068,6 +1068,59 @@ function runFriendStrategySuite(context) {
 
     /**
      * 作用：
+     * 搭建“同一墩里朋友刚亮出朋友牌后，后位闲家不应再跟出同一张朋友牌”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户给出的真实复盘问题是：
+     * 玩家 4 已经用 "♦A" 完成站队，玩家 5 手里虽然也有 "♦A"，但这张同点数后出并不能赢墩，
+     * 继续跟出只是在白白浪费一张高价值控制牌。这里固定一手最小复现场景，
+     * 验证中级 / 高级都会把这类“亮友后 echo 同一张 target”的动作改成垫同门低张。
+     *
+     * 输入：
+     * @param {string} difficulty - 需要验证的 AI 难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入跟牌测试状态。
+     *
+     * 注意：
+     * - 这里是无主局，"♦A" 只是普通副牌大张，不存在“主牌后出还能反超”的例外。
+     * - 玩家 5 仍有 "♦6" 可合法跟牌，预期会保住 "♦A"。
+     */
+    function setupResolvedFriendRevealEchoAvoidanceScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "notrump";
+      state.bankerId = 2;
+      state.trickNumber = 1;
+      state.players = [
+        basePlayer(1, [makeCard("echo-p1-c-7", "clubs", "7")], true),
+        basePlayer(2, [makeCard("echo-p2-s-8", "spades", "8")]),
+        basePlayer(3, [makeCard("echo-p3-c-9", "clubs", "9")]),
+        basePlayer(4, [makeCard("echo-p4-h-8", "hearts", "8")]),
+        basePlayer(5, [
+          makeCard("echo-p5-d-a", "diamonds", "A"),
+          makeCard("echo-p5-d-6", "diamonds", "6"),
+          makeCard("echo-p5-s-q", "spades", "Q"),
+        ]),
+      ];
+      setFriendTarget({ suit: "diamonds", rank: "A", occurrence: 1 });
+      state.friendTarget.revealed = true;
+      state.friendTarget.revealedBy = 4;
+      state.friendTarget.revealedTrickNumber = 1;
+      state.friendTarget.matchesSeen = 1;
+      state.hiddenFriendId = 4;
+      state.currentTrick = [
+        { playerId: 2, cards: [makeCard("echo-lead-d-5", "diamonds", "5")] },
+        { playerId: 3, cards: [makeCard("echo-p3-d-9-play", "diamonds", "9")] },
+        { playerId: 4, cards: [makeCard("echo-p4-d-a-play", "diamonds", "A")] },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+      state.leaderId = 2;
+      state.currentTurnId = 5;
+    }
+
+    /**
+     * 作用：
      * 搭建“缺首门贴副时，应优先保住副牌对子而不是把它直接贴掉”的测试场景。
      *
      * 为什么这样写：
@@ -1525,6 +1578,52 @@ function runFriendStrategySuite(context) {
 
     /**
      * 作用：
+     * 搭建“无主未亮友时，打家仍握有短主硬控，不应先送低副牌”的测试场景。
+     *
+     * 为什么这样写：
+     * 这次复盘暴露出的关键问题，不是打家完全没有主控，而是“主张数变短后被误判成已经不该继续控”。
+     * 这里固定成“红王 + 一对级牌”对抗“低副对子 / 低副单张”的最小样本，
+     * 验证中级会继续走主控，而不是把牌权过早让给闲家长门。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前测试状态。
+     *
+     * 注意：
+     * - 场景限定为无主、朋友未站队、前中盘，避免把这条回归误扩成残局通则。
+     * - 朋友目标仍是红桃 A，但打家当前并没有正式的“A / K -> 小牌”前置路线，确保测试聚焦在“短主续控”。
+     */
+    function setupNoTrumpShortControlReserveScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "notrump";
+      state.trickNumber = 4;
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      state.bankerId = 1;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-rj-reserve", "joker", "RJ"),
+          makeCard("b-s-2-reserve-1", "spades", "2"),
+          makeCard("b-s-2-reserve-2", "spades", "2"),
+          makeCard("b-s-7-reserve-1", "spades", "7"),
+          makeCard("b-s-7-reserve-2", "spades", "7"),
+          makeCard("b-c-k-reserve", "clubs", "K"),
+          makeCard("b-d-4-reserve", "diamonds", "4"),
+        ], true),
+        basePlayer(2, [makeCard("p2-c-8-reserve", "clubs", "8")]),
+        basePlayer(3, [makeCard("p3-d-8-reserve", "diamonds", "8")]),
+        basePlayer(4, [makeCard("p4-h-8-reserve", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-c-7-reserve", "clubs", "7")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 1 });
+      state.friendTarget.matchesSeen = 0;
+    }
+
+    /**
+     * 作用：
      * 搭建“无主且第三张 A 已被叫死时，打家不应再被 no-trump defer 拦住”的测试场景。
      *
      * 为什么这样写：
@@ -1563,6 +1662,51 @@ function runFriendStrategySuite(context) {
         basePlayer(5, [makeCard("p5-d-7-dead", "diamonds", "7")]),
       ];
       setFriendTarget({ suit: "hearts", rank: "A", occurrence: 3 });
+      state.friendTarget.matchesSeen = 0;
+    }
+
+    /**
+     * 作用：
+     * 搭建“无主且叫第三张大王时，打家应先把自持两张大王控出来”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户给出的固定复盘里，打家已经拿着前两张大王，却在高级搜索里被一手黑桃刻子带偏，
+     * 没有先把确定的王控兑现出来，结果白白让外面先抢回牌权。
+     * 这里固定一手最小牌型，验证首发会先打双大王，而不是先甩副牌结构。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前测试状态。
+     *
+     * 注意：
+     * - 规则口径不变，仍按公开外部张次亮友；这里修的是打家自己的出牌时机。
+     * - 牌里故意保留黑桃刻子，避免回归只在“没有诱惑副牌”时才成立。
+     */
+    function setupNoTrumpThirdJokerControlLeadScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "notrump";
+      state.trickNumber = 1;
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-rj-1-third-joker", "joker", "RJ"),
+          makeCard("b-rj-2-third-joker", "joker", "RJ"),
+          makeCard("b-s-5a-third-joker", "spades", "5"),
+          makeCard("b-s-5b-third-joker", "spades", "5"),
+          makeCard("b-s-5c-third-joker", "spades", "5"),
+          makeCard("b-c-2-third-joker", "clubs", "2"),
+          makeCard("b-h-9-third-joker", "hearts", "9"),
+        ], true),
+        basePlayer(2, [makeCard("p2-d-8-third-joker", "diamonds", "8")]),
+        basePlayer(3, [makeCard("p3-c-8-third-joker", "clubs", "8")]),
+        basePlayer(4, [makeCard("p4-h-8-third-joker", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-d-7-third-joker", "diamonds", "7")]),
+      ];
+      setFriendTarget({ suit: "joker", rank: "RJ", occurrence: 3 });
       state.friendTarget.matchesSeen = 0;
     }
 
@@ -1842,6 +1986,17 @@ function runFriendStrategySuite(context) {
     assert(intermediateDefenderFollowSupport[0].suit === "hearts" && intermediateDefenderFollowSupport[0].rank === "3", "intermediate: should not overtake tentative defender ally while following");
     results.push("intermediate defender-follow support ok");
 
+    for (const difficulty of ["intermediate", "advanced"]) {
+      setupResolvedFriendRevealEchoAvoidanceScenario(difficulty);
+      const resolvedFriendEchoAvoidanceChoice = getLegalHintForPlayer(5);
+      assert(resolvedFriendEchoAvoidanceChoice.length === 1, difficulty + ": resolved-friend echo-avoidance scenario should choose a single card");
+      assert(
+        resolvedFriendEchoAvoidanceChoice[0].suit === "diamonds" && resolvedFriendEchoAvoidanceChoice[0].rank === "6",
+        difficulty + ": should keep the duplicate friend-target A and follow with the lower same-suit card after the reveal is already complete"
+      );
+      results.push(difficulty + " resolved-friend echo avoidance ok");
+    }
+
     setupDefenderFollowBeatScenario("beginner");
     const beginnerDefenderFollowBeat = getLegalHintForPlayer(4);
     assert(beginnerDefenderFollowBeat.length === 1, "beginner: defender follow-beat scenario should choose a single card");
@@ -1926,12 +2081,29 @@ function runFriendStrategySuite(context) {
       results.push(difficulty + " no-trump friend-probe deferral ok");
     }
 
+    setupNoTrumpShortControlReserveScenario("intermediate");
+    const intermediateShortControlReserveLead = getLegalHintForPlayer(1);
+    assert(intermediateShortControlReserveLead.length >= 1, "intermediate: no-trump short-control reserve scenario should choose a legal lead");
+    assert(intermediateShortControlReserveLead.every((card) => effectiveSuit(card) === "trump"), "intermediate: should keep pressing the short trump reserve instead of leading low side cards");
+    results.push("intermediate no-trump short-control reserve ok");
+
     for (const difficulty of ["beginner", "intermediate"]) {
       setupNoTrumpCalledDeadTakeoverScenario(difficulty);
       const noTrumpCalledDeadLead = chooseAiLeadPlay(1);
       assert(noTrumpCalledDeadLead.length === 1, difficulty + ": called-dead no-trump takeover should choose a single search lead");
       assert(noTrumpCalledDeadLead[0].suit === "hearts" && noTrumpCalledDeadLead[0].rank === "10", difficulty + ": called-dead no-trump takeover should lead hearts 10 before clearing joker control");
       results.push(difficulty + " no-trump called-dead takeover ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate", "advanced"]) {
+      setupNoTrumpThirdJokerControlLeadScenario(difficulty);
+      const noTrumpThirdJokerLead = getLegalHintForPlayer(1);
+      assert(noTrumpThirdJokerLead.length === 2, difficulty + ": third-joker control lead should choose a pair lead");
+      assert(
+        noTrumpThirdJokerLead.every((card) => card.suit === "joker" && card.rank === "RJ"),
+        difficulty + ": third-joker control lead should cash the held red-joker pair before side-suit structures"
+      );
+      results.push(difficulty + " no-trump third-joker control lead ok");
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {

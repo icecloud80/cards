@@ -656,9 +656,9 @@ function getPenaltyFallbackMap(mode = "trump") {
  *
  * 为什么这样写：
  * 当前规则同时存在两套要求：
- * 1. `J / Q / K` 仍要继续走主扣 / 副扣的特殊回退锚点；
- * 2. `A` 再往下降级时要改成 `-K -> -Q -> -J -> -10 ... -> -2` 的完整负级链；
- * 这里把两条口径放进同一套循环里，既能兼容旧的面牌回退规则，也能让新的负级链稳定生效。
+ * 1. `J / Q / K / A` 都要继续走主扣 / 副扣的特殊回退锚点；
+ * 2. `2` 再被级牌扣底时，要进入 `-A -> -K -> -Q -> -J -> -10 ... -> -2` 的完整负级链；
+ * 这里把两条口径放进同一套循环里，既能兼容面牌回退规则，也能让新的负级链稳定生效。
  *
  * 输入：
  * @param {string} rank - 当前玩家等级文本。
@@ -670,7 +670,7 @@ function getPenaltyFallbackMap(mode = "trump") {
  *
  * 注意：
  * - `-2` 仍然是最低档，继续降级时必须原地停留。
- * - `A` 进入负级链后，不再复用旧的 `A -> Q / K` 回退锚点。
+ * - `A` 本身仍先按主扣 / 副扣回退到 `Q / K`，只有 `2` 再被扣时才进入负级链。
  */
 function dropLevel(rank, steps = 1, mode = "trump") {
   let current = LEVEL_ORDER.includes(rank) ? rank : "2";
@@ -688,10 +688,6 @@ function dropLevel(rank, steps = 1, mode = "trump") {
     }
     if (!RANKS.includes(current)) {
       current = "2";
-      continue;
-    }
-    if (current === "A") {
-      current = highestNegativeLevel;
       continue;
     }
     if (fallbackMap[current]) {

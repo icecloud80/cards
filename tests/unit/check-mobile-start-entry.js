@@ -85,13 +85,21 @@ function createElementStub(identifier) {
     value: "",
     disabled: false,
     hidden: false,
+    title: "",
     listeners: {},
+    attributes: {},
     classList: createClassListStub(),
     appendChild(child) {
       this.children.push(child);
       return child;
     },
-    setAttribute() {},
+    setAttribute(name, value) {
+      this.attributes[name] = String(value);
+      this[name] = String(value);
+    },
+    getAttribute(name) {
+      return this.attributes[name] || null;
+    },
     addEventListener(type, handler) {
       this.listeners[type] = handler;
     },
@@ -240,7 +248,33 @@ function loadMobileStartContext() {
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
   }
 
-  return vm.runInContext("({ state, dom, setupGame, render, startNewProgress, continueSavedProgress })", context);
+  return vm.runInContext("({ document, state, dom, setupGame, render, startNewProgress, continueSavedProgress, continueSavedProgressFromReadyEntry, openRulesHelpPanel, refreshSavedProgressAvailability, vmContext: globalThis })", context);
+}
+
+/**
+ * 作用：
+ * 生成一段可被共享层继续入口读取的进度 cookie。
+ *
+ * 为什么这样写：
+ * 这条回归要验证“继续游戏”不是只改按钮文案，而是真的能从存档恢复等级并进入发牌；
+ * 直接按生产格式写 cookie，才能覆盖到 shared 里的真实读取链路。
+ *
+ * 输入：
+ * @param {Record<string, string>} levels - 本次希望恢复的等级映射。
+ * @param {"mobile"} [platform="mobile"] - 当前要模拟的平台键值。
+ *
+ * 输出：
+ * @returns {string} 可直接写入 `document.cookie` 的存档 cookie 文本。
+ *
+ * 注意：
+ * - key 名必须继续使用生产里的 `five_friends_progress`。
+ * - 这里只生成单条 cookie 文本，不负责拼其它属性。
+ */
+function buildSavedProgressCookie(levels, platform = "mobile") {
+  return `five-friends-progress-${platform}-v1=${encodeURIComponent(JSON.stringify({
+    playerLevels: levels,
+    savedAt: 1234567890,
+  }))}`;
 }
 
 /**
@@ -269,6 +303,33 @@ function main() {
   assert.equal(context.state.phase, "ready", "手游上下文初始化后应停留在 ready 阶段");
   context.continueSavedProgress(true);
   assert.equal(context.state.phase, "ready", "无存档时继续游戏 helper 不应误把手游上下文推进到发牌阶段");
+
+  const savedLevels = {
+    1: "10",
+    2: "J",
+    3: "Q",
+    4: "K",
+    5: "A",
+  };
+
+  context.document.cookie = buildSavedProgressCookie(savedLevels, "mobile");
+  context.refreshSavedProgressAvailability();
+  context.setupGame();
+  context.render();
+  assert.equal(
+    context.vmContext.__fiveFriendsSnapshot?.hasSavedProgress,
+    true,
+    "手游 render 快照在有存档时应显式带出 hasSavedProgress，供 index2 / App 开始页继续按钮解锁",
+  );
+  context.continueSavedProgressFromReadyEntry();
+  assert.equal(context.state.phase, "dealing", "手游 ready 继续入口在有存档时应立即进入发牌阶段");
+  assert.equal(JSON.stringify(context.state.playerLevels), JSON.stringify(savedLevels), "手游 ready 继续入口应恢复已保存的等级进度");
+
+  context.setupGame();
+  context.render();
+  context.openRulesHelpPanel();
+  assert.equal(context.state.showRulesPanel, true, "手游规则 helper 应打开规则帮助面板");
+  assert.equal(context.dom.rulesPanel.classList.contains("hidden"), false, "手游规则 helper 打开后，规则面板不应继续隐藏");
 
   context.startNewProgress(true);
 

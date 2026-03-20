@@ -86,11 +86,6 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel\.dealing-pass-mode \{[\s\S]*display:\s*flex\s*!important;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*flex-start;[\s\S]*gap:\s*8px;/,
-    "index2 的抓牌声明态应切成横向双栏，让底部“不亮主”和右侧亮主区域真正并排排开",
-  );
-  assert.match(
-    html,
     /body\.mobile-index2 \.action-row \{[\s\S]*display:\s*flex;[\s\S]*width:\s*100%;[\s\S]*gap:\s*6px;[\s\S]*align-items:\s*center;/,
     "index2 的底部按钮行应显式占满整行，并把按钮间距再拉开一点，避免大按钮重新挤成一团",
   );
@@ -107,28 +102,29 @@ function main() {
   assert.match(
     html,
     /body\.mobile-index2 #hintBtn\.action-btn,[\s\S]*body\.mobile-index2 #playBtn\.action-btn \{[\s\S]*flex:\s*1\.22 1 0;[\s\S]*max-width:\s*none;/,
-    "index2 的选择和出牌按钮应继续占据更高的横向权重，保证抓牌态与出牌态都保持拇指优先的主操作层级",
+    "index2 的选择和出牌按钮应继续占据更高的横向权重，保证真正的主操作层级保持拇指优先",
   );
   assert.match(
     html,
-    /body\.mobile-index2 #passDeclareBtn\.action-btn \{[\s\S]*flex:\s*1 1 auto;[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;[\s\S]*font-size:\s*14px;/,
-    "index2 的“不亮主”按钮应填满自己的窄列宽度，而不应继续直接占满整条底部操作轨",
+    /\.setup-options\.setup-options-status-only \{[\s\S]*justify-content:\s*center;[\s\S]*overflow:\s*hidden;/,
+    "index2 的共享 setup 区在纯状态文案模式下应切到居中且禁滚动，避免“玩家扣牌中”被横向挤走",
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel\.dealing-pass-mode \.action-row \{[\s\S]*flex:\s*0 0 20%;[\s\S]*width:\s*20%;[\s\S]*min-width:\s*92px;[\s\S]*max-width:\s*108px;[\s\S]*gap:\s*0;/,
-    "index2 的抓牌声明态里，“不亮主”所在列应固定为约 20% 宽度，避免把右侧亮主区域挤断",
+    /\.setup-status-chip \{[\s\S]*border-radius:\s*999px;[\s\S]*font-weight:\s*700;/,
+    "index2 的共享 setup 区应提供独立状态胶囊样式，用于显示“玩家扣牌中”等只读状态",
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel\.dealing-pass-mode \.setup-options \{[\s\S]*flex:\s*1 1 0;[\s\S]*min-width:\s*0;[\s\S]*margin-top:\s*0;[\s\S]*padding-right:\s*10px;[\s\S]*scroll-padding-right:\s*10px;[\s\S]*justify-content:\s*flex-start;/,
-    "index2 的抓牌声明态里，右侧亮主候选区应吃满剩余空间并预留右侧滚动安全边，避免最后一项被切断",
+    /body\.mobile-index2 \.setup-options\.setup-options-status-only \{[\s\S]*justify-content:\s*center;[\s\S]*overflow:\s*hidden;/,
+    "index2 的移动端共享 setup 区在状态文案模式下也应保持居中且不滚动",
   );
   assert.notEqual(actionRowMatch, null, "index2 页面应保留底部可见操作区容器");
   assert.match(html, /<section id="centerPanel" class="panel center-panel"/, "index2 应给中央操作区补上 centerPanel id，确保共享层能真正切换抓牌声明态类名");
-  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="passDeclareBtn"/, "index2 可见操作区应保留选择、出牌和抓牌阶段的“不亮主”按钮");
+  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"/, "index2 可见操作区应只保留选择和出牌两个主按钮");
   assert.equal(actionRowMatch[1].includes('id="declareBtn"'), false, "index2 可见操作区不应再保留旧亮主按钮 DOM");
   assert.equal(actionRowMatch[1].includes('id="passCounterBtn"'), false, "index2 可见操作区不应再保留旧不反主按钮 DOM");
+  assert.equal(actionRowMatch[1].includes('id="passDeclareBtn"'), false, "index2 可见操作区不应再保留旧“不亮主”按钮 DOM");
   assert.equal(actionRowMatch[1].includes('id="beatBtn"'), false, "index2 可见操作区不应再放入毙牌按钮");
   assert.equal(actionRowMatch[1].includes('id="newProgressBtn"'), false, "index2 可见操作区不应再放入新的游戏按钮");
   assert.equal(actionRowMatch[1].includes('id="continueGameBtn"'), false, "index2 可见操作区不应再放入继续游戏按钮");
@@ -140,8 +136,18 @@ function main() {
   );
   assert.match(
     html,
-    /mobileDom\.setupContinueBtn\?\.addEventListener\("click", \(\) => \{[\s\S]*continueSavedProgress\(true\);[\s\S]*\}\);/,
-    "index2 继续游戏按钮应直接调用共享继续 helper，不再代理隐藏原始继续按钮",
+    /mobileDom\.setupContinueBtn\?\.addEventListener\("click", \(\) => \{[\s\S]*continueSavedProgressFromReadyEntry\(\);[\s\S]*\}\);/,
+    "index2 继续游戏按钮应统一走共享 ready 继续 helper，不再各自复制门禁逻辑",
+  );
+  assert.match(
+    html,
+    /mobileDom\.setupRulesBtn\.addEventListener\("click", \(\) => \{[\s\S]*openRulesHelpPanel\(\);[\s\S]*\}\);/,
+    "index2 首页规则按钮应直接打开共享规则帮助面板，不再代理旧设置按钮",
+  );
+  assert.match(
+    html,
+    /mobileDom\.menuRulesBtn\.addEventListener\("click", \(\) => \{[\s\S]*openRulesHelpPanel\(\);[\s\S]*\}\);/,
+    "index2 局内规则帮助按钮应直接打开共享规则帮助面板，不再代理旧设置按钮",
   );
   assert.match(
     html,

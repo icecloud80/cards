@@ -24,7 +24,7 @@ function chooseAiLeadPlay(playerId) {
       (card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank
     );
     const currentSeen = state.friendTarget.matchesSeen || 0;
-    const remainingBeforeReveal = (state.friendTarget.occurrence || 1) - currentSeen;
+    const remainingBeforeReveal = getFriendTargetRevealOccurrence() - currentSeen;
     if (targetCopies.length > 0 && remainingBeforeReveal > 1) {
       return [targetCopies[0]];
     }

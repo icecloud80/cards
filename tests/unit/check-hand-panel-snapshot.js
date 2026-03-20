@@ -254,7 +254,9 @@ function main() {
   assert.equal(indexHtml.includes('id="menuHomeBtn"'), true, "PC 更多菜单应提供回到首页按钮");
   assert.equal(indexHtml.includes('id="aiPaceButtons"'), true, "PC 开始界面应提供四档节奏按钮组");
   assert.notEqual(actionRowMatch, null, "PC 页面应保留底部可见操作区容器");
-  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="declareBtn"[\s\S]*id="passCounterBtn"/, "PC 可见操作区应只保留当前仍在使用的按钮");
+  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"/, "PC 可见操作区应只保留选择和出牌两个主按钮");
+  assert.equal(actionRowMatch[1].includes('id="declareBtn"'), false, "PC 可见操作区不应再保留旧亮主按钮 DOM");
+  assert.equal(actionRowMatch[1].includes('id="passCounterBtn"'), false, "PC 可见操作区不应再保留旧不反按钮 DOM");
   assert.equal(actionRowMatch[1].includes('id="beatBtn"'), false, "PC 可见操作区不应再放入毙牌按钮");
   assert.equal(actionRowMatch[1].includes('id="newProgressBtn"'), false, "PC 可见操作区不应再放入新的游戏按钮");
   assert.equal(actionRowMatch[1].includes('id="continueGameBtn"'), false, "PC 可见操作区不应再放入继续游戏按钮");
@@ -265,6 +267,7 @@ function main() {
   assert.equal(uiSource.includes("toggleLastTrickBtn.textContent"), false, "顶部回看按钮不应再用 textContent 覆盖图标");
   assert.equal(uiSource.includes("autoManagedBtn.textContent"), false, "顶部托管按钮不应再用 textContent 覆盖图标");
   assert.equal(uiSource.includes("function buildSetupPassOptionButtonHtml"), true, "PC 最后反主应通过共享 helper 生成下方“不反主 / 不亮”跳过按钮");
+  assert.equal(uiSource.includes("function getHumanSetupPanelConfig"), true, "PC 抓牌 / 反主 / 扣牌等待应通过共享 setup 面板配置 helper 统一收口");
   assert.equal(uiSource.includes("function syncAiPaceButtonGroup"), true, "PC 节奏按钮组应通过共享 helper 同步激活态");
 
   const context = loadUiContext();
@@ -346,10 +349,8 @@ function main() {
   };
   context.state.selectedSetupOptionKey = null;
   context.render();
-  assert.equal(context.document.getElementById("declareBtn").hidden, true, "PC 最后反主不应继续显示上方确认反主按钮");
-  assert.equal(context.document.getElementById("passCounterBtn").hidden, true, "PC 最后反主不应继续显示上方不反主按钮");
   assert.equal(context.document.getElementById("setupOptions").innerHTML.includes('data-setup-pass="counter"'), true, "PC 最后反主应在下方候选区直接提供不反主按钮");
-  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("不反主"), true, "PC 最后反主下方直选项应显示明确的“不反主”文案");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("不反"), true, "PC 最后反主下方直选项应显示明确的“不反”文案");
   assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("undefined"), false, "PC 最后反主下方直选项不应再渲染成 undefined");
   assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("反无主"), false, "PC 最后反主下方直选项不应再回退成整句文案");
 

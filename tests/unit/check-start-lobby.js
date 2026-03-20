@@ -74,21 +74,45 @@ function createElementStub(identifier) {
   return {
     id: identifier,
     dataset: {},
-    style: {},
+    style: {
+      setProperty(name, value) {
+        this[name] = value;
+      },
+    },
     children: [],
     textContent: "",
     innerHTML: "",
     value: "",
     disabled: false,
     hidden: false,
+    title: "",
+    listeners: {},
+    attributes: {},
     classList: createClassListStub(),
     appendChild(child) {
       this.children.push(child);
       return child;
     },
-    setAttribute() {},
-    addEventListener() {},
-    removeEventListener() {},
+    setAttribute(name, value) {
+      this.attributes[name] = String(value);
+      this[name] = String(value);
+    },
+    getAttribute(name) {
+      return this.attributes[name] || null;
+    },
+    addEventListener(type, handler) {
+      this.listeners[type] = handler;
+    },
+    removeEventListener(type) {
+      delete this.listeners[type];
+    },
+    dispatchEvent(event) {
+      const handler = this.listeners[event?.type];
+      if (handler) {
+        handler.call(this, event);
+      }
+      return true;
+    },
     querySelector() {
       return null;
     },
@@ -97,6 +121,13 @@ function createElementStub(identifier) {
     },
     closest() {
       return null;
+    },
+    click() {
+      if (this.disabled) return;
+      const handler = this.listeners.click;
+      if (handler) {
+        handler.call(this, { currentTarget: this, target: this, preventDefault() {} });
+      }
     },
   };
 }
@@ -156,14 +187,9 @@ function loadLobbyContext(platform) {
     document,
     window: null,
     globalThis: null,
-    render() {},
-    renderScorePanel() {},
-    renderHand() {},
-    renderCenterPanel() {},
-    renderBottomRevealCenter() {},
-    renderLastTrick() {},
-    renderLogs() {},
-    updateActionHint() {},
+    Event: function Event(type) {
+      return { type };
+    },
     localStorage: {
       getItem() {
         return null;
@@ -186,6 +212,12 @@ function loadLobbyContext(platform) {
     CustomEvent: function CustomEvent(type, eventOptions = {}) {
       return { type, detail: eventOptions.detail };
     },
+    makeFloatingPanel() {},
+    getLayoutElements() {
+      return [];
+    },
+    makeLayoutEditable() {},
+    applySavedLayoutState() {},
     setTimeout() {
       return 1;
     },
@@ -194,6 +226,7 @@ function loadLobbyContext(platform) {
       return 1;
     },
     clearInterval() {},
+    dispatchEvent() {},
     Math,
   };
   context.window = context;
@@ -207,13 +240,41 @@ function loadLobbyContext(platform) {
     path.join(__dirname, "../../src/shared/rules.js"),
     path.join(__dirname, "../../src/shared/text.js"),
     path.join(__dirname, "../../src/shared/game.js"),
+    path.join(__dirname, "../../src/shared/ui.js"),
+    path.join(__dirname, "../../src/shared/main.js"),
   ];
 
   for (const file of files) {
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
   }
 
-  return vm.runInContext("({ setupGame, shouldShowPcReadyLobby, shouldShowPcToolbarMenu, state })", context);
+  return vm.runInContext("({ document, dom, render, setupGame, refreshSavedProgressAvailability, continueSavedProgressFromReadyEntry, openRulesHelpPanel, shouldShowPcReadyLobby, shouldShowPcToolbarMenu, state })", context);
+}
+
+/**
+ * 作用：
+ * 生成一段可被 `loadProgressFromCookie()` 正常读取的进度 cookie 文本。
+ *
+ * 为什么这样写：
+ * “继续游戏”入口是否可点、点击后能否真正继续，都依赖真实 cookie 内容；
+ * 这里复用生产格式生成测试值，能避免单测自己发明一套和运行态不一致的存档结构。
+ *
+ * 输入：
+ * @param {Record<string, string>} levels - 本次要写入 cookie 的玩家等级映射。
+ * @param {"pc"|"mobile"} [platform="pc"] - 当前要模拟的平台键值。
+ *
+ * 输出：
+ * @returns {string} 可直接写入 `document.cookie` 的进度 cookie 文本。
+ *
+ * 注意：
+ * - key 名必须和生产常量 `five_friends_progress` 保持一致。
+ * - 这里只生成单条 cookie 文本，不负责追加其它 cookie 字段。
+ */
+function buildSavedProgressCookie(levels, platform = "pc") {
+  return `five-friends-progress-${platform}-v1=${encodeURIComponent(JSON.stringify({
+    playerLevels: levels,
+    savedAt: 1234567890,
+  }))}`;
 }
 
 /**
@@ -237,6 +298,7 @@ function loadLobbyContext(platform) {
 function main() {
   const pc = loadLobbyContext("pc");
   pc.setupGame();
+  pc.render();
   assert.equal(pc.shouldShowPcReadyLobby(), true, "PC 在 ready 阶段应显示开始界面");
   assert.equal(pc.shouldShowPcToolbarMenu(), false, "PC 在 ready 阶段不应显示更多功能菜单");
 
@@ -251,6 +313,30 @@ function main() {
   pc.state.gameOver = true;
   assert.equal(pc.shouldShowPcReadyLobby(), false, "PC 若处于 gameOver，不应显示开始界面");
   assert.equal(pc.shouldShowPcToolbarMenu(), false, "PC 若处于 gameOver，不应显示更多功能菜单");
+
+  const savedLevels = {
+    1: "9",
+    2: "J",
+    3: "Q",
+    4: "K",
+    5: "A",
+  };
+
+  pc.state.gameOver = false;
+  pc.document.cookie = buildSavedProgressCookie(savedLevels, "pc");
+  pc.refreshSavedProgressAvailability();
+  pc.setupGame();
+  pc.render();
+  assert.equal(pc.dom.startLobbyContinueBtn.disabled, false, "PC 开始界面的继续游戏在有存档时应可点击");
+  pc.dom.startLobbyContinueBtn.click();
+  assert.equal(pc.state.phase, "dealing", "PC 点击继续游戏后应立即进入发牌阶段");
+  assert.equal(JSON.stringify(pc.state.playerLevels), JSON.stringify(savedLevels), "PC 点击继续游戏后应恢复存档等级");
+
+  pc.setupGame();
+  pc.render();
+  pc.dom.startLobbyRulesBtn.click();
+  assert.equal(pc.state.showRulesPanel, true, "PC 首页查看规则按钮应打开规则帮助面板");
+  assert.equal(pc.dom.rulesPanel.classList.contains("hidden"), false, "PC 首页查看规则按钮打开后，规则面板不应继续隐藏");
 
   const mobile = loadLobbyContext("mobile");
   mobile.setupGame();

@@ -74,7 +74,7 @@ function getAiTargetCopiesInHand(playerId, target = state.friendTarget) {
 // 判断 AI 当前是否可以亮明朋友身份。
 function canAiRevealFriendNow(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
-  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const neededOccurrence = getFriendTargetRevealOccurrence();
   const currentSeen = state.friendTarget.matchesSeen || 0;
   if (currentSeen + 1 !== neededOccurrence) return false;
   if (getAiTargetCopiesInHand(playerId) <= 0) return false;
@@ -182,7 +182,7 @@ function shouldAiDelayRevealOnOpeningLead(playerId) {
   const currentWinningPlay = getCurrentWinningPlay();
 
   const bankerLeadCard = state.currentTrick[0].cards[0];
-  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const neededOccurrence = getFriendTargetRevealOccurrence();
   const currentSeen = state.friendTarget.matchesSeen || 0;
   const revealOpportunity = currentSeen + 1 === neededOccurrence;
 
@@ -206,10 +206,12 @@ function shouldAiDelayRevealOnOpeningLead(playerId) {
 // 判断 AI 是否已经可以确定自己是朋友。
 function isAiCertainFriend(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
+  const ownCopies = getAiTargetCopiesInHand(playerId);
+  if (ownCopies <= 0) return false;
+  if (isFriendTargetCalledDeadAtSelection()) return true;
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
-  const ownCopies = getAiTargetCopiesInHand(playerId);
-  if (ownCopies <= 0 || neededOccurrence <= 1) return false;
+  if (neededOccurrence <= 1) return false;
   return currentSeen + ownCopies >= neededOccurrence && currentSeen + ownCopies >= 3;
 }
 
@@ -218,6 +220,7 @@ function isAiProspectiveFriend(playerId) {
   if (!state.friendTarget || isFriendTeamResolved() || playerId === state.bankerId) return false;
   const ownCopies = getAiTargetCopiesInHand(playerId);
   if (ownCopies <= 0) return false;
+  if (isFriendTargetCalledDeadAtSelection()) return true;
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
   return currentSeen + ownCopies >= neededOccurrence;
@@ -244,7 +247,7 @@ function chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) {
   if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return [];
 
   const bankerLeadCard = state.currentTrick[0].cards[0];
-  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const neededOccurrence = getFriendTargetRevealOccurrence();
   const currentSeen = state.friendTarget.matchesSeen || 0;
   const revealOpportunity = currentSeen + 1 === neededOccurrence;
   const delayForFirstTarget = neededOccurrence === 1 && isOneStepBelowFriendTarget(bankerLeadCard, state.friendTarget);
@@ -593,14 +596,14 @@ function shouldAiUseBankerRevealedFriendControlMode(playerId) {
  *
  * 注意：
  * - 只在无主、朋友未亮、打家首发的前中盘启用。
- * - 若朋友牌已经接近“叫死”，仍允许保留原本的探朋友逻辑，不强行拦截。
+ * - 若朋友牌在叫朋友时已经被打家“叫死”为唯一外部副本，则不再拦截探朋友首发。
  */
 function shouldAiDeferNoTrumpFriendProbe(playerId, player) {
   if (!player || playerId !== state.bankerId || state.trumpSuit !== "notrump") return false;
   if (!state.friendTarget || isFriendTeamResolved() || state.currentTrick.length !== 0) return false;
   if ((state.trickNumber || 1) > 4) return false;
 
-  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const neededOccurrence = getFriendTargetRevealOccurrence();
   const currentSeen = state.friendTarget.matchesSeen || 0;
   const remainingBeforeReveal = neededOccurrence - currentSeen;
   if (remainingBeforeReveal <= 1) return false;
@@ -1576,7 +1579,7 @@ function chooseAiBankerFriendTargetLead(player) {
   const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
   if (!routeProfile || routeProfile.targetCopies <= 0) return [];
 
-  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const neededOccurrence = getFriendTargetRevealOccurrence();
   const currentSeen = state.friendTarget.matchesSeen || 0;
   if (currentSeen >= neededOccurrence - 1) return [];
 
@@ -1609,7 +1612,7 @@ function chooseAiBankerFriendBridgeLead(player) {
   const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
   if (!routeProfile || routeProfile.bridgeCount <= 0 || !routeProfile.searchCard) return [];
 
-  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const neededOccurrence = getFriendTargetRevealOccurrence();
   const currentSeen = state.friendTarget.matchesSeen || 0;
   if (currentSeen >= neededOccurrence) return [];
 
@@ -1650,7 +1653,7 @@ function chooseAiBankerFriendSetupLead(playerId, player) {
   if (shouldAiDeferNoTrumpFriendProbe(playerId, player)) return [];
   if (shouldAiUseBankerSoloFallback(playerId)) return [];
 
-  const neededOccurrence = state.friendTarget.occurrence || 1;
+  const neededOccurrence = getFriendTargetRevealOccurrence();
   const currentSeen = state.friendTarget.matchesSeen || 0;
   if (currentSeen >= neededOccurrence) return [];
 

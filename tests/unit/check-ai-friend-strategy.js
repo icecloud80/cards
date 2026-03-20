@@ -1525,6 +1525,49 @@ function runFriendStrategySuite(context) {
 
     /**
      * 作用：
+     * 搭建“无主且第三张 A 已被叫死时，打家不应再被 no-trump defer 拦住”的测试场景。
+     *
+     * 为什么这样写：
+     * 固定复盘里，打家已经握有 AA10，外面只剩唯一一张目标 A；
+     * 这时继续按普通无主逻辑先清王，会把“用 10 递给朋友用第三张 A 上手”的窗口错过。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入当前测试状态。
+     *
+     * 注意：
+     * - 这里故意保留双黑桃小王，验证“无主先清控”不会压过“第三张 A 已叫死”的接手路线。
+     * - 目标仍是第三张红桃 A；预期首发必须是红桃 10。
+     */
+    function setupNoTrumpCalledDeadTakeoverScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "notrump";
+      state.trickNumber = 1;
+      state.currentTurnId = 1;
+      state.leaderId = 1;
+      state.players = [
+        basePlayer(1, [
+          makeCard("b-h-a-dead-1", "hearts", "A"),
+          makeCard("b-h-a-dead-2", "hearts", "A"),
+          makeCard("b-h-10-dead", "hearts", "10"),
+          makeCard("b-bj-dead-1", "joker", "BJ"),
+          makeCard("b-bj-dead-2", "joker", "BJ"),
+          makeCard("b-s-4-dead", "spades", "4"),
+        ], true),
+        basePlayer(2, [makeCard("p2-d-8-dead", "diamonds", "8")]),
+        basePlayer(3, [makeCard("p3-c-8-dead", "clubs", "8")]),
+        basePlayer(4, [makeCard("p4-h-8-dead", "hearts", "8")]),
+        basePlayer(5, [makeCard("p5-d-7-dead", "diamonds", "7")]),
+      ];
+      setFriendTarget({ suit: "hearts", rank: "A", occurrence: 3 });
+      state.friendTarget.matchesSeen = 0;
+    }
+
+    /**
+     * 作用：
      * 搭建“朋友到第 6 轮仍未亮，打家应切 solo fallback”的测试场景。
      *
      * 为什么这样写：
@@ -1881,6 +1924,14 @@ function runFriendStrategySuite(context) {
       assert(!(deferredProbeLead[0].suit === "hearts"), difficulty + ": no-trump banker should not probe friend suit first when control line is strong");
       assert(deferredProbeLead.every((card) => card.suit === "joker"), difficulty + ": no-trump banker should clear joker control before probing friend suit");
       results.push(difficulty + " no-trump friend-probe deferral ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate"]) {
+      setupNoTrumpCalledDeadTakeoverScenario(difficulty);
+      const noTrumpCalledDeadLead = chooseAiLeadPlay(1);
+      assert(noTrumpCalledDeadLead.length === 1, difficulty + ": called-dead no-trump takeover should choose a single search lead");
+      assert(noTrumpCalledDeadLead[0].suit === "hearts" && noTrumpCalledDeadLead[0].rank === "10", difficulty + ": called-dead no-trump takeover should lead hearts 10 before clearing joker control");
+      results.push(difficulty + " no-trump called-dead takeover ok");
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {

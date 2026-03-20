@@ -330,11 +330,10 @@ function main() {
   ]);
   context.renderHand();
   context.renderCenterPanel();
-  assert.equal(context.document.getElementById("setupOptions").hidden, true, "发牌阶段没有合法亮主方案时不应显示候选区");
-  assert.equal(context.document.getElementById("declareBtn").hidden, true, "发牌阶段只有真正能亮主时才应显示亮主按钮");
-  assert.equal(context.document.getElementById("passDeclareBtn").hidden, false, "抓牌阶段底部应持续显示“不亮主”按钮，避免玩家找不到跳过入口");
-  assert.equal(context.document.getElementById("passDeclareBtn").disabled, true, "抓牌阶段若当前没有合法亮主方案，“不亮主”按钮应保持禁用");
-  assert.equal(context.document.getElementById("centerPanel").classList.contains("dealing-pass-mode"), true, "抓牌阶段应给中央操作区挂上 dealing-pass-mode，确保“不亮主”与亮主区域能按 20/80 分栏排布");
+  assert.equal(context.document.getElementById("setupOptions").hidden, false, "发牌阶段即使没有合法亮主方案，也应显示共享 setup 区承接“不亮”入口");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes('data-setup-pass="declare"'), true, "发牌阶段没有可亮主方案时，setup 区仍应提供“不亮”按钮");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("disabled"), true, "抓牌阶段若当前没有合法亮主方案，“不亮”按钮应保持禁用");
+  assert.equal(context.document.getElementById("centerPanel").classList.contains("setup-choice-mode"), true, "抓牌阶段出现共享 setup 区时，应给中央操作区挂上 setup-choice-mode");
 
   seedDeclarationScenario(context, [
     makeCard("spade-1", "spades", "2"),
@@ -357,7 +356,6 @@ function main() {
   context.renderCenterPanel();
   const handSummary = context.document.getElementById("handSummary");
   const setupOptions = context.document.getElementById("setupOptions");
-  const declareBtn = context.document.getElementById("declareBtn");
   assert.equal(handSummary.textContent.includes("黑桃 2 x3"), true, "手牌摘要应列出 3 张级牌亮主选项");
   assert.equal(handSummary.textContent.includes("黑桃 2 x2"), true, "手牌摘要应列出同花色级牌的 2 张亮主选项");
   assert.equal(handSummary.textContent.includes("2张小王"), true, "手牌摘要应列出小王无主选项");
@@ -370,12 +368,10 @@ function main() {
   assert.equal(setupOptions.innerHTML.includes(">无<"), true, "候选按钮应用短标签表达无主");
   assert.equal(setupOptions.innerHTML.includes("亮黑桃 2 x2"), false, "候选按钮不应再使用长句式亮主文案");
   assert.equal(setupOptions.innerHTML.includes("可亮选项"), false, "亮主阶段不应再额外显示“可亮选项”标题");
-  assert.equal(declareBtn.hidden, true, "亮主阶段不应再保留单独的确认亮主按钮");
-  assert.equal(context.document.getElementById("passDeclareBtn").hidden, false, "抓牌阶段即使已出现亮主候选，底部仍应显示“不亮主”按钮");
-  assert.equal(context.document.getElementById("passDeclareBtn").disabled, true, "尚未进入最终补亮窗口前，“不亮主”按钮不应允许提前跳过真实抓牌流程");
-  assert.equal(context.document.getElementById("centerPanel").classList.contains("dealing-pass-mode"), true, "抓牌阶段出现亮主候选时，中央操作区仍应保持 dealing-pass-mode 横向分栏");
+  assert.equal(setupOptions.innerHTML.includes('data-setup-pass="declare"'), true, "抓牌阶段即使已出现亮主候选，共享 setup 区仍应保留“不亮”选项");
+  assert.equal(setupOptions.innerHTML.includes("disabled"), true, "尚未进入最终补亮窗口前，“不亮”按钮不应允许提前跳过真实抓牌流程");
 
-  const noLegacyButtonContext = loadMobileDeclarationContext(["declareBtn", "passCounterBtn"]);
+  const noLegacyButtonContext = loadMobileDeclarationContext();
   noLegacyButtonContext.setupGame();
   seedDeclarationScenario(noLegacyButtonContext, [
     makeCard("spade-1", "spades", "2"),
@@ -389,13 +385,15 @@ function main() {
   const optionKey = noLegacyButtonContext.getSetupOptionKey(
     noLegacyButtonContext.getAvailableSetupOptionsForPlayer(1, "dealing")[0],
   );
-  assert.equal(mobileSetupOptions.hidden, false, "移动端即使删掉旧亮主按钮 DOM，也应继续通过候选区显示可亮方案");
-  assert.equal(noLegacyButtonContext.document.getElementById("passDeclareBtn").hidden, false, "移动端删掉旧亮主按钮后，抓牌阶段仍应保留底部“不亮主”入口");
+  assert.equal(mobileSetupOptions.hidden, false, "共享 setup 区应继续通过候选 chips 显示可亮方案");
   mobileSetupOptions.trigger("click", {
     target: {
-      closest(selector) {
-        if (selector !== "button[data-setup-option-key]") return null;
-        return { dataset: { setupOptionKey: optionKey } };
+      parentElement: {
+        matches(selector) {
+          return selector === "button[data-setup-option-key]";
+        },
+        dataset: { setupOptionKey: optionKey },
+        parentElement: null,
       },
     },
   });
@@ -409,9 +407,19 @@ function main() {
     true,
     "等待补亮时，候选区应提供明确的“不亮”按钮"
   );
-  assert.equal(context.document.getElementById("passDeclareBtn").disabled, false, "进入最终补亮窗口后，底部“不亮主”按钮应切成可点击");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("disabled"), false, "进入最终补亮窗口后，共享 setup 区里的“不亮”按钮应切成可点击");
 
-  context.document.getElementById("passDeclareBtn").trigger("click");
+  context.document.getElementById("setupOptions").trigger("click", {
+    target: {
+      parentElement: {
+        matches(selector) {
+          return selector === "button[data-setup-pass]";
+        },
+        dataset: { setupPass: "declare" },
+        parentElement: null,
+      },
+    },
+  });
   assert.equal(context.state.phase, "bottomReveal", "点击底部“不亮主”后应立即进入翻底定主展示阶段");
   assert.equal(context.state.awaitingHumanDeclaration, false, "点击底部“不亮主”后应结束补亮等待状态");
 
@@ -484,6 +492,56 @@ function main() {
     JSON.stringify(["BJ", "BJ"]),
     "确认亮主后应使用玩家选中的两张小王作为无主声明牌"
   );
+
+  context.setupGame();
+  seedDeclarationScenario(context, [
+    makeCard("spade-1", "spades", "2"),
+    makeCard("spade-2", "spades", "2"),
+    makeCard("spade-3", "spades", "2"),
+    makeCard("bj-1", "joker", "BJ"),
+    makeCard("bj-2", "joker", "BJ"),
+  ], {
+    playerId: 2,
+    suit: "hearts",
+    rank: "2",
+    count: 2,
+    cards: [makeCard("current-heart-1", "hearts", "2"), makeCard("current-heart-2", "hearts", "2")],
+  });
+  context.renderHand();
+  context.renderCenterPanel();
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("可反选项"), true, "别人已亮主后，抓牌阶段应切到可反主模式");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes('data-setup-pass="counter"'), true, "别人已亮主后，抓牌阶段应显示“不反”选项");
+  context.document.getElementById("setupOptions").trigger("click", {
+    target: {
+      closest(selector) {
+        if (selector !== "button[data-setup-pass]") return null;
+        return { dataset: { setupPass: "counter" } };
+      },
+    },
+  });
+  assert.notEqual(context.state.pendingHumanCounterPassKey, "", "抓牌阶段先点“不反”后，应记住当前亮主对应的人类跳过意图");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("setup-option-pass-btn active"), true, "抓牌阶段先点“不反”后，setup 区应把该按钮高亮成已预选状态");
+
+  context.state.phase = "countering";
+  context.state.currentTurnId = 1;
+  context.state.counterPasses = 3;
+  context.renderCenterPanel();
+  context.document.getElementById("setupOptions").trigger("click", {
+    target: {
+      closest(selector) {
+        if (selector !== "button[data-setup-pass]") return null;
+        return { dataset: { setupPass: "counter" } };
+      },
+    },
+  });
+  assert.equal(context.state.phase, "burying", "最终反主阶段点击“不反”后，应立即结束读秒并进入打家扣牌阶段");
+  assert.equal(context.state.declaration?.playerId, 2, "最终反主阶段点击“不反”后，应继续沿用当前亮主玩家作为后续打家归属");
+
+  context.state.phase = "burying";
+  context.state.bankerId = 3;
+  context.renderCenterPanel();
+  assert.equal(context.document.getElementById("setupOptions").hidden, false, "别人扣牌时，共享 setup 区应继续显示状态文案");
+  assert.equal(context.document.getElementById("setupOptions").innerHTML.includes("玩家扣牌中"), true, "别人扣牌时，共享 setup 区应明确显示“玩家扣牌中”文字");
 }
 
 main();

@@ -28,6 +28,60 @@ function closeToolbarMenu() {
 
 /**
  * 作用：
+ * 处理准备阶段的“继续游戏”入口，并在命中时直接进入发牌。
+ *
+ * 为什么这样写：
+ * PC 首页、mobile 首页和 App 首页现在都提供“继续游戏”；
+ * 把入口门禁统一收口后，三端就不会一处直接调业务函数、另一处点旧按钮代理，导致行为慢慢漂移。
+ *
+ * 输入：
+ * @param {void} - 直接读取当前共享状态与存档可用性。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示已成功继续当前进度；`false` 表示当前条件不允许继续。
+ *
+ * 注意：
+ * - 只有 `ready` 阶段且存在可继续进度时才允许进入。
+ * - 命中后必须直接开始发牌，和现有首页 CTA 语义保持一致。
+ */
+function continueSavedProgressFromReadyEntry() {
+  if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return false;
+  continueSavedProgress(true);
+  return true;
+}
+
+/**
+ * 作用：
+ * 打开规则帮助面板，并顺手收起会互相遮挡的局内浮层。
+ *
+ * 为什么这样写：
+ * 首页规则、局内规则帮助和 mobile/App 壳层桥接现在都要打开同一块规则面板；
+ * 收口成共享 helper 后，所有入口都能稳定落到同一份规则 UI，不再继续误点到“更多设置”之类的旧代理目标。
+ *
+ * 输入：
+ * @param {void} - 直接修改共享浮层状态。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示规则面板已进入打开态。
+ *
+ * 注意：
+ * - 打开规则时需要同时收起顶部菜单、信息和上一轮回看，避免面板相互遮挡。
+ * - 这里只负责打开；关闭仍由关闭按钮和菜单切换逻辑负责。
+ */
+function openRulesHelpPanel() {
+  state.showLogPanel = false;
+  state.showLastTrick = false;
+  state.showRulesPanel = true;
+  closeToolbarMenu();
+  renderLastTrick?.();
+  renderLogs();
+  renderToolbarMenu?.();
+  renderScorePanel?.();
+  return true;
+}
+
+/**
+ * 作用：
  * 用当前牌局的复盘信息预填复盘面板输入框。
  *
  * 为什么这样写：
@@ -151,29 +205,6 @@ function getNextAutoManageMode(mode = getAutoManageMode()) {
   if (mode === "off") return "round";
   if (mode === "round") return "persistent";
   return "off";
-}
-
-/**
- * 作用：
- * 判断 PC 最后反主阶段是否启用了底部直选模式。
- *
- * 为什么这样写：
- * 这轮 PC 反主交互不再依赖上方“确认反主 / 不反主”按钮，
- * 而是直接在底部候选区点击 2 王、3 王或不反主完成操作；
- * 单独抽成 helper 后，点击处理和渲染条件可以保持一致。
- *
- * 输入：
- * @param {void} - 直接读取当前平台和共享状态。
- *
- * 输出：
- * @returns {boolean} `true` 表示当前应直接执行反主或不反主。
- *
- * 注意：
- * - 这里只对 PC 生效，手游仍按原有声明阶段交互处理。
- * - 必须确认轮到玩家1，避免别的玩家回合误触发。
- */
-function isPcDirectCounterChoiceMode() {
-  return APP_PLATFORM === "pc" && state.phase === "countering" && state.currentTurnId === 1;
 }
 
 // 设置当前 AI 难度并刷新界面。
@@ -325,18 +356,15 @@ dom.newProgressBtn?.addEventListener("click", () => {
 });
 
 dom.continueGameBtn?.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
-  continueSavedProgress(true);
+  continueSavedProgressFromReadyEntry();
 });
 
 dom.startLobbyContinueBtn?.addEventListener("click", () => {
-  if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
-  continueSavedProgress(true);
+  continueSavedProgressFromReadyEntry();
 });
 
 dom.startLobbyRulesBtn?.addEventListener("click", () => {
-  state.showRulesPanel = true;
-  renderLogs();
+  openRulesHelpPanel();
 });
 
 dom.playBtn.addEventListener("click", () => {
@@ -407,6 +435,49 @@ function bindAiPaceButtons(container) {
 bindAiPaceButtons(dom.aiPaceButtons);
 bindAiPaceButtons(dom.menuAiPaceButtons);
 
+/**
+ * 作用：
+ * 从任意事件目标里稳定找出匹配 selector 的最近祖先节点。
+ *
+ * 为什么这样写：
+ * 声明候选按钮内部现在会包含牌面缩略图、短标签和状态胶囊，
+ * 某些浏览器下点击可能先落在这些内部节点上，而不是直接落在 button 本体；
+ * 统一走一层 `composedPath + parentElement` 兜底后，亮主 / 反主按钮就不会再出现“看得见但点不中”的情况。
+ *
+ * 输入：
+ * @param {Event} event - 当前点击事件对象。
+ * @param {string} selector - 需要匹配的目标选择器。
+ *
+ * 输出：
+ * @returns {?Element} 找到时返回对应元素，否则返回 `null`。
+ *
+ * 注意：
+ * - 必须兼容没有 `closest` 或 `composedPath` 的目标节点。
+ * - 这里只做事件命中解析，不负责校验当前阶段是否合法。
+ */
+function findClosestEventTarget(event, selector) {
+  if (!event || !selector) return null;
+  const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+  for (const entry of path) {
+    if (entry && typeof entry.matches === "function" && entry.matches(selector)) {
+      return entry;
+    }
+  }
+
+  let current = event.target || null;
+  while (current) {
+    if (typeof current.matches === "function" && current.matches(selector)) {
+      return current;
+    }
+    if (typeof current.closest === "function") {
+      const matched = current.closest(selector);
+      if (matched) return matched;
+    }
+    current = current.parentElement || current.parentNode || null;
+  }
+  return null;
+}
+
 dom.hintBtn.addEventListener("click", () => {
   if (state.selectedCardIds.length > 0) {
     state.selectedCardIds = [];
@@ -433,12 +504,11 @@ dom.hintBtn.addEventListener("click", () => {
 });
 
 dom.setupOptions?.addEventListener("click", (event) => {
-  const passButton = event.target.closest("button[data-setup-pass]");
+  const passButton = findClosestEventTarget(event, "button[data-setup-pass]");
   if (passButton) {
     if (state.gameOver) return;
     if (passButton.dataset.setupPass === "counter") {
-      if (!isPcDirectCounterChoiceMode()) return;
-      passCounterForCurrentPlayer();
+      passCounterDecisionForPlayer(1);
       return;
     }
     if (passButton.dataset.setupPass === "declare") {
@@ -447,9 +517,9 @@ dom.setupOptions?.addEventListener("click", (event) => {
     return;
   }
 
-  const button = event.target.closest("button[data-setup-option-key]");
+  const button = findClosestEventTarget(event, "button[data-setup-option-key]");
   if (!button || state.gameOver || (state.phase !== "dealing" && state.phase !== "countering")) return;
-  const selected = getAvailableSetupOptionsForPlayer(1, state.phase)
+  const selected = getAvailableSetupOptionsForPlayer(1, state.phase === "countering" ? "countering" : "dealing")
     .find((entry) => getSetupOptionKey(entry) === button.dataset.setupOptionKey) || null;
   if (!selected) return;
   if (state.phase === "dealing") {
@@ -460,57 +530,7 @@ dom.setupOptions?.addEventListener("click", (event) => {
     }
     return;
   }
-  if (isPcDirectCounterChoiceMode()) {
-    counterDeclare(1, selected);
-    return;
-  }
-  selectSetupOptionForPlayer(1, button.dataset.setupOptionKey, state.phase);
-  renderCenterPanel();
-  updateActionHint();
-});
-
-/**
- * 作用：
- * 给“只在部分平台存在”的可选动作按钮绑定点击事件。
- *
- * 为什么这样写：
- * 共享层同时要兼容 PC 保留的旧声明按钮，以及 mobile 新增的阶段感知按钮；
- * 这里统一做成可选绑定，就能在不分叉共享逻辑的前提下兼容“某些平台有、某些平台没有”的节点。
- *
- * 输入：
- * @param {?HTMLElement} button - 当前要绑定的动作按钮节点；若平台未渲染则为 `null`。
- * @param {Function} handler - 点击后要执行的共享逻辑。
- *
- * 输出：
- * @returns {void} 若按钮不存在则直接跳过，存在时绑定点击事件。
- *
- * 注意：
- * - 这里只服务“平台可选”的动作按钮，不要拿去替代正常的必备节点绑定。
- * - mobile 的亮主流程仍主要走 `setupOptions` 候选区；这里新增的 `不亮主` 只负责承接补亮窗口里的跳过动作。
- */
-function bindOptionalLegacyActionButton(button, handler) {
-  if (!button) return;
-  button.addEventListener("click", handler);
-}
-
-bindOptionalLegacyActionButton(dom.declareBtn, () => {
-  if (state.gameOver) return;
-  if (state.phase === "countering") {
-    if (state.currentTurnId !== 1) return;
-    const selectedOption = getSelectedSetupOptionForPlayer(1, "countering");
-    if (!selectedOption) return;
-    counterDeclare(1, selectedOption);
-  }
-});
-
-bindOptionalLegacyActionButton(dom.passCounterBtn, () => {
-  if (state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1) return;
-  passCounterForCurrentPlayer();
-});
-
-bindOptionalLegacyActionButton(dom.passDeclareBtn, () => {
-  if (state.gameOver || state.phase !== "dealing" || !state.awaitingHumanDeclaration) return;
-  passDeclarationForPlayer(1);
+  counterDeclare(1, selected);
 });
 
 dom.friendSuitOptions.addEventListener("click", (event) => {
@@ -674,11 +694,15 @@ dom.toggleRulesBtn.addEventListener("click", () => {
 });
 
 dom.menuRulesBtn?.addEventListener("click", () => {
-  state.showRulesPanel = !state.showRulesPanel;
-  closeToolbarMenu();
-  renderLogs();
-  renderToolbarMenu?.();
-  renderScorePanel?.();
+  if (state.showRulesPanel) {
+    state.showRulesPanel = false;
+    closeToolbarMenu();
+    renderLogs();
+    renderToolbarMenu?.();
+    renderScorePanel?.();
+    return;
+  }
+  openRulesHelpPanel();
 });
 
 dom.toggleCardFaceBtn?.addEventListener("click", () => {

@@ -1188,6 +1188,14 @@
         flex-wrap: wrap;
         gap: 8px;
         margin-top: 14px;
+        position: relative;
+        z-index: 1;
+        pointer-events: auto;
+      }
+
+      .setup-options.setup-options-status-only {
+        justify-content: center;
+        overflow: hidden;
       }
 
       .setup-options-label {
@@ -1220,6 +1228,7 @@
           inset 0 1px 0 rgba(255, 255, 255, 0.7),
           0 6px 14px rgba(0, 0, 0, 0.08);
         cursor: pointer;
+        pointer-events: auto;
       }
 
       .setup-option-card-stack {
@@ -1263,6 +1272,20 @@
         color: #fff;
         border-color: rgba(214, 94, 87, 0.36);
         background: linear-gradient(180deg, #f26d67, #ba3934);
+      }
+
+      .setup-status-chip {
+        min-height: 34px;
+        padding: 7px 14px;
+        border: 1px solid rgba(120, 74, 24, 0.18);
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.7),
+          0 6px 14px rgba(0, 0, 0, 0.08);
       }
 
       .setup-field {
@@ -3721,14 +3744,6 @@
         padding-bottom: 4px;
       }
 
-      /* 抓牌声明态单独切成“左侧 20% 不亮主 + 右侧亮主候选区”，避免右侧亮主按钮继续被截断。 */
-      body.mobile-index2 .center-panel.dealing-pass-mode {
-        display: flex !important;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 8px;
-      }
-
       body.mobile-index2 .center-head {
         display: none;
       }
@@ -3760,38 +3775,11 @@
         line-height: 1.1;
       }
 
-      /* 高频主操作继续吃到更多横向空间；抓牌阶段出现“不亮主”时也保持更易按的大按钮比例。 */
+      /* 高频主操作继续吃到更多横向空间，保证真正的主操作仍适合拇指按。 */
       body.mobile-index2 #hintBtn.action-btn,
       body.mobile-index2 #playBtn.action-btn {
         flex: 1.22 1 0;
         max-width: none;
-      }
-
-      /* “不亮主”属于抓牌阶段的辅助跳过动作，宽度略小于主操作，但仍保持拇指可按的体量。 */
-      body.mobile-index2 #passDeclareBtn.action-btn {
-        flex: 1 1 auto;
-        width: 100%;
-        max-width: none;
-        font-size: 14px;
-      }
-
-      /* 抓牌声明态里“不亮主”只占约 20% 宽度，把更多空间让给右侧亮主候选。 */
-      body.mobile-index2 .center-panel.dealing-pass-mode .action-row {
-        flex: 0 0 20%;
-        width: 20%;
-        min-width: 92px;
-        max-width: 108px;
-        gap: 0;
-      }
-
-      /* 抓牌声明态下右侧亮主区域要吃满剩余空间，并保留一点右侧滚动安全边，避免最后一项被裁切。 */
-      body.mobile-index2 .center-panel.dealing-pass-mode .setup-options {
-        flex: 1 1 0;
-        min-width: 0;
-        margin-top: 0;
-        padding-right: 10px;
-        scroll-padding-right: 10px;
-        justify-content: flex-start;
       }
 
       body.mobile-index2 .setup-options {
@@ -3806,6 +3794,11 @@
 
       body.mobile-index2 .setup-options::-webkit-scrollbar {
         display: none;
+      }
+
+      body.mobile-index2 .setup-options.setup-options-status-only {
+        justify-content: center;
+        overflow: hidden;
       }
 
       body.mobile-index2 .setup-options-label {
@@ -3825,6 +3818,14 @@
         align-items: center;
         justify-content: center;
         gap: 5px;
+      }
+
+      body.mobile-index2 .setup-status-chip {
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
       }
 
       body.mobile-index2 .setup-option-prefix,
@@ -4543,7 +4544,6 @@
           <div class="action-row">
             <button id="hintBtn" class="action-btn">选择</button>
             <button id="playBtn" class="action-btn primary">出牌</button>
-            <button id="passDeclareBtn" class="action-btn">不亮主</button>
           </div>
           <div id="setupOptions" class="setup-options" hidden></div>
           <select id="aiDifficultySelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">
@@ -5514,10 +5514,17 @@
           startNewProgress(true);
         });
         mobileDom.setupContinueBtn?.addEventListener("click", () => {
-          if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
-          continueSavedProgress(true);
+          if (typeof continueSavedProgressFromReadyEntry !== "function") return;
+          continueSavedProgressFromReadyEntry();
         });
-        mobileDom.setupRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
+        mobileDom.setupRulesBtn.addEventListener("click", () => {
+          closeSheets();
+          if (typeof openRulesHelpPanel === "function") {
+            openRulesHelpPanel();
+            return;
+          }
+          clickOriginal(originalDom.toggleRulesBtn);
+        });
         bindMobilePaceButtons(mobileDom.paceButtons);
         bindMobilePaceButtons(mobileDom.menuPaceButtons);
         mobileDom.difficultySelect?.addEventListener("change", () => {
@@ -5596,7 +5603,14 @@
           }
           setMobileMenuButtonFeedback(mobileDom.menuCopyReplayBtn, idleLabel, "复制失败");
         });
-        mobileDom.menuRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
+        mobileDom.menuRulesBtn.addEventListener("click", () => {
+          closeSheets();
+          if (typeof openRulesHelpPanel === "function") {
+            openRulesHelpPanel();
+            return;
+          }
+          clickOriginal(originalDom.toggleRulesBtn);
+        });
         mobileDom.menuHomeBtn.addEventListener("click", () => {
           if (typeof goToMainMenu === "function") {
             goToMainMenu();

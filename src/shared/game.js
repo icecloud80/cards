@@ -2193,11 +2193,89 @@ function buildFriendTarget(target) {
   };
 }
 
+/**
+ * 作用：
+ * 统计打家在叫朋友瞬间，自手里已经握有多少张目标牌。
+ *
+ * 为什么这样写：
+ * 用户给出的 replay 里，打家已经手握两张 `A` 再去叫“第三张 A”；
+ * 这时外面的那一张实际已经是唯一的朋友牌，需要在共享状态里把这层“叫死”信息记下来。
+ *
+ * 输入：
+ * @param {object|null} target - 当前准备设置的朋友牌定义。
+ *
+ * 输出：
+ * @returns {number} 打家在叫朋友当下自持的目标牌张数。
+ *
+ * 注意：
+ * - 统计时只读取叫朋友瞬间的打家手牌，不回看历史出牌。
+ * - 若打家或 target 缺失，默认返回 `0`。
+ */
+function getFriendTargetDeadCopiesAtCall(target) {
+  const banker = getPlayer(state.bankerId);
+  if (!banker || !target) return 0;
+  return banker.hand.filter((card) => card.suit === target.suit && card.rank === target.rank).length;
+}
+
+/**
+ * 作用：
+ * 判断当前朋友牌在叫朋友瞬间，是否已经被打家“叫死”为唯一外部副本。
+ *
+ * 为什么这样写：
+ * 若打家自己已经握有足够多的同牌，使得外面只剩唯一一张目标牌，
+ * 那么这张外部目标牌就应被视为“已经叫死”，朋友打出它时应能立即站队。
+ *
+ * 输入：
+ * @param {object|null} [target=state.friendTarget] - 当前朋友牌定义。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示外面只剩唯一一张目标牌。
+ *
+ * 注意：
+ * - 这里只基于叫朋友瞬间的已知底牌与打家自手统计，不读取暗手。
+ * - 当前三副牌默认每张普通牌只有 `3` 张副本；底牌已知副本也会一并扣除。
+ */
+function isFriendTargetCalledDeadAtSelection(target = state.friendTarget) {
+  if (!target) return false;
+  const outsideCopiesAtCall = typeof target.outsideCopiesAtCall === "number"
+    ? target.outsideCopiesAtCall
+    : Math.max(0, 3 - getFriendTargetDeadCopiesAtCall(target) - getKnownBuriedTargetCopies(target));
+  return outsideCopiesAtCall === 1;
+}
+
+/**
+ * 作用：
+ * 返回当前朋友牌在公开出牌阶段真正需要等到的“外部出现次序”。
+ *
+ * 为什么这样写：
+ * 普通情况下仍沿用“第几张被打出来才算朋友牌”的旧口径；
+ * 但若打家已经把目标牌叫死为唯一外部副本，就不应再强迫它等待前置副本先被打出来。
+ *
+ * 输入：
+ * @param {object|null} [target=state.friendTarget] - 当前朋友牌定义。
+ *
+ * 输出：
+ * @returns {number} 当前应以第几张外部目标牌作为站队触发点。
+ *
+ * 注意：
+ * - 叫死场景固定返回 `1`，表示唯一外部副本一出现就应触发站队。
+ * - 其它场景继续沿用原始 `occurrence`。
+ */
+function getFriendTargetRevealOccurrence(target = state.friendTarget) {
+  if (!target) return 1;
+  if (isFriendTargetCalledDeadAtSelection(target)) return 1;
+  return target.occurrence || 1;
+}
+
 // 设置朋友目标牌。
 function setFriendTarget(target) {
+  const deadCopiesAtCall = getFriendTargetDeadCopiesAtCall(target);
+  const outsideCopiesAtCall = Math.max(0, 3 - deadCopiesAtCall - getKnownBuriedTargetCopies(target));
   state.friendTarget = {
     ...buildFriendTarget(target),
     occurrence: target.occurrence ?? 1,
+    deadCopiesAtCall,
+    outsideCopiesAtCall,
     matchesSeen: 0,
     failed: false,
     revealed: false,
@@ -2850,6 +2928,57 @@ function getSetupOptionKey(entry) {
   if (!entry) return "";
   const cardIds = Array.isArray(entry.cards) ? entry.cards.map((card) => card.id).sort().join(",") : "";
   return `${entry.playerId || 0}:${entry.suit}:${entry.count}:${cardIds}`;
+}
+
+/**
+ * 作用：
+ * 为当前桌面上的亮主结果生成一个稳定身份键。
+ *
+ * 为什么这样写：
+ * 抓牌阶段现在允许玩家先点一次“不反”，
+ * 共享层必须知道这次跳过是针对哪一手亮主做出的，
+ * 才能在后面真正进入最终反主读秒时，只对同一手亮主自动跳过，而不会误伤新的亮主结果。
+ *
+ * 输入：
+ * @param {?object} declaration - 当前要标识的亮主声明；默认读取共享状态。
+ *
+ * 输出：
+ * @returns {string} 用于比较当前亮主是否变化的稳定键值；没有声明时返回空字符串。
+ *
+ * 注意：
+ * - 这里要把玩家、花色、等级、张数和展示牌一起编码，避免同档但不同牌组被误判为同一手亮主。
+ * - 该键值只在本局人类“不反”流程里短期使用，不做持久化。
+ */
+function getDeclarationIdentityKey(declaration = state.declaration) {
+  if (!declaration) return "";
+  const cardIds = Array.isArray(declaration.cards)
+    ? declaration.cards.map((card) => card.id).sort().join(",")
+    : "";
+  return `${declaration.playerId || 0}:${declaration.suit}:${declaration.rank}:${declaration.count}:${cardIds}`;
+}
+
+/**
+ * 作用：
+ * 判断玩家1此前记录的“不反”意图，是否仍然对应当前桌面上的亮主。
+ *
+ * 为什么这样写：
+ * 抓牌阶段别人可能继续摸到更高一档主牌并改亮，
+ * 一旦当前亮主已经变化，玩家先前针对旧亮主点下的“不反”就必须自动失效，
+ * 否则最终反主读秒会被错误地直接跳过。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示之前记录的“不反”仍然可以用于当前亮主。
+ *
+ * 注意：
+ * - 当前没有亮主时必须返回 `false`。
+ * - 这里只服务玩家1的人类交互，不要拿去替代 AI 的反主决策。
+ */
+function hasQueuedHumanCounterPassForCurrentDeclaration() {
+  if (!state.pendingHumanCounterPassKey || !state.declaration) return false;
+  return state.pendingHumanCounterPassKey === getDeclarationIdentityKey(state.declaration);
 }
 
 /**
@@ -3936,6 +4065,7 @@ function declareTrump(playerId, declaration, source = "manual") {
     : declaration.rank;
   state.awaitingHumanDeclaration = false;
   state.selectedSetupOptionKey = null;
+  state.pendingHumanCounterPassKey = "";
   state.declaration = {
     playerId,
     suit: declaration.suit,
@@ -3976,6 +4106,50 @@ function maybeAutoDeclare(playerId) {
   const willing = best.count >= 3 || getSharedRandomNumber() < 0.65;
   if (!willing) return;
   declareTrump(playerId, best, "auto");
+}
+
+/**
+ * 作用：
+ * 处理玩家1在抓牌或最终反主阶段主动选择“不反”的动作。
+ *
+ * 为什么这样写：
+ * 这轮交互要求“不反”不再只是最终反主阶段的临时按钮，
+ * 而是抓牌时别人已亮主后也能先按一次，表示“当前这手亮主我先不反”；
+ * 等到真正进入最终反主读秒时，如果亮主还是这一手，就直接替玩家跳过该读秒。
+ *
+ * 输入：
+ * @param {number} playerId - 当前执行“不反”的玩家 ID。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示点击已经被接受并写入共享状态；否则返回 `false`。
+ *
+ * 注意：
+ * - 抓牌阶段只有“别人已经亮主”时才允许记录不反意图。
+ * - 最终反主阶段只有轮到玩家1时，才允许立即结束本轮读秒。
+ */
+function passCounterDecisionForPlayer(playerId) {
+  if (state.gameOver || playerId !== 1) {
+    return false;
+  }
+
+  if (state.phase === "countering") {
+    if (state.currentTurnId !== playerId) {
+      return false;
+    }
+    state.pendingHumanCounterPassKey = "";
+    passCounterForCurrentPlayer();
+    return true;
+  }
+
+  if (state.phase === "dealing" && state.declaration && state.declaration.playerId !== playerId) {
+    state.pendingHumanCounterPassKey = getDeclarationIdentityKey(state.declaration);
+    state.selectedSetupOptionKey = null;
+    renderCenterPanel();
+    updateActionHint();
+    return true;
+  }
+
+  return false;
 }
 
 // 获取无主反主选项。
@@ -4028,6 +4202,11 @@ function startCounterTurn() {
     return;
   }
 
+  if (player?.isHuman && player.id === 1 && hasQueuedHumanCounterPassForCurrentDeclaration()) {
+    passCounterForCurrentPlayer();
+    return;
+  }
+
   state.countdown = 30;
   render();
 
@@ -4069,6 +4248,9 @@ function passCounterForCurrentPlayer(isTimeout = false) {
   if (state.phase !== "countering") return;
   const player = getPlayer(state.currentTurnId);
   clearTimers();
+  if (player?.id === 1) {
+    state.pendingHumanCounterPassKey = "";
+  }
   state.counterPasses += 1;
   appendLog(TEXT.log.counterPass(player.name, isTimeout));
   if (state.counterPasses >= PLAYER_ORDER.length - 1) {
@@ -4755,12 +4937,13 @@ function maybeRevealFriend(playerId, cards) {
     (card) => isFriendTargetMatchCard(card)
   );
   if (matchedCards.length === 0) return null;
+  if (playerId === state.bankerId && isFriendTargetCalledDeadAtSelection()) return null;
 
   for (const _card of matchedCards) {
     const nextOccurrence = (state.friendTarget.matchesSeen || 0) + 1;
     state.friendTarget.matchesSeen = nextOccurrence;
 
-    if (nextOccurrence === state.friendTarget.occurrence) {
+    if (nextOccurrence === getFriendTargetRevealOccurrence()) {
       if (playerId === state.bankerId) {
         state.friendTarget.failed = true;
         state.hiddenFriendId = null;

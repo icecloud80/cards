@@ -20,6 +20,7 @@ function render() {
   const snapshot = {
     phase: state.phase,
     gameOver: state.gameOver,
+    hasSavedProgress: state.hasSavedProgress,
     aiDifficulty: state.aiDifficulty,
     aiPace: state.aiPace,
     bankerId: state.bankerId,
@@ -1648,13 +1649,18 @@ function renderHand() {
       dom.handSummary.textContent = `${getReadyStartMessage()} 你当前是 Lv:${human.level}。`;
     } else if (state.phase === "dealing") {
       const humanOptions = getAvailableSetupOptionsForPlayer(1, "dealing");
-      dom.handSummary.textContent = state.awaitingHumanDeclaration
+      const otherPlayerDeclared = !!state.declaration && state.declaration.playerId !== 1;
+      dom.handSummary.textContent = otherPlayerDeclared
         ? (humanOptions.length > 0
-          ? TEXT.hand.dealingAwaitHuman(human.hand.length, Math.max(0, state.countdown), humanOptions.map((entry) => formatDeclaration(entry)))
-          : TEXT.hand.dealingAwaitHumanNoOption(human.hand.length))
-        : (humanOptions.length > 0
-          ? TEXT.hand.dealingCanDeclare(human.hand.length, humanOptions.map((entry) => formatDeclaration(entry)))
-          : TEXT.hand.dealingNoDeclare(human.hand.length, getLevelRank(human.level)));
+          ? TEXT.hand.dealingCanCounter(human.hand.length, humanOptions.map((entry) => formatDeclaration(entry)))
+          : TEXT.hand.dealingNoCounter(human.hand.length))
+        : (state.awaitingHumanDeclaration
+          ? (humanOptions.length > 0
+            ? TEXT.hand.dealingAwaitHuman(human.hand.length, Math.max(0, state.countdown), humanOptions.map((entry) => formatDeclaration(entry)))
+            : TEXT.hand.dealingAwaitHumanNoOption(human.hand.length))
+          : (humanOptions.length > 0
+            ? TEXT.hand.dealingCanDeclare(human.hand.length, humanOptions.map((entry) => formatDeclaration(entry)))
+            : TEXT.hand.dealingNoDeclare(human.hand.length, getLevelRank(human.level))));
     } else if (state.phase === "countering") {
       const counterOptions = getAvailableSetupOptionsForPlayer(1, "countering");
       dom.handSummary.textContent = counterOptions.length > 0
@@ -1799,6 +1805,12 @@ function updateActionHint() {
   if (state.phase === "dealing") {
     const options = getAvailableSetupOptionsForPlayer(1, "dealing");
     const optionLabels = options.map((entry) => formatDeclaration(entry));
+    if (state.declaration && state.declaration.playerId !== 1) {
+      dom.actionHint.textContent = optionLabels.length > 0
+        ? TEXT.actionHint.dealingCanCounter(optionLabels)
+        : TEXT.actionHint.dealingCounterWait;
+      return;
+    }
     if (state.awaitingHumanDeclaration) {
       dom.actionHint.textContent = optionLabels.length > 0
         ? TEXT.actionHint.dealingAwaitHuman(Math.max(0, state.countdown), optionLabels)
@@ -2405,216 +2417,210 @@ function buildSetupOptionCardFaceHtml(card) {
  *
  * 为什么这样写：
  * 手游发牌阶段和 PC 最后反主阶段都已经改成“候选项即操作”的紧凑交互；
- * 把判断条件收成同一个 helper 后，候选区渲染和中央按钮显隐就能共用同一套口径，
- * 避免一边已经切成直选，另一边还残留旧确认按钮。
- *
- * 输入：
- * @param {object[]} options - 当前阶段对人类玩家可见的候选项列表。
- *
- * 输出：
- * @returns {boolean} `true` 表示当前应隐藏旧确认按钮，直接使用候选按钮提交。
- *
- * 注意：
- * - 手游只在发牌亮主阶段使用直选模式。
- * - PC 只在最后反主且轮到玩家1时使用直选模式。
- */
-function shouldUseDirectSetupChoiceMode(options) {
-  if (APP_PLATFORM === "mobile") {
-    return Array.isArray(options) && options.length > 0 && state.phase === "dealing";
-  }
-  if (APP_PLATFORM === "pc") {
-    return state.phase === "countering" && state.currentTurnId === 1;
-  }
-  return false;
-}
-
-/**
- * 作用：
- * 生成亮主 / 反主候选区里使用的“跳过当前动作”按钮 HTML。
- *
- * 为什么这样写：
- * 现在最后反主已经把“不反主”并进了下方直选区，而补亮等待窗口也需要一个明确的“不亮”入口；
- * 用一个通用 helper 统一生成“跳过”按钮，能让不同阶段共用同一套 DOM 结构和事件绑定。
+ * 现在 `index1 / index2 / index-app` 都改成共享同一块底部 setup 区，
+ * 不再并行维护“旧确认按钮 + 候选 chips”两套入口；
+ * 用一个 helper 统一生成跳过按钮，可以保证声明、反主与等待文案都走同一套可点击结构。
  *
  * 输入：
  * @param {"counter"|"declare"} passMode - 当前要生成哪种跳过动作按钮。
+ * @param {boolean} disabled - 当前按钮是否应禁用。
+ * @param {boolean} active - 当前按钮是否应表现成已预选中的高亮态。
  *
  * 输出：
  * @returns {string} 可直接拼进 `setupOptions` 的按钮 HTML 字符串。
  *
  * 注意：
- * - `counter` 对应“不反主”，`declare` 对应“不亮”。
- * - 不要复用上方旧按钮，避免把已收起的旧流程重新带回界面。
+ * - `counter` 对应“不反”，`declare` 对应“不亮”。
+ * - `active` 只用于提示玩家“抓牌中已先点过不反”，不代表按钮会失去再次点击能力。
  */
-function buildSetupPassOptionButtonHtml(passMode) {
+function buildSetupPassOptionButtonHtml(passMode, disabled = false, active = false) {
   const label = passMode === "counter" ? TEXT.buttons.counterPass : TEXT.buttons.passDeclare;
   return `
     <button
       type="button"
-      class="setup-option-btn setup-option-pass-btn"
+      class="setup-option-btn setup-option-pass-btn${active ? " active" : ""}"
       data-setup-pass="${passMode}"
       aria-label="${label}"
+      ${disabled ? "disabled" : ""}
     >${label}</button>
   `;
 }
 
 /**
  * 作用：
- * 把当前亮主 / 反主候选项渲染到中央操作区的可选列表里。
+ * 生成 setup 区里的纯文本状态胶囊。
  *
  * 为什么这样写：
- * 玩家现在需要在多个合法亮牌方案之间手动切换，
- * 不能只看按钮上一条文案；单独做一个渲染 helper，
- * 可以让 PC 和 mobile 共用同一套候选列表结构与高亮状态。
+ * 用户现在要求“别人扣牌时，这一块直接显示玩家扣牌中”，
+ * 这类状态提示和声明按钮共享同一块底部区域；
+ * 单独收成 helper 后，模板和渲染逻辑都不需要再额外维护一套消息节点。
  *
  * 输入：
- * @param {object[]} options - 当前阶段所有可选候选项。
- * @param {?object} selectedOption - 当前应高亮的候选项。
+ * @param {string} message - 需要展示的短文本状态。
  *
  * 输出：
- * @returns {void} 直接更新中央操作区的候选列表 DOM。
+ * @returns {string} 可直接写入 `setupOptions` 的状态胶囊 HTML。
  *
  * 注意：
- * - 没有可选项时必须清空并隐藏，避免残留上一阶段内容。
- * - 发牌阶段的候选项按钮会直接执行亮主；最后反主阶段仍保留“先选再确认”。
+ * - 这里只用于短状态文案，不要塞入长段说明。
+ * - 调用方要自己保证 message 非空。
  */
-function renderSetupOptions(options, selectedOption) {
+function buildSetupStatusChipHtml(message) {
+  return `<div class="setup-status-chip" role="status" aria-live="polite">${message}</div>`;
+}
+
+/**
+ * 作用：
+ * 计算玩家1当前在底部 setup 区里应看到的共享交互模型。
+ *
+ * 为什么这样写：
+ * 抓牌、补亮、反主和别人扣牌四种状态已经不再适合散落在多个按钮 helper 里分别判断；
+ * 先统一归一成“当前该显示哪些候选、哪个跳过按钮、是否可按、是否只显示文案”的结构，
+ * `index1 / index2 / index-app` 就能共用同一套渲染逻辑，也更容易补测试。
+ *
+ * 输入：
+ * @param {void} - 直接读取共享状态和玩家1当前手牌候选。
+ *
+ * 输出：
+ * @returns {{mode: string, label: string, options: object[], passMode: ?string, passDisabled: boolean, passActive: boolean, message: string}} 当前 setup 区应采用的渲染配置。
+ *
+ * 注意：
+ * - 抓牌中若别人已亮主，应优先切到“可反主 + 不反”模型。
+ * - 别人扣牌时只显示状态文案，不再露出选择/出牌按钮。
+ */
+function getHumanSetupPanelConfig() {
+  if (state.phase === "burying" && state.bankerId !== 1) {
+    return {
+      mode: "message",
+      label: "",
+      options: [],
+      passMode: null,
+      passDisabled: true,
+      passActive: false,
+      message: TEXT.setupOptions.buryingOther,
+    };
+  }
+
+  if (state.phase === "countering" && state.currentTurnId === 1) {
+    return {
+      mode: "counter",
+      label: TEXT.setupOptions.counter,
+      options: getAvailableSetupOptionsForPlayer(1, "countering"),
+      passMode: "counter",
+      passDisabled: !!state.gameOver,
+      passActive: false,
+      message: "",
+    };
+  }
+
+  if (state.phase === "dealing") {
+    const dealingOptions = getAvailableSetupOptionsForPlayer(1, "dealing");
+    const otherPlayerDeclared = !!state.declaration && state.declaration.playerId !== 1;
+    if (otherPlayerDeclared) {
+      return {
+        mode: "counter",
+        label: TEXT.setupOptions.counter,
+        options: dealingOptions,
+        passMode: "counter",
+        passDisabled: !!state.gameOver,
+        passActive: hasQueuedHumanCounterPassForCurrentDeclaration(),
+        message: "",
+      };
+    }
+    return {
+      mode: "declare",
+      label: TEXT.setupOptions.declareInline,
+      options: dealingOptions,
+      passMode: "declare",
+      passDisabled: !!state.gameOver || !state.awaitingHumanDeclaration || dealingOptions.length === 0,
+      passActive: false,
+      message: "",
+    };
+  }
+
+  return {
+    mode: "hidden",
+    label: "",
+    options: [],
+    passMode: null,
+    passDisabled: true,
+    passActive: false,
+    message: "",
+  };
+}
+
+/**
+ * 作用：
+ * 把当前亮主 / 反主 / 扣牌等待状态渲染到中央操作区的共享 setup 列表里。
+ *
+ * 为什么这样写：
+ * 这块 UI 现在要同时承接“亮主候选”“不亮”“可反主”“不反”和“玩家扣牌中”五类内容；
+ * 用统一 renderer 可以确保三套页面都只维护一处真实规则，不再出现某个平台按钮能看见却点不动的分叉。
+ *
+ * 输入：
+ * @param {object} config - 当前 setup 区应呈现的共享渲染配置。
+ * @param {string} config.mode - 当前模式：`hidden / declare / counter / message`。
+ * @param {string} config.label - 当前 setup 区标签文案。
+ * @param {object[]} config.options - 当前阶段可直接点击的候选项。
+ * @param {?string} config.passMode - 当前是否需要附带跳过按钮。
+ * @param {boolean} config.passDisabled - 跳过按钮是否应禁用。
+ * @param {boolean} config.passActive - 跳过按钮是否应高亮成“已预选跳过”。
+ * @param {string} config.message - 当前只显示状态文案时的文本。
+ *
+ * 输出：
+ * @returns {void} 直接更新中央操作区的共享 setup DOM。
+ *
+ * 注意：
+ * - 抓牌阶段即便没有可亮主方案，也要保留一个禁用的“不亮”按钮。
+ * - 别人扣牌时必须只显示短文案，避免把旧操作按钮误露出来。
+ */
+function renderSetupOptions(config) {
   if (!dom.setupOptions) return;
-  const normalizedOptions = Array.isArray(options) ? options : [];
-  const showCounterPassChoice = APP_PLATFORM === "pc" && state.phase === "countering" && state.currentTurnId === 1;
-  const showDeclarePassChoice = state.phase === "dealing" && state.awaitingHumanDeclaration;
-  if (normalizedOptions.length === 0 && !showCounterPassChoice && !showDeclarePassChoice) {
+  const normalizedConfig = config || { mode: "hidden", label: "", options: [], passMode: null, passDisabled: true, passActive: false, message: "" };
+  const normalizedOptions = Array.isArray(normalizedConfig.options) ? normalizedConfig.options : [];
+  dom.setupOptions.classList.toggle("setup-options-status-only", normalizedConfig.mode === "message");
+  if (normalizedConfig.mode === "hidden") {
     dom.setupOptions.hidden = true;
     dom.setupOptions.innerHTML = "";
     return;
   }
 
-  const isDealingPhase = state.phase === "dealing";
-  const selectedKey = getSetupOptionKey(selectedOption);
-  const directChoiceMode = shouldUseDirectSetupChoiceMode(normalizedOptions);
   dom.setupOptions.hidden = false;
+  if (normalizedConfig.mode === "message") {
+    dom.setupOptions.innerHTML = buildSetupStatusChipHtml(normalizedConfig.message);
+    return;
+  }
+
+  const isDeclareMode = normalizedConfig.mode === "declare";
   dom.setupOptions.innerHTML = `
-    ${isDealingPhase
-      ? `<div class="setup-options-inline-label">${TEXT.setupOptions.declareInline}</div>`
-      : `<div class="setup-options-label">${TEXT.setupOptions.counter}</div>`}
+    ${normalizedConfig.label
+      ? (isDeclareMode
+        ? `<div class="setup-options-inline-label">${normalizedConfig.label}</div>`
+        : `<div class="setup-options-label">${normalizedConfig.label}</div>`)
+      : ""}
     ${normalizedOptions.map((entry) => {
       const optionKey = getSetupOptionKey(entry);
-      const actionLabel = isDealingPhase
-        ? buildCompactSetupOptionLabelHtml(entry, true)
-        : buildCompactSetupOptionLabelHtml(entry, false);
+      const actionLabel = buildCompactSetupOptionLabelHtml(entry, isDeclareMode);
       return `
         <button
           type="button"
-          class="setup-option-btn${isDealingPhase ? " primary" : ""}${optionKey === selectedKey ? " active" : ""}"
+          class="setup-option-btn${isDeclareMode ? " primary" : ""}"
           data-setup-option-key="${optionKey}"
-          aria-pressed="${directChoiceMode ? "false" : (isDealingPhase ? "false" : (optionKey === selectedKey ? "true" : "false"))}"
+          aria-pressed="false"
         >${actionLabel}</button>
       `;
     }).join("")}
-    ${showCounterPassChoice ? buildSetupPassOptionButtonHtml("counter") : ""}
-    ${showDeclarePassChoice ? buildSetupPassOptionButtonHtml("declare") : ""}
+    ${normalizedConfig.passMode
+      ? buildSetupPassOptionButtonHtml(normalizedConfig.passMode, normalizedConfig.passDisabled, normalizedConfig.passActive)
+      : ""}
   `;
-}
-
-/**
- * 作用：
- * 同步旧版 `亮主 / 不反主` 底部按钮的文案、可见性和可用性。
- *
- * 为什么这样写：
- * PC 仍保留这两个旧按钮，而 `index2.html` 与 `index-app.html` 的移动端已经删掉了对应 DOM；
- * 把这段逻辑单独收成 helper 后，移动端可以自然跳过空节点，PC 继续复用原来的声明 / 反主按钮语义。
- *
- * 输入：
- * @param {object} config - 本轮渲染要用到的声明状态集合。
- * @param {object[]} config.humanSetupOptions - 当前阶段人类玩家的合法声明候选。
- * @param {?object} config.selectedSetupOption - 当前高亮的反主候选。
- * @param {boolean} config.canShowDeclareDuringDealing - 旧亮主按钮在发牌阶段是否允许显示。
- * @param {boolean} config.canShowDeclareDuringCountering - 旧亮主按钮在反主阶段是否允许显示。
- * @param {boolean} config.canDeclareNow - 当前是否允许立即执行反主。
- * @param {boolean} config.directSetupChoiceMode - 当前是否已进入直选候选态。
- *
- * 输出：
- * @returns {void} 直接把状态写回旧按钮 DOM；若当前平台没有这些按钮则不做任何事。
- *
- * 注意：
- * - 这里只同步旧底部按钮，不负责渲染 `setupOptions` 声明候选区。
- * - mobile 的亮主 / 不亮入口已经迁到候选 chips，这里缺节点是合法状态，不要再补回 DOM。
- */
-function syncLegacyDeclarationButtons(config) {
-  const {
-    humanSetupOptions,
-    selectedSetupOption,
-    canShowDeclareDuringDealing,
-    canShowDeclareDuringCountering,
-    canDeclareNow,
-    directSetupChoiceMode,
-  } = config;
-
-  if (dom.declareBtn) {
-    if (state.phase === "countering") {
-      dom.declareBtn.textContent = selectedSetupOption
-        ? (selectedSetupOption.suit === "notrump"
-          ? getNoTrumpCounterLabel(selectedSetupOption)
-          : `反${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`)
-        : TEXT.buttons.counter;
-    } else if (state.phase === "dealing") {
-      dom.declareBtn.textContent = state.declaration ? TEXT.buttons.redeclare : TEXT.buttons.declare;
-    } else {
-      dom.declareBtn.textContent = TEXT.buttons.declare;
-    }
-    dom.declareBtn.hidden = !(canShowDeclareDuringDealing || canShowDeclareDuringCountering);
-    dom.declareBtn.disabled = state.gameOver || (state.phase === "countering" ? !canDeclareNow : humanSetupOptions.length === 0);
-    dom.declareBtn.classList.toggle("primary", state.phase === "countering" ? canDeclareNow : canShowDeclareDuringDealing);
-  }
-
-  if (dom.passCounterBtn) {
-    const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!selectedSetupOption;
-    dom.passCounterBtn.disabled = state.gameOver || !showPassCounterBtn;
-    dom.passCounterBtn.hidden = !showPassCounterBtn || directSetupChoiceMode;
-  }
-}
-
-/**
- * 作用：
- * 同步 mobile 抓牌阶段底部 `不亮主` 按钮的显示与可用性。
- *
- * 为什么这样写：
- * 用户希望抓牌阶段始终能看到一个明确的“不亮主”入口，
- * 但真正允许点击的时机仍必须沿用现有补亮窗口规则；
- * 把这层阶段感知逻辑收成单独 helper，可以同时满足“按钮常驻可见”和“真实规则不被提前跳过”。
- *
- * 输入：
- * @param {object} config - 本轮渲染要用到的声明状态集合。
- * @param {object[]} config.humanSetupOptions - 当前阶段人类玩家的合法亮主候选。
- *
- * 输出：
- * @returns {void} 直接把状态写回 mobile 底部 `不亮主` 按钮；若当前平台没有该按钮则不做任何事。
- *
- * 注意：
- * - 这里只承接抓牌阶段的人类“不亮主”入口，不处理最后反主阶段。
- * - 按钮在抓牌阶段保持可见，但只有“存在合法亮主方案且已进入最终补亮窗口”时才可点击。
- */
-function syncMobilePassDeclareButton(config) {
-  if (!dom.passDeclareBtn) return;
-  const { humanSetupOptions } = config;
-  const canShowPassDeclareBtn = state.phase === "dealing";
-  const canPassDeclareNow = canShowPassDeclareBtn && humanSetupOptions.length > 0 && state.awaitingHumanDeclaration && !state.gameOver;
-  dom.passDeclareBtn.textContent = "不亮主";
-  dom.passDeclareBtn.hidden = !canShowPassDeclareBtn;
-  dom.passDeclareBtn.disabled = !canPassDeclareNow;
 }
 
 // 渲染中央操作面板内容。
 function renderCenterPanel() {
   const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
-  const humanSetupOptions = isOpeningPhase ? getAvailableSetupOptionsForPlayer(1, state.phase) : [];
-  const selectedSetupOption = state.phase === "countering" ? getSelectedSetupOptionForPlayer(1, state.phase) : null;
-  const directSetupChoiceMode = shouldUseDirectSetupChoiceMode(humanSetupOptions);
-  const canShowDeclareDuringDealing = state.phase === "dealing" && humanSetupOptions.length > 0 && !directSetupChoiceMode;
-  const canShowDeclareDuringCountering = state.phase === "countering" && !directSetupChoiceMode;
-  const canDeclareNow = state.phase === "countering"
-      ? state.currentTurnId === 1 && !!selectedSetupOption
-      : false;
+  const setupPanelConfig = getHumanSetupPanelConfig();
+  const hasSetupPanel = setupPanelConfig.mode !== "hidden";
   const selected = state.selectedCardIds
     .map((id) => getPlayer(1).hand.find((card) => card.id === id))
     .filter(Boolean);
@@ -2680,26 +2686,14 @@ function renderCenterPanel() {
     : state.phase === "burying"
       ? TEXT.buttons.buryPickSeven
       : TEXT.buttons.select;
-  syncLegacyDeclarationButtons({
-    humanSetupOptions,
-    selectedSetupOption,
-    canShowDeclareDuringDealing,
-    canShowDeclareDuringCountering,
-    canDeclareNow,
-    directSetupChoiceMode,
-  });
-  syncMobilePassDeclareButton({ humanSetupOptions });
-  renderSetupOptions(humanSetupOptions, selectedSetupOption);
+  renderSetupOptions(setupPanelConfig);
   if (dom.centerPanel) {
-    const showDealingPassMode = !!(dom.passDeclareBtn && !dom.passDeclareBtn.hidden);
-    dom.centerPanel.classList.toggle("setup-choice-mode", directSetupChoiceMode);
-    dom.centerPanel.classList.toggle("dealing-pass-mode", showDealingPassMode);
+    dom.centerPanel.classList.toggle("setup-choice-mode", hasSetupPanel);
     const actionRow = dom.centerPanel.querySelector(".action-row");
     if (actionRow) {
-      const visibleButtons = [dom.hintBtn, dom.playBtn, dom.declareBtn, dom.passCounterBtn, dom.passDeclareBtn]
+      const visibleButtons = [dom.hintBtn, dom.playBtn]
         .some((button) => button && !button.hidden);
-      const shouldKeepActionRowDuringDirectChoice = showDealingPassMode;
-      actionRow.hidden = !visibleButtons || (directSetupChoiceMode && !shouldKeepActionRowDuringDirectChoice);
+      actionRow.hidden = !visibleButtons;
     }
   }
   if (dom.aiDifficultySelect) {

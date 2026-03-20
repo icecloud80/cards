@@ -1121,6 +1121,88 @@ function runFriendStrategySuite(context) {
 
     /**
      * 作用：
+     * 搭建“高价值朋友牌在跟牌时若拿不到这一轮，就不该被动贴出站队”的测试场景。
+     *
+     * 为什么这样写：
+     * 用户给出的真实问题是：
+     * 朋友目标是第二张 "大王"，而玩家 2 跟对子时其实有 "♠K + 小副牌" 的合法跟法，
+     * 旧逻辑却会直接选 "♠K + 大王" 亮友。
+     * 这类亮友虽然合法，但并不能赢下当前这一轮，只是在白白消耗后续最值钱的控牌资源。
+     *
+     * 输入：
+     * @param {string} difficulty - 当前测试难度。
+     *
+     * 输出：
+     * @returns {void} 直接写入跟牌测试状态。
+     *
+     * 注意：
+     * - 这里故意让玩家 2 只有 1 张黑桃，确保 "大王" 只是“补张站队”，而不是唯一合法跟法。
+     * - 预期是保住 "大王"，改用 "♠K + ♦3" 跟过去，留待后续真正抢先手时再亮友。
+     */
+    function setupHighValueJokerRevealDelayScenario(difficulty) {
+      resetCommonState();
+      state.aiDifficulty = difficulty;
+      state.trumpSuit = "clubs";
+      state.levelRank = "4";
+      state.playerLevels = { 1: "4", 2: "2", 3: "4", 4: "4", 5: "A" };
+      state.bankerId = 4;
+      state.leaderId = 4;
+      state.currentTurnId = 2;
+      state.trickNumber = 10;
+      state.players = [
+        basePlayer(1, [
+          makeCard("delay-p1-h-q", "hearts", "Q"),
+          makeCard("delay-p1-c-2", "clubs", "2"),
+        ], true),
+        basePlayer(2, [
+          makeCard("delay-p2-s-k", "spades", "K"),
+          makeCard("delay-p2-bj", "joker", "BJ"),
+          makeCard("delay-p2-d-3", "diamonds", "3"),
+          makeCard("delay-p2-h-k", "hearts", "K"),
+        ]),
+        basePlayer(3, [
+          makeCard("delay-p3-s-5a", "spades", "5"),
+          makeCard("delay-p3-s-5b", "spades", "5"),
+        ]),
+        basePlayer(4, [
+          makeCard("delay-p4-s-10a", "spades", "10"),
+          makeCard("delay-p4-s-10b", "spades", "10"),
+        ]),
+        basePlayer(5, [
+          makeCard("delay-p5-s-6", "spades", "6"),
+          makeCard("delay-p5-s-7", "spades", "7"),
+        ]),
+      ];
+      setFriendTarget({ suit: "joker", rank: "BJ", occurrence: 2 });
+      state.friendTarget.matchesSeen = 1;
+      state.currentTrick = [
+        {
+          playerId: 4,
+          cards: [
+            makeCard("delay-lead-s-10a", "spades", "10"),
+            makeCard("delay-lead-s-10b", "spades", "10"),
+          ],
+        },
+        {
+          playerId: 5,
+          cards: [
+            makeCard("delay-p5-s-6-play", "spades", "6"),
+            makeCard("delay-p5-s-7-play", "spades", "7"),
+          ],
+        },
+        {
+          playerId: 1,
+          cards: [
+            makeCard("delay-p1-s-5-play", "spades", "5"),
+            makeCard("delay-p1-s-j-play", "spades", "J"),
+          ],
+        },
+      ];
+      state.leadSpec = classifyPlay(state.currentTrick[0].cards);
+    }
+
+    /**
+     * 作用：
      * 搭建“缺首门贴副时，应优先保住副牌对子而不是把它直接贴掉”的测试场景。
      *
      * 为什么这样写：
@@ -1995,6 +2077,32 @@ function runFriendStrategySuite(context) {
         difficulty + ": should keep the duplicate friend-target A and follow with the lower same-suit card after the reveal is already complete"
       );
       results.push(difficulty + " resolved-friend echo avoidance ok");
+    }
+
+    for (const difficulty of ["beginner", "intermediate", "advanced"]) {
+      setupHighValueJokerRevealDelayScenario(difficulty);
+      assert(canAiRevealFriendNow(2) === true, difficulty + ": high-value joker delay scenario should still be a legal stand opportunity");
+      const highValueRevealDelayChoices = getLegalSelectionsForPlayer(2);
+      assert(
+        highValueRevealDelayChoices.some((combo) => combo.some((card) => card.suit === "joker" && card.rank === "BJ")),
+        difficulty + ": high-value joker delay scenario should still contain a reveal candidate"
+      );
+      assert(
+        highValueRevealDelayChoices.some((combo) => combo.every((card) => !(card.suit === "joker" && card.rank === "BJ"))),
+        difficulty + ": high-value joker delay scenario should contain a non-reveal follow candidate"
+      );
+      const highValueRevealDelayChoice = getLegalHintForPlayer(2);
+      assert(highValueRevealDelayChoice.length === 2, difficulty + ": high-value joker delay scenario should choose a 2-card follow");
+      assert(
+        highValueRevealDelayChoice.every((card) => !(card.suit === "joker" && card.rank === "BJ")),
+        difficulty + ": should keep the high-value joker friend target for a later takeover instead of spending it on a non-winning follow"
+      );
+      assert(
+        highValueRevealDelayChoice.some((card) => card.suit === "spades" && card.rank === "K")
+          && highValueRevealDelayChoice.some((card) => card.suit === "diamonds" && card.rank === "3"),
+        difficulty + ": should follow with spades K plus the low diamond filler while preserving the joker target"
+      );
+      results.push(difficulty + " high-value joker delay reveal ok");
     }
 
     setupDefenderFollowBeatScenario("beginner");

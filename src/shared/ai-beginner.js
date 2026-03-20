@@ -69,6 +69,9 @@ function chooseAiFollowPlay(playerId, candidates) {
     && (shouldAiDelayRevealOnOpeningLead(playerId) || shouldAiDelayRevealForGradeBottom(playerId));
   const revealChoice = revealOpportunity ? chooseAiRevealCombo(candidates) : [];
   const supportChoice = revealOpportunity ? chooseAiSupportBeforeReveal(playerId, candidates, currentWinningPlay) : [];
+  const highValueRevealDelayChoice = revealOpportunity
+    ? chooseAiHighValueRevealDelayFollow(playerId, candidates, currentWinningPlay, revealChoice)
+    : [];
   const safeBeatingCandidates = shouldDelayReveal
     ? beatingCandidates.filter((combo) =>
       !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
@@ -77,6 +80,10 @@ function chooseAiFollowPlay(playerId, candidates) {
 
   if (supportChoice.length > 0) {
     return supportChoice;
+  }
+
+  if (highValueRevealDelayChoice.length > 0) {
+    return highValueRevealDelayChoice;
   }
 
   if (!shouldDelayReveal && revealChoice.length > 0 && (state.trickNumber === 1 || getAiRevealIntentScore(playerId) >= 3)) {

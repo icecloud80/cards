@@ -340,6 +340,124 @@ function chooseAiResolvedFriendRevealSupportFollow(playerId, candidates, current
   })[0];
 }
 
+/**
+ * 作用：
+ * 判断当前朋友牌是否属于更适合留作后手抢先的高价值控制牌。
+ *
+ * 为什么这样写：
+ * 用户给出的复盘问题不是“AI 不会亮友”，而是“明明这一手亮出来也拿不到牌权，
+ * 却把 `大王 / 高主 / A/K` 这类高价值控张白白贴掉了”。
+ * 把这层价值判断抽成共享 helper 后，beginner / intermediate / advanced
+ * 都能用同一口径识别“这张朋友牌更像后手控制资源，而不是顺手站队材料”。
+ *
+ * 输入：
+ * @param {object|null} [target=state.friendTarget] - 当前局面的朋友牌目标。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示该朋友牌应被视为高价值控制牌。
+ *
+ * 注意：
+ * - 王张一定视为高价值控制牌。
+ * - 当前先把所有主牌朋友牌，以及副牌 `A / K` 收进高价值范围。
+ */
+function isAiHighValueFriendTarget(target = state.friendTarget) {
+  if (!target) return false;
+  if (target.suit === "joker") return true;
+  const targetCard = getTargetVirtualCard(target);
+  if (!targetCard) return false;
+  if (effectiveSuit(targetCard) === "trump") return true;
+  return ["A", "K"].includes(target.rank);
+}
+
+/**
+ * 作用：
+ * 为“暂缓亮友、保住高价值朋友牌”场景计算一手替代跟牌的保留成本。
+ *
+ * 为什么这样写：
+ * 当 AI 已经决定“这一手先不亮”，后续排序就不该再把别的高张、主牌或带分牌顺手垫掉。
+ * 这里把“替代跟牌要尽量便宜”显式收口成统一成本分，避免不同难度各自写一套零散 tie-breaker。
+ *
+ * 输入：
+ * @param {Array<object>} combo - 当前待评估的替代跟牌组合。
+ *
+ * 输出：
+ * @returns {number} 数值越低，表示越适合作为“先保住高价值朋友牌”的过渡跟牌。
+ *
+ * 注意：
+ * - 这里只比较替代候选之间的保留成本，不直接判断是否合法。
+ * - 主牌、高张和带分牌都会被额外加权，避免“保住朋友牌，却顺手又垫掉另一张大牌”。
+ */
+function scoreAiDelayedRevealPreserveCombo(combo) {
+  if (!Array.isArray(combo) || combo.length === 0) return Number.POSITIVE_INFINITY;
+  return combo.reduce((sum, card) => {
+    let cost = scoreValue(card) * 6;
+    if (card.suit === "joker") cost += 180;
+    else if (effectiveSuit(card) === "trump") cost += 70;
+    else if (["A", "K"].includes(card.rank)) cost += 28;
+    cost += Math.max(0, cardStrength(card) - 10);
+    return sum + cost;
+  }, 0);
+}
+
+/**
+ * 作用：
+ * 在“亮友这手也拿不到当前轮次”时，优先返回一手保住高价值朋友牌的替代跟牌。
+ *
+ * 为什么这样写：
+ * 真实复盘里出现过“第二张大王被拿来给对子补张站队”的误判：
+ * 这类亮友虽然满足规则，但如果这手牌本身抢不下当前轮次，本质上只是把高价值控张白白暴露并耗掉。
+ * 这里把它做成共享 shortcut，让 AI 在有别的合法跟法时，先把 `大王 / 高主 / A/K`
+ * 这类朋友牌留到后面真正能抢先手的时机。
+ *
+ * 输入：
+ * @param {number} playerId - 当前准备跟牌的玩家 ID。
+ * @param {Array<Array<object>>} candidates - 当前所有合法跟牌候选。
+ * @param {{playerId:number,cards:Array<object>}|null} currentWinningPlay - 当前桌面的领先出牌。
+ * @param {Array<object>|null} [revealChoice=null] - 当前默认亮友候选；为空时内部自行计算。
+ *
+ * 输出：
+ * @returns {Array<object>} 命中“高价值朋友牌非赢墩不亮”窗口时返回替代跟牌，否则返回空数组。
+ *
+ * 注意：
+ * - 只在当前已经可以亮友、且亮友这手并不能反超桌面赢家时启用。
+ * - 必须存在不含朋友牌的合法非压制跟牌；若规则逼到只能出朋友牌，这里不会拦截。
+ */
+function chooseAiHighValueRevealDelayFollow(playerId, candidates, currentWinningPlay, revealChoice = null) {
+  if (!canAiRevealFriendNow(playerId) || !currentWinningPlay) return [];
+  if (!Array.isArray(candidates) || candidates.length === 0) return [];
+  if (!isAiHighValueFriendTarget(state.friendTarget)) return [];
+
+  const targetRevealChoice = Array.isArray(revealChoice) && revealChoice.length > 0
+    ? revealChoice
+    : chooseAiRevealCombo(candidates);
+  if (targetRevealChoice.length === 0) return [];
+  if (wouldAiComboBeatCurrent(playerId, targetRevealChoice, currentWinningPlay)) return [];
+
+  const player = getPlayer(playerId);
+  if (!player || !Array.isArray(player.hand) || player.hand.length === 0) return [];
+
+  const preserveChoices = candidates.filter((combo) =>
+    !combo.some((card) => card.suit === state.friendTarget.suit && card.rank === state.friendTarget.rank)
+  );
+  if (preserveChoices.length === 0) return [];
+
+  const nonBeatingPreserveChoices = preserveChoices.filter((combo) =>
+    !wouldAiComboBeatCurrent(playerId, combo, currentWinningPlay)
+  );
+  if (nonBeatingPreserveChoices.length === 0) return [];
+
+  return nonBeatingPreserveChoices.sort((a, b) => {
+    const preserveDiff = scoreOffSuitDiscardStructurePreservation(playerId, b, player.hand)
+      - scoreOffSuitDiscardStructurePreservation(playerId, a, player.hand);
+    if (preserveDiff !== 0) return preserveDiff;
+    const comboCostDiff = scoreAiDelayedRevealPreserveCombo(a) - scoreAiDelayedRevealPreserveCombo(b);
+    if (comboCostDiff !== 0) return comboCostDiff;
+    const pointDiff = getComboPointValue(a) - getComboPointValue(b);
+    if (pointDiff !== 0) return pointDiff;
+    return classifyPlay(a).power - classifyPlay(b).power;
+  })[0];
+}
+
 // 从一组牌中选出进攻性最强的首发。
 function chooseStrongLeadFromCards(cards) {
   if (cards.length === 0) return [];

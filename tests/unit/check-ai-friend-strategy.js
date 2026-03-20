@@ -627,12 +627,12 @@ function runFriendStrategySuite(context) {
 
     /**
      * 作用：
-     * 搭建“打家手里有两张 A 时，应先出对 A 再找朋友”的测试场景。
+     * 搭建“打家持有 AA10 时，应先用 10 递给第三张 A 接手”的测试场景。
      *
      * 为什么这样写：
-     * 用户明确补充：
-     * 如果手里有两张 A，就应改叫第三张 A，并先出对 A 再用小牌找朋友。
-     * 这里验证 shared heuristic 会优先出 AA，而不是拆成单张试探。
+     * 这轮修复针对的是固定复盘里的错误路线：
+     * 打家如果已经握有两张目标 A，再先出 AA 会直接把朋友叫死；
+     * 更合理的节奏应是先用 10 找朋友，让第三张 A 自然上手。
      *
      * 输入：
      * @param {string} difficulty - 当前测试难度。
@@ -641,10 +641,10 @@ function runFriendStrategySuite(context) {
      * @returns {void} 直接写入 playing 状态。
      *
      * 注意：
-     * - 目标牌是“第三张红桃 A”。
-     * - 红桃 4 是后续找朋友牌，当前这手不应先走它。
+     * - 目标牌仍是“第三张红桃 A”。
+     * - 红桃 10 是预期的接手张，这手不应再先走 AA。
      */
-    function setupBankerDoubleAceForceRevealScenario(difficulty) {
+    function setupBankerThirdAceTakeoverLeadScenario(difficulty) {
       resetCommonState();
       state.aiDifficulty = difficulty;
       state.phase = "playing";
@@ -661,7 +661,7 @@ function runFriendStrategySuite(context) {
         basePlayer(5, [
           makeCard("banker-h-a-1-aa", "hearts", "A"),
           makeCard("banker-h-a-2-aa", "hearts", "A"),
-          makeCard("banker-h-4-aa", "hearts", "4"),
+          makeCard("banker-h-10-aa", "hearts", "10"),
           makeCard("banker-c-k-1-aa", "clubs", "K"),
           makeCard("banker-s-j-aa", "spades", "J"),
         ]),
@@ -1641,11 +1641,11 @@ function runFriendStrategySuite(context) {
     }
 
     for (const difficulty of ["beginner", "intermediate"]) {
-      setupBankerDoubleAceForceRevealScenario(difficulty);
+      setupBankerThirdAceTakeoverLeadScenario(difficulty);
       const hint = chooseAiLeadPlay(5);
-      assert(hint.length === 2, difficulty + ": double-A force reveal scenario should choose a pair lead");
-      assert(hint.every((card) => card.suit === "hearts" && card.rank === "A"), difficulty + ": banker should lead pair A before searching for friend");
-      results.push(difficulty + " banker double-A force reveal ok");
+      assert(hint.length === 1, difficulty + ": third-A takeover scenario should choose a single search lead");
+      assert(hint[0].suit === "hearts" && hint[0].rank === "10", difficulty + ": banker should lead hearts 10 to let the third A take over");
+      results.push(difficulty + " banker third-A takeover lead ok");
     }
 
     setupRevealTakeoverScenario("beginner");

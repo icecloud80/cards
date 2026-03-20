@@ -2516,12 +2516,102 @@ function renderSetupOptions(options, selectedOption) {
   `;
 }
 
+/**
+ * 作用：
+ * 同步旧版 `亮主 / 不反主` 底部按钮的文案、可见性和可用性。
+ *
+ * 为什么这样写：
+ * PC 仍保留这两个旧按钮，而 `index2.html` 与 `index-app.html` 的移动端已经删掉了对应 DOM；
+ * 把这段逻辑单独收成 helper 后，移动端可以自然跳过空节点，PC 继续复用原来的声明 / 反主按钮语义。
+ *
+ * 输入：
+ * @param {object} config - 本轮渲染要用到的声明状态集合。
+ * @param {object[]} config.humanSetupOptions - 当前阶段人类玩家的合法声明候选。
+ * @param {?object} config.selectedSetupOption - 当前高亮的反主候选。
+ * @param {boolean} config.canShowDeclareDuringDealing - 旧亮主按钮在发牌阶段是否允许显示。
+ * @param {boolean} config.canShowDeclareDuringCountering - 旧亮主按钮在反主阶段是否允许显示。
+ * @param {boolean} config.canDeclareNow - 当前是否允许立即执行反主。
+ * @param {boolean} config.directSetupChoiceMode - 当前是否已进入直选候选态。
+ *
+ * 输出：
+ * @returns {void} 直接把状态写回旧按钮 DOM；若当前平台没有这些按钮则不做任何事。
+ *
+ * 注意：
+ * - 这里只同步旧底部按钮，不负责渲染 `setupOptions` 声明候选区。
+ * - mobile 的亮主 / 不亮入口已经迁到候选 chips，这里缺节点是合法状态，不要再补回 DOM。
+ */
+function syncLegacyDeclarationButtons(config) {
+  const {
+    humanSetupOptions,
+    selectedSetupOption,
+    canShowDeclareDuringDealing,
+    canShowDeclareDuringCountering,
+    canDeclareNow,
+    directSetupChoiceMode,
+  } = config;
+
+  if (dom.declareBtn) {
+    if (state.phase === "countering") {
+      dom.declareBtn.textContent = selectedSetupOption
+        ? (selectedSetupOption.suit === "notrump"
+          ? getNoTrumpCounterLabel(selectedSetupOption)
+          : `反${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`)
+        : TEXT.buttons.counter;
+    } else if (state.phase === "dealing") {
+      dom.declareBtn.textContent = state.declaration ? TEXT.buttons.redeclare : TEXT.buttons.declare;
+    } else {
+      dom.declareBtn.textContent = TEXT.buttons.declare;
+    }
+    dom.declareBtn.hidden = !(canShowDeclareDuringDealing || canShowDeclareDuringCountering);
+    dom.declareBtn.disabled = state.gameOver || (state.phase === "countering" ? !canDeclareNow : humanSetupOptions.length === 0);
+    dom.declareBtn.classList.toggle("primary", state.phase === "countering" ? canDeclareNow : canShowDeclareDuringDealing);
+  }
+
+  if (dom.passCounterBtn) {
+    const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!selectedSetupOption;
+    dom.passCounterBtn.disabled = state.gameOver || !showPassCounterBtn;
+    dom.passCounterBtn.hidden = !showPassCounterBtn || directSetupChoiceMode;
+  }
+}
+
+/**
+ * 作用：
+ * 同步 mobile 抓牌阶段底部 `不亮主` 按钮的显示与可用性。
+ *
+ * 为什么这样写：
+ * 用户希望抓牌阶段始终能看到一个明确的“不亮主”入口，
+ * 但真正允许点击的时机仍必须沿用现有补亮窗口规则；
+ * 把这层阶段感知逻辑收成单独 helper，可以同时满足“按钮常驻可见”和“真实规则不被提前跳过”。
+ *
+ * 输入：
+ * @param {object} config - 本轮渲染要用到的声明状态集合。
+ * @param {object[]} config.humanSetupOptions - 当前阶段人类玩家的合法亮主候选。
+ *
+ * 输出：
+ * @returns {void} 直接把状态写回 mobile 底部 `不亮主` 按钮；若当前平台没有该按钮则不做任何事。
+ *
+ * 注意：
+ * - 这里只承接抓牌阶段的人类“不亮主”入口，不处理最后反主阶段。
+ * - 按钮在抓牌阶段保持可见，但只有“存在合法亮主方案且已进入最终补亮窗口”时才可点击。
+ */
+function syncMobilePassDeclareButton(config) {
+  if (!dom.passDeclareBtn) return;
+  const { humanSetupOptions } = config;
+  const canShowPassDeclareBtn = state.phase === "dealing";
+  const canPassDeclareNow = canShowPassDeclareBtn && humanSetupOptions.length > 0 && state.awaitingHumanDeclaration && !state.gameOver;
+  dom.passDeclareBtn.textContent = "不亮主";
+  dom.passDeclareBtn.hidden = !canShowPassDeclareBtn;
+  dom.passDeclareBtn.disabled = !canPassDeclareNow;
+}
+
 // 渲染中央操作面板内容。
 function renderCenterPanel() {
   const isOpeningPhase = state.phase === "dealing" || state.phase === "countering";
   const humanSetupOptions = isOpeningPhase ? getAvailableSetupOptionsForPlayer(1, state.phase) : [];
   const selectedSetupOption = state.phase === "countering" ? getSelectedSetupOptionForPlayer(1, state.phase) : null;
   const directSetupChoiceMode = shouldUseDirectSetupChoiceMode(humanSetupOptions);
+  const canShowDeclareDuringDealing = state.phase === "dealing" && humanSetupOptions.length > 0 && !directSetupChoiceMode;
+  const canShowDeclareDuringCountering = state.phase === "countering" && !directSetupChoiceMode;
   const canDeclareNow = state.phase === "countering"
       ? state.currentTurnId === 1 && !!selectedSetupOption
       : false;
@@ -2590,29 +2680,26 @@ function renderCenterPanel() {
     : state.phase === "burying"
       ? TEXT.buttons.buryPickSeven
       : TEXT.buttons.select;
-  if (state.phase === "countering") {
-    dom.declareBtn.textContent = selectedSetupOption
-      ? (selectedSetupOption.suit === "notrump"
-        ? getNoTrumpCounterLabel(selectedSetupOption)
-        : `反${getActionSuitLabel(selectedSetupOption)} ${selectedSetupOption.count}张`)
-      : TEXT.buttons.counter;
-  } else if (state.phase === "dealing") {
-    dom.declareBtn.textContent = state.declaration ? TEXT.buttons.redeclare : TEXT.buttons.declare;
-  } else {
-    dom.declareBtn.textContent = TEXT.buttons.declare;
-  }
-  dom.declareBtn.hidden = state.phase !== "countering" || directSetupChoiceMode;
-  dom.declareBtn.disabled = state.gameOver || !canDeclareNow;
-  dom.declareBtn.classList.toggle("primary", canDeclareNow);
-  const showPassCounterBtn = state.phase === "countering" && state.currentTurnId === 1 && !!selectedSetupOption;
-  dom.passCounterBtn.disabled = state.gameOver || !showPassCounterBtn;
-  dom.passCounterBtn.hidden = !showPassCounterBtn || directSetupChoiceMode;
+  syncLegacyDeclarationButtons({
+    humanSetupOptions,
+    selectedSetupOption,
+    canShowDeclareDuringDealing,
+    canShowDeclareDuringCountering,
+    canDeclareNow,
+    directSetupChoiceMode,
+  });
+  syncMobilePassDeclareButton({ humanSetupOptions });
   renderSetupOptions(humanSetupOptions, selectedSetupOption);
   if (dom.centerPanel) {
+    const showDealingPassMode = !!(dom.passDeclareBtn && !dom.passDeclareBtn.hidden);
     dom.centerPanel.classList.toggle("setup-choice-mode", directSetupChoiceMode);
+    dom.centerPanel.classList.toggle("dealing-pass-mode", showDealingPassMode);
     const actionRow = dom.centerPanel.querySelector(".action-row");
     if (actionRow) {
-      actionRow.hidden = directSetupChoiceMode;
+      const visibleButtons = [dom.hintBtn, dom.playBtn, dom.declareBtn, dom.passCounterBtn, dom.passDeclareBtn]
+        .some((button) => button && !button.hidden);
+      const shouldKeepActionRowDuringDirectChoice = showDealingPassMode;
+      actionRow.hidden = !visibleButtons || (directSetupChoiceMode && !shouldKeepActionRowDuringDirectChoice);
     }
   }
   if (dom.aiDifficultySelect) {

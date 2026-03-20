@@ -1425,6 +1425,64 @@ function chooseAiNoTrumpBankerPowerLead(playerId, player) {
 
 /**
  * 作用：
+ * 判断打家当前是否应先打一张“接手牌”找朋友，而不是立刻兑现自持的目标对子。
+ *
+ * 为什么这样写：
+ * 当打家已经握有两张目标高张、叫的是下一张时，
+ * 直接先出 `AA / KK` 往往会把朋友当场叫死，甚至在规则上逼得朋友立刻亮相；
+ * 先打一张较高的同门接手牌，更符合“我用这张把牌权递给朋友、朋友用下一张目标高张上手”的人类节奏。
+ *
+ * 输入：
+ * @param {object|null} routeProfile - 当前目标门的找朋友画像。
+ * @param {object|null} [target=state.friendTarget] - 当前朋友牌定义。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示当前应优先走接手牌找朋友。
+ *
+ * 注意：
+ * - 只在“自持两张及以上目标高张，且叫下一张”时启用。
+ * - 仍要求存在合法 `searchCard`，否则交回原有 `AA / KK` 强结构逻辑兜底。
+ */
+function shouldAiUseBankerFriendTakeoverLead(routeProfile, target = state.friendTarget) {
+  if (!routeProfile || !target || !routeProfile.searchCard) return false;
+  if (routeProfile.targetCopies < 2) return false;
+  return (target.occurrence || 1) === routeProfile.targetCopies + 1;
+}
+
+/**
+ * 作用：
+ * 为打家提供“先打接手牌、让朋友用下一张目标高张上手”的首发。
+ *
+ * 为什么这样写：
+ * 用户给出的复盘里，`AA + 接手牌` 这类第三张 `A` 路线，
+ * 更合理的节奏是“先用接手牌找朋友，朋友用第三张 `A` 拿回牌权”，
+ * 而不是一上来就把 `AA` 兑现掉把朋友直接叫死。
+ *
+ * 输入：
+ * @param {object|null} player - 当前打家对象。
+ *
+ * 输出：
+ * @returns {Array<object>} 若命中“朋友接手”窗口则返回建议首发，否则返回空数组。
+ *
+ * 注意：
+ * - 这里只在共享 `A / K` 找朋友路线里启用，不扩到王张兜底。
+ * - 该规则只负责“接手牌优先级”，不替代后续 `AA / KK`、过桥高张与普通找朋友小牌逻辑。
+ */
+function chooseAiBankerFriendTakeoverLead(player) {
+  if (!player || !state.friendTarget || state.friendTarget.suit === "joker") {
+    return [];
+  }
+
+  const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
+  if (!shouldAiUseBankerFriendTakeoverLead(routeProfile, state.friendTarget)) {
+    return [];
+  }
+
+  return [routeProfile.searchCard];
+}
+
+/**
+ * 作用：
  * 为打家提取“找朋友这门单张回手”的默认首发牌。
  *
  * 为什么这样写：
@@ -1478,6 +1536,9 @@ function chooseAiBankerFriendForceRevealLead(player) {
 
   const routeProfile = buildFriendSearchRouteProfile(player, state.friendTarget);
   if (!routeProfile || routeProfile.targetCopies < 2 || !routeProfile.searchCard) {
+    return [];
+  }
+  if (shouldAiUseBankerFriendTakeoverLead(routeProfile, state.friendTarget)) {
     return [];
   }
 
@@ -1592,6 +1653,9 @@ function chooseAiBankerFriendSetupLead(playerId, player) {
   const neededOccurrence = state.friendTarget.occurrence || 1;
   const currentSeen = state.friendTarget.matchesSeen || 0;
   if (currentSeen >= neededOccurrence) return [];
+
+  const takeoverLead = chooseAiBankerFriendTakeoverLead(player);
+  if (takeoverLead.length > 0) return takeoverLead;
 
   const forceRevealLead = chooseAiBankerFriendForceRevealLead(player);
   if (forceRevealLead.length > 0) return forceRevealLead;

@@ -3708,17 +3708,27 @@
 
       /* 普通按钮态重新和 index2 对齐；真正需要展开候选区时，再交给 setup-choice-mode 单独放开。 */
       body.mobile-app-shell .center-panel:not(.setup-choice-mode) {
-        height: 59px !important;
-        min-height: 59px !important;
+        height: 74px !important;
+        min-height: 74px !important;
         display: flex !important;
         align-items: center;
         justify-content: center;
+        padding-top: 10px;
+        padding-bottom: 10px;
       }
 
       body.mobile-app-shell .center-panel.setup-choice-mode {
-        min-height: 39px !important;
-        padding-top: 4px;
-        padding-bottom: 2px;
+        min-height: 58px !important;
+        padding-top: 5px;
+        padding-bottom: 4px;
+      }
+
+      /* 抓牌声明态单独切成“左侧 20% 不亮主 + 右侧亮主候选区”，避免右侧亮主按钮继续被截断。 */
+      body.mobile-app-shell .center-panel.dealing-pass-mode {
+        display: flex !important;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
       }
 
       body.mobile-app-shell .center-head {
@@ -3726,24 +3736,64 @@
       }
 
       body.mobile-app-shell .action-row {
-        /* App 壳不能继续继承通用 mobile 的固定三列 action-row；这里按可见按钮数量自动均分，避免空列和底部 ghost gap。 */
-        display: grid;
-        grid-auto-flow: column;
-        grid-auto-columns: minmax(0, 1fr);
-        grid-template-columns: none;
+        /* App 壳底部操作行改成阶段感知布局：出牌态保留双大按钮，抓牌态额外露出“不亮主”。 */
+        display: flex;
         margin-top: 0;
-        gap: 4px;
+        width: 100%;
+        gap: 6px;
         align-items: center;
+      }
+
+      /* action-row / action-btn 改成 flex 后，必须显式恢复 hidden 的 display:none，否则逻辑层设了 hidden 也会继续被样式顶出来。 */
+      body.mobile-app-shell .center-panel [hidden] {
+        display: none !important;
       }
 
       body.mobile-app-shell button.action-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 30px;
-        min-height: 30px;
-        padding: 0 4px;
-        font-size: 10px;
+        flex: 1 1 0;
+        min-width: 0;
+        height: 44px;
+        min-height: 44px;
+        padding: 0 10px;
+        font-size: 15px;
+        line-height: 1.1;
+      }
+
+      /* 高频主操作继续吃到更多横向空间；抓牌阶段出现“不亮主”时也保持更易按的大按钮比例。 */
+      body.mobile-app-shell #hintBtn.action-btn,
+      body.mobile-app-shell #playBtn.action-btn {
+        flex: 1.22 1 0;
+        max-width: none;
+      }
+
+      /* “不亮主”属于抓牌阶段的辅助跳过动作，宽度略小于主操作，但仍保持拇指可按的体量。 */
+      body.mobile-app-shell #passDeclareBtn.action-btn {
+        flex: 1 1 auto;
+        width: 100%;
+        max-width: none;
+        font-size: 14px;
+      }
+
+      /* 抓牌声明态里“不亮主”只占约 20% 宽度，把更多空间让给右侧亮主候选。 */
+      body.mobile-app-shell .center-panel.dealing-pass-mode .action-row {
+        flex: 0 0 20%;
+        width: 20%;
+        min-width: 92px;
+        max-width: 108px;
+        gap: 0;
+      }
+
+      /* 抓牌声明态下右侧亮主区域要吃满剩余空间，并保留一点右侧滚动安全边，避免最后一项被裁切。 */
+      body.mobile-app-shell .center-panel.dealing-pass-mode .setup-options {
+        flex: 1 1 0;
+        min-width: 0;
+        margin-top: 0;
+        padding-right: 10px;
+        scroll-padding-right: 10px;
+        justify-content: flex-start;
       }
 
       body.mobile-app-shell .setup-options {
@@ -4489,7 +4539,7 @@
           <ul id="logList" class="log-list"></ul>
         </section>
 
-        <section class="panel center-panel" data-layout-id="center-panel">
+        <section id="centerPanel" class="panel center-panel" data-layout-id="center-panel">
           <div class="center-head">
             <div class="center-copy">
               <span id="actionHint" class="subtle"></span>
@@ -4499,8 +4549,7 @@
           <div class="action-row">
             <button id="hintBtn" class="action-btn">选择</button>
             <button id="playBtn" class="action-btn primary">出牌</button>
-            <button id="declareBtn" class="action-btn">亮主</button>
-            <button id="passCounterBtn" class="action-btn">不反主</button>
+            <button id="passDeclareBtn" class="action-btn">不亮主</button>
           </div>
           <div id="setupOptions" class="setup-options" hidden></div>
           <select id="aiDifficultySelect" class="visually-hidden-select" aria-hidden="true" tabindex="-1">

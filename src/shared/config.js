@@ -1284,6 +1284,7 @@ const dom = {
   continueGameBtn: document.getElementById("continueGameBtn"),
   declareBtn: document.getElementById("declareBtn"),
   passCounterBtn: document.getElementById("passCounterBtn"),
+  passDeclareBtn: document.getElementById("passDeclareBtn"),
   logPanel: document.getElementById("logPanel"),
   logPanelDrag: document.getElementById("logPanelDrag"),
   closeLogBtn: document.getElementById("closeLogBtn"),

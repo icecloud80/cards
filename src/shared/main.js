@@ -469,7 +469,31 @@ dom.setupOptions?.addEventListener("click", (event) => {
   updateActionHint();
 });
 
-dom.declareBtn.addEventListener("click", () => {
+/**
+ * 作用：
+ * 给“只在部分平台存在”的可选动作按钮绑定点击事件。
+ *
+ * 为什么这样写：
+ * 共享层同时要兼容 PC 保留的旧声明按钮，以及 mobile 新增的阶段感知按钮；
+ * 这里统一做成可选绑定，就能在不分叉共享逻辑的前提下兼容“某些平台有、某些平台没有”的节点。
+ *
+ * 输入：
+ * @param {?HTMLElement} button - 当前要绑定的动作按钮节点；若平台未渲染则为 `null`。
+ * @param {Function} handler - 点击后要执行的共享逻辑。
+ *
+ * 输出：
+ * @returns {void} 若按钮不存在则直接跳过，存在时绑定点击事件。
+ *
+ * 注意：
+ * - 这里只服务“平台可选”的动作按钮，不要拿去替代正常的必备节点绑定。
+ * - mobile 的亮主流程仍主要走 `setupOptions` 候选区；这里新增的 `不亮主` 只负责承接补亮窗口里的跳过动作。
+ */
+function bindOptionalLegacyActionButton(button, handler) {
+  if (!button) return;
+  button.addEventListener("click", handler);
+}
+
+bindOptionalLegacyActionButton(dom.declareBtn, () => {
   if (state.gameOver) return;
   if (state.phase === "countering") {
     if (state.currentTurnId !== 1) return;
@@ -479,9 +503,14 @@ dom.declareBtn.addEventListener("click", () => {
   }
 });
 
-dom.passCounterBtn.addEventListener("click", () => {
+bindOptionalLegacyActionButton(dom.passCounterBtn, () => {
   if (state.gameOver || state.phase !== "countering" || state.currentTurnId !== 1) return;
   passCounterForCurrentPlayer();
+});
+
+bindOptionalLegacyActionButton(dom.passDeclareBtn, () => {
+  if (state.gameOver || state.phase !== "dealing" || !state.awaitingHumanDeclaration) return;
+  passDeclarationForPlayer(1);
 });
 
 dom.friendSuitOptions.addEventListener("click", (event) => {

@@ -43,6 +43,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-ai-beginner-opening-replay.js"),
   },
   {
+    name: "Beginner third-ace takeover replay regression",
+    file: path.join(__dirname, "check-ai-beginner-third-ace-takeover-replay.js"),
+  },
+  {
     name: "Beginner friend-target window regression",
     file: path.join(__dirname, "check-beginner-friend-target-window.js"),
   },

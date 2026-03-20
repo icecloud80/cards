@@ -282,6 +282,52 @@ function runBuryStrategySuite(context) {
       state.declaration = { playerId: 1, suit: "clubs", rank: "2", count: 2, cards: [] };
     }
 
+    /**
+     * 作用：
+     * 搭建“第三张 A 找朋友时应保留 AA10、并把额外同门小牌埋掉”的埋底测试场景。
+     *
+     * 为什么这样写：
+     * 这轮修复针对的是固定复盘里“打家持有 AA + 10 + 4，却把 10 埋掉、留下 4”的错误路线。
+     * 正确节奏应是保留 AA10，再用 10 去找朋友，让第三张 A 自然上手。
+     *
+     * 输入：
+     * @param {void} - 场景固定只验证初级埋底。
+     *
+     * 输出：
+     * @returns {void} 直接写入打家手牌。
+     *
+     * 注意：
+     * - 方片是唯一可用的副牌 A 门，避免测试被其它短门候选干扰。
+     * - 这里既要验证 short-suit plan 的保留牌，也要验证最终埋底结果真的把方片 4 压下去。
+     */
+    function setupBeginnerThirdAceTakeoverReserveScenario() {
+      resetBuryState("beginner");
+      state.players = [
+        basePlayer(1, [
+          makeCard("dA-1", "diamonds", "A"),
+          makeCard("dA-2", "diamonds", "A"),
+          makeCard("d10", "diamonds", "10"),
+          makeCard("d4", "diamonds", "4"),
+          makeCard("sK", "spades", "K"),
+          makeCard("s9", "spades", "9"),
+          makeCard("s8", "spades", "8"),
+          makeCard("hQ", "hearts", "Q"),
+          makeCard("h9", "hearts", "9"),
+          makeCard("h8", "hearts", "8"),
+          makeCard("c7", "clubs", "7"),
+          makeCard("c6", "clubs", "6"),
+          makeCard("trump-bj", "joker", "BJ"),
+          makeCard("trump-level", "clubs", "2"),
+        ], true),
+        basePlayer(2, []),
+        basePlayer(3, []),
+        basePlayer(4, []),
+        basePlayer(5, []),
+      ];
+      state.trumpSuit = "clubs";
+      state.declaration = { playerId: 1, suit: "clubs", rank: "2", count: 2, cards: [] };
+    }
+
     function setupManualPointCapValidationScenario() {
       resetBuryState("beginner");
       state.players = [
@@ -359,6 +405,21 @@ function runBuryStrategySuite(context) {
     assert(!beginnerShortSuitReserveIds.has("sA"), "beginner: should keep side-suit A for short-suit friend plan");
     assert(!beginnerShortSuitReserveIds.has("s6"), "beginner: should keep one side-suit return card for the short-suit line");
     results.push("beginner short-suit reserve bury ok");
+
+    setupBeginnerThirdAceTakeoverReserveScenario();
+    const beginnerThirdAceTakeoverPlan = getBeginnerShortSuitFriendPlan(getPlayer(1), { countKnownBuriedCopies: false });
+    assert(beginnerThirdAceTakeoverPlan?.suit === "diamonds", "beginner: third-A takeover plan should target diamonds");
+    assert(beginnerThirdAceTakeoverPlan?.reservedCardIds?.has("dA-1"), "beginner: third-A takeover plan should reserve the first diamonds A");
+    assert(beginnerThirdAceTakeoverPlan?.reservedCardIds?.has("dA-2"), "beginner: third-A takeover plan should reserve the second diamonds A");
+    assert(beginnerThirdAceTakeoverPlan?.reservedCardIds?.has("d10"), "beginner: third-A takeover plan should reserve diamonds 10 as the takeover search card");
+    assert(!beginnerThirdAceTakeoverPlan?.reservedCardIds?.has("d4"), "beginner: third-A takeover plan should no longer reserve the lower diamonds 4");
+    const beginnerThirdAceTakeoverBury = getBuryHintForPlayer(1);
+    const beginnerThirdAceTakeoverIds = new Set(beginnerThirdAceTakeoverBury.map((card) => card.id));
+    assert(!beginnerThirdAceTakeoverIds.has("dA-1"), "beginner: third-A takeover bury should keep the first diamonds A");
+    assert(!beginnerThirdAceTakeoverIds.has("dA-2"), "beginner: third-A takeover bury should keep the second diamonds A");
+    assert(!beginnerThirdAceTakeoverIds.has("d10"), "beginner: third-A takeover bury should keep diamonds 10");
+    assert(beginnerThirdAceTakeoverIds.has("d4"), "beginner: third-A takeover bury should bury diamonds 4 to leave AA10");
+    results.push("beginner third-A takeover reserve bury ok");
 
     setupManualPointCapValidationScenario();
     const invalidBuryIds = ["c5-1", "c10-1", "ck-1", "d5-1", "d10-1", "h3-1", "h4-1"];

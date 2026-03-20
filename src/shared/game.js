@@ -699,6 +699,41 @@ function getFriendSearchBridgeRank(rank) {
 
 /**
  * 作用：
+ * 为“叫下一张目标高张且自己已握两张”挑选更适合让朋友接手的找朋友牌。
+ *
+ * 为什么这样写：
+ * 当打家已经握有两张目标高张、叫的是下一张时，
+ * 如果仍默认保留最小零分小牌去试探，往往会让其它闲家也有机会中途接管这手；
+ * 像 `AA10` 这种更高的接手张，通常更适合把牌权稳定地送到持有第三张 `A` 的朋友手里。
+ *
+ * 输入：
+ * @param {Array<object>} searchCards - 已排除目标高张与过桥高张后的同门候选牌。
+ * @param {object|null} target - 当前待评估的朋友牌定义。
+ * @param {number} targetCopies - 打家当前自持的目标高张张数。
+ *
+ * 输出：
+ * @returns {object|null} 若命中“朋友第三张接手”窗口则返回建议找朋友牌，否则返回 `null`。
+ *
+ * 注意：
+ * - 只在“叫下一张目标高张”时启用；普通 `A + 小牌` 路线仍优先保留低成本小牌。
+ * - `searchCards` 调用前应已按同门过滤，并排除目标牌 / 过桥牌。
+ */
+function chooseFriendTakeoverSearchCard(searchCards, target, targetCopies) {
+  if (!Array.isArray(searchCards) || searchCards.length === 0 || !target) return null;
+  if (targetCopies < 2) return null;
+  if ((target.occurrence || 1) !== targetCopies + 1) return null;
+
+  return [...searchCards].sort((left, right) => {
+    const pointDiff = scoreValue(right) - scoreValue(left);
+    if (pointDiff !== 0) return pointDiff;
+    const strengthDiff = cardStrength(right) - cardStrength(left);
+    if (strengthDiff !== 0) return strengthDiff;
+    return scoreValue(left) - scoreValue(right);
+  })[0] || null;
+}
+
+/**
+ * 作用：
  * 为指定朋友牌候选构造一份“短门 + 过桥高张 + 找朋友小牌”的画像。
  *
  * 为什么这样写：
@@ -717,7 +752,7 @@ function getFriendSearchBridgeRank(rank) {
  *
  * 注意：
  * - 同门牌一律按 `effectiveSuit(card) === target.suit` 统计，避免把 `A` 级时已转主的 `A` 误算进副牌 `K` 路线。
- * - `searchCard` 会优先挑小零分牌；若没有，再回退到最低成本的分牌或普通牌。
+ * - 常规 `searchCard` 会优先挑小零分牌；但若当前是“叫下一张目标高张且自持两张”的接手路线，则会优先保留更高的接手张。
  */
 function buildFriendSearchRouteProfile(banker, target) {
   if (!banker || !target || target.suit === "joker") return null;
@@ -733,10 +768,12 @@ function buildFriendSearchRouteProfile(banker, target) {
   const searchCards = suitCards.filter((card) =>
     card.rank !== target.rank && (!bridgeRank || card.rank !== bridgeRank)
   );
-  const searchCard = searchCards.find((card) => ["2", "3", "4", "5"].includes(card.rank))
+  const takeoverSearchCard = chooseFriendTakeoverSearchCard(searchCards, target, targetCards.length);
+  const defaultSearchCard = searchCards.find((card) => ["2", "3", "4", "5"].includes(card.rank))
     || searchCards.find((card) => scoreValue(card) === 0)
     || searchCards[0]
     || null;
+  const searchCard = takeoverSearchCard || defaultSearchCard;
   const pairCount = findPairs(suitCards).length;
   const tripleCount = findTriples(suitCards).length;
   const serialPairStructureCount = findSerialTuples(suitCards, 2)
@@ -1009,7 +1046,13 @@ function collectBeginnerShortSuitFriendCandidates(banker, options = {}) {
       if (outsideCopies <= 0) return null;
 
       const nonTargetCards = suitCards.filter((card) => card.rank !== "A");
-      const returnCard = suitCards.find((card) => card.rank !== "A" && card.rank !== "K")
+      const routeProfile = buildFriendSearchRouteProfile(banker, {
+        suit,
+        rank: "A",
+        occurrence: aceCards.length + 1,
+      });
+      const returnCard = routeProfile?.searchCard
+        || suitCards.find((card) => card.rank !== "A" && card.rank !== "K")
         || nonTargetCards[0]
         || null;
       const reservedCards = [...aceCards];
@@ -4069,6 +4112,34 @@ function getBuryControlRetentionScore(card) {
   return 0;
 }
 
+/**
+ * 作用：
+ * 计算初级 AI 在“短门找朋友”埋底时，对目标门额外非保留牌的压缩权重。
+ *
+ * 为什么这样写：
+ * 普通 `A + 小牌` 路线只需要轻度鼓励“别把目标门越留越长”；
+ * 但当打家已经握有两张目标高张、准备把下一张叫死时，
+ * 更合理的埋底应尽量把这门压到“目标高张 + 1 张接手牌”，避免多余同门高张继续留在手里干扰找朋友节奏。
+ *
+ * 输入：
+ * @param {object|null} card - 当前待评分的手牌。
+ * @param {object|null} plan - 当前 beginner 短门找朋友计划。
+ *
+ * 输出：
+ * @returns {number} 返回应从埋底分里额外扣减的值；数值越大，越鼓励把这张牌埋下去。
+ *
+ * 注意：
+ * - 这里只处理“目标门里但不在保留集合内”的额外牌，保留牌仍由上层直接强保。
+ * - 叫死路线会返回更大的压缩权重，目标是尽量把牌型收成 `AA10` 这类接手窗口。
+ */
+function getBeginnerReserveSuitTrimPenalty(card, plan) {
+  if (!card || !plan || card.suit !== plan.suit) return 0;
+  const targetCopyCount = Array.isArray(plan.aceCards) ? plan.aceCards.length : 0;
+  const isTakeoverRoute = targetCopyCount >= 2 && (plan.occurrence || 1) === targetCopyCount + 1;
+  if (!isTakeoverRoute) return 150;
+  return 340 + cardStrength(card) * 2 + scoreValue(card) * 12;
+}
+
 // 为玩家生成埋底建议。
 function getBuryHintForPlayer(playerId) {
   const player = getPlayer(playerId);
@@ -4112,7 +4183,7 @@ function getBuryHintForPlayer(playerId) {
       if (beginnerReservedCardIds.has(card.id)) {
         score += 1800;
       } else if (card.suit === beginnerReserveSuit) {
-        score -= 150;
+        score -= getBeginnerReserveSuitTrimPenalty(card, beginnerShortSuitPlan);
       } else {
         score -= 80;
         score -= Math.min(suitCounts[card.suit] || 0, 5) * 8;

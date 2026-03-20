@@ -133,15 +133,18 @@ function createElementStub(identifier) {
  * 输入：
  * @param {void} - 通过内部固定脚本路径加载 mobile 环境。
  *
+ * @param {string[]} [missingIds=[]] - 当前上下文里要模拟成“平台未渲染”的 DOM id 列表。
+ *
  * 输出：
  * @returns {{setupGame: Function, renderHand: Function, renderCenterPanel: Function, getAvailableSetupOptionsForPlayer: Function, getSetupOptionKey: Function, formatDeclaration: Function, getPlayer: Function, state: object, document: object}} 当前测试需要的真实接口集合。
  *
  * 注意：
  * - `document.querySelector(".table")` 必须返回元素桩，避免布局相关代码取空。
- * - 要加载 `main.js`，否则 `declareBtn` 和候选列表不会绑定真实点击事件。
+ * - 要加载 `main.js`，否则候选列表不会绑定真实点击事件，也测不到“旧底部按钮已删除但声明 chips 仍可用”的真实链路。
  */
-function loadMobileDeclarationContext() {
+function loadMobileDeclarationContext(missingIds = []) {
   const elements = new Map();
+  const missingIdSet = new Set(missingIds);
 
   function getElement(identifier) {
     if (!elements.has(identifier)) {
@@ -154,6 +157,9 @@ function loadMobileDeclarationContext() {
     cookie: "",
     body: getElement("body"),
     getElementById(identifier) {
+      if (missingIdSet.has(identifier)) {
+        return null;
+      }
       return getElement(identifier);
     },
     querySelector(selector) {
@@ -318,6 +324,19 @@ function main() {
   context.setupGame();
 
   seedDeclarationScenario(context, [
+    makeCard("club-a", "clubs", "A"),
+    makeCard("club-k", "clubs", "K"),
+    makeCard("spade-9", "spades", "9"),
+  ]);
+  context.renderHand();
+  context.renderCenterPanel();
+  assert.equal(context.document.getElementById("setupOptions").hidden, true, "发牌阶段没有合法亮主方案时不应显示候选区");
+  assert.equal(context.document.getElementById("declareBtn").hidden, true, "发牌阶段只有真正能亮主时才应显示亮主按钮");
+  assert.equal(context.document.getElementById("passDeclareBtn").hidden, false, "抓牌阶段底部应持续显示“不亮主”按钮，避免玩家找不到跳过入口");
+  assert.equal(context.document.getElementById("passDeclareBtn").disabled, true, "抓牌阶段若当前没有合法亮主方案，“不亮主”按钮应保持禁用");
+  assert.equal(context.document.getElementById("centerPanel").classList.contains("dealing-pass-mode"), true, "抓牌阶段应给中央操作区挂上 dealing-pass-mode，确保“不亮主”与亮主区域能按 20/80 分栏排布");
+
+  seedDeclarationScenario(context, [
     makeCard("spade-1", "spades", "2"),
     makeCard("spade-2", "spades", "2"),
     makeCard("spade-3", "spades", "2"),
@@ -352,6 +371,35 @@ function main() {
   assert.equal(setupOptions.innerHTML.includes("亮黑桃 2 x2"), false, "候选按钮不应再使用长句式亮主文案");
   assert.equal(setupOptions.innerHTML.includes("可亮选项"), false, "亮主阶段不应再额外显示“可亮选项”标题");
   assert.equal(declareBtn.hidden, true, "亮主阶段不应再保留单独的确认亮主按钮");
+  assert.equal(context.document.getElementById("passDeclareBtn").hidden, false, "抓牌阶段即使已出现亮主候选，底部仍应显示“不亮主”按钮");
+  assert.equal(context.document.getElementById("passDeclareBtn").disabled, true, "尚未进入最终补亮窗口前，“不亮主”按钮不应允许提前跳过真实抓牌流程");
+  assert.equal(context.document.getElementById("centerPanel").classList.contains("dealing-pass-mode"), true, "抓牌阶段出现亮主候选时，中央操作区仍应保持 dealing-pass-mode 横向分栏");
+
+  const noLegacyButtonContext = loadMobileDeclarationContext(["declareBtn", "passCounterBtn"]);
+  noLegacyButtonContext.setupGame();
+  seedDeclarationScenario(noLegacyButtonContext, [
+    makeCard("spade-1", "spades", "2"),
+    makeCard("spade-2", "spades", "2"),
+    makeCard("heart-1", "hearts", "2"),
+    makeCard("heart-2", "hearts", "2"),
+  ]);
+  noLegacyButtonContext.renderHand();
+  noLegacyButtonContext.renderCenterPanel();
+  const mobileSetupOptions = noLegacyButtonContext.document.getElementById("setupOptions");
+  const optionKey = noLegacyButtonContext.getSetupOptionKey(
+    noLegacyButtonContext.getAvailableSetupOptionsForPlayer(1, "dealing")[0],
+  );
+  assert.equal(mobileSetupOptions.hidden, false, "移动端即使删掉旧亮主按钮 DOM，也应继续通过候选区显示可亮方案");
+  assert.equal(noLegacyButtonContext.document.getElementById("passDeclareBtn").hidden, false, "移动端删掉旧亮主按钮后，抓牌阶段仍应保留底部“不亮主”入口");
+  mobileSetupOptions.trigger("click", {
+    target: {
+      closest(selector) {
+        if (selector !== "button[data-setup-option-key]") return null;
+        return { dataset: { setupOptionKey: optionKey } };
+      },
+    },
+  });
+  assert.notEqual(noLegacyButtonContext.state.declaration, null, "移动端删掉旧底部声明按钮后，点击候选区仍应能正常完成亮主");
 
   context.state.awaitingHumanDeclaration = true;
   context.renderHand();
@@ -361,7 +409,25 @@ function main() {
     true,
     "等待补亮时，候选区应提供明确的“不亮”按钮"
   );
+  assert.equal(context.document.getElementById("passDeclareBtn").disabled, false, "进入最终补亮窗口后，底部“不亮主”按钮应切成可点击");
 
+  context.document.getElementById("passDeclareBtn").trigger("click");
+  assert.equal(context.state.phase, "bottomReveal", "点击底部“不亮主”后应立即进入翻底定主展示阶段");
+  assert.equal(context.state.awaitingHumanDeclaration, false, "点击底部“不亮主”后应结束补亮等待状态");
+
+  context.setupGame();
+  seedDeclarationScenario(context, [
+    makeCard("spade-1", "spades", "2"),
+    makeCard("spade-2", "spades", "2"),
+    makeCard("spade-3", "spades", "2"),
+    makeCard("heart-1", "hearts", "2"),
+    makeCard("heart-2", "hearts", "2"),
+    makeCard("bj-1", "joker", "BJ"),
+    makeCard("bj-2", "joker", "BJ"),
+  ]);
+  context.state.awaitingHumanDeclaration = true;
+  context.renderHand();
+  context.renderCenterPanel();
   context.document.getElementById("setupOptions").trigger("click", {
     target: {
       closest(selector) {

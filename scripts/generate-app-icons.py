@@ -608,169 +608,138 @@ def draw_suit_spade(draw: ImageDraw.ImageDraw, center_x: float, center_y: float,
     )
 
 
-def draw_jester_hat(
-    draw: ImageDraw.ImageDraw,
-    center_x: float,
-    center_y: float,
-    size: float,
-    left_color: tuple[int, int, int, int],
-    middle_color: tuple[int, int, int, int],
-    right_color: tuple[int, int, int, int],
-    bell_color: tuple[int, int, int, int],
-    band_color: tuple[int, int, int, int],
-) -> None:
+def draw_suit_heart(draw: ImageDraw.ImageDraw, center_x: float, center_y: float, size: float, color: tuple[int, int, int, int]) -> None:
     """
     作用：
-    绘制简化的大王小丑帽图形。
+    绘制简化红桃牌花。
     
     为什么这样写：
-    用户这次希望主牌直接看起来像 `大王`；
-    用几何化的小丑帽代替升级箭头，可以在不依赖字体的前提下把“Joker / 大王”识别做得更直接，而且在小尺寸下也比复杂插画更稳。
+    用户希望主牌明确回到 `红桃A`；
+    用几何方式直接画出红桃，可以避免字体或外部素材依赖，同时保证在小尺寸图标里也能保持标准牌花识别。
     
     输入：
     @param {ImageDraw.ImageDraw} draw - 当前图层的绘制句柄。
-    @param {float} center_x - 小丑帽中心横坐标。
-    @param {float} center_y - 小丑帽中心纵坐标。
-    @param {float} size - 小丑帽主尺度。
-    @param {tuple[int, int, int, int]} left_color - 左侧帽尖颜色。
-    @param {tuple[int, int, int, int]} middle_color - 中间帽尖颜色。
-    @param {tuple[int, int, int, int]} right_color - 右侧帽尖颜色。
-    @param {tuple[int, int, int, int]} bell_color - 帽尖铃铛颜色。
-    @param {tuple[int, int, int, int]} band_color - 帽檐颜色。
+    @param {float} center_x - 红桃中心横坐标。
+    @param {float} center_y - 红桃中心纵坐标。
+    @param {float} size - 红桃主尺度。
+    @param {tuple[int, int, int, int]} color - 红桃颜色。
     
     输出：
-    @returns {None} 直接把大王帽形绘制到目标图层。
+    @returns {None} 直接把红桃牌花绘制到目标图层。
     
     注意：
-    - 三个帽尖需要保持粗壮，避免缩小后只剩尖细噪点。
-    - 帽檐高度不能太薄，否则小尺寸下会直接消失。
+    - 叶片和下尖需要略微加宽，避免缩小后看起来像菱形。
+    - 这里不额外加描边，避免小尺寸下边缘发脏。
     """
 
-    band_top = center_y + size * 0.08
-    band_bottom = center_y + size * 0.23
-
-    draw.polygon(
-        [
-            (center_x - size * 0.5, band_top),
-            (center_x - size * 0.82, center_y - size * 0.16),
-            (center_x - size * 0.28, center_y - size * 0.44),
-            (center_x - size * 0.08, band_top),
-        ],
-        fill=left_color,
-    )
-    draw.polygon(
-        [
-            (center_x - size * 0.16, band_top),
-            (center_x, center_y - size * 0.66),
-            (center_x + size * 0.16, band_top),
-        ],
-        fill=middle_color,
-    )
-    draw.polygon(
-        [
-            (center_x + size * 0.08, band_top),
-            (center_x + size * 0.28, center_y - size * 0.44),
-            (center_x + size * 0.82, center_y - size * 0.16),
-            (center_x + size * 0.5, band_top),
-        ],
-        fill=right_color,
-    )
-
-    draw_rounded_rectangle(
-        draw,
+    leaf_radius = size * 0.72
+    draw.ellipse(
         (
-            center_x - size * 0.54,
-            band_top,
-            center_x + size * 0.54,
-            band_bottom,
+            center_x - size,
+            center_y - leaf_radius,
+            center_x,
+            center_y + leaf_radius * 0.45,
         ),
-        radius=max(2, int(size * 0.08)),
-        fill=band_color,
+        fill=color,
     )
-    draw_suit_diamond(draw, center_x, center_y + size * 0.16, size * 0.12, GOLD_LIGHT)
+    draw.ellipse(
+        (
+            center_x,
+            center_y - leaf_radius,
+            center_x + size,
+            center_y + leaf_radius * 0.45,
+        ),
+        fill=color,
+    )
+    draw.polygon(
+        [
+            (center_x - size * 1.08, center_y - size * 0.05),
+            (center_x + size * 1.08, center_y - size * 0.05),
+            (center_x, center_y + size * 1.45),
+        ],
+        fill=color,
+    )
 
-    bell_radius = size * 0.11
-    for bell_x, bell_y in (
-        (center_x - size * 0.82, center_y - size * 0.16),
-        (center_x, center_y - size * 0.66),
-        (center_x + size * 0.82, center_y - size * 0.16),
-    ):
-        draw.ellipse(
-            (
-                bell_x - bell_radius,
-                bell_y - bell_radius,
-                bell_x + bell_radius,
-                bell_y + bell_radius,
-            ),
-            fill=bell_color,
-        )
 
-
-def create_big_joker_badge(size: int) -> Image.Image:
+def draw_letter_a(draw: ImageDraw.ImageDraw, center_x: float, top_y: float, size: float, color: tuple[int, int, int, int]) -> None:
     """
     作用：
-    生成位于前景牌中心的大王徽章。
+    绘制简化的大写字母 `A`。
     
     为什么这样写：
-    这次图标核心诉求是把排面明确改成 `大王`；
-    用亮红底章托住一顶红黑金的小丑帽，既能保持桌面图标足够醒目，也能让主牌第一眼就更接近大王牌面。
+    `红桃A` 的识别不仅来自中间大红桃，也来自角标里的 `A`；
+    用几何线条直接画字母，可以避免字体依赖，同时在图标缩放后继续保持清晰。
     
     输入：
-    @param {int} size - 徽章边长。
+    @param {ImageDraw.ImageDraw} draw - 当前图层的绘制句柄。
+    @param {float} center_x - 字母中心横坐标。
+    @param {float} top_y - 字母顶部纵坐标。
+    @param {float} size - 字母高度。
+    @param {tuple[int, int, int, int]} color - 字母颜色。
     
     输出：
-    @returns {Image.Image} RGBA 大王徽章图像。
+    @returns {None} 直接把字母 `A` 绘制到目标图层。
     
     注意：
-    - 中心底章需要足够亮，避免和红色背景混成一片。
-    - 小丑帽主体要保持高对比，缩小后仍然能看出是大王而不是普通花纹。
+    - 横杠需要略粗，避免缩小后看不出是 `A`。
+    - 字母整体不宜过宽，避免和下方红桃挤在一起。
     """
 
-    badge = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(badge)
-    center = size / 2
-    ellipse_bounds = (size * 0.12, size * 0.16, size * 0.88, size * 0.9)
+    stroke_width = max(2, int(size * 0.16))
+    baseline_y = top_y + size
+    crossbar_y = top_y + size * 0.56
 
-    for step_index in range(6):
-        ratio = step_index / 5
-        inset = size * 0.018 * step_index
-        draw.ellipse(
-            (
-                ellipse_bounds[0] + inset,
-                ellipse_bounds[1] + inset,
-                ellipse_bounds[2] - inset,
-                ellipse_bounds[3] - inset,
-            ),
-            fill=mix_color((255, 130, 121, 255), (193, 32, 56, 255), ratio),
-        )
-
-    draw.ellipse(ellipse_bounds, outline=GOLD_LIGHT)
-    draw_jester_hat(
-        draw,
-        center,
-        size * 0.55,
-        size * 0.29,
-        left_color=RUBY,
-        middle_color=INK,
-        right_color=RUBY_DEEP,
-        bell_color=GOLD_LIGHT,
-        band_color=GOLD_MID,
+    draw.line(
+        [
+            (center_x - size * 0.42, baseline_y),
+            (center_x, top_y),
+            (center_x + size * 0.42, baseline_y),
+        ],
+        fill=color,
+        width=stroke_width,
+    )
+    draw.line(
+        [
+            (center_x - size * 0.18, crossbar_y),
+            (center_x + size * 0.18, crossbar_y),
+        ],
+        fill=color,
+        width=stroke_width,
     )
 
-    collar_y = size * 0.73
-    for dot_offset in (-0.18, 0.0, 0.18):
-        dot_x = center + size * dot_offset
-        draw.ellipse(
-            (
-                dot_x - size * 0.055,
-                collar_y - size * 0.055,
-                dot_x + size * 0.055,
-                collar_y + size * 0.055,
-            ),
-            fill=mix_color(GOLD_LIGHT, GOLD_MID, abs(dot_offset)),
-        )
 
-    return badge
+def draw_ace_corner_mark(
+    draw: ImageDraw.ImageDraw,
+    center_x: float,
+    top_y: float,
+    size: float,
+    color: tuple[int, int, int, int],
+) -> None:
+    """
+    作用：
+    绘制 `红桃A` 角标组合。
+    
+    为什么这样写：
+    单独只有中间大红桃还不够像标准 A 牌；
+    用 `A + 小红桃` 的竖向组合把角标锁住后，主牌在缩略尺寸下也能更像真实扑克牌面。
+    
+    输入：
+    @param {ImageDraw.ImageDraw} draw - 当前图层的绘制句柄。
+    @param {float} center_x - 角标中心横坐标。
+    @param {float} top_y - 角标顶部纵坐标。
+    @param {float} size - 角标主要高度。
+    @param {tuple[int, int, int, int]} color - 角标颜色。
+    
+    输出：
+    @returns {None} 直接把角标绘制到目标图层。
+    
+    注意：
+    - 角标要控制在牌角安全区内，避免和圆角描边打架。
+    - 下方的小红桃需要比字母明显更小，否则会喧宾夺主。
+    """
+
+    draw_letter_a(draw, center_x, top_y, size * 0.54, color)
+    draw_suit_heart(draw, center_x, top_y + size * 0.78, size * 0.18, color)
 
 
 def create_back_card(width: int, height: int) -> Image.Image:
@@ -834,7 +803,7 @@ def create_front_card(width: int, height: int) -> Image.Image:
     创建位于最前方的主牌图层。
     
     为什么这样写：
-    这张牌既是“扑克牌”识别锚点，也是这次 `大王牌面` 调整的主承载面；
+    这张牌既是“扑克牌”识别锚点，也是这次 `红桃A` 调整的主承载面；
     使用偏暖的象牙色底板，可以在亮红背景和蓝色牌背之间形成稳定对比，同时保留经典纸牌质感。
     
     输入：
@@ -845,8 +814,8 @@ def create_front_card(width: int, height: int) -> Image.Image:
     @returns {Image.Image} RGBA 主牌图像。
     
     注意：
-    - 四角装饰不直接写文字，避免依赖字体后在不同环境里跑偏。
-    - 中心大王徽章大小要在“够醒目”和“不把牌面塞满”之间取平衡。
+    - 角标要优先服务 `红桃A` 识别，不再继续沿用上一版的大王帽样式。
+    - 中间红桃要足够大，缩小成 App Icon 后仍能第一眼认出来。
     """
 
     card = create_card_base(width, height, IVORY_CARD, (255, 255, 255, 255), IVORY_CARD_SHADE)
@@ -854,34 +823,24 @@ def create_front_card(width: int, height: int) -> Image.Image:
 
     corner_inset_x = width * 0.17
     corner_inset_y = height * 0.15
-    mini_hat_size = width * 0.062
-    draw_jester_hat(
-        draw,
-        corner_inset_x,
-        corner_inset_y + width * 0.02,
-        mini_hat_size,
-        left_color=RUBY,
-        middle_color=GOLD_MID,
-        right_color=RUBY_DEEP,
-        bell_color=GOLD_LIGHT,
-        band_color=INK,
-    )
-    draw_jester_hat(
+    corner_mark_size = width * 0.2
+    draw_ace_corner_mark(draw, corner_inset_x, corner_inset_y - width * 0.015, corner_mark_size, RUBY)
+    draw_ace_corner_mark(
         draw,
         width - corner_inset_x,
-        height - corner_inset_y - width * 0.01,
-        mini_hat_size,
-        left_color=INK,
-        middle_color=RUBY_DEEP,
-        right_color=INK,
-        bell_color=GOLD_LIGHT,
-        band_color=RUBY,
+        height - corner_inset_y - width * 0.17,
+        corner_mark_size,
+        RUBY,
     )
 
-    badge = create_big_joker_badge(int(width * 0.56))
-    badge_left = int((width - badge.width) / 2)
-    badge_top = int(height * 0.24)
-    card.alpha_composite(badge, (badge_left, badge_top))
+    center_heart_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    center_heart_draw = ImageDraw.Draw(center_heart_layer)
+    draw_suit_heart(center_heart_draw, width / 2, height * 0.47, width * 0.15, RUBY)
+    heart_shadow = center_heart_layer.filter(ImageFilter.GaussianBlur(radius=max(4, width // 42)))
+    shadow_mask = heart_shadow.getchannel("A").point(lambda alpha_value: int(alpha_value * 0.3))
+    heart_shadow.putalpha(shadow_mask)
+    card = Image.alpha_composite(card, heart_shadow)
+    card = Image.alpha_composite(card, center_heart_layer)
 
     return card
 

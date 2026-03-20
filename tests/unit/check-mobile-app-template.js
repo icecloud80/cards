@@ -85,8 +85,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell button\.action-btn \{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/,
-    "App 专用页面应让底部操作按钮在按钮本体内保持文字垂直居中，同时继续维持紧凑高度",
+    /body\.mobile-app-shell button\.action-btn \{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*44px;[\s\S]*min-height:\s*44px;[\s\S]*padding:\s*0\s+10px;[\s\S]*font-size:\s*15px;/,
+    "App 专用页面应把底部操作按钮整体放大到更适合拇指点击的体量，并继续保持文字垂直居中",
   );
   assert.match(
     html,
@@ -100,21 +100,59 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*59px\s*!important;[\s\S]*min-height:\s*59px\s*!important;[\s\S]*display:\s*flex\s*!important;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;/,
-    "App 专用页面的普通底部按钮态应重新和 index2 对齐到同一高度口径，并把按钮行垂直居中到操作区中线",
+    /body\.mobile-app-shell \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*74px\s*!important;[\s\S]*min-height:\s*74px\s*!important;[\s\S]*display:\s*flex\s*!important;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*padding-top:\s*10px;[\s\S]*padding-bottom:\s*10px;/,
+    "App 专用页面的普通底部按钮态应和 index2 一起进一步放大，让双主按钮更接近真实拇指按钮尺寸",
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.center-panel\.setup-choice-mode \{[\s\S]*min-height:\s*39px\s*!important;[\s\S]*padding-top:\s*4px;[\s\S]*padding-bottom:\s*2px;/,
-    "App 专用页面的亮主/反主态也应重新和 index2 对齐，避免两端候选态高度再次分叉",
+    /body\.mobile-app-shell \.center-panel\.setup-choice-mode \{[\s\S]*min-height:\s*58px\s*!important;[\s\S]*padding-top:\s*5px;[\s\S]*padding-bottom:\s*4px;/,
+    "App 专用页面的抓牌声明态也应和 index2 一起抬高，让底部“不亮主”和上方亮主候选能共存而不显得拥挤",
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-auto-flow:\s*column;[\s\S]*grid-auto-columns:\s*minmax\(0,\s*1fr\);[\s\S]*grid-template-columns:\s*none;[\s\S]*align-items:\s*center;/,
-    "App 专用页面的底部按钮行应按可见按钮数量自动均分，并在垂直方向居中对齐",
+    /body\.mobile-app-shell \.center-panel\.dealing-pass-mode \{[\s\S]*display:\s*flex\s*!important;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*flex-start;[\s\S]*gap:\s*8px;/,
+    "App 专用页面的抓牌声明态应切成横向双栏，让底部“不亮主”和右侧亮主区域真正并排排开",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.action-row \{[\s\S]*display:\s*flex;[\s\S]*width:\s*100%;[\s\S]*gap:\s*6px;[\s\S]*align-items:\s*center;/,
+    "App 专用页面的底部按钮行应显式占满整行，并把按钮间距再拉开一点，避免大按钮重新挤成一团",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.center-panel \[hidden\] \{[\s\S]*display:\s*none\s*!important;/,
+    "App 专用页面的底部操作区在改成 flex 后仍应显式保住 hidden 的 display:none 语义",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell button\.action-btn \{[\s\S]*flex:\s*1 1 0;[\s\S]*min-width:\s*0;/,
+    "App 专用页面的底部操作按钮应提供统一的弹性宽度基线，避免窄屏下文字把按钮撑坏",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell #hintBtn\.action-btn,[\s\S]*body\.mobile-app-shell #playBtn\.action-btn \{[\s\S]*flex:\s*1\.22 1 0;[\s\S]*max-width:\s*none;/,
+    "App 专用页面的选择和出牌按钮应继续占据更高的横向权重，保证抓牌态与出牌态都保持拇指优先的主操作层级",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell #passDeclareBtn\.action-btn \{[\s\S]*flex:\s*1 1 auto;[\s\S]*width:\s*100%;[\s\S]*max-width:\s*none;[\s\S]*font-size:\s*14px;/,
+    "App 专用页面的“不亮主”按钮应填满自己的窄列宽度，而不应继续直接占满整条底部操作轨",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.center-panel\.dealing-pass-mode \.action-row \{[\s\S]*flex:\s*0 0 20%;[\s\S]*width:\s*20%;[\s\S]*min-width:\s*92px;[\s\S]*max-width:\s*108px;[\s\S]*gap:\s*0;/,
+    "App 专用页面的抓牌声明态里，“不亮主”所在列应固定为约 20% 宽度，避免把右侧亮主区域挤断",
+  );
+  assert.match(
+    html,
+    /body\.mobile-app-shell \.center-panel\.dealing-pass-mode \.setup-options \{[\s\S]*flex:\s*1 1 0;[\s\S]*min-width:\s*0;[\s\S]*margin-top:\s*0;[\s\S]*padding-right:\s*10px;[\s\S]*scroll-padding-right:\s*10px;[\s\S]*justify-content:\s*flex-start;/,
+    "App 专用页面的抓牌声明态里，右侧亮主候选区应吃满剩余空间并预留右侧滚动安全边，避免最后一项被切断",
   );
   assert.notEqual(actionRowMatch, null, "App 页面应保留底部可见操作区容器");
-  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="declareBtn"[\s\S]*id="passCounterBtn"/, "App 可见操作区应只保留当前仍在使用的按钮");
+  assert.match(html, /<section id="centerPanel" class="panel center-panel"/, "App 页面应给中央操作区补上 centerPanel id，确保共享层能真正切换抓牌声明态类名");
+  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="passDeclareBtn"/, "App 可见操作区应保留选择、出牌和抓牌阶段的“不亮主”按钮");
+  assert.equal(actionRowMatch[1].includes('id="declareBtn"'), false, "App 可见操作区不应再保留旧亮主按钮 DOM");
+  assert.equal(actionRowMatch[1].includes('id="passCounterBtn"'), false, "App 可见操作区不应再保留旧不反主按钮 DOM");
   assert.equal(actionRowMatch[1].includes('id="beatBtn"'), false, "App 可见操作区不应再放入毙牌按钮");
   assert.equal(actionRowMatch[1].includes('id="newProgressBtn"'), false, "App 可见操作区不应再放入新的游戏按钮");
   assert.equal(actionRowMatch[1].includes('id="continueGameBtn"'), false, "App 可见操作区不应再放入继续游戏按钮");

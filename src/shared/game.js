@@ -109,27 +109,30 @@ function continueSavedProgress(autoStart = false) {
 
 /**
  * 作用：
- * 重置当前这局牌并立刻重新发牌，但保留现有等级进度。
+ * 按当前局已经生成的回放种子重新开这一局，并立刻重新发牌。
  *
  * 为什么这样写：
- * 用户需要一个“本局重来”的快捷入口，既能把当前发牌、叫主和出牌过程全部清空，
- * 又不能把长期升级进度误重置回 `2`；复用 `setupGame() + startDealing()` 后，
- * 可以继续沿用当前首抓人、共享洗牌流程和各平台一致的开局状态机。
+ * 顶部高频按钮现在要从“随机重开当前局”改成“按当前 replay seed 刷新本局”；
+ * 统一收成共享 helper 后，PC、mobile 和 App 顶栏都能走同一条复盘语义，不会再各自分配新 seed。
  *
  * 输入：
- * @param {void} - 直接读取并重置当前共享状态。
+ * @param {void} - 直接读取当前共享状态里的 `replaySeed`。
  *
  * 输出：
- * @returns {void} 只重建本局牌面并进入发牌阶段，不返回额外结果。
+ * @returns {boolean} `true` 表示已按当前回放种子重开；`false` 表示当前局尚未生成可复用的回放种子。
  *
  * 注意：
- * - 这里只重置当前牌局，不重置 `state.playerLevels`。
+ * - 这里只重开当前牌局，不重置 `state.playerLevels`。
  * - 结果弹窗若仍打开，必须先收起，避免旧结算遮住新发牌流程。
+ * - 必须沿用当前 `replaySeed`，不能偷偷回退到“分配新 seed”。
  */
-function restartCurrentRound() {
+function refreshCurrentRoundFromReplaySeed() {
+  const currentReplaySeed = normalizeReplaySeedInput(state.replaySeed);
+  if (!currentReplaySeed) return false;
   dom.resultOverlay.classList.remove("show");
-  setupGame();
+  setupGame(currentReplaySeed);
   startDealing();
+  return true;
 }
 
 function getAiDifficultyLogLabel() {

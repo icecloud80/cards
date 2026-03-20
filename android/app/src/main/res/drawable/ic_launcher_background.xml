@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   作用：
-  提供 Android adaptive icon 的品牌亮色背景渐变。
+  提供 Android adaptive icon 的品牌亮红背景渐变。
 
   为什么这样写：
   旧配置只用纯白底色，会让主屏图标看起来像默认占位资源；
-  改成暖白浅金渐变后，Android adaptive icon 可以在保持明亮观感的同时继续带一点品牌质感。
+  改成亮红渐变后，Android adaptive icon 可以更接近现代游戏平台那种通透、饱和的主屏观感。
 
   输入：
   @param {void} - 由 adaptive icon XML 直接引用。
 
   输出：
-  @returns {drawable} 暖白浅金渐变背景。
+  @returns {drawable} 亮红渐变背景。
 
   注意：
-  - 渐变颜色需要和生成脚本里的主品牌亮色保持一致。
+  - 渐变颜色需要和生成脚本里的主品牌亮红色保持一致。
   - 不要随意改成复杂位图，避免 adaptive icon 在不同分辨率下失真。
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <gradient
         android:angle="270"
-        android:centerColor="#F7E8D8"
-        android:endColor="#EBDCCC"
-        android:startColor="#FFF9F1"
+        android:centerColor="#E34A63"
+        android:endColor="#9B132C"
+        android:startColor="#FF7C84"
         android:type="linear" />
 </shape>

@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
  *
  * 为什么这样写：
  * 这条回归既要加载共享脚本，又要触发按钮点击后的重渲染；
- * 保留 `classList` 的最小行为后，就能把测试聚焦在“重置本局是否保级且可触发”。
+ * 保留 `classList` 的最小行为后，就能把测试聚焦在“刷新按钮是否沿用当前 seed 重开且可触发”。
  *
  * 输入：
  * @param {void} - 无额外输入。
@@ -57,7 +57,7 @@ function createClassListStub() {
  * 创建一个足够支撑 shared + main 加载的元素桩对象。
  *
  * 为什么这样写：
- * “重置本局”回归既要验证共享状态机，也要真实触发按钮监听器；
+ * “刷新当前 seed”回归既要验证共享状态机，也要真实触发按钮监听器；
  * 统一元素桩后，PC 和 mobile 都能共用同一套加载逻辑。
  *
  * 输入：
@@ -145,7 +145,7 @@ function createElementStub(identifier) {
  * 为指定平台加载一套可执行 shared 重置逻辑的测试上下文。
  *
  * 为什么这样写：
- * 用户这次要的是“PC 和 mobile 的顶栏按钮都能重置本局且保级”；
+ * 用户这次要的是“PC 和 mobile 的顶栏按钮都能按当前回放种子刷新本局且保级”；
  * 用真实脚本加载两端平台壳，再点击共享 `newGameBtn`，才能同时锁住功能和跨端一致性。
  *
  * 输入：
@@ -261,10 +261,10 @@ function loadRoundResetContext(platform) {
 
 /**
  * 作用：
- * 断言指定平台的“重置本局”按钮会保留等级并重新进入发牌。
+ * 断言指定平台的“刷新”按钮会保留等级、沿用当前 seed 并重新进入发牌。
  *
  * 为什么这样写：
- * 这次需求的核心不是单纯“有个按钮”，而是“重洗当前局、但不能把长期等级清掉”；
+ * 这次需求的核心不是单纯“有个按钮”，而是“沿用当前 replay seed 重开当前局、但不能把长期等级清掉”；
  * 把平台差异压成同一条断言 helper 后，PC 和 mobile 都能共享相同验收口径。
  *
  * 输入：
@@ -275,9 +275,9 @@ function loadRoundResetContext(platform) {
  *
  * 注意：
  * - 这里校验的是共享状态机行为，不检查具体像素布局。
- * - 必须同时确认 `state.playerLevels` 和 `state.players[].level` 都保持不变，避免只保住一层状态。
+ * - 必须同时确认 `state.playerLevels`、`state.players[].level` 和 `state.replaySeed` 都保持目标值，避免按钮退回旧的“新 seed 重开”语义。
  */
-function assertRoundResetKeepsLevels(platform) {
+function assertTopbarRefreshKeepsLevelsAndReplaySeed(platform) {
   const context = loadRoundResetContext(platform);
   const expectedLevels = {
     1: "8",
@@ -286,31 +286,34 @@ function assertRoundResetKeepsLevels(platform) {
     4: "5",
     5: "-2",
   };
+  const expectedReplaySeed = `${platform}-refresh-seed`;
 
   context.state.playerLevels = { ...expectedLevels };
+  context.state.replaySeed = expectedReplaySeed;
   context.state.showToolbarMenu = true;
   context.state.showLastTrick = true;
   context.dom.resultOverlay.classList.add("show");
 
   context.dom.newGameBtn.click();
 
-  assert.equal(context.state.phase, "dealing", `${platform} 点击重置本局后应立即回到发牌阶段`);
-  assert.deepEqual(context.state.playerLevels, expectedLevels, `${platform} 重置本局后应保留当前等级进度`);
-  assert.equal(context.getPlayer(1).level, expectedLevels[1], `${platform} 重置本局后玩家1显示等级应保持不变`);
-  assert.equal(context.getPlayer(3).level, expectedLevels[3], `${platform} 重置本局后其他玩家显示等级也应保持不变`);
-  assert.equal(context.state.showToolbarMenu, false, `${platform} 重置本局后应收起局内菜单状态`);
-  assert.equal(context.state.showLastTrick, false, `${platform} 重置本局后应关闭上一轮回看状态`);
-  assert.equal(context.dom.resultOverlay.classList.contains("show"), false, `${platform} 重置本局前若有结果弹窗，应先收起旧弹窗`);
-  assert.equal(context.dom.newGameBtn.title, "重置本局", `${platform} 的图标按钮应暴露明确的重置文案`);
+  assert.equal(context.state.phase, "dealing", `${platform} 点击刷新后应立即回到发牌阶段`);
+  assert.deepEqual(context.state.playerLevels, expectedLevels, `${platform} 刷新后应保留当前等级进度`);
+  assert.equal(context.getPlayer(1).level, expectedLevels[1], `${platform} 刷新后玩家1显示等级应保持不变`);
+  assert.equal(context.getPlayer(3).level, expectedLevels[3], `${platform} 刷新后其他玩家显示等级也应保持不变`);
+  assert.equal(context.state.replaySeed, expectedReplaySeed, `${platform} 刷新后应继续沿用当前回放种子`);
+  assert.equal(context.state.showToolbarMenu, false, `${platform} 刷新后应收起局内菜单状态`);
+  assert.equal(context.state.showLastTrick, false, `${platform} 刷新后应关闭上一轮回看状态`);
+  assert.equal(context.dom.resultOverlay.classList.contains("show"), false, `${platform} 刷新前若有结果弹窗，应先收起旧弹窗`);
+  assert.equal(context.dom.newGameBtn.title, "刷新", `${platform} 的图标按钮应暴露明确的刷新文案`);
 }
 
 /**
  * 作用：
- * 断言 PC 与 mobile 的顶栏源码都把“重置本局”按钮插到正确位置。
+ * 断言 PC、mobile 与 App 的顶栏源码都把“刷新”按钮插到正确位置，并使用新图标资源。
  *
  * 为什么这样写：
  * 这次用户明确指定了按钮顺序和图标资源；
- * 直接检查 HTML 源码里的顺序约束，可以防止后续改模板时又把按钮挪错位或换错图。
+ * 直接检查 HTML 源码里的顺序约束，可以防止后续改模板时又把按钮挪错位、忘记切文案或换错图。
  *
  * 输入：
  * @param {void} - 通过固定路径读取 HTML 源码。
@@ -325,35 +328,56 @@ function assertRoundResetKeepsLevels(platform) {
 function assertTopbarMarkupOrder() {
   const pcHtml = fs.readFileSync(path.join(__dirname, "../../index1.html"), "utf8");
   const mobileHtml = fs.readFileSync(path.join(__dirname, "../../index2.html"), "utf8");
+  const appHtml = fs.readFileSync(path.join(__dirname, "../../index-app.html"), "utf8");
 
   assert.match(
     pcHtml,
-    /id="toggleLastTrickBtn"[\s\S]*id="newGameBtn"[\s\S]*icon_new_game\.png[\s\S]*id="toggleRulesBtn"/,
-    "PC 顶栏应把重置本局按钮放在上一轮与设置之间，并使用 icon_new_game.png"
+    /id="toggleLastTrickBtn"[\s\S]*id="newGameBtn"[\s\S]*icon-refresh\.png[\s\S]*id="toggleRulesBtn"/,
+    "PC 顶栏应把刷新按钮放在上一轮与设置之间，并使用 icon-refresh.png"
   );
   assert.match(
     mobileHtml,
-    /id="mobileLastTrickBtn"[\s\S]*id="newGameBtn"[\s\S]*icon_new_game\.png[\s\S]*id="mobileMenuBtn"/,
-    "mobile 顶栏应把重置本局按钮放在上一轮与设置之间，并使用 icon_new_game.png"
+    /id="mobileLastTrickBtn"[\s\S]*id="newGameBtn"[\s\S]*icon-refresh\.png[\s\S]*id="mobileMenuBtn"/,
+    "mobile 顶栏应把刷新按钮放在上一轮与设置之间，并使用 icon-refresh.png"
+  );
+  assert.match(
+    appHtml,
+    /id="mobileLastTrickBtn"[\s\S]*id="newGameBtn"[\s\S]*icon-refresh\.png[\s\S]*id="mobileMenuBtn"/,
+    "App 顶栏应把刷新按钮放在上一轮与设置之间，并使用 icon-refresh.png"
+  );
+  assert.match(
+    pcHtml,
+    /id="newGameBtn"[^>]*aria-label="刷新"[^>]*title="刷新"/,
+    "PC 顶栏刷新按钮应暴露刷新文案"
+  );
+  assert.match(
+    mobileHtml,
+    /id="newGameBtn"[^>]*aria-label="刷新"[^>]*title="刷新"/,
+    "mobile 顶栏刷新按钮应暴露刷新文案"
+  );
+  assert.match(
+    appHtml,
+    /id="newGameBtn"[^>]*aria-label="刷新"[^>]*title="刷新"/,
+    "App 顶栏刷新按钮应暴露刷新文案"
   );
   assert.doesNotMatch(
     mobileHtml,
     /<div class="score-actions">[\s\S]*id="newGameBtn"/,
-    "mobile 旧的文字版新牌局按钮应从底部快捷操作区移除，避免和顶栏入口重复"
+    "mobile 旧的文字版新牌局按钮应从底部快捷操作区移除，避免和顶栏刷新入口重复"
   );
   assert.doesNotMatch(
     mobileHtml,
     /id="mobileMenuNewBtn"/,
-    "mobile 设置菜单不应再重复提供重置本局按钮，避免和顶部高频入口重复"
+    "mobile 设置菜单不应再重复提供刷新按钮，避免和顶部高频入口重复"
   );
 }
 
 /**
  * 作用：
- * 执行“重置本局”按钮的跨端回归断言。
+ * 执行“刷新当前回放种子”按钮的跨端回归断言。
  *
  * 为什么这样写：
- * 这次改动同时涉及 HTML 位置、共享点击逻辑和等级保留规则；
+ * 这次改动同时涉及 HTML 位置、共享点击逻辑、回放 seed 复用和等级保留规则；
  * 把三部分集中在同一条小回归里，可以更快拦住后续回退。
  *
  * 输入：
@@ -368,8 +392,8 @@ function assertTopbarMarkupOrder() {
  */
 function main() {
   assertTopbarMarkupOrder();
-  assertRoundResetKeepsLevels("pc");
-  assertRoundResetKeepsLevels("mobile");
+  assertTopbarRefreshKeepsLevelsAndReplaySeed("pc");
+  assertTopbarRefreshKeepsLevelsAndReplaySeed("mobile");
 }
 
 main();

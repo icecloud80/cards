@@ -24,6 +24,7 @@ const TEXT = {
   buttons: {
     restart: "再来一局",
     restartWithCountdown: (countdown) => `再来一局 (${countdown})`,
+    refreshCurrentRound: "刷新",
     autoManage: "本局托管",
     debug: "Debug",
     select: "选择",

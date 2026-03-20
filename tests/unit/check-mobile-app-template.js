@@ -22,6 +22,7 @@ const assert = require("node:assert/strict");
  */
 function main() {
   const html = fs.readFileSync(path.join(__dirname, "../../index-app.html"), "utf8");
+  const actionRowMatch = html.match(/<div class="action-row">([\s\S]*?)<\/div>/);
 
   assert.equal(html.includes("<title>找朋友升级 · App版</title>"), true, "App 专用页面标题应统一改为找朋友升级");
   assert.equal(html.includes('class="mobile-kicker">找朋友升级<'), true, "App 开始页品牌标题应统一改为找朋友升级");
@@ -39,8 +40,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(278px,\s*calc\(31vh \+ 10px\),\s*292px\)[\s\S]*minmax\(41px,\s*max-content\);/,
-    "App 专用页面应继续保持和 index2 一致的手牌区高度，并把操作区轨道重新收口到相同口径",
+    /body\.mobile-app-shell \.table \{[\s\S]*padding:\s*6px\s+6px\s+1px;[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(56px,\s*8\.8svh,\s*64px\)[\s\S]*minmax\(0,\s*1fr\)[\s\S]*clamp\(298px,\s*calc\(31vh \+ 30px\),\s*312px\)[\s\S]*minmax\(41px,\s*max-content\);/,
+    "App 专用页面应把手牌区在上一版基础上再抬高 10px，并把牌桌底部 padding 再减少 5px 给底部区域腾空间",
   );
   assert.match(
     html,
@@ -84,8 +85,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell button\.action-btn \{[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/,
-    "App 专用页面应把底部操作按钮压短，避免继续顶住手牌区",
+    /body\.mobile-app-shell button\.action-btn \{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*30px;[\s\S]*min-height:\s*30px;/,
+    "App 专用页面应让底部操作按钮在按钮本体内保持文字垂直居中，同时继续维持紧凑高度",
   );
   assert.match(
     html,
@@ -99,8 +100,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*59px\s*!important;[\s\S]*min-height:\s*59px\s*!important;/,
-    "App 专用页面的普通底部按钮态应重新和 index2 对齐到同一高度口径",
+    /body\.mobile-app-shell \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*59px\s*!important;[\s\S]*min-height:\s*59px\s*!important;[\s\S]*display:\s*flex\s*!important;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;/,
+    "App 专用页面的普通底部按钮态应重新和 index2 对齐到同一高度口径，并把按钮行垂直居中到操作区中线",
   );
   assert.match(
     html,
@@ -109,8 +110,24 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-app-shell \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-auto-flow:\s*column;[\s\S]*grid-auto-columns:\s*minmax\(0,\s*1fr\);[\s\S]*grid-template-columns:\s*none;/,
-    "App 专用页面的底部按钮行应按可见按钮数量自动均分，不能继续继承旧的固定三列空轨",
+    /body\.mobile-app-shell \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-auto-flow:\s*column;[\s\S]*grid-auto-columns:\s*minmax\(0,\s*1fr\);[\s\S]*grid-template-columns:\s*none;[\s\S]*align-items:\s*center;/,
+    "App 专用页面的底部按钮行应按可见按钮数量自动均分，并在垂直方向居中对齐",
+  );
+  assert.notEqual(actionRowMatch, null, "App 页面应保留底部可见操作区容器");
+  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="declareBtn"[\s\S]*id="passCounterBtn"/, "App 可见操作区应只保留当前仍在使用的按钮");
+  assert.equal(actionRowMatch[1].includes('id="beatBtn"'), false, "App 可见操作区不应再放入毙牌按钮");
+  assert.equal(actionRowMatch[1].includes('id="newProgressBtn"'), false, "App 可见操作区不应再放入新的游戏按钮");
+  assert.equal(actionRowMatch[1].includes('id="continueGameBtn"'), false, "App 可见操作区不应再放入继续游戏按钮");
+  assert.equal(actionRowMatch[1].includes('id="startGameBtn"'), false, "App 可见操作区不应再放入开始发牌按钮");
+  assert.match(
+    html,
+    /mobileDom\.startBtn\.addEventListener\("click", \(\) => \{[\s\S]*startNewProgress\(true\);[\s\S]*\}\);/,
+    "App 开始页按钮应直接调用共享开局 helper，不再代理隐藏原始开始按钮",
+  );
+  assert.match(
+    html,
+    /mobileDom\.setupContinueBtn\?\.addEventListener\("click", \(\) => \{[\s\S]*continueSavedProgress\(true\);[\s\S]*\}\);/,
+    "App 继续游戏按钮应直接调用共享继续 helper，不再代理隐藏原始继续按钮",
   );
   assert.match(
     html,

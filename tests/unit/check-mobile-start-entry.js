@@ -240,7 +240,7 @@ function loadMobileStartContext() {
     vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
   }
 
-  return vm.runInContext("({ state, dom, setupGame, render })", context);
+  return vm.runInContext("({ state, dom, setupGame, render, startNewProgress, continueSavedProgress })", context);
 }
 
 /**
@@ -248,8 +248,8 @@ function loadMobileStartContext() {
  * 执行手游 ready 阶段开始入口回归断言。
  *
  * 为什么这样写：
- * 手游壳层的开始按钮最终是代理去点共享层隐藏的原始 `startGameBtn`；
- * 只要 ready 阶段把这个原始按钮错误禁用，手机端就会出现“点开始没反应”。
+ * 手游壳层已经改成直接调用共享开局 helper；
+ * 只要 ready 阶段的 helper 不能正常推进到发牌，手机端就会出现“点开始没反应”。
  *
  * 输入：
  * @param {void} - 无额外输入。
@@ -258,8 +258,8 @@ function loadMobileStartContext() {
  * @returns {void} 断言全部通过后正常退出。
  *
  * 注意：
- * - 这里只锁住手游 ready 阶段的开局入口，不检查 PC 的独立开始界面。
- * - 若后续再次改 shared ready 按钮状态，这条回归必须能第一时间报错。
+ * - 这里只锁住手游 ready 阶段的共享开局入口，不检查 PC 的独立开始界面。
+ * - 若后续再次改 shared 开局 helper 的边界，这条回归必须能第一时间报错。
  */
 function main() {
   const context = loadMobileStartContext();
@@ -267,13 +267,12 @@ function main() {
   context.render();
 
   assert.equal(context.state.phase, "ready", "手游上下文初始化后应停留在 ready 阶段");
-  assert.equal(context.dom.startGameBtn.hidden, false, "手游 ready 阶段必须保留可代理的原始开始按钮");
-  assert.equal(context.dom.startGameBtn.disabled, false, "手游 ready 阶段不能禁用原始开始按钮");
-  assert.equal(context.dom.continueGameBtn.disabled, true, "无存档时继续游戏按钮应保持禁用");
+  context.continueSavedProgress(true);
+  assert.equal(context.state.phase, "ready", "无存档时继续游戏 helper 不应误把手游上下文推进到发牌阶段");
 
-  context.dom.startGameBtn.click();
+  context.startNewProgress(true);
 
-  assert.equal(context.state.phase, "dealing", "点击手游开局入口后应立即进入发牌阶段");
+  assert.equal(context.state.phase, "dealing", "调用手游开局 helper 后应立即进入发牌阶段");
 }
 
 main();

@@ -22,6 +22,7 @@ const assert = require("node:assert/strict");
  */
 function main() {
   const html = fs.readFileSync(path.join(__dirname, "../../index2.html"), "utf8");
+  const actionRowMatch = html.match(/<div class="action-row">([\s\S]*?)<\/div>/);
 
   assert.match(
     html,
@@ -30,8 +31,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(278px,\s*calc\(31vh \+ 10px\),\s*292px\)[\s\S]*minmax\(41px,\s*max-content\);/,
-    "index2 应把手牌托盘再抬高 10px，并把底部操作区轨道同步加高 5px",
+    /body\.mobile-index2 \.table \{[\s\S]*grid-template-rows:\s*[\s\S]*clamp\(288px,\s*calc\(31vh \+ 20px\),\s*302px\)[\s\S]*minmax\(41px,\s*max-content\);/,
+    "index2 应把手牌托盘在上一版基础上再抬高 10px，并继续保持和 App 一致的底部布局口径",
   );
   assert.match(
     html,
@@ -65,8 +66,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 button\.action-btn \{[\s\S]*height:\s*38px;[\s\S]*min-height:\s*38px;[\s\S]*padding:\s*8px\s+4px;/,
-    "index2 的底部操作按钮应保留更宽松的上下内边距，避免按钮触控区显得过窄",
+    /body\.mobile-index2 button\.action-btn \{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*height:\s*38px;[\s\S]*min-height:\s*38px;[\s\S]*padding:\s*8px\s+4px;/,
+    "index2 的底部操作按钮应在按钮本体内保持文字垂直居中，同时保留更宽松的上下内边距",
   );
   assert.match(
     html,
@@ -75,8 +76,8 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*59px\s*!important;[\s\S]*min-height:\s*59px\s*!important;[\s\S]*padding-top:\s*8px;[\s\S]*padding-bottom:\s*8px;/,
-    "index2 的普通底部按钮态应在原来的放大量级上再抬高 5px，给选择/出牌按钮留出更明显的上下留白",
+    /body\.mobile-index2 \.center-panel:not\(\.setup-choice-mode\) \{[\s\S]*height:\s*59px\s*!important;[\s\S]*min-height:\s*59px\s*!important;[\s\S]*display:\s*flex\s*!important;[\s\S]*align-items:\s*center;[\s\S]*justify-content:\s*center;[\s\S]*padding-top:\s*8px;[\s\S]*padding-bottom:\s*8px;/,
+    "index2 的普通底部按钮态应继续保持放大高度，并把按钮行垂直居中到操作区中线",
   );
   assert.match(
     html,
@@ -85,8 +86,24 @@ function main() {
   );
   assert.match(
     html,
-    /body\.mobile-index2 \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-auto-flow:\s*column;[\s\S]*grid-auto-columns:\s*minmax\(0,\s*1fr\);[\s\S]*grid-template-columns:\s*none;/,
-    "index2 的底部按钮行应按可见按钮数量自动均分，不能继续继承旧的固定三列空轨",
+    /body\.mobile-index2 \.action-row \{[\s\S]*display:\s*grid;[\s\S]*grid-auto-flow:\s*column;[\s\S]*grid-auto-columns:\s*minmax\(0,\s*1fr\);[\s\S]*grid-template-columns:\s*none;[\s\S]*align-items:\s*center;/,
+    "index2 的底部按钮行应按可见按钮数量自动均分，并在垂直方向居中对齐",
+  );
+  assert.notEqual(actionRowMatch, null, "index2 页面应保留底部可见操作区容器");
+  assert.match(actionRowMatch[1], /id="hintBtn"[\s\S]*id="playBtn"[\s\S]*id="declareBtn"[\s\S]*id="passCounterBtn"/, "index2 可见操作区应只保留当前仍在使用的按钮");
+  assert.equal(actionRowMatch[1].includes('id="beatBtn"'), false, "index2 可见操作区不应再放入毙牌按钮");
+  assert.equal(actionRowMatch[1].includes('id="newProgressBtn"'), false, "index2 可见操作区不应再放入新的游戏按钮");
+  assert.equal(actionRowMatch[1].includes('id="continueGameBtn"'), false, "index2 可见操作区不应再放入继续游戏按钮");
+  assert.equal(actionRowMatch[1].includes('id="startGameBtn"'), false, "index2 可见操作区不应再放入开始发牌按钮");
+  assert.match(
+    html,
+    /mobileDom\.startBtn\.addEventListener\("click", \(\) => \{[\s\S]*startNewProgress\(true\);[\s\S]*\}\);/,
+    "index2 开始页按钮应直接调用共享开局 helper，不再代理隐藏原始开始按钮",
+  );
+  assert.match(
+    html,
+    /mobileDom\.setupContinueBtn\?\.addEventListener\("click", \(\) => \{[\s\S]*continueSavedProgress\(true\);[\s\S]*\}\);/,
+    "index2 继续游戏按钮应直接调用共享继续 helper，不再代理隐藏原始继续按钮",
   );
   assert.match(
     html,

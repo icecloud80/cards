@@ -2603,7 +2603,7 @@
           clamp(80px, 10.6vh, 96px)
           clamp(86px, 11.1vh, 102px)
           /* index2 也需要稳定容纳“主牌 + 四门副牌”共 5 行，避免无主时红桃等分组被横向挤到右侧。 */
-          clamp(278px, calc(31vh + 10px), 292px)
+          clamp(288px, calc(31vh + 20px), 302px)
           minmax(41px, max-content);
         gap: 6px;
         overflow: hidden;
@@ -2654,7 +2654,7 @@
         gap: 10px;
         min-width: 0;
         justify-self: center;
-        /* 新增“重置本局”图标后，右侧按钮组更宽；把主/朋状态块整体往右收，避免和“难度”统计挤在一起。 */
+        /* 新增“刷新”图标后，右侧按钮组更宽；把主/朋状态块整体往右收，避免和“难度”统计挤在一起。 */
         transform: translateX(-8px);
       }
 
@@ -3708,6 +3708,9 @@
       body.mobile-index2 .center-panel:not(.setup-choice-mode) {
         height: 59px !important;
         min-height: 59px !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
         padding-top: 8px;
         padding-bottom: 8px;
       }
@@ -3730,9 +3733,13 @@
         grid-template-columns: none;
         margin-top: 0;
         gap: 4px;
+        align-items: center;
       }
 
       body.mobile-index2 button.action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         height: 38px;
         min-height: 38px;
         padding: 8px 4px;
@@ -4228,8 +4235,8 @@
             <button id="mobileLastTrickBtn" class="mobile-icon-btn" type="button" aria-label="查看上一轮" title="查看上一轮">
               <img src="./images/icons/icon_back.png" alt="" />
             </button>
-            <button id="newGameBtn" class="mobile-icon-btn" type="button" aria-label="重置本局" title="重置本局">
-              <img src="./images/icons/icon_new_game.png" alt="" />
+            <button id="newGameBtn" class="mobile-icon-btn" type="button" aria-label="刷新" title="刷新">
+              <img src="./images/icons/icon-refresh.png" alt="" />
             </button>
             <button id="mobileMenuBtn" class="mobile-icon-btn" type="button" aria-label="打开设置菜单" title="打开设置菜单">
               <img src="./images/icons/icon_menu.png" alt="" />
@@ -4486,12 +4493,8 @@
             <div id="centerTag" class="center-tag"></div>
           </div>
           <div class="action-row">
-            <button id="beatBtn" class="action-btn">毙牌</button>
             <button id="hintBtn" class="action-btn">选择</button>
             <button id="playBtn" class="action-btn primary">出牌</button>
-            <button id="newProgressBtn" class="action-btn">新的游戏</button>
-            <button id="continueGameBtn" class="action-btn">继续游戏</button>
-            <button id="startGameBtn" class="action-btn primary">开始发牌</button>
             <button id="declareBtn" class="action-btn">亮主</button>
             <button id="passCounterBtn" class="action-btn">不反主</button>
           </div>
@@ -5424,10 +5427,10 @@
           latestSnapshot = snapshot;
           const isSetup = snapshot.phase === "ready";
           document.body.dataset.mobileScreen = isSetup ? "setup" : "play";
-          mobileDom.startBtn.disabled = !!originalDom.startGameBtn?.disabled;
+          mobileDom.startBtn.disabled = snapshot.phase !== "ready" || !!snapshot.gameOver;
           if (mobileDom.setupContinueBtn) {
-            mobileDom.setupContinueBtn.disabled = !!originalDom.continueGameBtn?.disabled;
-            mobileDom.setupContinueBtn.textContent = originalDom.continueGameBtn?.textContent?.trim() || "继续游戏";
+            mobileDom.setupContinueBtn.disabled = snapshot.phase !== "ready" || !!snapshot.gameOver || !snapshot.hasSavedProgress;
+            mobileDom.setupContinueBtn.textContent = "继续游戏";
           }
           if (mobileDom.difficultySelect) {
             mobileDom.difficultySelect.value = originalDom.aiDifficultySelect?.value || snapshot.aiDifficulty || "beginner";
@@ -5459,8 +5462,14 @@
           }
         }
 
-        mobileDom.startBtn.addEventListener("click", () => clickOriginal(originalDom.startGameBtn));
-        mobileDom.setupContinueBtn?.addEventListener("click", () => clickOriginal(originalDom.continueGameBtn));
+        mobileDom.startBtn.addEventListener("click", () => {
+          if (state.gameOver || state.phase !== "ready") return;
+          startNewProgress(true);
+        });
+        mobileDom.setupContinueBtn?.addEventListener("click", () => {
+          if (state.gameOver || state.phase !== "ready" || !state.hasSavedProgress) return;
+          continueSavedProgress(true);
+        });
         mobileDom.setupRulesBtn.addEventListener("click", () => clickOriginal(originalDom.toggleRulesBtn));
         bindMobilePaceButtons(mobileDom.paceButtons);
         bindMobilePaceButtons(mobileDom.menuPaceButtons);
@@ -5649,7 +5658,7 @@
         if (window.__fiveFriendsSnapshot) {
           handleRender({ detail: window.__fiveFriendsSnapshot });
         } else {
-          document.body.dataset.mobileScreen = originalDom.startGameBtn.hidden ? "play" : "setup";
+          document.body.dataset.mobileScreen = state.phase === "ready" ? "setup" : "play";
           syncTopbarStats();
           syncTrumpStatus(window.__fiveFriendsSnapshot || null);
           syncFriendCard(window.__fiveFriendsSnapshot || null);

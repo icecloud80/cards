@@ -958,7 +958,7 @@ function renderScorePanel() {
     dom.topbarDifficulty.setAttribute("aria-label", `AI难度：${difficultyLabel}`);
   }
   syncIconButtonLabel(dom.toggleLastTrickBtn, state.showLastTrick ? TEXT.buttons.toggleLastTrickClose : TEXT.buttons.toggleLastTrickOpen);
-  syncIconButtonLabel(dom.newGameBtn, "重置本局");
+  syncIconButtonLabel(dom.newGameBtn, TEXT.buttons.refreshCurrentRound);
   if (dom.toggleCardFaceBtn) {
     dom.toggleCardFaceBtn.textContent = TEXT.buttons.cardFace(getCurrentCardFaceOption().label);
     dom.toggleCardFaceBtn.disabled = CARD_FACE_OPTIONS.length <= 1;
@@ -2560,8 +2560,10 @@ function renderCenterPanel() {
   dom.focusAnnouncement.classList.toggle("friend", state.centerAnnouncement?.tone === "friend");
   updateActionHint();
   const humanTurn = isHumanTurnActive();
-  dom.beatBtn.hidden = true;
-  dom.beatBtn.disabled = true;
+  if (dom.beatBtn) {
+    dom.beatBtn.hidden = true;
+    dom.beatBtn.disabled = true;
+  }
   if (dom.autoManagedBtn) {
     dom.autoManagedBtn.hidden = state.phase === "ready";
     dom.autoManagedBtn.disabled = state.gameOver || state.phase === "ready";
@@ -2633,8 +2635,8 @@ function renderCenterPanel() {
    *
    * 为什么这样写：
    * PC 现在由独立开始界面接管 ready 阶段入口，所以中央操作条里的旧按钮必须隐藏；
-   * 但手游页仍然通过隐藏的原始按钮转发“开始游戏 / 继续游戏”动作，
-   * 因此 mobile 端不能再把这些原始按钮一并禁用，否则壳层按钮会点了没反应。
+   * mobile / App 则已经把开始页入口改成直接调用共享开局函数，
+   * 因此这里不再要求手游继续保留那些 ready 按钮节点。
    *
    * 输入：
    * @param {void} - 直接读取当前平台与全局状态。
@@ -2644,19 +2646,24 @@ function renderCenterPanel() {
    *
    * 注意：
    * - PC 必须继续隐藏旧按钮，避免和新版开始界面重复。
-   * - mobile 即使让原始按钮保持可用，也仍由外层壳层界面承接真实点击入口。
+   * - mobile / App 若页面里已删掉这些按钮，这里也必须安全跳过。
    */
-  const keepReadyEntryForMobile = APP_PLATFORM === "mobile" && state.phase === "ready" && !state.gameOver;
-  dom.newProgressBtn.hidden = true;
-  dom.newProgressBtn.disabled = true;
-  dom.newProgressBtn.classList.remove("primary");
-  dom.continueGameBtn.hidden = !keepReadyEntryForMobile;
-  dom.continueGameBtn.disabled = !keepReadyEntryForMobile || !state.hasSavedProgress;
-  dom.continueGameBtn.classList.toggle("primary", false);
-  dom.continueGameBtn.textContent = "继续游戏";
-  dom.startGameBtn.hidden = !keepReadyEntryForMobile;
-  dom.startGameBtn.disabled = !keepReadyEntryForMobile;
-  dom.startGameBtn.textContent = "开始游戏";
+  if (dom.newProgressBtn) {
+    dom.newProgressBtn.hidden = true;
+    dom.newProgressBtn.disabled = true;
+    dom.newProgressBtn.classList.remove("primary");
+  }
+  if (dom.continueGameBtn) {
+    dom.continueGameBtn.hidden = true;
+    dom.continueGameBtn.disabled = true;
+    dom.continueGameBtn.classList.toggle("primary", false);
+    dom.continueGameBtn.textContent = "继续游戏";
+  }
+  if (dom.startGameBtn) {
+    dom.startGameBtn.hidden = true;
+    dom.startGameBtn.disabled = true;
+    dom.startGameBtn.textContent = "开始游戏";
+  }
   if (dom.centerPanel && typeof shouldShowPcReadyLobby === "function") {
     dom.centerPanel.classList.toggle("hidden", shouldShowPcReadyLobby());
   }

@@ -2,21 +2,21 @@
 <resources>
     <!--
       作用：
-      为仍然读取旧颜色资源的兜底场景保留品牌亮色底。
+      为仍然读取旧颜色资源的兜底场景保留品牌亮红底。
 
       为什么这样写：
       当前 adaptive icon 已切到 drawable 渐变背景，但如果历史脚本或外部工具仍误读这个颜色资源，
-      至少也应落到品牌浅暖底，而不是继续回退到纯白占位底色。
+      至少也应落到品牌亮红底，而不是继续回退到纯白占位底色。
 
       输入：
       @param {void} - 由 Android 资源系统按名称读取。
 
       输出：
-      @returns {color} 品牌兜底亮色底。
+      @returns {color} 品牌兜底亮红底。
 
       注意：
       - 真正的 adaptive 渐变背景以 `drawable/ic_launcher_background.xml` 为准。
-      - 这里不要改回纯白，否则调试时不容易察觉资源引用回退。
+      - 这里不要改回纯白或灰底，否则调试时不容易察觉资源引用回退。
     -->
-    <color name="ic_launcher_background">#F4E5D5</color>
+    <color name="ic_launcher_background">#D93B56</color>
 </resources>

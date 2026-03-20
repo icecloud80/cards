@@ -47,9 +47,9 @@ ANDROID_FOREGROUND_SIZES = {
     "mipmap-xxxhdpi": 432,
 }
 
-CARD_BG_TOP = (252, 249, 242, 255)
-CARD_BG_BOTTOM = (236, 224, 207, 255)
-CARD_BG_GLOW = (255, 223, 177, 255)
+CARD_BG_TOP = (255, 124, 132, 255)
+CARD_BG_BOTTOM = (155, 19, 44, 255)
+CARD_BG_GLOW = (255, 197, 184, 255)
 NAVY_CARD = (29, 51, 95, 255)
 NAVY_CARD_ACCENT = (65, 92, 151, 255)
 IVORY_CARD = (248, 239, 227, 255)
@@ -139,7 +139,7 @@ def create_radial_glow(width: int, height: int, center_x: float, center_y: float
     
     为什么这样写：
     单靠线性渐变会让图标中心偏闷；
-    径向光晕可以把视觉焦点压到图标主体附近，同时让暖白浅金配色更像有体积感的釉面，而不是单纯平涂。
+    径向光晕可以把视觉焦点压到图标主体附近，同时让亮红配色更像有体积感的玻璃釉面，而不是单纯平涂。
     
     输入：
     @param {int} width - 光晕图宽度。
@@ -409,12 +409,12 @@ def add_background_pattern(background: Image.Image) -> Image.Image:
     for offset in range(-height, width + height, spacing):
         draw.line(
             ((offset, 0), (offset - height, height)),
-            fill=(168, 138, 112, 28),
+            fill=(255, 212, 204, 34),
             width=stroke_width,
         )
         draw.line(
             ((offset, 0), (offset + height, height)),
-            fill=(255, 255, 255, 72),
+            fill=(255, 255, 255, 18),
             width=stroke_width,
         )
 
@@ -424,7 +424,7 @@ def add_background_pattern(background: Image.Image) -> Image.Image:
 def create_icon_background(size: int, rounded: bool) -> Image.Image:
     """
     作用：
-    生成 App Icon 的亮色背景母稿。
+    生成 App Icon 的亮红背景母稿。
     
     为什么这样写：
     iOS、Android legacy icon 和预览图都需要共用同一套品牌背景；
@@ -450,7 +450,7 @@ def create_icon_background(size: int, rounded: bool) -> Image.Image:
     )
     background = Image.alpha_composite(
         background,
-        create_radial_glow(size, size, size * 0.68, size * 0.8, size * 0.82, (176, 140, 114, 72)),
+        create_radial_glow(size, size, size * 0.68, size * 0.8, size * 0.82, (122, 15, 37, 90)),
     )
 
     highlight = Image.new("RGBA", (size, size), (0, 0, 0, 0))
@@ -608,107 +608,166 @@ def draw_suit_spade(draw: ImageDraw.ImageDraw, center_x: float, center_y: float,
     )
 
 
-def create_upgrade_badge(size: int) -> Image.Image:
+def draw_jester_hat(
+    draw: ImageDraw.ImageDraw,
+    center_x: float,
+    center_y: float,
+    size: float,
+    left_color: tuple[int, int, int, int],
+    middle_color: tuple[int, int, int, int],
+    right_color: tuple[int, int, int, int],
+    bell_color: tuple[int, int, int, int],
+    band_color: tuple[int, int, int, int],
+) -> None:
     """
     作用：
-    生成位于前景牌中心的升级徽章。
+    绘制简化的大王小丑帽图形。
     
     为什么这样写：
-    应用标题里最核心的动作感来自“升级”；
-    中心徽章用红宝石底 + 金色向上箭头 + 五颗好友点阵，能同时表达“牌局”“升级”“五人找朋友”三层含义，而且比直接写文字更稳。
+    用户这次希望主牌直接看起来像 `大王`；
+    用几何化的小丑帽代替升级箭头，可以在不依赖字体的前提下把“Joker / 大王”识别做得更直接，而且在小尺寸下也比复杂插画更稳。
+    
+    输入：
+    @param {ImageDraw.ImageDraw} draw - 当前图层的绘制句柄。
+    @param {float} center_x - 小丑帽中心横坐标。
+    @param {float} center_y - 小丑帽中心纵坐标。
+    @param {float} size - 小丑帽主尺度。
+    @param {tuple[int, int, int, int]} left_color - 左侧帽尖颜色。
+    @param {tuple[int, int, int, int]} middle_color - 中间帽尖颜色。
+    @param {tuple[int, int, int, int]} right_color - 右侧帽尖颜色。
+    @param {tuple[int, int, int, int]} bell_color - 帽尖铃铛颜色。
+    @param {tuple[int, int, int, int]} band_color - 帽檐颜色。
+    
+    输出：
+    @returns {None} 直接把大王帽形绘制到目标图层。
+    
+    注意：
+    - 三个帽尖需要保持粗壮，避免缩小后只剩尖细噪点。
+    - 帽檐高度不能太薄，否则小尺寸下会直接消失。
+    """
+
+    band_top = center_y + size * 0.08
+    band_bottom = center_y + size * 0.23
+
+    draw.polygon(
+        [
+            (center_x - size * 0.5, band_top),
+            (center_x - size * 0.82, center_y - size * 0.16),
+            (center_x - size * 0.28, center_y - size * 0.44),
+            (center_x - size * 0.08, band_top),
+        ],
+        fill=left_color,
+    )
+    draw.polygon(
+        [
+            (center_x - size * 0.16, band_top),
+            (center_x, center_y - size * 0.66),
+            (center_x + size * 0.16, band_top),
+        ],
+        fill=middle_color,
+    )
+    draw.polygon(
+        [
+            (center_x + size * 0.08, band_top),
+            (center_x + size * 0.28, center_y - size * 0.44),
+            (center_x + size * 0.82, center_y - size * 0.16),
+            (center_x + size * 0.5, band_top),
+        ],
+        fill=right_color,
+    )
+
+    draw_rounded_rectangle(
+        draw,
+        (
+            center_x - size * 0.54,
+            band_top,
+            center_x + size * 0.54,
+            band_bottom,
+        ),
+        radius=max(2, int(size * 0.08)),
+        fill=band_color,
+    )
+    draw_suit_diamond(draw, center_x, center_y + size * 0.16, size * 0.12, GOLD_LIGHT)
+
+    bell_radius = size * 0.11
+    for bell_x, bell_y in (
+        (center_x - size * 0.82, center_y - size * 0.16),
+        (center_x, center_y - size * 0.66),
+        (center_x + size * 0.82, center_y - size * 0.16),
+    ):
+        draw.ellipse(
+            (
+                bell_x - bell_radius,
+                bell_y - bell_radius,
+                bell_x + bell_radius,
+                bell_y + bell_radius,
+            ),
+            fill=bell_color,
+        )
+
+
+def create_big_joker_badge(size: int) -> Image.Image:
+    """
+    作用：
+    生成位于前景牌中心的大王徽章。
+    
+    为什么这样写：
+    这次图标核心诉求是把排面明确改成 `大王`；
+    用亮红底章托住一顶红黑金的小丑帽，既能保持桌面图标足够醒目，也能让主牌第一眼就更接近大王牌面。
     
     输入：
     @param {int} size - 徽章边长。
     
     输出：
-    @returns {Image.Image} RGBA 徽章图像。
+    @returns {Image.Image} RGBA 大王徽章图像。
     
     注意：
-    - 徽章需要在小尺寸下仍保留清晰轮廓，因此箭头和点阵都必须保持粗壮。
-    - 这层默认输出透明背景，方便在卡牌中心自由组合。
+    - 中心底章需要足够亮，避免和红色背景混成一片。
+    - 小丑帽主体要保持高对比，缩小后仍然能看出是大王而不是普通花纹。
     """
 
     badge = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(badge)
     center = size / 2
-    outer_radius = size * 0.42
-    inner_radius = size * 0.34
+    ellipse_bounds = (size * 0.12, size * 0.16, size * 0.88, size * 0.9)
 
-    draw.polygon(
-        [
-            (center, center - outer_radius),
-            (center + outer_radius, center),
-            (center, center + outer_radius),
-            (center - outer_radius, center),
-        ],
-        fill=RUBY_DEEP,
-    )
-
-    for step_index in range(7):
-        ratio = step_index / 6
-        current_radius = outer_radius - (outer_radius - inner_radius) * ratio
-        draw.polygon(
-            [
-                (center, center - current_radius),
-                (center + current_radius, center),
-                (center, center + current_radius),
-                (center - current_radius, center),
-            ],
-            fill=mix_color(RUBY, mix_color(RUBY, GOLD_LIGHT, 0.26), ratio),
-        )
-
-    ring_width = max(4, size // 26)
-    ring_points = [
-        (center, center - outer_radius),
-        (center + outer_radius, center),
-        (center, center + outer_radius),
-        (center - outer_radius, center),
-        (center, center - outer_radius),
-    ]
-    draw.line(ring_points, fill=GOLD_LIGHT, width=ring_width)
-
-    shaft_width = size * 0.12
-    shaft_top = center - size * 0.05
-    shaft_bottom = center + size * 0.2
-    draw_rounded_rectangle(
-        draw,
-        (
-            center - shaft_width / 2,
-            shaft_top,
-            center + shaft_width / 2,
-            shaft_bottom,
-        ),
-        radius=max(2, int(size * 0.03)),
-        fill=GOLD_LIGHT,
-    )
-    draw.polygon(
-        [
-            (center, center - size * 0.26),
-            (center + size * 0.18, center - size * 0.02),
-            (center + size * 0.08, center - size * 0.02),
-            (center + size * 0.08, center + size * 0.02),
-            (center - size * 0.08, center + size * 0.02),
-            (center - size * 0.08, center - size * 0.02),
-            (center - size * 0.18, center - size * 0.02),
-        ],
-        fill=GOLD_LIGHT,
-    )
-
-    dot_radius = size * 0.032
-    dot_arc_radius = size * 0.22
-    for dot_index, angle_degrees in enumerate((-36, -18, 0, 18, 36)):
-        angle_radians = math.radians(angle_degrees)
-        dot_x = center + math.sin(angle_radians) * dot_arc_radius
-        dot_y = center + size * 0.23 + math.cos(angle_radians) * dot_arc_radius * 0.12
-        dot_color = mix_color(GOLD_LIGHT, GOLD_MID, dot_index / 5)
+    for step_index in range(6):
+        ratio = step_index / 5
+        inset = size * 0.018 * step_index
         draw.ellipse(
             (
-                dot_x - dot_radius,
-                dot_y - dot_radius,
-                dot_x + dot_radius,
-                dot_y + dot_radius,
+                ellipse_bounds[0] + inset,
+                ellipse_bounds[1] + inset,
+                ellipse_bounds[2] - inset,
+                ellipse_bounds[3] - inset,
             ),
-            fill=dot_color,
+            fill=mix_color((255, 130, 121, 255), (193, 32, 56, 255), ratio),
+        )
+
+    draw.ellipse(ellipse_bounds, outline=GOLD_LIGHT)
+    draw_jester_hat(
+        draw,
+        center,
+        size * 0.55,
+        size * 0.29,
+        left_color=RUBY,
+        middle_color=INK,
+        right_color=RUBY_DEEP,
+        bell_color=GOLD_LIGHT,
+        band_color=GOLD_MID,
+    )
+
+    collar_y = size * 0.73
+    for dot_offset in (-0.18, 0.0, 0.18):
+        dot_x = center + size * dot_offset
+        draw.ellipse(
+            (
+                dot_x - size * 0.055,
+                collar_y - size * 0.055,
+                dot_x + size * 0.055,
+                collar_y + size * 0.055,
+            ),
+            fill=mix_color(GOLD_LIGHT, GOLD_MID, abs(dot_offset)),
         )
 
     return badge
@@ -775,8 +834,8 @@ def create_front_card(width: int, height: int) -> Image.Image:
     创建位于最前方的主牌图层。
     
     为什么这样写：
-    这张牌既是“扑克牌”识别锚点，也是升级徽章的承载面；
-    使用偏暖的象牙色底板，可以在红色背景和蓝色牌背之间形成最稳的视觉中心。
+    这张牌既是“扑克牌”识别锚点，也是这次 `大王牌面` 调整的主承载面；
+    使用偏暖的象牙色底板，可以在亮红背景和蓝色牌背之间形成稳定对比，同时保留经典纸牌质感。
     
     输入：
     @param {int} width - 主牌宽度。
@@ -786,8 +845,8 @@ def create_front_card(width: int, height: int) -> Image.Image:
     @returns {Image.Image} RGBA 主牌图像。
     
     注意：
-    - 角标牌花必须留出安全边，避免旋转后触碰裁切边缘。
-    - 中心徽章大小要在“够醒目”和“不把牌面塞满”之间取平衡。
+    - 四角装饰不直接写文字，避免依赖字体后在不同环境里跑偏。
+    - 中心大王徽章大小要在“够醒目”和“不把牌面塞满”之间取平衡。
     """
 
     card = create_card_base(width, height, IVORY_CARD, (255, 255, 255, 255), IVORY_CARD_SHADE)
@@ -795,13 +854,33 @@ def create_front_card(width: int, height: int) -> Image.Image:
 
     corner_inset_x = width * 0.17
     corner_inset_y = height * 0.15
-    pip_size = width * 0.05
-    draw_suit_diamond(draw, corner_inset_x, corner_inset_y, pip_size, RUBY)
-    draw_suit_spade(draw, width - corner_inset_x, height - corner_inset_y - width * 0.01, pip_size * 1.05, INK)
+    mini_hat_size = width * 0.062
+    draw_jester_hat(
+        draw,
+        corner_inset_x,
+        corner_inset_y + width * 0.02,
+        mini_hat_size,
+        left_color=RUBY,
+        middle_color=GOLD_MID,
+        right_color=RUBY_DEEP,
+        bell_color=GOLD_LIGHT,
+        band_color=INK,
+    )
+    draw_jester_hat(
+        draw,
+        width - corner_inset_x,
+        height - corner_inset_y - width * 0.01,
+        mini_hat_size,
+        left_color=INK,
+        middle_color=RUBY_DEEP,
+        right_color=INK,
+        bell_color=GOLD_LIGHT,
+        band_color=RUBY,
+    )
 
-    badge = create_upgrade_badge(int(width * 0.52))
+    badge = create_big_joker_badge(int(width * 0.56))
     badge_left = int((width - badge.width) / 2)
-    badge_top = int(height * 0.27)
+    badge_top = int(height * 0.24)
     card.alpha_composite(badge, (badge_left, badge_top))
 
     return card

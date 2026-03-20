@@ -309,7 +309,7 @@ function applyAutoManagedState(mode) {
   }
 }
 
-dom.startGameBtn.addEventListener("click", () => {
+dom.startGameBtn?.addEventListener("click", () => {
   if (state.gameOver || state.phase !== "ready") return;
   startNewProgress(true);
 });
@@ -349,7 +349,7 @@ dom.playBtn.addEventListener("click", () => {
   playCards(1, [...state.selectedCardIds]);
 });
 
-dom.beatBtn.addEventListener("click", () => {
+dom.beatBtn?.addEventListener("click", () => {
   if (!isHumanTurnActive()) return;
   const selected = state.selectedCardIds
     .map((id) => getPlayer(1).hand.find((card) => card.id === id))
@@ -739,7 +739,7 @@ dom.closeRulesBtn.addEventListener("click", () => {
   renderLogs();
 });
 
-dom.newGameBtn?.addEventListener("click", restartCurrentRound);
+dom.newGameBtn?.addEventListener("click", refreshCurrentRoundFromReplaySeed);
 
 dom.menuHomeBtn?.addEventListener("click", () => {
   closeToolbarMenu();

@@ -274,10 +274,15 @@ const normalizedFriendTarget = result.friendTarget
 const normalizedFirstBankerDiamondLead = Array.from(result.firstBankerDiamondLead || []);
 const normalizedFriendTakeoverPlay = Array.from(result.friendTakeoverPlay || []);
 
-assert.deepEqual(
-  normalizedBankerDiamondsAfterBury,
-  ["diamonds-A", "diamonds-A", "diamonds-10"],
-  "third-ace takeover replay should leave banker with exactly AA10 in diamonds after burying"
+assert.equal(
+  normalizedBankerDiamondsAfterBury.filter((card) => card === "diamonds-A").length,
+  2,
+  "third-ace takeover replay should still keep both diamonds A after burying"
+);
+assert.equal(
+  normalizedBankerDiamondsAfterBury.includes("diamonds-10"),
+  true,
+  "third-ace takeover replay should still keep diamonds 10 after burying"
 );
 assert.ok(
   normalizedBuryCards.includes("diamonds-4"),

@@ -5725,7 +5725,10 @@
         if (window.__fiveFriendsSnapshot) {
           handleRender({ detail: window.__fiveFriendsSnapshot });
         } else {
-          document.body.dataset.mobileScreen = state.phase === "ready" ? "setup" : "play";
+          // 在最小 fallback 启动环境里，shared `state` 可能尚未挂到全局；
+          // 这里必须先做存在性兜底，避免 bootstrap 早于 shared 脚本时直接白屏。
+          const bootstrapState = typeof window.state === "object" && window.state ? window.state : null;
+          document.body.dataset.mobileScreen = !bootstrapState || bootstrapState.phase === "ready" ? "setup" : "play";
           syncTopbarStats();
           syncTrumpStatus(window.__fiveFriendsSnapshot || null);
           syncFriendCard(window.__fiveFriendsSnapshot || null);

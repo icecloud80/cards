@@ -51,6 +51,10 @@ const UNIT_TEST_SUITES = [
     file: path.join(__dirname, "check-beginner-friend-target-window.js"),
   },
   {
+    name: "Friend-target trump-ace regression",
+    file: path.join(__dirname, "check-friend-target-trump-ace-regression.js"),
+  },
+  {
     name: "AI bury strategy regression",
     file: path.join(__dirname, "check-bury-strategy.js"),
   },

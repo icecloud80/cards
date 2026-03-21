@@ -905,6 +905,59 @@ function collectFriendTargetCandidates(banker, ranks, scoreFn) {
   return targetCandidates;
 }
 
+/**
+ * 作用：
+ * 判断一个朋友牌候选是否属于“副牌高张”这条常规找友路线。
+ *
+ * 为什么这样写：
+ * 当前产品口径已经明确：
+ * 只要还存在可执行的副牌找朋友路线，默认推荐与自动叫朋友都不应主动把主牌高张顶到第一候选。
+ * 把这条判断抽成 helper 后，human 默认推荐、beginner 与 intermediate 都能共用同一层收口。
+ *
+ * 输入：
+ * @param {object|null} target - 当前待判断的朋友牌定义。
+ *
+ * 输出：
+ * @returns {boolean} `true` 表示这是副牌高张候选；`false` 表示是主牌 / 王张或无效输入。
+ *
+ * 注意：
+ * - 这里只区分“副牌”与“非副牌”，不直接判断该候选一定最优。
+ * - `A` 级时常规路线会自然切到副牌 `K`，这里不额外关心点数。
+ */
+function isSideSuitFriendTarget(target) {
+  return !!target && target.suit !== "joker" && target.suit !== state.trumpSuit;
+}
+
+/**
+ * 作用：
+ * 在默认推荐与自动叫朋友链路里，统一压低主牌找友候选。
+ *
+ * 为什么这样写：
+ * 用户明确指出：叫朋友的目标是让朋友更容易上手，
+ * 因此主牌路线本身就不适合作为 AI 默认找友思路。
+ * 现有实现虽然已经把副牌高张作为主思路，但仍可能在评分上让“主牌 `A`”
+ * 或 `主牌 K` 这类主牌候选冲到第一名。
+ * 这里统一收口成：
+ * 只要还有任何非主牌候选，就先把主牌候选压到兜底层，避免 human 默认推荐与 AI 自动决策再次分叉。
+ * `joker fallback` 继续交给既有评分链决定，避免误伤“副牌全过脏时改叫第一张大王”的既有策略。
+ *
+ * 输入：
+ * @param {Array<object>} targetCandidates - 已经带有 `target` 与 `score` 的朋友牌候选列表。
+ *
+ * 输出：
+ * @returns {Array<object>} 过滤后的候选列表；若存在非主牌候选则移除全部主牌候选，否则原样返回。
+ *
+ * 注意：
+ * - 这条过滤只影响“默认推荐 / 自动叫朋友”的主动选择，不限制玩家手动改叫主牌。
+ * - 若当前非主牌候选已经全部不可用，本函数必须原样放行主牌与 `joker fallback`。
+ */
+function filterPreferredFriendTargetCandidates(targetCandidates) {
+  if (!Array.isArray(targetCandidates) || targetCandidates.length === 0) return [];
+
+  const nonTrumpCandidates = targetCandidates.filter((candidate) => candidate?.target?.suit !== state.trumpSuit);
+  return nonTrumpCandidates.length > 0 ? nonTrumpCandidates : targetCandidates;
+}
+
 // 从候选项中选出最佳朋友目标牌。
 function pickBestFriendTargetFromCandidates(targetCandidates) {
   const bestCandidate = targetCandidates.sort((a, b) => b.score - a.score)[0];
@@ -1583,7 +1636,8 @@ function getFriendPickerRecommendation() {
     }
   }
 
-  const best = targetCandidates.sort((a, b) => b.score - a.score)[0];
+  const best = filterPreferredFriendTargetCandidates(targetCandidates)
+    .sort((a, b) => b.score - a.score)[0];
   if (best) {
     return {
       target: buildFriendTarget(best.target),
@@ -1816,8 +1870,10 @@ function scoreFriendTargetCandidate(target, banker, meta = {}) {
  */
 function buildIntermediateFriendTargetCandidateEntries(banker) {
   if (!banker) return [];
-  const candidates = getFriendAutoRankGroups()
-    .flatMap((ranks) => collectFriendTargetCandidates(banker, ranks, scoreFriendTargetCandidate));
+  const candidates = filterPreferredFriendTargetCandidates(
+    getFriendAutoRankGroups()
+      .flatMap((ranks) => collectFriendTargetCandidates(banker, ranks, scoreFriendTargetCandidate))
+  );
   if (candidates.length === 0) return [];
 
   return candidates
@@ -2084,8 +2140,10 @@ function buildAiFriendTargetDecision(playerId = state.bankerId, difficulty = sta
       };
     }
     const beginnerRankGroups = [getFriendAutoRankPriority()];
-    const candidates = beginnerRankGroups
-      .flatMap((ranks) => collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate))
+    const candidates = filterPreferredFriendTargetCandidates(
+      beginnerRankGroups
+        .flatMap((ranks) => collectFriendTargetCandidates(banker, ranks, scoreBeginnerFriendTargetCandidate))
+    )
       .filter((candidate) => candidate.target.suit !== "joker")
       .map((candidate) => {
         const friendTarget = buildFriendTarget(candidate.target);

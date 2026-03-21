@@ -9,7 +9,7 @@ const REGRESSION_CASES = [
   },
   {
     seed: "ZSO1hGI883r:beginner:game-04",
-    expectedFriendTargetLabel: "第一张黑桃 A",
+    expectedFriendTargetLabel: "第三张方块 A",
   },
   {
     seed: "ZSO1hGI883r:beginner:game-12",

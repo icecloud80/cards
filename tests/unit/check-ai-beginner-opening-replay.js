@@ -223,10 +223,10 @@ function runReplayRegression() {
 const result = runReplayRegression();
 const joinedLogs = result.logs.join("\n");
 
-assert.match(joinedLogs, /玩家1 出牌：♠A、♠A。/, "opening replay regression should open with the forced pair-A friend reveal lead");
-assert.match(joinedLogs, /玩家2 打出了第三张黑桃 A，已站队。/, "opening replay regression should reveal the friend on the very first trick");
-assert.match(joinedLogs, /玩家1 出牌：♠K。/, "opening replay regression should continue cashing the promoted friend-suit control card");
-assert.match(joinedLogs, /玩家1 出牌：♣A。/, "opening replay regression should continue the side-suit control chain before low-trump clearing");
+assert.match(joinedLogs, /已叫朋友：第三张方块 A。/, "opening replay regression should keep this replay on the third diamonds A route");
+assert.match(joinedLogs, /玩家3 出牌：♦Q。/, "opening replay regression should open with the promoted diamonds bridge lead");
+assert.match(joinedLogs, /玩家1 打出了第三张方块 A，已站队。/, "opening replay regression should reveal the friend on the very first diamonds probe");
+assert.match(joinedLogs, /玩家1 出牌：♦K、♦K。/, "opening replay regression should keep cashing the promoted diamonds control line after the friend reveals");
 assert.ok(result.defenderPoints <= 170, `opening replay regression should improve this sample below 170 defender points, got ${result.defenderPoints}`);
 
 console.log("Beginner opening replay regression passed:");

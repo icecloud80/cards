@@ -138,6 +138,14 @@ const UNIT_TEST_SUITES = [
     name: "App storage migration regression",
     file: path.join(__dirname, "check-app-storage-migration.js"),
   },
+  {
+    name: "Follow-structure rule regression",
+    file: path.join(__dirname, "check-follow-structure-rules.js"),
+  },
+  {
+    name: "Rules help copy regression",
+    file: path.join(__dirname, "check-rules-help-copy.js"),
+  },
   // 锁住 iOS / Android App Icon 资源链路，避免原生壳同步时回退成默认占位图标。
   {
     name: "App icon asset regression",

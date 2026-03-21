@@ -985,6 +985,90 @@ function findSerialTuples(cards, tupleSize, exactChainLength = null) {
     .map((entry) => entry.combo);
 }
 
+/**
+ * 作用：
+ * 只找出“无需拆刻子”就能直接跟出的对子。
+ *
+ * 为什么这样写：
+ * 新的跟牌规则明确要求：火车 / 宇宙飞船补对子时不能硬拆刻子，
+ * 刻子跟刻子、对子跟对子也都要沿用同一条“不拆刻子”的口径；
+ * 因此这里单独抽出“精确两张”的对子集合，避免把三张刻子误当成可强拆对子。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 当前同门牌池或待校验的选牌。
+ *
+ * 输出：
+ * @returns {Array<Array<object>>} 所有不拆刻子即可成立的对子列表。
+ *
+ * 注意：
+ * - 这里只返回原生 `2 张` 牌组；`3 张` 刻子不会被拆成对子。
+ * - 返回顺序继续按牌型单位强度从小到大，便于后续比较连对长度。
+ */
+function findExactPairsWithoutBreakingTriples(cards) {
+  const map = new Map();
+  for (const card of cards) {
+    const key = `${card.suit}-${card.rank}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(card);
+  }
+  return [...map.values()]
+    .filter((group) => group.length === 2)
+    .sort((a, b) => getPatternUnitPower(a[0]) - getPatternUnitPower(b[0]));
+}
+
+/**
+ * 作用：
+ * 计算一组牌里“必须按连对结构先跟出”的最长连续对子长度。
+ *
+ * 为什么这样写：
+ * 这次规则变更里，首家出火车 / 宇宙飞船时，
+ * 即便跟牌方凑不出同长度整条连对，只要手里还留着拖拉机 / 火车结构，也必须先把这段连对跟出来。
+ * 这里用“不拆刻子”的精确对子去算最长连续段，就能把这条约束同时服务给真人校验和 AI 候选过滤。
+ *
+ * 输入：
+ * @param {Array<object>} cards - 当前同门牌池或待校验的选牌。
+ *
+ * 输出：
+ * @returns {number} 最长连续对子段的长度；没有拖拉机时返回 `0`。
+ *
+ * 注意：
+ * - 这里只统计长度至少为 `2` 的连续对子；单个散对按 `0` 处理。
+ * - 主牌门内部仍按 `getPatternUnitPower(...)` 的连续序位比较，不额外看原始花色字符串。
+ */
+function getLongestForcedPairRunLength(cards) {
+  const pairs = findExactPairsWithoutBreakingTriples(cards);
+  if (pairs.length === 0) return 0;
+
+  const bySuit = new Map();
+  for (const pair of pairs) {
+    const suit = effectiveSuit(pair[0]);
+    const entry = {
+      cards: pair,
+      suit,
+      index: getPatternUnitPower(pair[0], suit),
+    };
+    if (!bySuit.has(suit)) bySuit.set(suit, []);
+    bySuit.get(suit).push(entry);
+  }
+
+  let longestRun = 0;
+  for (const entries of bySuit.values()) {
+    entries.sort((a, b) => a.index - b.index);
+    let currentRun = 1;
+    for (let index = 1; index < entries.length; index += 1) {
+      if (entries[index].index - entries[index - 1].index === 1) {
+        currentRun += 1;
+      } else {
+        longestRun = Math.max(longestRun, currentRun >= 2 ? currentRun : 0);
+        currentRun = 1;
+      }
+    }
+    longestRun = Math.max(longestRun, currentRun >= 2 ? currentRun : 0);
+  }
+
+  return longestRun;
+}
+
 // 判断一组牌是否属于同一实际花色。
 function isSameSuitSet(cards) {
   if (cards.length === 0) return false;
@@ -1572,6 +1656,130 @@ function getThrowPenaltySummary(playerId, penalty) {
     : TEXT.rules.throwPenaltySummaryBanker(penalty);
 }
 
+/**
+ * 作用：
+ * 按当前首家牌型，统一校验一手跟牌是否满足结构约束。
+ *
+ * 为什么这样写：
+ * 真实出牌入口和 AI 候选入口之前各自维护了一份近似的跟牌规则，
+ * 这次又新增了“火车 / 宇宙飞船必须先跟现有连对结构”“刻子不用拆对子”“推土机对子最多跟两对”这些细粒度约束；
+ * 把逻辑收敛成共享 helper 后，才能保证手动校验、自动提示和 AI 搜索始终使用同一口径。
+ *
+ * 输入：
+ * @param {Array<object>} handCards - 当前玩家完整手牌。
+ * @param {{count?: number, suit?: string, type?: string, chainLength?: number}|null} leadSpec - 本轮首家牌型描述。
+ * @param {Array<object>} cards - 当前待校验的跟牌选择。
+ *
+ * 输出：
+ * @returns {{ok: boolean, reason?: string}} 当前选择是否合法；非法时带上统一提示文案。
+ *
+ * 注意：
+ * - 这里只处理“当前墩非空”的跟牌合法性，不负责首发合法性。
+ * - 火车 / 宇宙飞船在凑不齐同长度连对时，仍要优先保留手里已有的最长连对结构。
+ * - 所有“对子 / 连对”约束都继续遵守“不拆刻子”的新规则口径。
+ */
+function validateFollowSelectionAgainstLead(handCards, leadSpec, cards) {
+  if (!leadSpec || !Array.isArray(cards) || cards.length === 0) {
+    return { ok: false, reason: TEXT.rules.validation.selectCards };
+  }
+
+  const pattern = classifyPlay(cards);
+  if (cards.length !== leadSpec.count) {
+    return { ok: false, reason: TEXT.rules.validation.followCount(leadSpec.count) };
+  }
+
+  const suited = handCards.filter((card) => effectiveSuit(card) === leadSpec.suit);
+  if (suited.length >= leadSpec.count) {
+    if (!cards.every((card) => effectiveSuit(card) === leadSpec.suit)) {
+      return { ok: false, reason: TEXT.rules.validation.sameSuitFirst };
+    }
+
+    if (leadSpec.type === "pair") {
+      if (hasForcedPair(suited) && pattern.type !== "pair") {
+        return { ok: false, reason: TEXT.rules.validation.pairMustFollow };
+      }
+      return { ok: true };
+    }
+
+    if (leadSpec.type === "triple") {
+      if (hasMatchingPattern(suited, leadSpec)) {
+        if (!matchesLeadPattern(pattern, leadSpec)) {
+          return { ok: false, reason: TEXT.rules.validation.tripleMustFollow };
+        }
+        return { ok: true };
+      }
+
+      if (hasForcedPair(suited) && getForcedPairUnits(cards) < 1) {
+        return { ok: false, reason: TEXT.rules.validation.tripleFollowPair };
+      }
+      return { ok: true };
+    }
+
+    if (leadSpec.type === "tractor" || leadSpec.type === "train") {
+      if (hasMatchingPattern(suited, leadSpec)) {
+        if (!matchesLeadPattern(pattern, leadSpec)) {
+          return { ok: false, reason: TEXT.rules.validation.trainMustFollow };
+        }
+        return { ok: true };
+      }
+
+      if (leadSpec.type === "train") {
+        const requiredRunLength = Math.min(leadSpec.chainLength || 0, getLongestForcedPairRunLength(suited));
+        if (requiredRunLength >= 2 && getLongestForcedPairRunLength(cards) < requiredRunLength) {
+          return { ok: false, reason: TEXT.rules.validation.trainMustFollow };
+        }
+      }
+
+      const requiredPairs = Math.min(leadSpec.chainLength || 0, getForcedPairUnits(suited));
+      if (requiredPairs > 0 && getForcedPairUnits(cards) < requiredPairs) {
+        return { ok: false, reason: TEXT.rules.validation.trainFollowPairs };
+      }
+      return { ok: true };
+    }
+
+    if (leadSpec.type === "bulldozer") {
+      if (hasMatchingPattern(suited, leadSpec)) {
+        if (!matchesLeadPattern(pattern, leadSpec)) {
+          return { ok: false, reason: TEXT.rules.validation.bulldozerMustFollow };
+        }
+        return { ok: true };
+      }
+
+      const requiredTriples = Math.min(leadSpec.chainLength || 0, getTripleUnits(suited));
+      if (requiredTriples > 0 && getTripleUnits(cards) < requiredTriples) {
+        return { ok: false, reason: TEXT.rules.validation.bulldozerTriples };
+      }
+
+      const remainingPairSlots = Math.floor(Math.max(0, leadSpec.count - requiredTriples * 3) / 2);
+      const requiredPairs = Math.min(
+        remainingPairSlots,
+        2,
+        getForcedPairUnitsWithReservedTriples(suited, requiredTriples)
+      );
+      if (requiredPairs > 0 && getForcedPairUnitsWithReservedTriples(cards, requiredTriples) < requiredPairs) {
+        return { ok: false, reason: TEXT.rules.validation.bulldozerPairs };
+      }
+      return { ok: true };
+    }
+
+    if (hasMatchingPattern(suited, leadSpec) && !matchesLeadPattern(pattern, leadSpec)) {
+      return { ok: false, reason: TEXT.rules.validation.samePattern };
+    }
+    return { ok: true };
+  }
+
+  if (suited.length > 0) {
+    const suitedIds = new Set(suited.map((card) => card.id));
+    const selectedSuitedCount = cards.filter((card) => suitedIds.has(card.id)).length;
+    if (selectedSuitedCount !== suited.length) {
+      return { ok: false, reason: TEXT.rules.validation.exhaustSuit };
+    }
+    return { ok: true };
+  }
+
+  return { ok: true };
+}
+
 // 校验选牌。
 function validateSelection(playerId, cards) {
   const player = getPlayer(playerId);
@@ -1588,85 +1796,7 @@ function validateSelection(playerId, cards) {
   if (cards.length !== state.leadSpec.count) {
     return { ok: false, reason: TEXT.rules.validation.followCount(state.leadSpec.count) };
   }
-
-  const suited = player.hand.filter((card) => effectiveSuit(card) === state.leadSpec.suit);
-  if (suited.length >= state.leadSpec.count) {
-    if (!cards.every((card) => effectiveSuit(card) === state.leadSpec.suit)) {
-      return { ok: false, reason: TEXT.rules.validation.sameSuitFirst };
-    }
-
-    if (state.leadSpec.type === "pair") {
-      if (hasForcedPair(suited) && pattern.type !== "pair") {
-        return { ok: false, reason: TEXT.rules.validation.pairMustFollow };
-      }
-      return { ok: true };
-    }
-
-    if (state.leadSpec.type === "triple") {
-      if (hasMatchingPattern(suited, state.leadSpec)) {
-        if (!matchesLeadPattern(pattern, state.leadSpec)) {
-          return { ok: false, reason: TEXT.rules.validation.tripleMustFollow };
-        }
-        return { ok: true };
-      }
-
-      if (hasForcedPair(suited) && getForcedPairUnits(cards) < 1) {
-        return { ok: false, reason: TEXT.rules.validation.tripleFollowPair };
-      }
-      return { ok: true };
-    }
-
-    if (state.leadSpec.type === "tractor" || state.leadSpec.type === "train") {
-      if (hasMatchingPattern(suited, state.leadSpec)) {
-        if (!matchesLeadPattern(pattern, state.leadSpec)) {
-          return { ok: false, reason: TEXT.rules.validation.trainMustFollow };
-        }
-        return { ok: true };
-      }
-
-      const requiredPairs = Math.min(state.leadSpec.chainLength || 0, getForcedPairUnits(suited));
-      if (requiredPairs > 0 && getForcedPairUnits(cards) < requiredPairs) {
-        return { ok: false, reason: TEXT.rules.validation.trainFollowPairs };
-      }
-      return { ok: true };
-    }
-
-    if (state.leadSpec.type === "bulldozer") {
-      if (hasMatchingPattern(suited, state.leadSpec)) {
-        if (!matchesLeadPattern(pattern, state.leadSpec)) {
-          return { ok: false, reason: TEXT.rules.validation.bulldozerMustFollow };
-        }
-        return { ok: true };
-      }
-
-      const requiredTriples = Math.min(state.leadSpec.chainLength || 0, getTripleUnits(suited));
-      if (requiredTriples > 0 && getTripleUnits(cards) < requiredTriples) {
-        return { ok: false, reason: TEXT.rules.validation.bulldozerTriples };
-      }
-
-      const requiredPairs = Math.min(2, getForcedPairUnitsWithReservedTriples(suited, requiredTriples));
-      if (requiredPairs > 0 && getForcedPairUnitsWithReservedTriples(cards, requiredTriples) < requiredPairs) {
-        return { ok: false, reason: TEXT.rules.validation.bulldozerPairs };
-      }
-      return { ok: true };
-    }
-
-    if (hasMatchingPattern(suited, state.leadSpec) && !matchesLeadPattern(pattern, state.leadSpec)) {
-      return { ok: false, reason: TEXT.rules.validation.samePattern };
-    }
-    return { ok: true };
-  }
-
-  if (suited.length > 0) {
-    const suitedIds = new Set(suited.map((card) => card.id));
-    const selectedSuitedCount = cards.filter((card) => suitedIds.has(card.id)).length;
-    if (selectedSuitedCount !== suited.length) {
-      return { ok: false, reason: TEXT.rules.validation.exhaustSuit };
-    }
-    return { ok: true };
-  }
-
-  return { ok: true };
+  return validateFollowSelectionAgainstLead(player.hand, state.leadSpec, cards);
 }
 
 // 判断是否精确对子。
